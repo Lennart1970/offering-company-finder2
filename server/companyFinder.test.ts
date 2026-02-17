@@ -1,0 +1,264 @@
+import { describe, expect, it, vi, beforeEach } from "vitest";
+import { appRouter } from "./routers";
+import type { TrpcContext } from "./_core/context";
+import * as db from "./db";
+
+type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
+
+function createAuthContext(): TrpcContext {
+  const user: AuthenticatedUser = {
+    id: 1,
+    openId: "test-user",
+    email: "test@example.com",
+    name: "Test User",
+    loginMethod: "manus",
+    role: "user",
+    createdAt: new Date(),
+    updatedAt: new Date(),
+    lastSignedIn: new Date(),
+  };
+
+  return {
+    user,
+    req: {
+      protocol: "https",
+      headers: {},
+    } as TrpcContext["req"],
+    res: {
+      clearCookie: vi.fn(),
+    } as unknown as TrpcContext["res"],
+  };
+}
+
+describe("companyFinder router", () => {
+  describe("startSearch", () => {
+    it("creates a search record and returns searchId", async () => {
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      // Mock database function
+      const mockCreateSearch = vi.spyOn(db, "createSearch").mockResolvedValue(123);
+
+      const result = await caller.companyFinder.startSearch({
+        companyWebsite: "https://example.com",
+        location: "Atlanta, GA",
+      });
+
+      expect(result).toEqual({ searchId: 123 });
+      expect(mockCreateSearch).toHaveBeenCalledWith({
+        userId: 1,
+        companyWebsite: "https://example.com",
+        location: "Atlanta, GA",
+        status: "extracting",
+      });
+
+      mockCreateSearch.mockRestore();
+    });
+
+    it("validates required fields", async () => {
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      await expect(
+        caller.companyFinder.startSearch({
+          companyWebsite: "",
+          location: "Atlanta, GA",
+        })
+      ).rejects.toThrow();
+
+      await expect(
+        caller.companyFinder.startSearch({
+          companyWebsite: "https://example.com",
+          location: "",
+        })
+      ).rejects.toThrow();
+    });
+  });
+
+  describe("getSearch", () => {
+    it("returns search and companies data", async () => {
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      const mockSearch = {
+        id: 123,
+        userId: 1,
+        companyWebsite: "https://example.com",
+        location: "Atlanta, GA",
+        offeringName: "Test Offering",
+        offeringDescription: "Test description",
+        targetMarket: "Test market",
+        valueProposition: "Test value",
+        keywords: JSON.stringify(["test", "keywords"]),
+        crossBorderIndicators: "Test indicators",
+        status: "completed" as const,
+        errorMessage: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const mockCompanies = [
+        {
+          id: 1,
+          searchId: 123,
+          apolloId: "apollo-123",
+          name: "Test Company",
+          websiteUrl: "https://testcompany.com",
+          primaryDomain: "testcompany.com",
+          linkedinUrl: "https://linkedin.com/company/test",
+          phone: "+1234567890",
+          foundedYear: 2020,
+          revenue: "5M",
+          headcountGrowth: "6mo: 10%, 12mo: 20%",
+          createdAt: new Date(),
+        },
+      ];
+
+      const mockGetSearchById = vi.spyOn(db, "getSearchById").mockResolvedValue(mockSearch);
+      const mockGetCompaniesBySearchId = vi
+        .spyOn(db, "getCompaniesBySearchId")
+        .mockResolvedValue(mockCompanies);
+
+      const result = await caller.companyFinder.getSearch({ searchId: 123 });
+
+      expect(result.search).toEqual(mockSearch);
+      expect(result.companies).toEqual(mockCompanies);
+
+      mockGetSearchById.mockRestore();
+      mockGetCompaniesBySearchId.mockRestore();
+    });
+
+    it("throws error when search not found", async () => {
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      const mockGetSearchById = vi.spyOn(db, "getSearchById").mockResolvedValue(undefined);
+
+      await expect(caller.companyFinder.getSearch({ searchId: 999 })).rejects.toThrow(
+        "Search not found"
+      );
+
+      mockGetSearchById.mockRestore();
+    });
+
+    it("throws error when search belongs to different user", async () => {
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      const mockSearch = {
+        id: 123,
+        userId: 999, // Different user
+        companyWebsite: "https://example.com",
+        location: "Atlanta, GA",
+        offeringName: null,
+        offeringDescription: null,
+        targetMarket: null,
+        valueProposition: null,
+        keywords: null,
+        crossBorderIndicators: null,
+        status: "pending" as const,
+        errorMessage: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const mockGetSearchById = vi.spyOn(db, "getSearchById").mockResolvedValue(mockSearch);
+
+      await expect(caller.companyFinder.getSearch({ searchId: 123 })).rejects.toThrow(
+        "Search not found"
+      );
+
+      mockGetSearchById.mockRestore();
+    });
+  });
+
+  describe("exportCsv", () => {
+    it("generates CSV with company data", async () => {
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      const mockSearch = {
+        id: 123,
+        userId: 1,
+        companyWebsite: "https://example.com",
+        location: "Atlanta, GA",
+        offeringName: "Test Offering",
+        offeringDescription: "Test description",
+        targetMarket: "Test market",
+        valueProposition: "Test value",
+        keywords: JSON.stringify(["test"]),
+        crossBorderIndicators: "Test indicators",
+        status: "completed" as const,
+        errorMessage: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const mockCompanies = [
+        {
+          id: 1,
+          searchId: 123,
+          apolloId: "apollo-123",
+          name: "Test Company",
+          websiteUrl: "https://testcompany.com",
+          primaryDomain: "testcompany.com",
+          linkedinUrl: "https://linkedin.com/company/test",
+          phone: "+1234567890",
+          foundedYear: 2020,
+          revenue: "5M",
+          headcountGrowth: "6mo: 10%",
+          createdAt: new Date(),
+        },
+      ];
+
+      const mockGetSearchById = vi.spyOn(db, "getSearchById").mockResolvedValue(mockSearch);
+      const mockGetCompaniesBySearchId = vi
+        .spyOn(db, "getCompaniesBySearchId")
+        .mockResolvedValue(mockCompanies);
+
+      const result = await caller.companyFinder.exportCsv({ searchId: 123 });
+
+      expect(result.csv).toContain("Name,Website,Domain,LinkedIn,Phone,Founded,Revenue,Headcount Growth");
+      expect(result.csv).toContain("Test Company");
+      expect(result.csv).toContain("https://testcompany.com");
+      expect(result.csv).toContain("+1234567890");
+
+      mockGetSearchById.mockRestore();
+      mockGetCompaniesBySearchId.mockRestore();
+    });
+
+    it("handles empty companies list", async () => {
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      const mockSearch = {
+        id: 123,
+        userId: 1,
+        companyWebsite: "https://example.com",
+        location: "Atlanta, GA",
+        offeringName: null,
+        offeringDescription: null,
+        targetMarket: null,
+        valueProposition: null,
+        keywords: null,
+        crossBorderIndicators: null,
+        status: "completed" as const,
+        errorMessage: null,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const mockGetSearchById = vi.spyOn(db, "getSearchById").mockResolvedValue(mockSearch);
+      const mockGetCompaniesBySearchId = vi.spyOn(db, "getCompaniesBySearchId").mockResolvedValue([]);
+
+      const result = await caller.companyFinder.exportCsv({ searchId: 123 });
+
+      expect(result.csv).toContain("Name,Website,Domain,LinkedIn,Phone,Founded,Revenue,Headcount Growth");
+      // Should only have header row
+      expect(result.csv.split("\n").length).toBe(1);
+
+      mockGetSearchById.mockRestore();
+      mockGetCompaniesBySearchId.mockRestore();
+    });
+  });
+});

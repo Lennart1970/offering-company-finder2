@@ -25,4 +25,46 @@ export const users = mysqlTable("users", {
 export type User = typeof users.$inferSelect;
 export type InsertUser = typeof users.$inferInsert;
 
-// TODO: Add your tables here
+/**
+ * Stores company search history with extracted offering data
+ */
+export const searches = mysqlTable("searches", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id),
+  companyWebsite: varchar("companyWebsite", { length: 512 }).notNull(),
+  location: varchar("location", { length: 256 }).notNull(),
+  offeringName: text("offeringName"),
+  offeringDescription: text("offeringDescription"),
+  targetMarket: text("targetMarket"),
+  valueProposition: text("valueProposition"),
+  keywords: text("keywords"), // JSON array stored as text
+  crossBorderIndicators: text("crossBorderIndicators"),
+  status: mysqlEnum("status", ["pending", "extracting", "searching", "completed", "failed"]).default("pending").notNull(),
+  errorMessage: text("errorMessage"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Search = typeof searches.$inferSelect;
+export type InsertSearch = typeof searches.$inferInsert;
+
+/**
+ * Stores companies found by Apollo matching the offering criteria
+ */
+export const companies = mysqlTable("companies", {
+  id: int("id").autoincrement().primaryKey(),
+  searchId: int("searchId").notNull().references(() => searches.id),
+  apolloId: varchar("apolloId", { length: 128 }),
+  name: varchar("name", { length: 512 }).notNull(),
+  websiteUrl: varchar("websiteUrl", { length: 512 }),
+  primaryDomain: varchar("primaryDomain", { length: 256 }),
+  linkedinUrl: varchar("linkedinUrl", { length: 512 }),
+  phone: varchar("phone", { length: 64 }),
+  foundedYear: int("foundedYear"),
+  revenue: varchar("revenue", { length: 64 }),
+  headcountGrowth: varchar("headcountGrowth", { length: 256 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Company = typeof companies.$inferSelect;
+export type InsertCompany = typeof companies.$inferInsert;

@@ -89,4 +89,52 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-// TODO: add feature queries here as your schema grows.
+import { companies, Company, InsertCompany, searches, Search, InsertSearch } from "../drizzle/schema";
+import { desc } from "drizzle-orm";
+
+// Search operations
+export async function createSearch(search: InsertSearch) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(searches).values(search);
+  return result[0].insertId;
+}
+
+export async function updateSearch(id: number, updates: Partial<InsertSearch>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.update(searches).set(updates).where(eq(searches.id, id));
+}
+
+export async function getSearchById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(searches).where(eq(searches.id, id)).limit(1);
+  return result[0];
+}
+
+export async function getUserSearches(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(searches).where(eq(searches.userId, userId)).orderBy(desc(searches.createdAt));
+}
+
+// Company operations
+export async function createCompanies(companyList: InsertCompany[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  if (companyList.length === 0) return;
+  await db.insert(companies).values(companyList);
+}
+
+export async function getCompaniesBySearchId(searchId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(companies).where(eq(companies.searchId, searchId));
+}

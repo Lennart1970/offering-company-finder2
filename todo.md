@@ -22,4 +22,11 @@
 - [x] End-to-end workflow testing
 - [x] Error scenario handling
 - [x] CSV export validation
-- [ ] Final checkpoint creation
+- [x] Final checkpoint creation
+
+## Standalone Conversion (Remove Sandbox Dependency)
+- [x] Replace Python offering-extractor with native xAI Grok API integration
+- [x] Replace Python apollo-company-finder with native Apollo API integration
+- [x] Remove all exec/shell calls to Python scripts
+- [x] Test end-to-end workflow without sandbox
+- [ ] Create final standalone checkpoint

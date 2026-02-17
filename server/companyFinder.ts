@@ -1,37 +1,8 @@
 import { protectedProcedure, router } from "./_core/trpc";
 import { z } from "zod";
 import { createSearch, updateSearch, getSearchById, getUserSearches, createCompanies, getCompaniesBySearchId } from "./db";
-import { exec } from "child_process";
-import { promisify } from "util";
-import { writeFile, readFile, unlink } from "fs/promises";
-import { join } from "path";
-import { tmpdir } from "os";
-
-const execAsync = promisify(exec);
-
-// Schema for offering extraction result
-const OfferingSchema = z.object({
-  name: z.string(),
-  description: z.string(),
-  targetMarket: z.string(),
-  valueProposition: z.string(),
-  keywords: z.array(z.string()),
-  crossBorderIndicators: z.string().optional(),
-});
-
-// Schema for Apollo company result
-const ApolloCompanySchema = z.object({
-  id: z.string().optional(),
-  name: z.string(),
-  website_url: z.string().optional(),
-  primary_domain: z.string().optional(),
-  linkedin_url: z.string().optional(),
-  phone: z.string().optional(),
-  founded_year: z.number().optional(),
-  organization_revenue_printed: z.string().optional(),
-  organization_headcount_six_month_growth: z.number().optional(),
-  organization_headcount_twelve_month_growth: z.number().optional(),
-});
+import { extractOffering } from "./offeringExtractor";
+import { searchApolloCompanies } from "./apolloSearch";
 
 export const companyFinderRouter = router({
   // Create a new search and start the extraction process
@@ -126,17 +97,11 @@ export const companyFinderRouter = router({
     }),
 });
 
-// Background extraction and search function
+// Background extraction and search function using native integrations
 async function extractAndSearch(searchId: number, companyWebsite: string, location: string) {
   try {
-    // Step 1: Extract offering using offering-extractor skill
-    const offeringTmpFile = join(tmpdir(), `offering-${searchId}.json`);
-    
-    const extractCmd = `cd /home/ubuntu/skills/offering-extractor && python3 scripts/extract_offering.py "${companyWebsite}" --output json > ${offeringTmpFile}`;
-    await execAsync(extractCmd, { timeout: 180000 }); // 3 minute timeout
-
-    const offeringJson = await readFile(offeringTmpFile, "utf-8");
-    const offering = OfferingSchema.parse(JSON.parse(offeringJson));
+    // Step 1: Extract offering using native xAI Grok integration
+    const offering = await extractOffering(companyWebsite);
 
     // Update search with offering data
     await updateSearch(searchId, {
@@ -149,22 +114,10 @@ async function extractAndSearch(searchId: number, companyWebsite: string, locati
       status: "searching",
     });
 
-    // Clean up temp file
-    await unlink(offeringTmpFile);
+    // Step 2: Search Apollo for matching companies using native integration
+    const apolloResults = await searchApolloCompanies(offering, location, 300, 50);
 
-    // Step 2: Save offering to temp file for apollo-company-finder
-    const offeringInputFile = join(tmpdir(), `offering-input-${searchId}.json`);
-    await writeFile(offeringInputFile, JSON.stringify(offering));
-
-    // Step 3: Search Apollo for matching companies
-    const apolloOutputFile = join(tmpdir(), `apollo-output-${searchId}.json`);
-    const searchCmd = `cd /home/ubuntu/skills/apollo-company-finder && python3 scripts/find_companies.py ${offeringInputFile} "${location}" --limit 50 --output json > ${apolloOutputFile}`;
-    await execAsync(searchCmd, { timeout: 180000 }); // 3 minute timeout
-
-    const apolloJson = await readFile(apolloOutputFile, "utf-8");
-    const apolloResults = z.array(ApolloCompanySchema).parse(JSON.parse(apolloJson));
-
-    // Step 4: Store companies in database
+    // Step 3: Store companies in database
     const companiesToInsert = apolloResults.map((company) => ({
       searchId,
       apolloId: company.id,
@@ -188,10 +141,6 @@ async function extractAndSearch(searchId: number, companyWebsite: string, locati
     }));
 
     await createCompanies(companiesToInsert);
-
-    // Clean up temp files
-    await unlink(offeringInputFile);
-    await unlink(apolloOutputFile);
 
     // Mark search as completed
     await updateSearch(searchId, {

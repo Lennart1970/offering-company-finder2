@@ -4,10 +4,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { normalizeWebsiteUrl } from "@shared/urlUtils";
 import { useLocation } from "wouter";
+import CompanyDecisionButtons from "@/components/CompanyDecisionButtons";
 
 export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
@@ -62,6 +63,12 @@ export default function Home() {
     },
   });
 
+  // Fetch excluded codes for filtering
+  const { data: excludedCodes } = trpc.companyFinder.getExcludedCodes.useQuery(
+    undefined,
+    { enabled: isAuthenticated }
+  );
+
   const exportCsvQuery = trpc.companyFinder.exportCsv.useQuery(
     { searchId: searchId! },
     { enabled: false }
@@ -102,6 +109,61 @@ export default function Home() {
     setLocation("");
   };
 
+  // Build excluded code sets for filtering
+  const excludedSicSet = useMemo(() => {
+    if (!excludedCodes) return new Set<string>();
+    return new Set(excludedCodes.filter((c) => c.codeType === "sic").map((c) => c.code));
+  }, [excludedCodes]);
+
+  const excludedNaicsSet = useMemo(() => {
+    if (!excludedCodes) return new Set<string>();
+    return new Set(excludedCodes.filter((c) => c.codeType === "naics").map((c) => c.code));
+  }, [excludedCodes]);
+
+  // Filter companies: hide those with excluded SIC/NAICS codes
+  const [showExcluded, setShowExcluded] = useState(false);
+
+  const { filteredCompanies, excludedCompanies } = useMemo(() => {
+    if (!searchData?.companies) return { filteredCompanies: [], excludedCompanies: [] };
+
+    const filtered: typeof searchData.companies = [];
+    const excluded: typeof searchData.companies = [];
+
+    for (const company of searchData.companies) {
+      let isExcluded = false;
+
+      if (company.enrichmentStatus === "enriched") {
+        // Check SIC codes
+        if (company.sicCodes) {
+          try {
+            const codes: string[] = JSON.parse(company.sicCodes);
+            if (codes.some((c) => excludedSicSet.has(c))) {
+              isExcluded = true;
+            }
+          } catch {}
+        }
+
+        // Check NAICS codes
+        if (!isExcluded && company.naicsCodes) {
+          try {
+            const codes: string[] = JSON.parse(company.naicsCodes);
+            if (codes.some((c) => excludedNaicsSet.has(c))) {
+              isExcluded = true;
+            }
+          } catch {}
+        }
+      }
+
+      if (isExcluded) {
+        excluded.push(company);
+      } else {
+        filtered.push(company);
+      }
+    }
+
+    return { filteredCompanies: filtered, excludedCompanies: excluded };
+  }, [searchData?.companies, excludedSicSet, excludedNaicsSet]);
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -139,13 +201,27 @@ export default function Home() {
   const hasEnrichedCompanies = enrichmentStats && enrichmentStats.enriched > 0;
   const hasPendingCompanies = enrichmentStats && enrichmentStats.pending > 0;
 
+  const excludedCount = excludedCodes?.length || 0;
+
   return (
     <div className="min-h-screen">
       {/* Header */}
       <div className="border-b-8 border-black p-8">
         <div className="container flex justify-between items-center">
           <h1 className="text-5xl md:text-7xl font-black leading-none">[CF]</h1>
-          <div className="flex items-center gap-6">
+          <div className="flex items-center gap-4">
+            <Button
+              onClick={() => navigate("/exclusions")}
+              variant="outline"
+              className="text-lg px-6 py-4 font-black border-4 border-black relative"
+            >
+              EXCLUSIONS
+              {excludedCount > 0 && (
+                <span className="absolute -top-2 -right-2 bg-red-600 text-white text-xs font-black w-6 h-6 flex items-center justify-center">
+                  {excludedCount}
+                </span>
+              )}
+            </Button>
             <Button
               onClick={() => navigate("/history")}
               variant="outline"
@@ -192,6 +268,28 @@ export default function Home() {
                 Railway • Healthcare/MedTech • Infrastructure • Automotive & Off-road • Defense & Avionics • Industrial Manufacturing • Electronics • Telecommunications • Energy • Automation • Instrumentation • Aerospace • Marine • Agricultural Equipment • Construction Equipment • Mining • Oil & Gas • Renewable Energy • IoT • Embedded Systems
               </p>
             </div>
+
+            {/* Exclusion Warning */}
+            {excludedCount > 0 && (
+              <div className="mb-8 p-4 border-4 border-red-600 bg-red-50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-black text-red-600">ACTIVE EXCLUSION FILTER</div>
+                    <div className="text-sm font-bold mt-1">
+                      {excludedCount} industry code{excludedCount !== 1 ? "s" : ""} will be filtered from results after enrichment
+                    </div>
+                  </div>
+                  <Button
+                    onClick={() => navigate("/exclusions")}
+                    variant="outline"
+                    className="text-xs font-black border-2 border-red-600 text-red-600 hover:bg-red-600 hover:text-white"
+                    size="sm"
+                  >
+                    VIEW LIST
+                  </Button>
+                </div>
+              </div>
+            )}
 
             <form onSubmit={handleSubmit} className="space-y-12">
               <div className="space-y-4">
@@ -306,17 +404,29 @@ export default function Home() {
                 {/* Action Bar */}
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
                   <div>
-                    <h3 className="text-4xl md:text-6xl font-black">[{searchData.companies.length} MATCHES]</h3>
-                    {enrichmentStats && (
-                      <div className="flex items-center gap-4 mt-2 text-sm font-black">
-                        <span className="border-2 border-black px-3 py-1">
-                          {enrichmentStats.enriched} ENRICHED
-                        </span>
-                        <span className="border-2 border-black px-3 py-1 bg-gray-100">
-                          {enrichmentStats.pending} PENDING
-                        </span>
-                      </div>
-                    )}
+                    <h3 className="text-4xl md:text-6xl font-black">
+                      [{filteredCompanies.length} MATCHES]
+                    </h3>
+                    <div className="flex items-center gap-4 mt-2 text-sm font-black flex-wrap">
+                      {enrichmentStats && (
+                        <>
+                          <span className="border-2 border-black px-3 py-1">
+                            {enrichmentStats.enriched} ENRICHED
+                          </span>
+                          <span className="border-2 border-black px-3 py-1 bg-gray-100">
+                            {enrichmentStats.pending} PENDING
+                          </span>
+                        </>
+                      )}
+                      {excludedCompanies.length > 0 && (
+                        <button
+                          onClick={() => setShowExcluded(!showExcluded)}
+                          className="border-2 border-red-600 text-red-600 px-3 py-1 hover:bg-red-600 hover:text-white transition-colors cursor-pointer"
+                        >
+                          {excludedCompanies.length} EXCLUDED {showExcluded ? "▲" : "▼"}
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-4">
                     {hasPendingCompanies && (
@@ -350,133 +460,37 @@ export default function Home() {
                   </div>
                 )}
 
-                <div className="space-y-4">
-                  {searchData.companies.map((company, index) => (
-                    <div key={company.id} className="border-4 border-black p-6 hover:bg-black hover:text-white transition-colors group">
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3 mb-2">
-                            <span className="text-sm font-black">[{String(index + 1).padStart(2, "0")}]</span>
-                            {/* Enrichment Status Badge */}
-                            {company.enrichmentStatus === "enriched" ? (
-                              <span className="text-xs font-black border-2 border-current px-2 py-0.5 bg-black text-white group-hover:bg-white group-hover:text-black">
-                                ENRICHED
-                              </span>
-                            ) : company.enrichmentStatus === "failed" ? (
-                              <span className="text-xs font-black border-2 border-red-600 text-red-600 px-2 py-0.5">
-                                ENRICH FAILED
-                              </span>
-                            ) : (
-                              <span className="text-xs font-black border-2 border-current px-2 py-0.5 opacity-50">
-                                PENDING
-                              </span>
-                            )}
-                          </div>
-                          <h4 className="text-2xl md:text-3xl font-black mb-2">{company.name}</h4>
-                          {company.websiteUrl && (
-                            <a
-                              href={company.websiteUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-lg font-bold underline break-all"
-                            >
-                              {company.websiteUrl}
-                            </a>
-                          )}
-                        </div>
-                      </div>
-
-                      <div className="grid md:grid-cols-3 gap-4 text-sm">
-                        {/* Location Information (only after enrichment) */}
-                        {company.enrichmentStatus === "enriched" && (company.city || company.state || company.country) && (
-                          <div className="md:col-span-3 border-t-2 border-current pt-4 mt-2">
-                            <div className="font-black mb-1">LOCATION</div>
-                            <div className="font-bold">
-                              {[company.city, company.state, company.country].filter(Boolean).join(", ")}
-                            </div>
-                            {company.streetAddress && <div className="font-bold text-xs mt-1">{company.streetAddress}</div>}
-                          </div>
-                        )}
-                        {company.searchLocation && (
-                          <div className={company.enrichmentStatus !== "enriched" ? "md:col-span-3" : ""}>
-                            <div className="font-black mb-1">SEARCH LOCATION</div>
-                            <div className="font-bold">{company.searchLocation}</div>
-                          </div>
-                        )}
-                        {company.phone && (
-                          <div>
-                            <div className="font-black mb-1">PHONE</div>
-                            <div className="font-bold">{company.phone}</div>
-                          </div>
-                        )}
-                        {company.foundedYear && (
-                          <div>
-                            <div className="font-black mb-1">FOUNDED</div>
-                            <div className="font-bold">{company.foundedYear}</div>
-                          </div>
-                        )}
-                        {company.revenue && (
-                          <div>
-                            <div className="font-black mb-1">REVENUE</div>
-                            <div className="font-bold">{company.revenue}</div>
-                          </div>
-                        )}
-                        {company.headcountGrowth && (
-                          <div>
-                            <div className="font-black mb-1">GROWTH</div>
-                            <div className="font-bold">{company.headcountGrowth}</div>
-                          </div>
-                        )}
-                        {company.linkedinUrl && (
-                          <div className="md:col-span-2">
-                            <div className="font-black mb-1">LINKEDIN</div>
-                            <a
-                              href={company.linkedinUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="font-bold underline break-all"
-                            >
-                              {company.linkedinUrl}
-                            </a>
-                          </div>
-                        )}
-                        {company.sicCodes &&
-                          (() => {
-                            try {
-                              const codes = JSON.parse(company.sicCodes);
-                              return codes.length > 0 ? (
-                                <div>
-                                  <div className="font-black mb-1">SIC CODES</div>
-                                  <div className="font-bold">{codes.join(", ")}</div>
-                                </div>
-                              ) : null;
-                            } catch {
-                              return null;
-                            }
-                          })()}
-                        {company.naicsCodes &&
-                          (() => {
-                            try {
-                              const codes = JSON.parse(company.naicsCodes);
-                              return codes.length > 0 ? (
-                                <div>
-                                  <div className="font-black mb-1">NAICS CODES</div>
-                                  <div className="font-bold">{codes.join(", ")}</div>
-                                </div>
-                              ) : null;
-                            } catch {
-                              return null;
-                            }
-                          })()}
-                      </div>
-
-                      {/* Generate Package Button */}
-                      {company.enrichmentStatus === "enriched" && (
-                        <div className="mt-4 pt-4 border-t-2 border-current">
-                          <GeneratePackageButton companyId={company.id} companyName={company.name} />
-                        </div>
-                      )}
+                {/* Excluded Companies (collapsible) */}
+                {showExcluded && excludedCompanies.length > 0 && (
+                  <div className="mb-8 border-4 border-red-600 bg-red-50 p-6">
+                    <div className="text-lg font-black text-red-600 mb-4">
+                      EXCLUDED COMPANIES [{excludedCompanies.length}]
                     </div>
+                    <div className="space-y-2">
+                      {excludedCompanies.map((company) => (
+                        <div key={company.id} className="flex items-center justify-between py-2 border-b border-red-200 last:border-0">
+                          <div>
+                            <span className="font-black text-sm">{company.name}</span>
+                            <span className="text-xs font-bold opacity-60 ml-3">
+                              SIC: {company.sicCodes ? JSON.parse(company.sicCodes).join(", ") : "—"} |
+                              NAICS: {company.naicsCodes ? JSON.parse(company.naicsCodes).join(", ") : "—"}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Company Cards */}
+                <div className="space-y-4">
+                  {filteredCompanies.map((company, index) => (
+                    <CompanyCard
+                      key={company.id}
+                      company={company}
+                      index={index}
+                      searchId={searchId!}
+                    />
                   ))}
                 </div>
               </div>
@@ -491,6 +505,159 @@ export default function Home() {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+// Extracted company card component
+function CompanyCard({
+  company,
+  index,
+  searchId,
+}: {
+  company: any;
+  index: number;
+  searchId: number;
+}) {
+  const hasSicCodes = !!(company.sicCodes && JSON.parse(company.sicCodes).length > 0);
+  const hasNaicsCodes = !!(company.naicsCodes && JSON.parse(company.naicsCodes).length > 0);
+
+  return (
+    <div className="border-4 border-black p-6 hover:bg-black hover:text-white transition-colors group">
+      <div className="flex items-start justify-between mb-4">
+        <div className="flex-1">
+          <div className="flex items-center gap-3 mb-2">
+            <span className="text-sm font-black">[{String(index + 1).padStart(2, "0")}]</span>
+            {/* Enrichment Status Badge */}
+            {company.enrichmentStatus === "enriched" ? (
+              <span className="text-xs font-black border-2 border-current px-2 py-0.5 bg-black text-white group-hover:bg-white group-hover:text-black">
+                ENRICHED
+              </span>
+            ) : company.enrichmentStatus === "failed" ? (
+              <span className="text-xs font-black border-2 border-red-600 text-red-600 px-2 py-0.5">
+                ENRICH FAILED
+              </span>
+            ) : (
+              <span className="text-xs font-black border-2 border-current px-2 py-0.5 opacity-50">
+                PENDING
+              </span>
+            )}
+          </div>
+          <h4 className="text-2xl md:text-3xl font-black mb-2">{company.name}</h4>
+          {company.websiteUrl && (
+            <a
+              href={company.websiteUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-lg font-bold underline break-all"
+            >
+              {company.websiteUrl}
+            </a>
+          )}
+        </div>
+      </div>
+
+      <div className="grid md:grid-cols-3 gap-4 text-sm">
+        {/* Location Information (only after enrichment) */}
+        {company.enrichmentStatus === "enriched" && (company.city || company.state || company.country) && (
+          <div className="md:col-span-3 border-t-2 border-current pt-4 mt-2">
+            <div className="font-black mb-1">LOCATION</div>
+            <div className="font-bold">
+              {[company.city, company.state, company.country].filter(Boolean).join(", ")}
+            </div>
+            {company.streetAddress && <div className="font-bold text-xs mt-1">{company.streetAddress}</div>}
+          </div>
+        )}
+        {company.searchLocation && (
+          <div className={company.enrichmentStatus !== "enriched" ? "md:col-span-3" : ""}>
+            <div className="font-black mb-1">SEARCH LOCATION</div>
+            <div className="font-bold">{company.searchLocation}</div>
+          </div>
+        )}
+        {company.phone && (
+          <div>
+            <div className="font-black mb-1">PHONE</div>
+            <div className="font-bold">{company.phone}</div>
+          </div>
+        )}
+        {company.foundedYear && (
+          <div>
+            <div className="font-black mb-1">FOUNDED</div>
+            <div className="font-bold">{company.foundedYear}</div>
+          </div>
+        )}
+        {company.revenue && (
+          <div>
+            <div className="font-black mb-1">REVENUE</div>
+            <div className="font-bold">{company.revenue}</div>
+          </div>
+        )}
+        {company.headcountGrowth && (
+          <div>
+            <div className="font-black mb-1">GROWTH</div>
+            <div className="font-bold">{company.headcountGrowth}</div>
+          </div>
+        )}
+        {company.linkedinUrl && (
+          <div className="md:col-span-2">
+            <div className="font-black mb-1">LINKEDIN</div>
+            <a
+              href={company.linkedinUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="font-bold underline break-all"
+            >
+              {company.linkedinUrl}
+            </a>
+          </div>
+        )}
+        {company.sicCodes &&
+          (() => {
+            try {
+              const codes = JSON.parse(company.sicCodes);
+              return codes.length > 0 ? (
+                <div>
+                  <div className="font-black mb-1">SIC CODES</div>
+                  <div className="font-bold">{codes.join(", ")}</div>
+                </div>
+              ) : null;
+            } catch {
+              return null;
+            }
+          })()}
+        {company.naicsCodes &&
+          (() => {
+            try {
+              const codes = JSON.parse(company.naicsCodes);
+              return codes.length > 0 ? (
+                <div>
+                  <div className="font-black mb-1">NAICS CODES</div>
+                  <div className="font-bold">{codes.join(", ")}</div>
+                </div>
+              ) : null;
+            } catch {
+              return null;
+            }
+          })()}
+      </div>
+
+      {/* HITL Decision Buttons */}
+      <div className="mt-4 pt-4 border-t-2 border-current">
+        <CompanyDecisionButtons
+          companyId={company.id}
+          searchId={searchId}
+          companyName={company.name}
+          hasSicCodes={hasSicCodes}
+          hasNaicsCodes={hasNaicsCodes}
+        />
+      </div>
+
+      {/* Generate Package Button (only for enriched companies) */}
+      {company.enrichmentStatus === "enriched" && (
+        <div className="mt-3">
+          <GeneratePackageButton companyId={company.id} companyName={company.name} />
+        </div>
+      )}
     </div>
   );
 }

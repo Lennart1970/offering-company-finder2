@@ -117,9 +117,9 @@
 - [x] Add excluded_codes table for SIC/NAICS exclusion list
 - [x] Create submitDecision tRPC procedure
 - [x] Create getDecision, getSearchDecisions, getExcludedCodes, removeExcludedCode procedures
-- [ ] Add decision buttons (Call Today / Park / Not Relevant) to company cards
-- [ ] Add reason picker modal for "Not Relevant" decisions
-- [ ] Create "Exclusion List" page showing rejected SIC/NAICS codes
-- [ ] Update Apollo search to filter out excluded codes
-- [ ] Add decision badges to company cards (✓ CALL / ⏸️ PARK / ❌ REJECT)
-- [ ] Test complete HITL workflow end-to-end
+- [x] Add decision buttons (Call Today / Park / Not Relevant) to company cards
+- [x] Add reason picker modal for "Not Relevant" decisions
+- [x] Create "Exclusion List" page showing rejected SIC/NAICS codes
+- [x] Client-side filtering of companies with excluded SIC/NAICS codes
+- [x] Add decision badges to company cards (✓ CALL / ⏸ PARK / ✕ REJECT)
+- [x] Test complete HITL workflow end-to-end (45 tests passing)

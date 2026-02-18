@@ -62,3 +62,11 @@
 - [x] Add click handler to load previous search results
 - [x] Update Home.tsx to support viewing historical searches
 - [x] Test search history workflow end-to-end
+
+## Improved Search Strategy
+- [x] Update Grok prompt to extract target market keyword tags (who buys from this company)
+- [x] Update Apollo search to use q_organization_keyword_tags[] filter
+- [x] Add SIC/NAICS codes to database schema
+- [x] Store and display SIC/NAICS codes on company cards
+- [x] Display keyword tags used in search for transparency
+- [x] Test with ConnectGroup example (Industrial, Measurement & Control, MedTech)

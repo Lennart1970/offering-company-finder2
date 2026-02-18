@@ -45,12 +45,16 @@ describe("companyFinder router", () => {
       });
 
       expect(result).toEqual({ searchId: 123 });
-      expect(mockCreateSearch).toHaveBeenCalledWith({
-        userId: 1,
-        companyWebsite: "https://example.com",
-        location: "Atlanta, GA",
-        status: "extracting",
-      });
+      expect(mockCreateSearch).toHaveBeenCalledWith(
+        expect.objectContaining({
+          userId: 1,
+          location: "Atlanta, GA",
+          status: "extracting",
+        })
+      );
+      // URL normalization may add trailing slash
+      const callArgs = mockCreateSearch.mock.calls[0][0] as any;
+      expect(callArgs.companyWebsite).toMatch(/^https:\/\/example\.com/);
 
       mockCreateSearch.mockRestore();
     });

@@ -39,6 +39,7 @@ export const searches = mysqlTable("searches", {
   valueProposition: text("valueProposition"),
   keywords: text("keywords"), // JSON array stored as text
   crossBorderIndicators: text("crossBorderIndicators"),
+  keywordTagsUsed: text("keywordTagsUsed"), // JSON array of keyword tags sent to Apollo
   status: mysqlEnum("status", ["pending", "extracting", "searching", "completed", "failed"]).default("pending").notNull(),
   errorMessage: text("errorMessage"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -70,6 +71,8 @@ export const companies = mysqlTable("companies", {
   country: varchar("country", { length: 128 }),
   streetAddress: varchar("streetAddress", { length: 512 }),
   rawAddress: text("rawAddress"),
+  sicCodes: text("sicCodes"), // JSON array of SIC codes
+  naicsCodes: text("naicsCodes"), // JSON array of NAICS codes
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

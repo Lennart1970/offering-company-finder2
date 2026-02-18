@@ -270,11 +270,23 @@ export default function Home() {
                 )}
                 {searchData.search.keywords && (
                   <div>
-                    <div className="text-sm font-black mb-2">KEYWORDS</div>
+                    <div className="text-sm font-black mb-2">OFFERING KEYWORDS</div>
                     <div className="flex flex-wrap gap-2">
                       {JSON.parse(searchData.search.keywords).map((keyword: string, i: number) => (
                         <span key={i} className="border-2 border-black px-4 py-2 text-sm font-black">
                           {keyword}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {searchData.search.keywordTagsUsed && (
+                  <div>
+                    <div className="text-sm font-black mb-2">APOLLO SEARCH TAGS (TARGET MARKET)</div>
+                    <div className="flex flex-wrap gap-2">
+                      {JSON.parse(searchData.search.keywordTagsUsed).map((tag: string, i: number) => (
+                        <span key={i} className="border-2 border-black bg-black text-white px-4 py-2 text-sm font-black">
+                          {tag}
                         </span>
                       ))}
                     </div>
@@ -378,6 +390,28 @@ export default function Home() {
                             </a>
                           </div>
                         )}
+                        {company.sicCodes && (() => {
+                          try {
+                            const codes = JSON.parse(company.sicCodes);
+                            return codes.length > 0 ? (
+                              <div>
+                                <div className="font-black mb-1">SIC CODES</div>
+                                <div className="font-bold">{codes.join(", ")}</div>
+                              </div>
+                            ) : null;
+                          } catch { return null; }
+                        })()}
+                        {company.naicsCodes && (() => {
+                          try {
+                            const codes = JSON.parse(company.naicsCodes);
+                            return codes.length > 0 ? (
+                              <div>
+                                <div className="font-black mb-1">NAICS CODES</div>
+                                <div className="font-bold">{codes.join(", ")}</div>
+                              </div>
+                            ) : null;
+                          } catch { return null; }
+                        })()}
                       </div>
                     </div>
                   ))}

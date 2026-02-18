@@ -80,6 +80,8 @@ export const companyFinderRouter = router({
         "Founded",
         "Revenue",
         "Headcount Growth",
+        "SIC Codes",
+        "NAICS Codes",
         "Search Location",
         "City",
         "State",
@@ -95,6 +97,8 @@ export const companyFinderRouter = router({
         c.foundedYear?.toString() || "",
         c.revenue || "",
         c.headcountGrowth || "",
+        c.sicCodes || "",
+        c.naicsCodes || "",
         c.searchLocation || "",
         c.city || "",
         c.state || "",
@@ -115,7 +119,11 @@ export const companyFinderRouter = router({
 async function extractAndSearch(searchId: number, companyWebsite: string, location: string) {
   try {
     // Step 1: Extract offering using native xAI Grok integration
+    console.log(`[Search ${searchId}] Step 1: Extracting offering from ${companyWebsite}`);
     const offering = await extractOffering(companyWebsite);
+
+    console.log(`[Search ${searchId}] Offering extracted: ${offering.name}`);
+    console.log(`[Search ${searchId}] Target market tags: ${JSON.stringify(offering.targetMarketKeywordTags)}`);
 
     // Update search with offering data
     await updateSearch(searchId, {
@@ -128,11 +136,24 @@ async function extractAndSearch(searchId: number, companyWebsite: string, locati
       status: "searching",
     });
 
-    // Step 2: Search Apollo for matching companies using native integration
-    const apolloResults = await searchApolloCompanies(offering, location, 300, 50);
+    // Step 2: Search Apollo for matching companies using target market keyword tags
+    console.log(`[Search ${searchId}] Step 2: Searching Apollo for companies in ${location}`);
+    const apolloResult = await searchApolloCompanies({
+      targetMarketKeywordTags: offering.targetMarketKeywordTags,
+      targetMarket: offering.targetMarket,
+      location,
+      limit: 50,
+    });
+
+    console.log(`[Search ${searchId}] Apollo found ${apolloResult.totalFound} total, returning ${apolloResult.companies.length}`);
+
+    // Store the keyword tags used in the search
+    await updateSearch(searchId, {
+      keywordTagsUsed: JSON.stringify(apolloResult.keywordTagsUsed),
+    });
 
     // Step 3: Store companies in database
-    const companiesToInsert = apolloResults.map((company) => ({
+    const companiesToInsert = apolloResult.companies.map((company) => ({
       searchId,
       apolloId: company.id,
       name: company.name,
@@ -152,6 +173,9 @@ async function extractAndSearch(searchId: number, companyWebsite: string, locati
       ]
         .filter(Boolean)
         .join(", "),
+      // SIC/NAICS codes
+      sicCodes: company.sic_codes?.length ? JSON.stringify(company.sic_codes) : null,
+      naicsCodes: company.naics_codes?.length ? JSON.stringify(company.naics_codes) : null,
       // Location data
       searchLocation: location,
       city: company.city,
@@ -167,8 +191,10 @@ async function extractAndSearch(searchId: number, companyWebsite: string, locati
     await updateSearch(searchId, {
       status: "completed",
     });
+
+    console.log(`[Search ${searchId}] Completed successfully with ${companiesToInsert.length} companies`);
   } catch (error) {
-    console.error("Error in extractAndSearch:", error);
+    console.error(`[Search ${searchId}] Error in extractAndSearch:`, error);
     throw error;
   }
 }

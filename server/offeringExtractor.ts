@@ -6,24 +6,38 @@ export interface OfferingData {
   targetMarket: string;
   valueProposition: string;
   keywords: string[];
+  targetMarketKeywordTags: string[];
   crossBorderIndicators?: string;
 }
 
-const OFFERING_EXTRACTION_PROMPT = `You are an expert business analyst. Analyze the provided company website URL and extract structured offering information.
+const OFFERING_EXTRACTION_PROMPT = `You are an expert B2B sales strategist and business analyst. Your job is to analyze a company's website and determine:
+1. What this company offers (their product/service)
+2. WHO their ideal customers are — the types of companies that would BUY from them
 
-Your task: Visit the website and extract the following fields by analyzing the homepage, about page, and solutions/products pages:
+This is critical: we need to find POTENTIAL CUSTOMERS for this company, not companies similar to them.
+
+Analyze the provided company website URL and extract:
 
 1. **name**: The main product/service name (e.g., "Electronics Manufacturing Services (EMS)")
 2. **description**: A 2-3 sentence overview of what the company offers
-3. **targetMarket**: Ideal customer profile - company size, industries, geography (e.g., "Mid-sized to large enterprises in industrial sectors across Europe and North America")
+3. **targetMarket**: Ideal customer profile — what industries, company types, and segments buy from them (e.g., "Industrial manufacturers, MedTech companies, Measurement & Control equipment makers")
 4. **valueProposition**: Unique value and problems solved (2-3 sentences)
-5. **keywords**: 5-10 relevant industry keywords (e.g., ["EMS", "Cable Assembly", "PCB Assembly", "Industrial Manufacturing"])
-6. **crossBorderIndicators**: Evidence of international operations - production facilities in multiple countries, global customer base, multi-currency pricing, cross-border supply chain (2-3 sentences, or empty string if no clear indicators)
+5. **keywords**: 5-10 keywords describing the company's OWN offering (e.g., ["EMS", "Cable Assembly", "PCB Assembly"])
+6. **targetMarketKeywordTags**: THIS IS THE MOST IMPORTANT FIELD. Provide 5-15 specific industry keyword tags that describe the CUSTOMERS who would buy from this company. These tags will be used to search a B2B database for potential customers.
 
-Tag each field with confidence:
-- [WELL-SOURCED]: Directly stated on website
-- [INDICATIVE]: Inferred from context
-- [SPECULATIVE]: Educated guess
+   Rules for targetMarketKeywordTags:
+   - Each tag should be a single industry term or market segment (1-3 words max)
+   - Tags should describe the BUYER's industry, not the seller's
+   - Include both broad and specific terms
+   - Think: "What industries need this company's products/services?"
+   
+   Example: If the company makes industrial connectors, their targetMarketKeywordTags would be:
+   ["industrial automation", "manufacturing", "aerospace", "defense", "medical devices", "telecommunications", "automotive", "energy", "oil and gas", "robotics"]
+   
+   Example: If the company provides cloud hosting, their targetMarketKeywordTags would be:
+   ["saas", "fintech", "e-commerce", "healthcare IT", "enterprise software", "gaming", "media streaming", "digital agency"]
+
+7. **crossBorderIndicators**: Evidence of international operations (2-3 sentences, or empty string)
 
 Return ONLY a valid JSON object with this exact structure (no markdown, no code blocks):
 {
@@ -32,6 +46,7 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no code 
   "targetMarket": "...",
   "valueProposition": "...",
   "keywords": ["...", "..."],
+  "targetMarketKeywordTags": ["...", "..."],
   "crossBorderIndicators": "..."
 }`;
 
@@ -42,8 +57,6 @@ export async function extractOffering(companyWebsite: string): Promise<OfferingD
   }
 
   try {
-    // Use standard chat completions API with the website URL in the prompt
-    // Grok will use its built-in web browsing capabilities
     const response = await axios.post(
       "https://api.x.ai/v1/chat/completions",
       {
@@ -55,11 +68,11 @@ export async function extractOffering(companyWebsite: string): Promise<OfferingD
           },
           {
             role: "user",
-            content: `Analyze this company website and extract offering information: ${companyWebsite}\n\nVisit the website, browse the key pages, and extract the structured data as JSON.`,
+            content: `Analyze this company website and extract offering information: ${companyWebsite}\n\nVisit the website, browse the key pages (homepage, about, products/services, solutions), and extract the structured data as JSON. Pay special attention to identifying who their CUSTOMERS are — what industries and company types buy from them.`,
           },
         ],
         temperature: 0.3,
-        max_tokens: 2000,
+        max_tokens: 3000,
       },
       {
         headers: {
@@ -76,8 +89,12 @@ export async function extractOffering(companyWebsite: string): Promise<OfferingD
       throw new Error("No response from Grok API");
     }
 
-    // Parse JSON from response (handle markdown code blocks)
+    // Parse JSON from response (handle markdown code blocks and thinking tags)
     let jsonStr = assistantMessage.trim();
+    
+    // Remove <think>...</think> blocks if present
+    jsonStr = jsonStr.replace(/<think>[\s\S]*?<\/think>/g, "").trim();
+    
     if (jsonStr.startsWith("```json")) {
       jsonStr = jsonStr.replace(/```json\n?/g, "").replace(/```\n?$/g, "");
     } else if (jsonStr.startsWith("```")) {
@@ -95,7 +112,16 @@ export async function extractOffering(companyWebsite: string): Promise<OfferingD
       offering.keywords = ["business", "services"];
     }
 
-    // Ensure crossBorderIndicators is a string (not undefined)
+    // Ensure targetMarketKeywordTags exists
+    if (!offering.targetMarketKeywordTags || offering.targetMarketKeywordTags.length === 0) {
+      // Fallback: derive from targetMarket description
+      offering.targetMarketKeywordTags = offering.targetMarket
+        .split(/[,;]/)
+        .map((s) => s.trim().toLowerCase())
+        .filter((s) => s.length > 2 && s.length < 40)
+        .slice(0, 10);
+    }
+
     if (!offering.crossBorderIndicators) {
       offering.crossBorderIndicators = "";
     }
@@ -103,17 +129,16 @@ export async function extractOffering(companyWebsite: string): Promise<OfferingD
     return offering;
   } catch (error) {
     if (axios.isAxiosError(error)) {
-      // Log full error details for debugging
-      console.error('[Grok API Error] Status:', error.response?.status);
-      console.error('[Grok API Error] Response data:', JSON.stringify(error.response?.data, null, 2));
-      console.error('[Grok API Error] Request data:', JSON.stringify({
+      console.error("[Grok API Error] Status:", error.response?.status);
+      console.error("[Grok API Error] Response data:", JSON.stringify(error.response?.data, null, 2));
+      console.error("[Grok API Error] Request data:", JSON.stringify({
         model: "grok-4-1-fast-reasoning",
         messagesCount: 2,
         temperature: 0.3,
-        max_tokens: 2000
+        max_tokens: 3000,
       }));
-      
-      const errorDetails = error.response?.data?.error?.message || error.response?.data?.message || error.message;
+
+      const errorDetails = error.response?.data?.error?.message || error.response?.data?.error || error.response?.data?.message || error.message;
       throw new Error(`Grok API error: ${errorDetails}`);
     }
     throw error;

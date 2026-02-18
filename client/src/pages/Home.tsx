@@ -709,7 +709,7 @@ function CompanyCard({
 
       {/* Generate Package Button (only for enriched companies) */}
       {company.enrichmentStatus === "enriched" && (
-        <div className="mt-3 flex gap-2">
+        <div className="mt-3 flex flex-col gap-2">
           <GeneratePackageButton companyId={company.id} companyName={company.name} />
           <GenerateBriefButton companyId={company.id} companyName={company.name} />
         </div>

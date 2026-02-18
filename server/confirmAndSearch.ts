@@ -86,7 +86,7 @@ async function batchedKeywordSearch({ searchId, location, keywordTags, confirmed
         targetMarketKeywordTags: [keyword],
         targetMarket,
         location,
-        limit: 100, // Pull up to 100 companies per keyword
+        limit: 10000, // Pull all available companies per keyword (effectively unlimited)
       };
 
       const result = await searchApolloCompanies(searchParams);

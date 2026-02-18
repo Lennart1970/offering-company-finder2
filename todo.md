@@ -199,3 +199,18 @@
 - [x] Check Apollo search parameters and page size (was 25 per page)
 - [x] Increase page size from 25 to 100 (Apollo's max) per keyword search
 - [ ] Test with Paris again after fix (expect 1000+ companies)
+
+## Feature: Remove 100-company limit per keyword for unlimited results
+- [x] Remove limit parameter in confirmAndSearch (changed from 100 to 10000)
+- [x] apolloSearch already pulls all available pages until exhausted (existing logic)
+- [x] Verified pagination logic already pulls all available pages
+- [ ] User to test Paris search with new unlimited limit (expecting 1000+ companies)
+
+## Skill Update: apollo-company-finder
+- [x] Update SKILL.md to reflect two-step search flow (NAICS targeting → batched keyword search)
+- [x] Document LLM-powered NAICS sector selection
+- [x] Document hierarchical NAICS filtering
+- [x] Document unlimited results capability (10,000 limit per keyword)
+- [x] Document batched search with 32 keyword tags
+- [x] Validate updated skill (passed quick_validate.py)
+- [ ] Deliver updated skill to user

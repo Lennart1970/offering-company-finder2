@@ -10,6 +10,7 @@ import { normalizeWebsiteUrl } from "@shared/urlUtils";
 import { useLocation } from "wouter";
 import CompanyDecisionButtons from "@/components/CompanyDecisionButtons";
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
+import SelectedCodesDisplay from "@/components/SelectedCodesDisplay";
 
 export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
@@ -399,37 +400,11 @@ export default function Home() {
                   </div>
                 )}
                 {searchData.search.selectedSicCodes && searchData.search.selectedNaicsCodes && (
-                  <div className="mt-8 p-6 border-4 border-blue-600 bg-blue-50">
-                    <div className="text-sm font-black mb-4 text-blue-600">🤖 LLM-SELECTED INDUSTRY CODES (FILTERING CRITERIA)</div>
-                    <div className="grid md:grid-cols-2 gap-6">
-                      <div>
-                        <div className="text-xs font-black mb-2">SIC CODES ({JSON.parse(searchData.search.selectedSicCodes).length})</div>
-                        <div className="flex flex-wrap gap-2">
-                          {JSON.parse(searchData.search.selectedSicCodes).map((code: string, i: number) => (
-                            <span key={i} className="border-2 border-blue-600 bg-white px-3 py-1 text-xs font-black">
-                              {code}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                      <div>
-                        <div className="text-xs font-black mb-2">NAICS CODES ({JSON.parse(searchData.search.selectedNaicsCodes).length})</div>
-                        <div className="flex flex-wrap gap-2">
-                          {JSON.parse(searchData.search.selectedNaicsCodes).map((code: string, i: number) => (
-                            <span key={i} className="border-2 border-blue-600 bg-white px-3 py-1 text-xs font-black">
-                              {code}
-                            </span>
-                          ))}
-                        </div>
-                      </div>
-                    </div>
-                    {searchData.search.codeSelectionReasoning && (
-                      <div className="mt-4">
-                        <div className="text-xs font-black mb-2">REASONING</div>
-                        <div className="text-sm font-bold">{searchData.search.codeSelectionReasoning}</div>
-                      </div>
-                    )}
-                  </div>
+                  <SelectedCodesDisplay
+                    sicCodes={JSON.parse(searchData.search.selectedSicCodes)}
+                    naicsCodes={JSON.parse(searchData.search.selectedNaicsCodes)}
+                    reasoning={searchData.search.codeSelectionReasoning}
+                  />
                 )}
               </div>
             )}

@@ -25,6 +25,7 @@ import { searchApolloCompanies, enrichCompanyDetails } from "./apolloSearch";
 import { normalizeWebsiteUrl } from "../shared/urlUtils";
 import { generateSalesPackage, packageToMarkdown } from "./packageGenerator";
 import { selectIndustryCodes } from "./codeSelectionService";
+import { naicsMatchesHierarchically, sicMatchesHierarchically } from "../shared/naicsHierarchy";
 
 export const companyFinderRouter = router({
   // Create a new search with hardcoded ConnectGroup offering (skip extraction)
@@ -427,15 +428,18 @@ async function searchWithHardcodedOffering(
 
     console.log(`[Search ${searchId}] Apollo found ${apolloResult.totalFound} total, returned ${apolloResult.companies.length}`);
 
-    // Filter companies by selected SIC/NAICS codes
-    const selectedSicSet = new Set(codeSelection.sicCodes);
-    const selectedNaicsSet = new Set(codeSelection.naicsCodes);
-    
+    // Filter companies by selected SIC/NAICS codes using HIERARCHICAL matching
+    // This means a selected code "333" (Machinery Manufacturing) will match
+    // a company with code "333249" (Other Industrial Machinery)
     const filteredCompanies = apolloResult.companies.filter(company => {
-      // Check if company has any matching SIC codes
-      const hasSicMatch = company.sic_codes?.some(code => selectedSicSet.has(code)) || false;
-      // Check if company has any matching NAICS codes
-      const hasNaicsMatch = company.naics_codes?.some(code => selectedNaicsSet.has(code)) || false;
+      // Check if company has any matching SIC codes (hierarchical prefix match)
+      const hasSicMatch = company.sic_codes?.some(code => 
+        sicMatchesHierarchically(code, codeSelection.sicCodes)
+      ) || false;
+      // Check if company has any matching NAICS codes (hierarchical prefix match)
+      const hasNaicsMatch = company.naics_codes?.some(code => 
+        naicsMatchesHierarchically(code, codeSelection.naicsCodes)
+      ) || false;
       
       return hasSicMatch || hasNaicsMatch;
     });

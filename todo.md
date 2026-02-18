@@ -150,3 +150,10 @@
 - [x] Revise code selection prompt to return 30-50+ codes instead of 8-15
 - [x] Update guidelines to be more inclusive across all target market segments
 - [x] Test with ConnectGroup offering to verify broader coverage (now returns 47 SIC + 48 NAICS codes)
+
+## Feature: Hierarchical NAICS Reasoning
+- [x] Implement NAICS hierarchy parser (sector/subsector/industry_group/industry/national)
+- [x] Update LLM prompt to output structured NAICS at multiple abstraction levels
+- [x] Implement hierarchical matching (match at sector/subsector level, not just exact 6-digit)
+- [x] Update UI to display NAICS hierarchy with sector labels (SelectedCodesDisplay component)
+- [x] Write tests for hierarchical matching logic (26 tests + updated code selection tests, 91 total passing)

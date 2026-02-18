@@ -1,8 +1,9 @@
 /**
  * LLM Prompt: Select Relevant SIC/NAICS Codes for Offering
  * 
- * Purpose: Analyze a company's offering and identify which SIC/NAICS industry codes
- * represent potential customers who would need this offering.
+ * Uses hierarchical NAICS reasoning — the LLM selects codes at multiple
+ * abstraction levels (sector, subsector, industry group, industry, national)
+ * to cast a wide but intelligent net.
  */
 
 export interface OfferingInput {
@@ -35,9 +36,54 @@ Value Proposition: ${offering.valueProposition}
 
 **YOUR TASK**
 
-Identify which SIC (Standard Industrial Classification) and NAICS (North American Industry Classification System) codes represent companies that would be **potential customers** for this offering.
+Identify which SIC and NAICS codes represent companies that would be **potential customers** for this offering.
 
-**CRITICAL REQUIREMENT:** You MUST return AT LEAST 30 SIC codes and AT LEAST 30 NAICS codes. Fewer codes will result in missed opportunities and incomplete coverage of the target market.
+**CRITICAL: USE HIERARCHICAL NAICS REASONING**
+
+NAICS is a hierarchical economic behavior map. Each extra digit narrows how a company operates:
+
+\`\`\`
+XX      = Sector (macro economy role)        → e.g., "31-33" = Manufacturing
+XXX     = Subsector (business function type)  → e.g., "333" = Machinery Manufacturing
+XXXX    = Industry group (production style)   → e.g., "3332" = Industrial Machinery
+XXXXX   = Industry (market niche)             → e.g., "33324" = Industrial Machinery Mfg
+XXXXXX  = National specialization             → e.g., "333249" = Other Industrial Machinery
+\`\`\`
+
+The 20 NAICS sectors (modern economy map):
+
+| Sector | Official Name                              | What it really represents |
+|--------|-------------------------------------------|--------------------------|
+| 11     | Agriculture, Forestry, Fishing & Hunting  | Resource extraction & cultivation |
+| 21     | Mining, Quarrying & Oil/Gas Extraction    | Raw materials |
+| 22     | Utilities                                  | Infrastructure utilities |
+| 23     | Construction                               | Built environment |
+| 31-33  | Manufacturing                              | Physical production |
+| 42     | Wholesale Trade                            | B2B distribution |
+| 44-45  | Retail Trade                               | Consumer trade |
+| 48-49  | Transportation & Warehousing              | Logistics |
+| 51     | Information                                | Data/media/software |
+| 52     | Finance & Insurance                        | Money & risk |
+| 53     | Real Estate & Rental/Leasing              | Assets |
+| 54     | Professional, Scientific & Technical      | Knowledge work |
+| 55     | Management of Companies                    | Holding/control |
+| 56     | Administrative & Support Services         | Operational services |
+| 61     | Educational Services                       | Human capital |
+| 62     | Health Care & Social Assistance           | Care economy |
+| 71     | Arts, Entertainment & Recreation          | Experience economy |
+| 72     | Accommodation & Food Services             | Hospitality |
+| 81     | Other Services                             | Personal & repair |
+| 92     | Public Administration                      | Government |
+
+**YOU CAN MIX ABSTRACTION LEVELS.** Use this strategically:
+
+- Use **2-digit sector codes** when an ENTIRE sector is relevant (e.g., "22" for all utilities)
+- Use **3-digit subsector codes** for broad coverage (e.g., "333" for all machinery manufacturing)
+- Use **4-6 digit codes** only when you need to be specific within a sector
+
+This is much more powerful than listing 50 individual 6-digit codes. A single "333" covers ALL machinery manufacturing.
+
+---
 
 **IMPORTANT GUIDELINES:**
 
@@ -55,44 +101,40 @@ Identify which SIC (Standard Industrial Classification) and NAICS (North America
    - If offering is "supply chain software", DON'T select software publisher codes
    - Select the industries that would BUY and USE the offering
 
-4. **Be comprehensive and expansive (MINIMUM 30 codes per type)**:
-   - **REQUIRED: Include AT LEAST 30 SIC codes** (4-digit codes) - aim for 40-50 to cover the full breadth of target markets
-   - **REQUIRED: Include AT LEAST 30 NAICS codes** (6-digit codes) - aim for 40-50 for maximum coverage
-   - Cast a WIDE net across ALL mentioned target market segments - do not be selective
-   - Include both primary and adjacent industries that might use the offering
-   - For each target market segment mentioned, include 3-5 relevant codes minimum
-   - Prioritize codes that represent mid-to-large companies (avoid retail/small business codes unless explicitly relevant)
-   - When in doubt, ALWAYS INCLUDE the code rather than exclude it
-   - Better to have too many codes than too few - we filter on the backend
+4. **Be comprehensive — use hierarchy to cast a wide net**:
+   - Use sector/subsector codes (2-3 digits) for broad coverage of entire market segments
+   - Add specific 4-6 digit codes for niche industries not covered by broader codes
+   - For each target market segment mentioned, decide the right abstraction level
+   - When in doubt, use a BROADER code (fewer digits) to capture more companies
+   - Better to have too many matches than too few — we filter on the backend
 
-5. **Common SIC/NAICS patterns to consider**:
-   - Manufacturing sectors (SIC 20-39, NAICS 31-33)
-   - Technology & Electronics (SIC 357, 367, 382, NAICS 334, 335)
-   - Healthcare & Medical Devices (SIC 384, NAICS 3391, 3345)
-   - Automotive & Transportation (SIC 371, 373, NAICS 3361-3363)
-   - Aerospace & Defense (SIC 372, 376, NAICS 3364)
-   - Industrial Equipment (SIC 35, NAICS 333)
-   - Energy & Utilities (SIC 49, NAICS 221, 2211)
+5. **SIC codes follow a similar hierarchy**:
+   - 2-digit = Major Group (e.g., "35" = Industrial Machinery)
+   - 3-digit = Industry Group (e.g., "357" = Computer Equipment)
+   - 4-digit = Industry (e.g., "3571" = Electronic Computers)
+   - Use the same multi-level strategy for SIC codes
 
 **OUTPUT FORMAT**
 
 Respond with a JSON object in this exact structure:
 
 {
-  "sicCodes": ["1234", "5678", ...],
-  "naicsCodes": ["123456", "234567", ...],
-  "reasoning": "Brief explanation of why these codes were selected and what customer segments they represent"
+  "sicCodes": ["35", "36", "3714", "3841", ...],
+  "naicsCodes": ["333", "334", "336320", "339112", ...],
+  "reasoning": "Brief explanation of why these codes were selected, organized by target market segment"
 }
 
 **EXAMPLE**
 
-For an offering like "Industrial IoT sensors for predictive maintenance":
+For an offering like "Industrial IoT sensors for predictive maintenance" targeting Manufacturing, Utilities, Oil & Gas, Mining:
 
 {
-  "sicCodes": ["3561", "3562", "3569", "3714", "3724", "2911", "4911", "4922", "3531", "3532", "3533", "3537", "3711", "3713", "3715", "3721", "3728", "1311", "1321", "1381", "1382", "1389", "2911", "2992", "3312", "3316", "3317", "3321", "3324", "4931", "4932", "4939", "4941", "4952", "4953", "1041", "1044", "1061", "1081", "1094", "1099"],
-  "naicsCodes": ["333111", "333112", "333120", "336411", "336412", "324110", "221112", "221122", "333131", "333132", "333249", "333611", "333612", "333613", "333618", "336111", "336112", "336120", "336211", "336212", "336213", "336214", "211111", "211112", "211130", "212111", "212112", "212113", "212210", "212221", "212222", "212231", "212234", "212299", "213111", "213112", "221111", "221113", "221114", "221115", "221116", "221117", "221118", "221210", "221310", "221320", "221330"],
-  "reasoning": "Selected comprehensive coverage of manufacturing (industrial machinery, construction equipment, engines, automotive), utilities (power generation, natural gas, water), extractive industries (oil/gas extraction, mining of all types), and heavy equipment operators. Expanded to include all major segments that rely on equipment uptime and would benefit from predictive maintenance to prevent failures and optimize operations."
+  "sicCodes": ["10", "12", "13", "14", "20", "22", "24", "26", "28", "29", "30", "32", "33", "34", "35", "36", "37", "49", "1381", "1382", "1389"],
+  "naicsCodes": ["21", "22", "31", "32", "33", "48", "211130", "213111", "213112", "486210", "486910", "562211"],
+  "reasoning": "Used broad sector codes for maximum coverage: Manufacturing (SIC 20-37, NAICS 31-33) covers all factories with equipment needing predictive maintenance. Mining (SIC 10-14, NAICS 21) and Utilities (SIC 49, NAICS 22) are heavy equipment sectors. Added specific codes for oil/gas services (1381-1389, 213111-213112) and pipeline transport (486) as niche segments. Logistics (NAICS 48) included for fleet/equipment monitoring."
 }
+
+Notice how mixing 2-digit broad codes with specific 4-6 digit codes gives comprehensive coverage with far fewer codes to manage.
 
 Now analyze the offering above and return your code selection.`;
 }

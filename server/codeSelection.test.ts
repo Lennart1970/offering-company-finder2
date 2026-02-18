@@ -24,14 +24,14 @@ describe("Code Selection Service", () => {
     expect(result.naicsCodes.length).toBeGreaterThan(25);
     expect(result.naicsCodes.length).toBeLessThan(300); // NAICS can be more granular
 
-    // SIC codes should be 4 digits
+    // SIC codes should be 2-4 digits (hierarchical: major group, industry group, or industry)
     result.sicCodes.forEach(code => {
-      expect(code).toMatch(/^\d{4}$/);
+      expect(code).toMatch(/^\d{2,4}$/);
     });
 
-    // NAICS codes should be 6 digits
+    // NAICS codes should be 2-6 digits (hierarchical: sector, subsector, industry group, industry, or national)
     result.naicsCodes.forEach(code => {
-      expect(code).toMatch(/^\d{6}$/);
+      expect(code).toMatch(/^\d{2,6}$/);
     });
 
     // Should NOT select EMS provider codes (should select customer industries)

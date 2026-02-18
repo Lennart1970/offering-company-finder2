@@ -43,6 +43,7 @@ export const searches = mysqlTable("searches", {
   selectedSicCodes: text("selectedSicCodes"), // JSON array of LLM-selected SIC codes for filtering
   selectedNaicsCodes: text("selectedNaicsCodes"), // JSON array of LLM-selected NAICS codes for filtering
   codeSelectionReasoning: text("codeSelectionReasoning"), // LLM explanation for code selection
+  excludedSectors: text("excludedSectors"), // JSON array of 2-digit NAICS sector codes excluded by user
   status: mysqlEnum("status", ["pending", "extracting", "searching", "completed", "failed"]).default("pending").notNull(),
   errorMessage: text("errorMessage"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

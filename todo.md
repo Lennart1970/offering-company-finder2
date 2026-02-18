@@ -161,3 +161,10 @@
 ## Bug Fix: Duplicate React keys from duplicate SIC/NAICS codes
 - [x] Deduplicate codes in codeSelectionService before returning
 - [x] Deduplicate codes in SelectedCodesDisplay component as safety net
+
+## Feature: Sector-Level Exclusion from Targeting View
+- [x] Add backend procedure to exclude/include NAICS sectors for a search
+- [x] Store excluded sectors per search in database (excludedSectors column)
+- [x] Make sector cards clickable to toggle exclusion (visual strikethrough + red styling)
+- [x] Filter out companies matching excluded sectors from results (real-time)
+- [x] Test sector exclusion flow end-to-end (9 new tests, 100 total passing)

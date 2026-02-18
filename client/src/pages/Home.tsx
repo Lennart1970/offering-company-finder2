@@ -71,6 +71,18 @@ export default function Home() {
     { enabled: isAuthenticated }
   );
 
+  // Sector-level exclusions (persisted per search)
+  const [excludedSectors, setExcludedSectors] = useState<string[]>([]);
+
+  // Load excluded sectors from search data when it arrives
+  useEffect(() => {
+    if (searchData?.search.excludedSectors) {
+      try {
+        setExcludedSectors(JSON.parse(searchData.search.excludedSectors));
+      } catch {}
+    }
+  }, [searchData?.search.excludedSectors]);
+
   const exportCsvQuery = trpc.companyFinder.exportCsv.useQuery(
     { searchId: searchId! },
     { enabled: false }
@@ -122,8 +134,10 @@ export default function Home() {
     return new Set(excludedCodes.filter((c) => c.codeType === "naics").map((c) => c.code));
   }, [excludedCodes]);
 
-  // Filter companies: hide those with excluded SIC/NAICS codes
+  // Filter companies: hide those with excluded SIC/NAICS codes OR excluded sectors
   const [showExcluded, setShowExcluded] = useState(false);
+
+  const excludedSectorsSet = useMemo(() => new Set(excludedSectors), [excludedSectors]);
 
   const { filteredCompanies, excludedCompanies } = useMemo(() => {
     if (!searchData?.companies) return { filteredCompanies: [], excludedCompanies: [] };
@@ -134,8 +148,18 @@ export default function Home() {
     for (const company of searchData.companies) {
       let isExcluded = false;
 
-      if (company.enrichmentStatus === "enriched") {
-        // Check SIC codes
+      // Check if company belongs to an excluded NAICS sector (2-digit prefix)
+      if (company.naicsCodes && excludedSectorsSet.size > 0) {
+        try {
+          const codes: string[] = JSON.parse(company.naicsCodes);
+          if (codes.some((c) => excludedSectorsSet.has(c.substring(0, 2)))) {
+            isExcluded = true;
+          }
+        } catch {}
+      }
+
+      if (!isExcluded && company.enrichmentStatus === "enriched") {
+        // Check SIC codes against individual exclusion list
         if (company.sicCodes) {
           try {
             const codes: string[] = JSON.parse(company.sicCodes);
@@ -145,7 +169,7 @@ export default function Home() {
           } catch {}
         }
 
-        // Check NAICS codes
+        // Check NAICS codes against individual exclusion list
         if (!isExcluded && company.naicsCodes) {
           try {
             const codes: string[] = JSON.parse(company.naicsCodes);
@@ -164,7 +188,7 @@ export default function Home() {
     }
 
     return { filteredCompanies: filtered, excludedCompanies: excluded };
-  }, [searchData?.companies, excludedSicSet, excludedNaicsSet]);
+  }, [searchData?.companies, excludedSicSet, excludedNaicsSet, excludedSectorsSet]);
 
 
 
@@ -404,6 +428,9 @@ export default function Home() {
                     sicCodes={JSON.parse(searchData.search.selectedSicCodes)}
                     naicsCodes={JSON.parse(searchData.search.selectedNaicsCodes)}
                     reasoning={searchData.search.codeSelectionReasoning}
+                    searchId={searchId!}
+                    excludedSectors={excludedSectors}
+                    onExcludedSectorsChange={setExcludedSectors}
                   />
                 )}
               </div>

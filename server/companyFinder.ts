@@ -395,6 +395,23 @@ export const companyFinderRouter = router({
       await removeExcludedCode(input.codeId, ctx.user.id);
       return { success: true };
     }),
+
+  // Sector exclusion: Update excluded sectors for a search
+  updateExcludedSectors: protectedProcedure
+    .input(z.object({
+      searchId: z.number(),
+      excludedSectors: z.array(z.string()),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const search = await getSearchById(input.searchId);
+      if (!search || search.userId !== ctx.user.id) {
+        throw new Error("Search not found");
+      }
+      await updateSearch(input.searchId, {
+        excludedSectors: JSON.stringify(input.excludedSectors),
+      });
+      return { success: true };
+    }),
 });
 
 // Background search function for hardcoded ConnectGroup offering (skip extraction)

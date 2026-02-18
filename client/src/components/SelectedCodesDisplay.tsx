@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { NAICS_SECTORS, NAICS_SECTOR_REALITY, getCodeLevel } from "@shared/naicsHierarchy";
+import { trpc } from "@/lib/trpc";
+import { toast } from "sonner";
 
 const LEVEL_LABELS: Record<string, string> = {
   sector: "Sector",
@@ -53,9 +55,12 @@ interface Props {
   sicCodes: string[];
   naicsCodes: string[];
   reasoning: string | null;
+  searchId: number;
+  excludedSectors: string[];
+  onExcludedSectorsChange: (sectors: string[]) => void;
 }
 
-export default function SelectedCodesDisplay({ sicCodes, naicsCodes, reasoning }: Props) {
+export default function SelectedCodesDisplay({ sicCodes, naicsCodes, reasoning, searchId, excludedSectors, onExcludedSectorsChange }: Props) {
   const [expanded, setExpanded] = useState(false);
   // Deduplicate codes as safety net (LLM may return duplicates)
   const uniqueNaics = Array.from(new Set(naicsCodes));
@@ -63,7 +68,34 @@ export default function SelectedCodesDisplay({ sicCodes, naicsCodes, reasoning }
   const naicsGrouped = groupNaicsBySector(uniqueNaics);
   const sicGrouped = groupSicByMajor(uniqueSic);
 
-  const sectorCount = Object.keys(naicsGrouped).length;
+  const excludedSet = new Set(excludedSectors);
+
+  const activeSectors = Object.keys(naicsGrouped).filter(s => !excludedSet.has(s));
+  const excludedSectorsList = Object.keys(naicsGrouped).filter(s => excludedSet.has(s));
+
+  // Count active codes (excluding excluded sectors)
+  const activeNaicsCount = uniqueNaics.filter(code => !excludedSet.has(code.substring(0, 2))).length;
+  const activeSectorCount = activeSectors.length;
+
+  const updateExcludedSectors = trpc.companyFinder.updateExcludedSectors.useMutation({
+    onError: (error) => {
+      toast.error(`Failed to update exclusions: ${error.message}`);
+    },
+  });
+
+  const toggleSector = (sector: string) => {
+    let newExcluded: string[];
+    if (excludedSet.has(sector)) {
+      newExcluded = excludedSectors.filter(s => s !== sector);
+      toast.success(`Sector ${sector} — ${NAICS_SECTORS[sector] || "Unknown"} re-included`);
+    } else {
+      newExcluded = [...excludedSectors, sector];
+      const codesInSector = naicsGrouped[sector]?.codes.length || 0;
+      toast.success(`Sector ${sector} — ${NAICS_SECTORS[sector] || "Unknown"} excluded (${codesInSector} codes removed)`);
+    }
+    onExcludedSectorsChange(newExcluded);
+    updateExcludedSectors.mutate({ searchId, excludedSectors: newExcluded });
+  };
 
   return (
     <div className="mt-8 p-6 border-4 border-blue-600 bg-blue-50">
@@ -72,25 +104,44 @@ export default function SelectedCodesDisplay({ sicCodes, naicsCodes, reasoning }
         onClick={() => setExpanded(!expanded)}
       >
         <div className="text-sm font-black text-blue-600">
-          🎯 INDUSTRY CODE TARGETING ({uniqueNaics.length} NAICS across {sectorCount} sectors + {uniqueSic.length} SIC)
+          🎯 INDUSTRY CODE TARGETING ({activeNaicsCount} NAICS across {activeSectorCount} sectors + {uniqueSic.length} SIC)
+          {excludedSectorsList.length > 0 && (
+            <span className="ml-2 text-red-600">
+              [{excludedSectorsList.length} sector{excludedSectorsList.length > 1 ? "s" : ""} excluded]
+            </span>
+          )}
         </div>
         <span className="text-blue-600 font-black text-lg">{expanded ? "▲" : "▼"}</span>
       </div>
 
-      {/* Always show sector summary */}
-      <div className="mt-4 flex flex-wrap gap-2">
+      {/* Sector summary — clickable to toggle exclusion */}
+      <div className="mt-2 mb-1 text-xs text-gray-500 italic">Click a sector card to exclude/include it from filtering</div>
+      <div className="mt-2 flex flex-wrap gap-2">
         {Object.entries(naicsGrouped)
           .sort(([a], [b]) => a.localeCompare(b))
-          .map(([sector, group]) => (
-            <div
-              key={sector}
-              className="border-2 border-blue-600 bg-white px-3 py-2 text-xs"
-            >
-              <div className="font-black text-blue-600">{sector} — {group.label}</div>
-              <div className="text-gray-500 italic">{group.reality}</div>
-              <div className="text-gray-600 mt-1">{group.codes.length} code{group.codes.length > 1 ? "s" : ""}</div>
-            </div>
-          ))}
+          .map(([sector, group]) => {
+            const isExcluded = excludedSet.has(sector);
+            return (
+              <div
+                key={sector}
+                onClick={(e) => { e.stopPropagation(); toggleSector(sector); }}
+                className={`border-2 px-3 py-2 text-xs cursor-pointer transition-all select-none ${
+                  isExcluded
+                    ? "border-red-400 bg-red-50 opacity-60 line-through"
+                    : "border-blue-600 bg-white hover:bg-blue-100"
+                }`}
+              >
+                <div className={`font-black ${isExcluded ? "text-red-400" : "text-blue-600"}`}>
+                  {sector} — {group.label}
+                  {isExcluded && <span className="ml-1 no-underline text-red-600">✕</span>}
+                </div>
+                <div className={`italic ${isExcluded ? "text-red-300" : "text-gray-500"}`}>{group.reality}</div>
+                <div className={`mt-1 ${isExcluded ? "text-red-400" : "text-gray-600"}`}>
+                  {group.codes.length} code{group.codes.length > 1 ? "s" : ""}
+                </div>
+              </div>
+            );
+          })}
       </div>
 
       {expanded && (
@@ -103,27 +154,33 @@ export default function SelectedCodesDisplay({ sicCodes, naicsCodes, reasoning }
             </div>
             {Object.entries(naicsGrouped)
               .sort(([a], [b]) => a.localeCompare(b))
-              .map(([sector, group]) => (
-                <div key={sector} className="mb-4">
-                  <div className="text-xs font-black text-blue-800 mb-2">
-                    {sector} — {group.label} <span className="font-normal text-gray-500">({group.reality})</span>
+              .map(([sector, group]) => {
+                const isExcluded = excludedSet.has(sector);
+                return (
+                  <div key={sector} className={`mb-4 ${isExcluded ? "opacity-40 line-through" : ""}`}>
+                    <div className="text-xs font-black text-blue-800 mb-2">
+                      {sector} — {group.label} <span className="font-normal text-gray-500">({group.reality})</span>
+                      {isExcluded && <span className="ml-2 text-red-600 font-black no-underline">[EXCLUDED]</span>}
+                    </div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {group.codes
+                        .sort((a, b) => a.code.localeCompare(b.code))
+                        .map((item, i) => (
+                          <span
+                            key={i}
+                            className={`border-2 px-2 py-0.5 text-xs font-bold ${
+                              isExcluded ? "bg-gray-100 text-gray-400 border-gray-300" : (LEVEL_COLORS[item.level] || LEVEL_COLORS.national)
+                            }`}
+                            title={`${LEVEL_LABELS[item.level] || "Code"} level`}
+                          >
+                            {item.code}
+                            <span className="ml-1 text-[10px] opacity-60">{LEVEL_LABELS[item.level]?.charAt(0) || ""}</span>
+                          </span>
+                        ))}
+                    </div>
                   </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {group.codes
-                      .sort((a, b) => a.code.localeCompare(b.code))
-                      .map((item, i) => (
-                        <span
-                          key={i}
-                          className={`border-2 px-2 py-0.5 text-xs font-bold ${LEVEL_COLORS[item.level] || LEVEL_COLORS.national}`}
-                          title={`${LEVEL_LABELS[item.level] || "Code"} level`}
-                        >
-                          {item.code}
-                          <span className="ml-1 text-[10px] opacity-60">{LEVEL_LABELS[item.level]?.charAt(0) || ""}</span>
-                        </span>
-                      ))}
-                  </div>
-                </div>
-              ))}
+                );
+              })}
           </div>
 
           {/* SIC Codes */}

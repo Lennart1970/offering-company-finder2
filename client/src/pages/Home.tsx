@@ -895,7 +895,7 @@ function GenerateBriefButton({ companyId, companyName }: { companyId: number; co
                 <h3 className="text-xl font-black mb-2">Conversation Starters</h3>
                 <ul className="list-disc pl-5 space-y-1">
                   {briefData.conversationStarters.map((starter: string, i: number) => (
-                    <li key={i} className="text-blue-600 hover:text-blue-800">{starter}</li>
+                    <li key={i} className="text-blue-600">{starter}</li>
                   ))}
                 </ul>
               </div>

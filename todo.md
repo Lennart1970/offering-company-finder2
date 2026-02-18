@@ -324,3 +324,12 @@
 ## Bug Fix: Grok Model Name
 - [x] Check current model configuration in briefGenerator.ts
 - [x] Update to correct Grok model name (grok-4-1-fast-reasoning for fast reasoning)
+
+## Bug Fix: Server Returning HTML Instead of JSON
+- [ ] Check server logs to identify error
+- [ ] Fix the root cause
+- [ ] Test and verify
+
+## Bug Fix: Remove Hover Effect from Brief Links
+- [x] Remove hover:text-blue-800 class from conversation starter links
+- [x] Keep links blue and readable at all times

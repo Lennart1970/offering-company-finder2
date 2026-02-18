@@ -313,3 +313,10 @@
 
 ## Bug Fix: Brief Modal Link Hover
 - [x] Fix blue links turning white on hover in brief modal (now hover to darker blue)
+
+## Production Fix: Brief Generation
+- [x] Install OpenAI SDK for Node.js (xAI is OpenAI-compatible)
+- [x] Rewrite briefGenerator.ts to use OpenAI SDK with xAI endpoint
+- [x] Remove Python script dependency (now using TypeScript/Node.js)
+- [ ] Test in dev environment
+- [ ] Verify works in production

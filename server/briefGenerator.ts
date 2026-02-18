@@ -1,17 +1,19 @@
 /**
  * Sales Intelligence Brief Generator
  * 
- * Generates comprehensive sales briefs using Grok MCP for:
+ * Generates comprehensive sales briefs using xAI Grok API for:
  * - Urgency detection (recent developments, growth signals)
  * - Company intelligence (products, technologies, target markets)
  * - Engagement strategy generation
  */
 
-import { exec } from "child_process";
-import { promisify } from "util";
+import OpenAI from "openai";
 import { getCompanyById } from "./db";
 
-const execAsync = promisify(exec);
+const xai = new OpenAI({
+  apiKey: process.env.XAI_API_KEY,
+  baseURL: "https://api.x.ai/v1",
+});
 
 export interface SalesIntelligenceBrief {
   companyName: string;
@@ -80,73 +82,219 @@ export async function generateSalesIntelligenceBrief(
 
   console.log(`[Brief Generator] Generating brief for ${company.name}`);
 
-  // Parse NAICS codes
+  const domain = company.primaryDomain || company.websiteUrl || "unknown.com";
   const naicsCodes = company.naicsCodes ? JSON.parse(company.naicsCodes) : [];
-
-  // Build command
-  const scriptPath = "/home/ubuntu/offering-company-finder/python_scripts/generate_sales_brief.py";
-  const args = [
-    `"${company.name}"`,
-    `"${company.primaryDomain || company.websiteUrl || "unknown.com"}"`,
-  ];
-
-  if (company.linkedinUrl) {
-    args.push(`--linkedin "${company.linkedinUrl}"`);
-  }
-
-  // Try to infer industry from NAICS codes (simplified)
   const industry = inferIndustryFromNAICS(naicsCodes);
-  if (industry) {
-    args.push(`--industry "${industry}"`);
-  }
 
-  // Add employee count (estimate from revenue or use placeholder)
-  const employeeCount = estimateEmployeeCount(company.revenue);
-  if (employeeCount) {
-    args.push(`--size ${employeeCount}`);
-  }
+  // Phase 1: Detect urgency signals
+  console.log(`[Brief Generator] Phase 1: Detecting urgency signals...`);
+  const urgencyPrompt = `You are a B2B sales intelligence analyst. Analyze the company "${company.name}" (${domain}) to detect urgency signals for potential EMS/electronics manufacturing partnerships.
 
-  if (company.revenue) {
-    args.push(`--revenue "${company.revenue}"`);
-  }
+Use web search to find recent developments (2024-2025) including:
+- Expansion plans or new facilities
+- Product launches or R&D announcements
+- Hiring trends (especially engineering/manufacturing roles)
+- Partnerships or acquisitions
+- Funding rounds or financial growth
 
-  if (naicsCodes.length > 0) {
-    args.push(`--naics ${naicsCodes.join(" ")}`);
-  }
+Score urgency 0-100 based on:
+- Company Context (0-40): Growth stage, financial health, industry momentum
+- Market Signals (0-35): Competitive pressure, market expansion, technology shifts
+- Recent Activity (0-25): Hiring, announcements, news mentions in past 6 months
 
-  // Use system Python 3.11 explicitly (xAI SDK is installed there)
-  const command = `/usr/bin/python3.11 ${scriptPath} ${args.join(" ")}`;
-
-  console.log(`[Brief Generator] Executing: ${command}`);
-
-  try {
-    // Clear PYTHONPATH to prevent Python 3.11 from importing Python 3.13 modules
-    const cleanEnv = { ...process.env };
-    delete cleanEnv.PYTHONPATH;
-    delete cleanEnv.PYTHONHOME;
-    
-    const { stdout, stderr } = await execAsync(command, {
-      maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large responses
-      timeout: 300000, // 5 minute timeout
-      env: cleanEnv,
-    });
-
-    if (stderr) {
-      console.error(`[Brief Generator] Stderr: ${stderr}`);
+Return JSON only:
+{
+  "urgencyScore": 45,
+  "urgencyBreakdown": {
+    "companyContext": 20,
+    "marketSignals": 15,
+    "recentActivity": 10
+  },
+  "recentDevelopments": ["2025: Launched new product line...", "2024: Expanded to APAC..."],
+  "urgencySignals": [
+    {
+      "category": "Growth",
+      "type": "Product Launch",
+      "description": "Launched new IoT sensor line in Q1 2025",
+      "weight": 8,
+      "source": "Company press release",
+      "url": "https://example.com/news",
+      "detectedAt": "2025-01-15"
     }
+  ]
+}`;
 
-    // Parse JSON output from Python script
-    const brief: SalesIntelligenceBrief = JSON.parse(stdout);
+  const urgencyResponse = await xai.chat.completions.create({
+    model: "grok-2-1212",
+    messages: [{ role: "user", content: urgencyPrompt }],
+    response_format: { type: "json_object" },
+  });
 
-    console.log(
-      `[Brief Generator] ✓ Brief generated with urgency score: ${brief.urgencyScore}`
-    );
+  const urgencyData = JSON.parse(
+    urgencyResponse.choices[0].message.content || "{}"
+  );
+  console.log(`[Brief Generator] Urgency score: ${urgencyData.urgencyScore}`);
 
-    return brief;
-  } catch (error: any) {
-    console.error(`[Brief Generator] Error:`, error);
-    throw new Error(`Failed to generate brief: ${error.message}`);
-  }
+  // Phase 2: Gather company intelligence
+  console.log(`[Brief Generator] Phase 2: Gathering company intelligence...`);
+  const intelligencePrompt = `You are a B2B sales intelligence analyst. Research "${company.name}" (${domain}) to gather detailed company intelligence for an EMS sales approach.
+
+Use web search to find:
+1. Products & Services (categorized)
+2. Key Technologies used
+3. Target Markets/Industries they serve
+4. Industry keywords (50+ terms)
+
+Return JSON only:
+{
+  "productsServices": [
+    {"category": "IoT Devices", "description": "Smart home sensors and gateways"},
+    {"category": "Medical Devices", "description": "Diagnostic equipment"}
+  ],
+  "keyTechnologies": [
+    {"name": "IoT", "description": "Internet of Things connectivity"},
+    {"name": "Bluetooth LE", "description": "Low-energy wireless communication"}
+  ],
+  "targetMarkets": [
+    {"segment": "Smart Home", "description": "Residential automation systems"},
+    {"segment": "Healthcare", "description": "Medical diagnostic equipment"}
+  ],
+  "industryKeywords": ["IoT", "sensors", "wireless", "embedded systems", "PCB", "electronics", ...]
+}`;
+
+  const intelligenceResponse = await xai.chat.completions.create({
+    model: "grok-2-1212",
+    messages: [{ role: "user", content: intelligencePrompt }],
+    response_format: { type: "json_object" },
+  });
+
+  const intelligenceData = JSON.parse(
+    intelligenceResponse.choices[0].message.content || "{}"
+  );
+  console.log(
+    `[Brief Generator] Found ${intelligenceData.productsServices?.length || 0} product categories`
+  );
+
+  // Phase 3: Generate conversation starters
+  console.log(`[Brief Generator] Phase 3: Generating conversation starters...`);
+  const conversationPrompt = `Based on these recent developments for "${company.name}":
+${urgencyData.recentDevelopments?.join("\n") || "No recent developments found"}
+
+Generate 3 specific conversation starters that reference these developments and position ConnectGroup's EMS capabilities (PCB assembly, cable assembly, module building, design-to-product).
+
+Return JSON only:
+{
+  "conversationStarters": [
+    "I saw that you recently launched X - are you evaluating manufacturing partners to scale production?",
+    "Noticed your expansion into Y market - how are you handling the increased PCB assembly demands?",
+    "Your recent Z announcement suggests growth - are you looking to optimize your supply chain for faster time-to-market?"
+  ]
+}`;
+
+  const conversationResponse = await xai.chat.completions.create({
+    model: "grok-2-1212",
+    messages: [{ role: "user", content: conversationPrompt }],
+    response_format: { type: "json_object" },
+  });
+
+  const conversationData = JSON.parse(
+    conversationResponse.choices[0].message.content || "{}"
+  );
+  console.log(
+    `[Brief Generator] Generated ${conversationData.conversationStarters?.length || 0} conversation starters`
+  );
+
+  // Phase 4: Generate engagement strategy
+  console.log(`[Brief Generator] Phase 4: Generating engagement strategy...`);
+  const strategyPrompt = `You are a B2B sales strategist. Based on this intelligence for "${company.name}":
+
+Urgency Score: ${urgencyData.urgencyScore}/100
+Products: ${intelligenceData.productsServices?.map((p: any) => p.category).join(", ")}
+Technologies: ${intelligenceData.keyTechnologies?.map((t: any) => t.name).join(", ")}
+Recent Developments: ${urgencyData.recentDevelopments?.join("; ")}
+
+Generate an engagement strategy for ConnectGroup (EMS provider: PCB assembly, cable assembly, module building, design-to-product) to approach this prospect.
+
+Return JSON only:
+{
+  "whyThisProspectMatters": [
+    "Strong fit with ConnectGroup's IoT manufacturing capabilities",
+    "Growing market presence indicates scaling needs",
+    "Technology stack aligns with our expertise"
+  ],
+  "recommendedApproach": [
+    "Lead with design-to-product capabilities for their IoT expansion",
+    "Highlight our experience in similar smart home projects",
+    "Emphasize fast time-to-market and supply chain optimization"
+  ],
+  "keyTalkingPoints": [
+    "Our PCB assembly capabilities support complex IoT designs",
+    "We've helped similar companies scale from prototype to production",
+    "Our cable assembly expertise can streamline their manufacturing"
+  ]
+}`;
+
+  const strategyResponse = await xai.chat.completions.create({
+    model: "grok-2-1212",
+    messages: [{ role: "user", content: strategyPrompt }],
+    response_format: { type: "json_object" },
+  });
+
+  const strategyData = JSON.parse(
+    strategyResponse.choices[0].message.content || "{}"
+  );
+  console.log(`[Brief Generator] Generated engagement strategy`);
+
+  // Assemble final brief
+  const brief: SalesIntelligenceBrief = {
+    companyName: company.name,
+    generatedAt: new Date().toISOString(),
+    urgencyScore: urgencyData.urgencyScore || 0,
+    urgencyBreakdown: urgencyData.urgencyBreakdown || {
+      companyContext: 0,
+      marketSignals: 0,
+      recentActivity: 0,
+    },
+    executiveSummary: {
+      company: company.name,
+      industry: industry || "Unknown",
+      employees: "Unknown", // Employee count not stored in schema
+      revenue: company.revenue || "Unknown",
+      domain: domain,
+      linkedin: company.linkedinUrl || "",
+    },
+    verifiedContacts: {
+      website: {
+        value: domain,
+        source: "Apollo",
+        verified: true,
+      },
+      linkedin: {
+        value: company.linkedinUrl || "",
+        source: "Apollo",
+        verified: !!company.linkedinUrl,
+      },
+    },
+    productsServices: intelligenceData.productsServices || [],
+    keyTechnologies: intelligenceData.keyTechnologies || [],
+    recentDevelopments: urgencyData.recentDevelopments || [],
+    targetMarkets: intelligenceData.targetMarkets || [],
+    industryKeywords: intelligenceData.industryKeywords || [],
+    naicsCodes: naicsCodes,
+    urgencySignals: urgencyData.urgencySignals || [],
+    conversationStarters: conversationData.conversationStarters || [],
+    engagementStrategy: {
+      whyThisProspectMatters: strategyData.whyThisProspectMatters || [],
+      recommendedApproach: strategyData.recommendedApproach || [],
+      keyTalkingPoints: strategyData.keyTalkingPoints || [],
+    },
+  };
+
+  console.log(
+    `[Brief Generator] ✓ Brief generated with urgency score: ${brief.urgencyScore}`
+  );
+
+  return brief;
 }
 
 /**
@@ -186,34 +334,6 @@ function inferIndustryFromNAICS(naicsCodes: string[]): string | null {
   };
 
   return sectorMap[sectorCode] || "Unknown";
-}
-
-/**
- * Estimate employee count from revenue (rough heuristic)
- */
-function estimateEmployeeCount(revenue: string | null): number | null {
-  if (!revenue) return null;
-
-  // Parse revenue string (e.g., "$10M-50M", "$100M+")
-  const match = revenue.match(/\$(\d+)([MBK])/i);
-  if (!match) return null;
-
-  const value = parseInt(match[1]);
-  const unit = match[2].toUpperCase();
-
-  let revenueInMillions = 0;
-  if (unit === "K") {
-    revenueInMillions = value / 1000;
-  } else if (unit === "M") {
-    revenueInMillions = value;
-  } else if (unit === "B") {
-    revenueInMillions = value * 1000;
-  }
-
-  // Rough heuristic: $200K revenue per employee
-  const estimatedEmployees = Math.round((revenueInMillions * 1000000) / 200000);
-
-  return estimatedEmployees > 0 ? estimatedEmployees : null;
 }
 
 /**

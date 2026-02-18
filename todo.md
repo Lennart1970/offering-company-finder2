@@ -172,16 +172,16 @@
 ## Feature: Two-Step Search Flow (NAICS Targeting → Batched Keyword Search)
 - [x] Split search into Step A (NAICS sector targeting) and Step B (batched Apollo search)
 - [ ] Step A: Show LLM-selected NAICS sectors in review UI with exclusion controls (already exists)
-- [ ] Step A: Add "Confirm & Search" button to proceed to Step B
+- [x] Step A: Add "Confirm & Search" button to proceed to Step B
 - [x] Step A: Store confirmed/excluded sectors before starting Apollo search
 - [x] Step B: Run separate Apollo search per keyword tag (Railway, Healthcare, Infrastructure, etc.)
-- [ ] Step B: Show progress tracker ("Searching 15/32 keywords...")
+- [x] Step B: Show progress tracker ("Searching 15/32 keywords...")
 - [x] Step B: Filter results by confirmed NAICS sectors using hierarchical matching
 - [x] Step B: Deduplicate companies across batches by Apollo ID
 - [x] Step B: Aggregate filtered results and store in database
 - [x] Update database schema to track search progress (codesSearched/codesTotal reused for keywords)
 - [x] Backend: confirmAndSearch function with batched keyword search logic
 - [x] Backend: confirmAndSearch tRPC procedure
-- [ ] Frontend: Add "Confirm & Search" button when status is "code_targeting"
-- [ ] Frontend: Show progress during batched search
-- [ ] Write tests for batched keyword search and hierarchical filtering logic
+- [x] Frontend: Add "Confirm & Search" button when status is "code_targeting"
+- [x] Frontend: Show progress during batched search (progress bar + "Searching keyword X of Y")
+- [x] Write tests for batched keyword search and hierarchical filtering logic (4 new tests, 104 total passing)

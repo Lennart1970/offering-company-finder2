@@ -57,7 +57,7 @@ describe("companyFinder router", () => {
           userId: 1,
           companyWebsite: "https://www.connectgroup.com/en/",
           location: "Atlanta, GA",
-          status: "searching",
+          status: "code_targeting", // Changed from "searching" to "code_targeting" for two-step flow
           offeringName: "Electronics Manufacturing Services (EMS) - PCB Assembly, Cable Assembly & Module Building",
         })
       );

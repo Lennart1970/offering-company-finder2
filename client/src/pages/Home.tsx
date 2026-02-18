@@ -65,6 +65,24 @@ export default function Home() {
     },
   });
 
+  const confirmAndSearchMutation = trpc.companyFinder.confirmAndSearch.useMutation({
+    onSuccess: () => {
+      toast.success("Batched keyword search started! Progress will update automatically.");
+      // Refetch search data to see progress
+      if (searchId) {
+        utils.companyFinder.getSearch.invalidate({ searchId });
+      }
+    },
+    onError: (error) => {
+      toast.error(`Failed to start search: ${error.message}`);
+    },
+  });
+
+  const handleConfirmSearch = () => {
+    if (!searchId) return;
+    confirmAndSearchMutation.mutate({ searchId });
+  };
+
   // Fetch excluded codes for filtering
   const { data: excludedCodes } = trpc.companyFinder.getExcludedCodes.useQuery(
     undefined,
@@ -372,8 +390,32 @@ export default function Home() {
               {searchData?.search.status === "extracting" && (
                 <div className="mt-8 text-2xl font-black animate-pulse">→ STEP 1: EXTRACTING OFFERING DATA...</div>
               )}
+              {searchData?.search.status === "code_targeting" && (
+                <div className="mt-8 p-6 border-4 border-yellow-600 bg-yellow-50">
+                  <div className="text-2xl font-black text-yellow-600">⏸ STEP 2: CODE TARGETING COMPLETE</div>
+                  <div className="mt-2 text-sm text-gray-600">Review the selected NAICS sectors below. Click any sector to exclude it, then click "CONFIRM & START BATCHED SEARCH" to proceed.</div>
+                </div>
+              )}
               {searchData?.search.status === "searching" && (
-                <div className="mt-8 text-2xl font-black animate-pulse">→ STEP 2: FAST SEARCH — FINDING COMPANIES...</div>
+                <div className="mt-8 p-6 border-4 border-blue-600 bg-blue-50">
+                  <div className="text-2xl font-black text-blue-600 animate-pulse">→ STEP 3: BATCHED KEYWORD SEARCH IN PROGRESS...</div>
+                  {searchData.search.codesTotal && searchData.search.codesSearched !== null && (
+                    <div className="mt-4">
+                      <div className="text-lg font-bold text-gray-700">
+                        Searching keyword {searchData.search.codesSearched + 1} of {searchData.search.codesTotal}
+                      </div>
+                      <div className="mt-2 w-full bg-gray-200 h-4">
+                        <div
+                          className="bg-blue-600 h-4 transition-all duration-300"
+                          style={{ width: `${((searchData.search.codesSearched / searchData.search.codesTotal) * 100)}%` }}
+                        />
+                      </div>
+                      <div className="mt-2 text-sm text-gray-600">
+                        {Math.round((searchData.search.codesSearched / searchData.search.codesTotal) * 100)}% complete
+                      </div>
+                    </div>
+                  )}
+                </div>
               )}
               {searchData?.search.status === "failed" && (
                 <div className="mt-8 text-2xl font-black text-destructive">✕ ERROR: {searchData.search.errorMessage}</div>
@@ -431,6 +473,8 @@ export default function Home() {
                     searchId={searchId!}
                     excludedSectors={excludedSectors}
                     onExcludedSectorsChange={setExcludedSectors}
+                    searchStatus={searchData.search.status}
+                    onConfirmSearch={handleConfirmSearch}
                   />
                 )}
               </div>

@@ -58,9 +58,11 @@ interface Props {
   searchId: number;
   excludedSectors: string[];
   onExcludedSectorsChange: (sectors: string[]) => void;
+  searchStatus: string;
+  onConfirmSearch: () => void;
 }
 
-export default function SelectedCodesDisplay({ sicCodes, naicsCodes, reasoning, searchId, excludedSectors, onExcludedSectorsChange }: Props) {
+export default function SelectedCodesDisplay({ sicCodes, naicsCodes, reasoning, searchId, excludedSectors, onExcludedSectorsChange, searchStatus, onConfirmSearch }: Props) {
   const [expanded, setExpanded] = useState(false);
   // Deduplicate codes as safety net (LLM may return duplicates)
   const uniqueNaics = Array.from(new Set(naicsCodes));
@@ -116,6 +118,22 @@ export default function SelectedCodesDisplay({ sicCodes, naicsCodes, reasoning, 
 
       {/* Sector summary — clickable to toggle exclusion */}
       <div className="mt-2 mb-1 text-xs text-gray-500 italic">Click a sector card to exclude/include it from filtering</div>
+      
+      {/* Confirm & Search button (only shown when status is code_targeting) */}
+      {searchStatus === "code_targeting" && (
+        <div className="mt-4 mb-4">
+          <button
+            onClick={(e) => { e.stopPropagation(); onConfirmSearch(); }}
+            className="w-full bg-green-600 hover:bg-green-700 text-white font-black py-4 px-6 text-lg transition-colors"
+          >
+            ✓ CONFIRM & START BATCHED SEARCH
+          </button>
+          <div className="mt-2 text-xs text-gray-600 italic text-center">
+            Will run {activeSectorCount} separate Apollo searches (one per keyword tag), filter by confirmed sectors, and deduplicate results
+          </div>
+        </div>
+      )}
+      
       <div className="mt-2 flex flex-wrap gap-2">
         {Object.entries(naicsGrouped)
           .sort(([a], [b]) => a.localeCompare(b))

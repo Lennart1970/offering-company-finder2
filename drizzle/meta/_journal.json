@@ -71,6 +71,20 @@
       "when": 1771425764416,
       "tag": "0009_lean_morph",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1771430858807,
+      "tag": "0010_wandering_princess_powerful",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1771431791711,
+      "tag": "0011_lucky_taskmaster",
+      "breakpoints": true
     }
   ]
 }

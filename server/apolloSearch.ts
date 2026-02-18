@@ -136,6 +136,7 @@ export interface ApolloSearchParams {
   targetMarket: string;
   location: string;
   limit?: number;
+  employeeRanges?: Array<{ min: number; max: number | null }>; // Optional: override default employee ranges
 }
 
 export interface ApolloSearchResult {
@@ -156,9 +157,9 @@ export async function searchApolloCompanies(
     throw new Error("APOLLO_API_KEY environment variable not set");
   }
 
-  const { targetMarketKeywordTags, targetMarket, location, limit = 100 } = params;
+  const { targetMarketKeywordTags, targetMarket, location, limit = 100, employeeRanges: customEmployeeRanges } = params;
   const normalizedLocation = normalizeLocation(location);
-  const employeeRanges = parseTargetMarket(targetMarket);
+  const employeeRanges = customEmployeeRanges || parseTargetMarket(targetMarket);
 
   const keywordTags = targetMarketKeywordTags.slice(0, 10);
 

@@ -438,6 +438,45 @@ export const companyFinderRouter = router({
       
       return { success: true, message: "Batched search started" };
     }),
+
+  // Generate sales intelligence brief for a company
+  generateBrief: protectedProcedure
+    .input(z.object({
+      companyId: z.number(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const company = await getCompanyById(input.companyId);
+      if (!company) {
+        throw new Error("Company not found");
+      }
+
+      console.log(`[generateBrief] Starting brief generation for company ${input.companyId}`);
+
+      // Import brief generator
+      const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
+
+      try {
+        // Generate the brief (this calls Python script with Grok)
+        const brief = await generateSalesIntelligenceBrief(input.companyId);
+
+        // Update company with brief data
+        await updateCompany(input.companyId, {
+          urgencyScore: brief.urgencyScore,
+          briefData: JSON.stringify(brief),
+          briefGeneratedAt: new Date(),
+        });
+
+        console.log(`[generateBrief] ✓ Brief generated with urgency score: ${brief.urgencyScore}`);
+
+        return {
+          success: true,
+          brief,
+        };
+      } catch (error: any) {
+        console.error(`[generateBrief] Error:`, error);
+        throw new Error(`Failed to generate brief: ${error.message}`);
+      }
+    }),
 });
 
 // Background search function for hardcoded ConnectGroup offering (skip extraction)

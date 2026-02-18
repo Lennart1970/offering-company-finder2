@@ -709,8 +709,9 @@ function CompanyCard({
 
       {/* Generate Package Button (only for enriched companies) */}
       {company.enrichmentStatus === "enriched" && (
-        <div className="mt-3">
+        <div className="mt-3 flex gap-2">
           <GeneratePackageButton companyId={company.id} companyName={company.name} />
+          <GenerateBriefButton companyId={company.id} companyName={company.name} />
         </div>
       )}
     </div>
@@ -806,5 +807,184 @@ function GeneratePackageButton({ companyId, companyName }: { companyId: number; 
     >
       {isGenerating ? "[GENERATING PACKAGE...]" : "[GENERATE SALES PACKAGE]"}
     </Button>
+  );
+}
+
+// Component for generating sales intelligence brief using Grok
+function GenerateBriefButton({ companyId, companyName }: { companyId: number; companyName: string }) {
+  const [briefData, setBriefData] = useState<any>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showBrief, setShowBrief] = useState(false);
+
+  const generateBriefMutation = trpc.companyFinder.generateBrief.useMutation({
+    onSuccess: (data) => {
+      setBriefData(data.brief);
+      setIsGenerating(false);
+      setShowBrief(true);
+      toast.success(`Brief generated with urgency score: ${data.brief.urgencyScore}`);
+    },
+    onError: (error) => {
+      toast.error(`Failed to generate brief: ${error.message}`);
+      setIsGenerating(false);
+    },
+  });
+
+  const handleGenerate = () => {
+    setIsGenerating(true);
+    generateBriefMutation.mutate({ companyId });
+  };
+
+  return (
+    <>
+      <Button
+        onClick={handleGenerate}
+        disabled={isGenerating}
+        variant="outline"
+        className="font-black border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white w-full"
+      >
+        {isGenerating ? "[GENERATING BRIEF...]" : "[GENERATE BRIEF]"}
+      </Button>
+
+      {/* Brief Display Modal */}
+      {showBrief && briefData && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowBrief(false)}>
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-2xl font-black">{companyName} - Sales Intelligence Brief</h2>
+              <button onClick={() => setShowBrief(false)} className="text-2xl font-black hover:text-red-600">×</button>
+            </div>
+
+            {/* Urgency Score */}
+            <div className="mb-6 p-4 bg-blue-50 border-2 border-blue-600 rounded">
+              <div className="text-3xl font-black text-blue-600 mb-2">Urgency Score: {briefData.urgencyScore}/100</div>
+              <div className="grid grid-cols-3 gap-4 text-sm">
+                <div>
+                  <div className="font-bold">Company Context</div>
+                  <div>{briefData.urgencyBreakdown.companyContext}/40</div>
+                </div>
+                <div>
+                  <div className="font-bold">Market Signals</div>
+                  <div>{briefData.urgencyBreakdown.marketSignals}/35</div>
+                </div>
+                <div>
+                  <div className="font-bold">Recent Activity</div>
+                  <div>{briefData.urgencyBreakdown.recentActivity}/25</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Recent Developments */}
+            {briefData.recentDevelopments && briefData.recentDevelopments.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-xl font-black mb-2">Recent Developments (2024-2025)</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  {briefData.recentDevelopments.map((dev: string, i: number) => (
+                    <li key={i}>{dev}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Conversation Starters */}
+            {briefData.conversationStarters && briefData.conversationStarters.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-xl font-black mb-2">Conversation Starters</h3>
+                <ul className="list-disc pl-5 space-y-1">
+                  {briefData.conversationStarters.map((starter: string, i: number) => (
+                    <li key={i} className="text-blue-600">{starter}</li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Products & Services */}
+            {briefData.productsServices && briefData.productsServices.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-xl font-black mb-2">Products & Services</h3>
+                {briefData.productsServices.map((ps: any, i: number) => (
+                  <div key={i} className="mb-2">
+                    <div className="font-bold">{ps.category}</div>
+                    <div className="text-sm">{ps.description}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Key Technologies */}
+            {briefData.keyTechnologies && briefData.keyTechnologies.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-xl font-black mb-2">Key Technologies</h3>
+                {briefData.keyTechnologies.map((tech: any, i: number) => (
+                  <div key={i} className="mb-2">
+                    <div className="font-bold">{tech.name}</div>
+                    <div className="text-sm">{tech.description}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Target Markets */}
+            {briefData.targetMarkets && briefData.targetMarkets.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-xl font-black mb-2">Target Markets</h3>
+                {briefData.targetMarkets.map((market: any, i: number) => (
+                  <div key={i} className="mb-2">
+                    <div className="font-bold">{market.segment}</div>
+                    <div className="text-sm">{market.description}</div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Engagement Strategy */}
+            {briefData.engagementStrategy && (
+              <div className="mb-6">
+                <h3 className="text-xl font-black mb-2">Engagement Strategy</h3>
+                
+                {briefData.engagementStrategy.whyThisProspectMatters && briefData.engagementStrategy.whyThisProspectMatters.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="font-bold mb-1">Why This Prospect Matters:</h4>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      {briefData.engagementStrategy.whyThisProspectMatters.map((reason: string, i: number) => (
+                        <li key={i}>{reason}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {briefData.engagementStrategy.recommendedApproach && briefData.engagementStrategy.recommendedApproach.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="font-bold mb-1">Recommended Approach:</h4>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      {briefData.engagementStrategy.recommendedApproach.map((step: string, i: number) => (
+                        <li key={i}>{step}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {briefData.engagementStrategy.keyTalkingPoints && briefData.engagementStrategy.keyTalkingPoints.length > 0 && (
+                  <div className="mb-4">
+                    <h4 className="font-bold mb-1">Key Talking Points:</h4>
+                    <ul className="list-disc pl-5 space-y-1 text-sm">
+                      {briefData.engagementStrategy.keyTalkingPoints.map((point: string, i: number) => (
+                        <li key={i}>{point}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+
+            <Button
+              onClick={() => setShowBrief(false)}
+              className="w-full font-black"
+            >
+              CLOSE
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

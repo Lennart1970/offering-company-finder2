@@ -261,3 +261,34 @@
 - [ ] Add selective enrichment (only enrich score >= 6)
 - [ ] Update UI: show relevance scores, "why matched" tags, sort by score
 - [ ] Test with Paris (expect 2000-5000 companies)
+
+## Multi-Slice Search Implementation (In Progress)
+- [x] Create searchSlices.ts with slice configurations
+- [x] Define employee bands: 50-200, 201-500, 501-1000
+- [x] Define industry keyword sets (7 industries)
+- [x] Define keyword sets: Core EMS/PCB, Complexity, Embedded/Hardware
+- [x] Update confirmAndSearch to iterate through all slices
+- [x] Add slice progress tracking (X of Y slices completed)
+- [x] Store slice_metadata with each company
+- [x] Add sliceMetadata field to database schema
+- [ ] Update UI to show slice statistics
+- [ ] Test with Paris (expect 5000+ companies)
+
+## Sales Intelligence Brief Generation (New Feature)
+- [x] Read urgency-detection skill
+- [x] Design brief generation workflow using Grok MCP
+- [x] Install xAI SDK and test Grok connection
+- [x] Create Python script for brief generation (generate_sales_brief.py)
+- [x] Implement Phase 1: Data collection from database
+- [x] Implement Phase 2: Urgency detection (Grok web search)
+- [x] Implement Phase 3: Company intelligence (Grok web search)
+- [x] Implement Phase 4: Contact verification
+- [x] Implement Phase 5: Engagement strategy (Grok reasoning)
+- [x] Implement Phase 6: Brief assembly & formatting
+- [x] Create briefGenerator.ts TypeScript wrapper
+- [x] Add urgencyScore and briefData fields to companies table
+- [x] Add tRPC mutation: generateBrief
+- [x] Add "Generate Brief" button to company cards
+- [x] Add brief display modal/page
+- [ ] Test with real company
+- [ ] Add batch generation for 'call now' companies

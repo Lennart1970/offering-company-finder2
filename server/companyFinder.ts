@@ -92,7 +92,7 @@ export const companyFinderRouter = router({
         userId: ctx.user.id,
         companyWebsite: "https://www.connectgroup.com/en/",
         location: input.location,
-        status: "searching",
+        status: "code_targeting", // STOP here for user review
         offeringName: connectGroupOffering.name,
         offeringDescription: connectGroupOffering.description,
         targetMarket: connectGroupOffering.targetMarket,
@@ -101,16 +101,10 @@ export const companyFinderRouter = router({
         selectedSicCodes: JSON.stringify(codeSelection.sicCodes),
         selectedNaicsCodes: JSON.stringify(codeSelection.naicsCodes),
         codeSelectionReasoning: codeSelection.reasoning,
+        excludedSectors: JSON.stringify([]), // Empty initially, user can exclude sectors
       });
 
-      // Start search immediately (skip extraction)
-      searchWithHardcodedOffering(searchId, connectGroupOffering, input.location, codeSelection).catch(async (error) => {
-        await updateSearch(searchId, {
-          status: "failed",
-          errorMessage: error.message,
-        });
-      });
-
+      // DO NOT start search yet - wait for user confirmation
       return { searchId };
     }),
 
@@ -411,6 +405,38 @@ export const companyFinderRouter = router({
         excludedSectors: JSON.stringify(input.excludedSectors),
       });
       return { success: true };
+    }),
+
+  // Two-step search: Confirm code targeting and start batched Apollo search
+  confirmAndSearch: protectedProcedure
+    .input(z.object({
+      searchId: z.number(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const search = await getSearchById(input.searchId);
+      if (!search || search.userId !== ctx.user.id) {
+        throw new Error("Search not found");
+      }
+      if (search.status !== "code_targeting") {
+        throw new Error("Search must be in code_targeting status");
+      }
+      
+      // Import confirmAndSearch function
+      const { confirmAndSearch } = await import("./confirmAndSearch");
+      
+      // Start batched search (runs in background)
+      confirmAndSearch({
+        searchId: input.searchId,
+        location: search.location,
+      }).catch(error => {
+        console.error(`[confirmAndSearch] Error:`, error);
+        updateSearch(input.searchId, {
+          status: "failed",
+          errorMessage: error.message,
+        });
+      });
+      
+      return { success: true, message: "Batched search started" };
     }),
 });
 

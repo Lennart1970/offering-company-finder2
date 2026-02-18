@@ -44,7 +44,9 @@ export const searches = mysqlTable("searches", {
   selectedNaicsCodes: text("selectedNaicsCodes"), // JSON array of LLM-selected NAICS codes for filtering
   codeSelectionReasoning: text("codeSelectionReasoning"), // LLM explanation for code selection
   excludedSectors: text("excludedSectors"), // JSON array of 2-digit NAICS sector codes excluded by user
-  status: mysqlEnum("status", ["pending", "extracting", "searching", "completed", "failed"]).default("pending").notNull(),
+  codesSearched: int("codesSearched").default(0), // Number of keyword tags already searched in batched Apollo queries
+  codesTotal: int("codesTotal").default(0), // Total number of keyword tags to search
+  status: mysqlEnum("status", ["pending", "extracting", "code_targeting", "searching", "completed", "failed"]).default("pending").notNull(),
   errorMessage: text("errorMessage"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

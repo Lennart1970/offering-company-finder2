@@ -1,6 +1,6 @@
 import { eq } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users } from "../drizzle/schema";
+import { InsertUser, users, salesPackages, InsertSalesPackage } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -162,4 +162,28 @@ export async function getPendingCompaniesBySearchId(searchId: number) {
   return db.select().from(companies).where(
     and(eq(companies.searchId, searchId), eq(companies.enrichmentStatus, "pending"))
   );
+}
+
+// Sales Package helpers
+export async function createSalesPackage(pkg: InsertSalesPackage) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(salesPackages).values(pkg);
+  return result[0].insertId;
+}
+
+export async function getSalesPackageByCompanyId(companyId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const results = await db.select().from(salesPackages).where(eq(salesPackages.companyId, companyId)).limit(1);
+  return results.length > 0 ? results[0] : null;
+}
+
+export async function updateSalesPackage(id: number, updates: Partial<InsertSalesPackage>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.update(salesPackages).set(updates).where(eq(salesPackages.id, id));
 }

@@ -10,10 +10,14 @@ import {
   getCompanyById,
   updateCompany,
   getPendingCompaniesBySearchId,
+  createSalesPackage,
+  getSalesPackageByCompanyId,
+  updateSalesPackage,
 } from "./db";
 import { extractOffering } from "./offeringExtractor";
 import { searchApolloCompanies, enrichCompanyDetails } from "./apolloSearch";
 import { normalizeWebsiteUrl } from "../shared/urlUtils";
+import { generateSalesPackage, packageToMarkdown } from "./packageGenerator";
 
 export const companyFinderRouter = router({
   // Create a new search with hardcoded ConnectGroup offering (skip extraction)
@@ -236,6 +240,59 @@ export const companyFinderRouter = router({
 
       return { csv: csvContent };
     }),
+
+  // Generate sales intelligence package for a company
+  generatePackage: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const company = await getCompanyById(input.companyId);
+      if (!company) {
+        throw new Error("Company not found");
+      }
+
+      // Check if package already exists
+      const existing = await getSalesPackageByCompanyId(input.companyId);
+      if (existing) {
+        return { packageId: existing.id, status: existing.status };
+      }
+
+      // Create package record
+      const packageId = await createSalesPackage({
+        companyId: input.companyId,
+        userId: ctx.user.id,
+        packageData: "",
+        markdownContent: "",
+        status: "generating",
+      });
+
+      // Generate package in background
+      generatePackageBackground(packageId, company).catch(async (error: any) => {
+        await updateSalesPackage(packageId, {
+          status: "failed",
+          errorMessage: error.message,
+        });
+      });
+
+      return { packageId, status: "generating" };
+    }),
+
+  // Get sales package for a company
+  getPackage: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .query(async ({ input }) => {
+      const pkg = await getSalesPackageByCompanyId(input.companyId);
+      if (!pkg) {
+        return null;
+      }
+
+      return {
+        id: pkg.id,
+        status: pkg.status,
+        markdownContent: pkg.markdownContent,
+        packageData: pkg.packageData ? JSON.parse(pkg.packageData) : null,
+        createdAt: pkg.createdAt,
+      };
+    }),
 });
 
 // Background search function for hardcoded ConnectGroup offering (skip extraction)
@@ -377,6 +434,41 @@ async function extractAndSearch(searchId: number, companyWebsite: string, locati
     console.log(`[Search ${searchId}] Completed with ${companiesToInsert.length} companies (pending enrichment)`);
   } catch (error) {
     console.error(`[Search ${searchId}] Error in extractAndSearch:`, error);
+    throw error;
+  }
+}
+
+// Background package generation function
+async function generatePackageBackground(packageId: number, company: any) {
+  try {
+    console.log(`[Package ${packageId}] Generating sales package for ${company.name}`);
+
+    const packageData = await generateSalesPackage(
+      company.name,
+      company.websiteUrl || company.primaryDomain || "",
+      {
+        revenue: company.revenue,
+        employees: company.headcountGrowth,
+        foundedYear: company.foundedYear,
+        city: company.city,
+        state: company.state,
+        country: company.country,
+        sicCodes: company.sicCodes ? JSON.parse(company.sicCodes) : [],
+        naicsCodes: company.naicsCodes ? JSON.parse(company.naicsCodes) : [],
+      }
+    );
+
+    const markdownContent = packageToMarkdown(packageData);
+
+    await updateSalesPackage(packageId, {
+      packageData: JSON.stringify(packageData),
+      markdownContent,
+      status: "completed",
+    });
+
+    console.log(`[Package ${packageId}] Completed for ${company.name}`);
+  } catch (error: any) {
+    console.error(`[Package ${packageId}] Error generating package:`, error);
     throw error;
   }
 }

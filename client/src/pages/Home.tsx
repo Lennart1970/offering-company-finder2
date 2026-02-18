@@ -47,6 +47,8 @@ export default function Home() {
 
   const utils = trpc.useUtils();
 
+  const [generatingPackages, setGeneratingPackages] = useState<Set<number>>(new Set());
+
   const enrichAllMutation = trpc.companyFinder.enrichAll.useMutation({
     onSuccess: (data) => {
       toast.success(data.message);
@@ -467,6 +469,13 @@ export default function Home() {
                             }
                           })()}
                       </div>
+
+                      {/* Generate Package Button */}
+                      {company.enrichmentStatus === "enriched" && (
+                        <div className="mt-4 pt-4 border-t-2 border-current">
+                          <GeneratePackageButton companyId={company.id} companyName={company.name} />
+                        </div>
+                      )}
                     </div>
                   ))}
                 </div>
@@ -483,5 +492,97 @@ export default function Home() {
         )}
       </div>
     </div>
+  );
+}
+
+// Component for generating sales intelligence package
+function GeneratePackageButton({ companyId, companyName }: { companyId: number; companyName: string }) {
+  const [packageData, setPackageData] = useState<any>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+
+  const { data: existingPackage } = trpc.companyFinder.getPackage.useQuery(
+    { companyId },
+    {
+      refetchInterval: (query) => {
+        const data = query.state.data;
+        return data?.status === "generating" ? 2000 : false;
+      },
+    }
+  );
+
+  const generateMutation = trpc.companyFinder.generatePackage.useMutation({
+    onSuccess: () => {
+      setIsGenerating(true);
+      toast.success("Generating sales package...");
+    },
+    onError: (error) => {
+      toast.error(error.message);
+      setIsGenerating(false);
+    },
+  });
+
+  useEffect(() => {
+    if (existingPackage) {
+      if (existingPackage.status === "completed") {
+        setPackageData(existingPackage);
+        setIsGenerating(false);
+      } else if (existingPackage.status === "generating") {
+        setIsGenerating(true);
+      } else if (existingPackage.status === "failed") {
+        setIsGenerating(false);
+        toast.error("Package generation failed");
+      }
+    }
+  }, [existingPackage]);
+
+  const handleGenerate = () => {
+    generateMutation.mutate({ companyId });
+  };
+
+  const handleDownload = () => {
+    if (!packageData?.markdownContent) return;
+
+    const blob = new Blob([packageData.markdownContent], { type: "text/markdown" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `SALES_INTELLIGENCE_BRIEF_${companyName.replace(/[^a-zA-Z0-9]/g, "_")}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success("Package downloaded");
+  };
+
+  if (packageData) {
+    return (
+      <div className="space-y-3">
+        <div className="flex items-center gap-3">
+          <span className="text-xs font-black border-2 border-green-600 text-green-600 px-2 py-0.5">PACKAGE READY</span>
+          <Button
+            onClick={handleDownload}
+            variant="outline"
+            className="font-black border-2 border-black hover:bg-black hover:text-white"
+            size="sm"
+          >
+            DOWNLOAD .MD
+          </Button>
+        </div>
+        <div className="text-xs font-bold text-muted-foreground">
+          Sales Intelligence Brief • {new Date(packageData.createdAt).toLocaleDateString()}
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <Button
+      onClick={handleGenerate}
+      disabled={isGenerating}
+      variant="outline"
+      className="font-black border-2 border-black hover:bg-black hover:text-white w-full"
+    >
+      {isGenerating ? "[GENERATING PACKAGE...]" : "[GENERATE SALES PACKAGE]"}
+    </Button>
   );
 }

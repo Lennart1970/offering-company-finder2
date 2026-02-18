@@ -36,6 +36,13 @@
       "when": 1771406549178,
       "tag": "0004_boring_tarantula",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1771414113641,
+      "tag": "0005_chubby_phil_sheldon",
+      "breakpoints": true
     }
   ]
 }

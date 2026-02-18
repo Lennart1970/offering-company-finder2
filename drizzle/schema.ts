@@ -79,3 +79,20 @@ export const companies = mysqlTable("companies", {
 
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = typeof companies.$inferInsert;
+
+/**
+ * Stores generated sales intelligence packages for companies
+ */
+export const salesPackages = mysqlTable("salesPackages", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull().references(() => companies.id),
+  userId: int("userId").notNull().references(() => users.id),
+  packageData: text("packageData").notNull(), // JSON-stringified SalesIntelligencePackage
+  markdownContent: text("markdownContent").notNull(),
+  status: mysqlEnum("status", ["generating", "completed", "failed"]).default("generating").notNull(),
+  errorMessage: text("errorMessage"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type SalesPackage = typeof salesPackages.$inferSelect;
+export type InsertSalesPackage = typeof salesPackages.$inferInsert;

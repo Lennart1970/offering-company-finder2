@@ -302,7 +302,7 @@ describe("HITL Decision Capture", () => {
       mockGetDecision.mockRestore();
     });
 
-    it("returns undefined when no decision exists", async () => {
+    it("returns null when no decision exists", async () => {
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
@@ -310,7 +310,7 @@ describe("HITL Decision Capture", () => {
 
       const result = await caller.companyFinder.getDecision({ companyId: 999 });
 
-      expect(result).toBeUndefined();
+      expect(result).toBeNull();
 
       mockGetDecision.mockRestore();
     });

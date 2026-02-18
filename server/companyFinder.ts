@@ -358,7 +358,8 @@ export const companyFinderRouter = router({
   getDecision: protectedProcedure
     .input(z.object({ companyId: z.number() }))
     .query(async ({ ctx, input }) => {
-      return await getCompanyDecision(input.companyId, ctx.user.id);
+      const decision = await getCompanyDecision(input.companyId, ctx.user.id);
+      return decision ?? null;
     }),
 
   // HITL: Get all decisions for a search

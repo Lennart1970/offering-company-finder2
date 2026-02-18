@@ -123,3 +123,6 @@
 - [x] Client-side filtering of companies with excluded SIC/NAICS codes
 - [x] Add decision badges to company cards (✓ CALL / ⏸ PARK / ✕ REJECT)
 - [x] Test complete HITL workflow end-to-end (45 tests passing)
+
+## Bug Fix: getDecision returns undefined
+- [x] Fix getDecision tRPC query to return null instead of undefined when no decision exists

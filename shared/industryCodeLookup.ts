@@ -48,9 +48,101 @@ export const SIC_CODE_DESCRIPTIONS: Record<string, string> = {
   "3827": "Optical Instruments and Lenses",
   "3829": "Measuring and Controlling Devices, NEC",
   
+  // Mining & Extraction
+  "1000": "Metal Mining",
+  "1090": "Miscellaneous Metal Ores",
+  "1220": "Bituminous Coal and Lignite Surface Mining",
+  
+  // Construction
+  "1521": "General Contractors-Single-Family Houses",
+  "1542": "General Contractors-Nonresidential Buildings",
+  "1629": "Heavy Construction, Not Elsewhere Classified",
+  "1742": "Plastering, Drywall, Acoustical, and Insulation Work",
+  
+  // Food & Kindred Products
+  "2041": "Flour and Other Grain Mill Products",
+  
+  // Chemicals & Allied Products
+  "2834": "Pharmaceutical Preparations",
+  "2841": "Soaps and Other Detergents",
+  "2869": "Industrial Organic Chemicals, NEC",
+  
+  // Rubber & Plastics
+  "3011": "Tires and Inner Tubes",
+  "3081": "Unsupported Plastics Film and Sheet",
+  
+  // Primary Metal Industries
+  "3317": "Steel Pipe and Tubes",
+  "3334": "Primary Production of Aluminum",
+  
+  // Fabricated Metal Products
+  "3441": "Fabricated Structural Metal",
+  "3494": "Valves and Pipe Fittings, NEC",
+  
+  // Industrial Machinery & Equipment (Additional)
+  "3559": "Special Industry Machinery, NEC",
+  "3569": "General Industrial Machinery and Equipment, NEC",
+  "3581": "Automatic Vending Machines",
+  "3589": "Service Industry Machinery, NEC",
+  
+  // Electronic & Electrical Equipment (Additional)
+  "3621": "Motors and Generators",
+  "3631": "Household Cooking Equipment",
+  "3641": "Electric Lamp Bulbs and Tubes",
+  "3699": "Electrical Machinery, Equipment, and Supplies, NEC",
+  
+  // Medical Instruments
+  "3841": "Surgical and Medical Instruments and Apparatus",
+  "3845": "Electromedical and Electrotherapeutic Apparatus",
+  
+  // Miscellaneous Manufacturing
+  "3999": "Manufacturing Industries, NEC",
+  
+  // Transportation & Utilities
+  "4011": "Railroads, Line-Haul Operating",
+  "4111": "Local and Suburban Transit",
+  "4412": "Deep Sea Foreign Transportation of Freight",
+  "4499": "Water Transportation Services, NEC",
+  "4731": "Arrangement of Transportation of Freight and Cargo",
+  "4899": "Communications Services, NEC",
+  "4911": "Electric Services",
+  
+  // Wholesale Trade
+  "5099": "Durable Goods, NEC",
+  
   // Food Service
   "5812": "Eating Places",
   "5813": "Drinking Places (Alcoholic Beverages)",
+  
+  // Finance & Insurance
+  "6099": "Functions Related to Depository Banking, NEC",
+  "6199": "Finance Services",
+  "6712": "Offices of Bank Holding Companies",
+  "6732": "Educational, Religious, and Charitable Trusts",
+  
+  // Business Services
+  "7322": "Adjustment and Collection Services",
+  "7359": "Equipment Rental and Leasing, NEC",
+  "7361": "Employment Agencies",
+  "7389": "Business Services, NEC",
+  
+  // Health Services
+  "8011": "Offices and Clinics of Doctors of Medicine",
+  "8062": "General Medical and Surgical Hospitals",
+  "8099": "Health and Allied Services, NEC",
+  
+  // Legal, Educational & Social Services
+  "8111": "Legal Services",
+  "8221": "Colleges, Universities, and Professional Schools",
+  "8222": "Junior Colleges and Technical Institutes",
+  "8299": "Schools and Educational Services, NEC",
+  "8399": "Social Services, NEC",
+  
+  // Engineering & Research Services
+  "8731": "Commercial Physical and Biological Research",
+  "8734": "Testing Laboratories",
+  "8742": "Management Consulting Services",
+  "8748": "Business Consulting Services, NEC",
   
   // Wholesale Trade
   "5065": "Electronic Parts and Equipment, NEC",

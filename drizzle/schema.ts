@@ -130,3 +130,15 @@ export const excludedCodes = mysqlTable("excludedCodes", {
 
 export type ExcludedCode = typeof excludedCodes.$inferSelect;
 export type InsertExcludedCode = typeof excludedCodes.$inferInsert;
+/**
+ * Caches SIC/NAICS code descriptions fetched from external sources
+ */
+export const codeDescriptions = mysqlTable("code_descriptions", {
+  code: varchar("code", { length: 10 }).primaryKey(),
+  codeType: mysqlEnum("code_type", ["SIC", "NAICS"]).notNull(),
+  description: text("description"),
+  fetchedAt: timestamp("fetched_at").defaultNow().notNull(),
+});
+
+export type CodeDescription = typeof codeDescriptions.$inferSelect;
+export type InsertCodeDescription = typeof codeDescriptions.$inferInsert;

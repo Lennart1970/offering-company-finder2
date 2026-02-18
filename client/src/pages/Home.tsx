@@ -9,7 +9,7 @@ import { toast } from "sonner";
 import { normalizeWebsiteUrl } from "@shared/urlUtils";
 import { useLocation } from "wouter";
 import CompanyDecisionButtons from "@/components/CompanyDecisionButtons";
-import { getSicDescription, getNaicsDescription } from "@shared/industryCodeLookup";
+import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
 
 export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
@@ -164,6 +164,8 @@ export default function Home() {
 
     return { filteredCompanies: filtered, excludedCompanies: excluded };
   }, [searchData?.companies, excludedSicSet, excludedNaicsSet]);
+
+
 
   if (loading) {
     return (
@@ -612,52 +614,7 @@ function CompanyCard({
             </a>
           </div>
         )}
-        {company.sicCodes &&
-          (() => {
-            try {
-              const codes = JSON.parse(company.sicCodes);
-              return codes.length > 0 ? (
-                <div className="md:col-span-2">
-                  <div className="font-black mb-1">SIC CODES</div>
-                  <div className="space-y-1">
-                    {codes.map((code: string) => {
-                      const description = getSicDescription(code);
-                      return (
-                        <div key={code} className="font-bold">
-                          {code}{description ? ` — ${description}` : ""}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null;
-            } catch {
-              return null;
-            }
-          })()}
-        {company.naicsCodes &&
-          (() => {
-            try {
-              const codes = JSON.parse(company.naicsCodes);
-              return codes.length > 0 ? (
-                <div className="md:col-span-2">
-                  <div className="font-black mb-1">NAICS CODES</div>
-                  <div className="space-y-1">
-                    {codes.map((code: string) => {
-                      const description = getNaicsDescription(code);
-                      return (
-                        <div key={code} className="font-bold">
-                          {code}{description ? ` — ${description}` : ""}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              ) : null;
-            } catch {
-              return null;
-            }
-          })()}
+        <CompanyCodeDisplay sicCodes={company.sicCodes} naicsCodes={company.naicsCodes} />
       </div>
 
       {/* HITL Decision Buttons */}

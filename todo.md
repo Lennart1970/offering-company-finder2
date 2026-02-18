@@ -130,3 +130,9 @@
 ## Feature: SIC/NAICS Code Descriptions
 - [x] Add human-readable descriptions for SIC codes on company cards
 - [x] Add human-readable descriptions for NAICS codes on company cards
+
+## Expand SIC/NAICS Code Coverage
+- [x] Query database for most common codes in actual searches
+- [x] Implement dynamic SIC/NAICS lookup via web scraping (siccode.com)
+- [x] Add database caching for looked-up codes
+- [x] Update UI to use dynamic lookup via CompanyCodeDisplay component

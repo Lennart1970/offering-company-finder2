@@ -29,4 +29,13 @@
 - [x] Replace Python apollo-company-finder with native Apollo API integration
 - [x] Remove all exec/shell calls to Python scripts
 - [x] Test end-to-end workflow without sandbox
-- [ ] Create final standalone checkpoint
+- [x] Create final standalone checkpoint
+
+## UX Improvements
+- [x] Add URL normalization to accept inputs like "connectgroup.com" or "connectgroup"
+- [x] Update frontend validation to normalize URLs before submission
+- [x] Update backend to handle normalized URLs
+- [x] Test various URL input formats
+
+## Bug Fixes
+- [x] Fix Grok API 422 error - use standard chat completions instead of Responses API

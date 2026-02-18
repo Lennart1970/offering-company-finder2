@@ -6,6 +6,7 @@ import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
 import { useState } from "react";
 import { toast } from "sonner";
+import { normalizeWebsiteUrl } from "@shared/urlUtils";
 
 export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
@@ -45,7 +46,14 @@ export default function Home() {
       toast.error("Please fill in all fields");
       return;
     }
-    startSearchMutation.mutate({ companyWebsite, location });
+    
+    // Normalize the URL input
+    try {
+      const normalizedUrl = normalizeWebsiteUrl(companyWebsite);
+      startSearchMutation.mutate({ companyWebsite: normalizedUrl, location });
+    } catch (error) {
+      toast.error("Invalid website URL. Please check and try again.");
+    }
   };
 
   const handleExportCsv = async () => {
@@ -142,10 +150,10 @@ export default function Home() {
                 </Label>
                 <Input
                   id="website"
-                  type="url"
+                  type="text"
                   value={companyWebsite}
                   onChange={(e) => setCompanyWebsite(e.target.value)}
-                  placeholder="https://example.com"
+                  placeholder="connectgroup.com or just connectgroup"
                   className="text-xl py-8 px-6 border-4 border-black focus:ring-4 focus:ring-black"
                   required
                 />

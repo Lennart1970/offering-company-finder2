@@ -3,27 +3,31 @@ import { z } from "zod";
 import { createSearch, updateSearch, getSearchById, getUserSearches, createCompanies, getCompaniesBySearchId } from "./db";
 import { extractOffering } from "./offeringExtractor";
 import { searchApolloCompanies } from "./apolloSearch";
+import { normalizeWebsiteUrl } from "../shared/urlUtils";
 
 export const companyFinderRouter = router({
   // Create a new search and start the extraction process
   startSearch: protectedProcedure
     .input(
       z.object({
-        companyWebsite: z.string().url(),
+        companyWebsite: z.string().min(1),
         location: z.string().min(1),
       })
     )
     .mutation(async ({ ctx, input }) => {
+      // Normalize the website URL
+      const normalizedWebsite = normalizeWebsiteUrl(input.companyWebsite);
+      
       // Create initial search record
       const searchId = await createSearch({
         userId: ctx.user.id,
-        companyWebsite: input.companyWebsite,
+        companyWebsite: normalizedWebsite,
         location: input.location,
         status: "extracting",
       });
 
       // Start extraction in background (don't await)
-      extractAndSearch(searchId, input.companyWebsite, input.location).catch(async (error) => {
+      extractAndSearch(searchId, normalizedWebsite, input.location).catch(async (error) => {
         await updateSearch(searchId, {
           status: "failed",
           errorMessage: error.message,

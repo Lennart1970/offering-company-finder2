@@ -126,3 +126,7 @@
 
 ## Bug Fix: getDecision returns undefined
 - [x] Fix getDecision tRPC query to return null instead of undefined when no decision exists
+
+## Feature: SIC/NAICS Code Descriptions
+- [x] Add human-readable descriptions for SIC codes on company cards
+- [x] Add human-readable descriptions for NAICS codes on company cards

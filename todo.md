@@ -303,3 +303,10 @@
 
 ## Bug Fix: Python Script JSON Output
 - [x] Fix Python script to output only JSON to stdout (redirect debug messages to stderr)
+
+## Brief Caching Implementation
+- [x] Check if briefData and briefGeneratedAt fields exist in schema (already exist)
+- [x] Update generateBrief mutation to check cache (if brief exists and < 7 days old, return cached)
+- [x] Store generated brief in briefData field with timestamp
+- [x] Show cache age indicator in UI toast message
+- [ ] Add "Regenerate Brief" button in modal (optional enhancement)

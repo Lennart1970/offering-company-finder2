@@ -452,6 +452,25 @@ export const companyFinderRouter = router({
 
       console.log(`[generateBrief] Starting brief generation for company ${input.companyId}`);
 
+      // Check if cached brief exists and is recent (< 7 days old)
+      if (company.briefData && company.briefGeneratedAt) {
+        const cacheAge = Date.now() - new Date(company.briefGeneratedAt).getTime();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        
+        if (cacheAge < sevenDaysMs) {
+          console.log(`[generateBrief] Using cached brief (age: ${Math.floor(cacheAge / (24 * 60 * 60 * 1000))} days)`);
+          const cachedBrief = JSON.parse(company.briefData);
+          return {
+            success: true,
+            brief: cachedBrief,
+            cached: true,
+            cacheAge: Math.floor(cacheAge / (24 * 60 * 60 * 1000)), // days
+          };
+        } else {
+          console.log(`[generateBrief] Cached brief expired (age: ${Math.floor(cacheAge / (24 * 60 * 60 * 1000))} days), regenerating...`);
+        }
+      }
+
       // Import brief generator
       const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
 
@@ -471,6 +490,7 @@ export const companyFinderRouter = router({
         return {
           success: true,
           brief,
+          cached: false,
         };
       } catch (error: any) {
         console.error(`[generateBrief] Error:`, error);

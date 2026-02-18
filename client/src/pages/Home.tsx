@@ -821,7 +821,11 @@ function GenerateBriefButton({ companyId, companyName }: { companyId: number; co
       setBriefData(data.brief);
       setIsGenerating(false);
       setShowBrief(true);
-      toast.success(`Brief generated with urgency score: ${data.brief.urgencyScore}`);
+      if (data.cached) {
+        toast.success(`Using cached brief (${data.cacheAge} days old) - Urgency: ${data.brief.urgencyScore}`);
+      } else {
+        toast.success(`Brief generated with urgency score: ${data.brief.urgencyScore}`);
+      }
     },
     onError: (error) => {
       toast.error(`Failed to generate brief: ${error.message}`);

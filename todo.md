@@ -226,3 +226,38 @@
 - [x] Re-apply limit change from 100 to 10000 in confirmAndSearch.ts (already in code)
 - [x] Verify server picks up the change (triggered restart with touch command)
 - [ ] User to test with new Paris search (expecting 1000+ companies)
+
+## Investigation: Maximize company retrieval from Apollo
+- [ ] Analyze server logs to understand per-keyword Apollo results
+- [ ] Research Apollo API pagination limits and total_entries caps
+- [ ] Test broad search without keyword tags (location-only)
+- [ ] Explore alternative search strategies (no keyword filter, broader employee ranges)
+- [ ] Propose and implement new strategy
+
+## Comprehensive Apollo Search Strategy Implementation
+- [ ] Fix pagination bug: use total_entries instead of results.length < perPage
+- [ ] Implement multi-slice search by employee bands (50-200, 201-500, 501-1000)
+- [ ] Add industry slice keywords (electronics, industrial automation, automotive, medical devices, aerospace, hardware, renewable energy)
+- [ ] Add EMS/PCB keyword sets (core, complexity, embedded/hardware signals)
+- [ ] Implement relevance scoring (0-12 scale: fit to ConnectGroup, size fit, geo fit)
+- [ ] Add geography resolver for dynamic location input (EU, DACH, Benelux, Nordics, etc.)
+- [ ] Update database schema to store relevance scores and slice metadata
+- [ ] Update UI to display relevance scores and "why matched" tags
+- [ ] Test with Paris to verify 3000+ companies
+
+## Comprehensive "Relevant Customers" Apollo Pipeline Implementation
+- [x] CRITICAL: Fix pagination bug (use total_entries, not results.length < perPage)
+- [ ] Create geography resolver (EU, DACH, Benelux, Nordics, country codes)
+- [ ] Implement multi-slice search architecture
+  - [ ] Employee bands: 50-200, 201-500, 501-1000
+  - [ ] Industry slices: electronics, industrial automation, automotive, medical devices, aerospace, hardware, renewable energy
+  - [ ] Keyword sets: Core EMS/PCB, Complexity/production ops, Embedded/hardware signals
+- [ ] Implement relevance scoring (0-12 scale)
+  - [ ] Fit to ConnectGroup (0-6): industry match + keyword match
+  - [ ] Size fit (0-3): optimal 100-500 FTE
+  - [ ] Geo fit (0-3): HQ country match
+- [ ] Update database schema: relevance_score, slice_metadata, geo_verified
+- [ ] Implement domain-based deduplication
+- [ ] Add selective enrichment (only enrich score >= 6)
+- [ ] Update UI: show relevance scores, "why matched" tags, sort by score
+- [ ] Test with Paris (expect 2000-5000 companies)

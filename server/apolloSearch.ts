@@ -229,7 +229,8 @@ export async function searchApolloCompanies(
 
       console.log(`[Apollo Search] Page ${page}: got ${results.length} results, total collected: ${companies.length}/${totalFound}`);
 
-      if (companies.length >= limit || results.length < perPage) {
+      // Stop if we've collected enough OR if we've reached all available results
+      if (companies.length >= limit || companies.length >= totalFound) {
         break;
       }
 

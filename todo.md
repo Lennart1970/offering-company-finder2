@@ -310,3 +310,6 @@
 - [x] Store generated brief in briefData field with timestamp
 - [x] Show cache age indicator in UI toast message
 - [ ] Add "Regenerate Brief" button in modal (optional enhancement)
+
+## Bug Fix: Brief Modal Link Hover
+- [x] Fix blue links turning white on hover in brief modal (now hover to darker blue)

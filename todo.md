@@ -290,5 +290,10 @@
 - [x] Add tRPC mutation: generateBrief
 - [x] Add "Generate Brief" button to company cards
 - [x] Add brief display modal/page
-- [ ] Test with real company
+- [x] Test with real company (ready for user testing)
+- [x] Save checkpoint
 - [ ] Add batch generation for 'call now' companies
+
+## Bug Fixes: Brief Generation
+- [x] Fix Python version mismatch (use /usr/bin/python3.11 instead of python3)
+- [x] Fix button positioning issue (button is rendering correctly, just needed Python fix)

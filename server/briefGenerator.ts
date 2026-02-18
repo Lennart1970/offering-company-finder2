@@ -114,7 +114,8 @@ export async function generateSalesIntelligenceBrief(
     args.push(`--naics ${naicsCodes.join(" ")}`);
   }
 
-  const command = `python3 ${scriptPath} ${args.join(" ")}`;
+  // Use system Python 3.11 explicitly (xAI SDK is installed there)
+  const command = `/usr/bin/python3.11 ${scriptPath} ${args.join(" ")}`;
 
   console.log(`[Brief Generator] Executing: ${command}`);
 

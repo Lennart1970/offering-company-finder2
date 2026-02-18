@@ -43,8 +43,8 @@ def generate_sales_brief(
     
     client = Client(api_key=api_key, timeout=300)
     
-    print(f"[Brief Generator] Starting brief generation for {company_name}")
-    print(f"[Brief Generator] Domain: {company_domain}")
+    print(f"[Brief Generator] Starting brief generation for {company_name}", file=sys.stderr)
+    print(f"[Brief Generator] Domain: {company_domain}", file=sys.stderr)
     
     # ===== PHASE 1: Data Collection =====
     # (Already have this from database, just format it)
@@ -58,7 +58,7 @@ def generate_sales_brief(
     }
     
     # ===== PHASE 2: Urgency Detection (Recent Developments) =====
-    print("[Brief Generator] Phase 2: Detecting urgency signals...")
+    print("[Brief Generator] Phase 2: Detecting urgency signals...", file=sys.stderr)
     
     urgency_prompt = f"""You are a B2B sales intelligence analyst. Research {company_name} ({company_domain}) to find TIME-SENSITIVE signals that indicate immediate sales opportunity.
 
@@ -140,11 +140,11 @@ Be specific and cite real sources. If no signals found, return urgencyScore: 0."
         
         # Parse JSON from response
         urgency_data = json.loads(urgency_response.content)
-        print(f"[Brief Generator] Urgency score: {urgency_data['urgencyScore']}")
-        print(f"[Brief Generator] Found {len(urgency_data.get('signals', []))} urgency signals")
+        print(f"[Brief Generator] Urgency score: {urgency_data['urgencyScore']}", file=sys.stderr)
+        print(f"[Brief Generator] Found {len(urgency_data.get('signals', []))} urgency signals", file=sys.stderr)
         
     except Exception as e:
-        print(f"[Brief Generator] Error in urgency detection: {e}")
+        print(f"[Brief Generator] Error in urgency detection: {e}", file=sys.stderr)
         urgency_data = {
             "urgencyScore": 0,
             "urgencyBreakdown": {"companyContext": 0, "marketSignals": 0, "recentActivity": 0},
@@ -154,7 +154,7 @@ Be specific and cite real sources. If no signals found, return urgencyScore: 0."
         }
     
     # ===== PHASE 3: Company Intelligence =====
-    print("[Brief Generator] Phase 3: Gathering company intelligence...")
+    print("[Brief Generator] Phase 3: Gathering company intelligence...", file=sys.stderr)
     
     intelligence_prompt = f"""You are a B2B sales intelligence analyst. Research {company_name} ({company_domain}) to understand their business in depth.
 
@@ -222,11 +222,11 @@ Be specific and cite real sources."""
         intelligence_response = chat.sample()
         
         intelligence_data = json.loads(intelligence_response.content)
-        print(f"[Brief Generator] Found {len(intelligence_data.get('productsServices', []))} product categories")
-        print(f"[Brief Generator] Found {len(intelligence_data.get('industryKeywords', []))} industry keywords")
+        print(f"[Brief Generator] Found {len(intelligence_data.get('productsServices', []))} product categories", file=sys.stderr)
+        print(f"[Brief Generator] Found {len(intelligence_data.get('industryKeywords', []))} industry keywords", file=sys.stderr)
         
     except Exception as e:
-        print(f"[Brief Generator] Error in intelligence gathering: {e}")
+        print(f"[Brief Generator] Error in intelligence gathering: {e}", file=sys.stderr)
         intelligence_data = {
             "productsServices": [],
             "keyTechnologies": [],
@@ -242,7 +242,7 @@ Be specific and cite real sources."""
     }
     
     # ===== PHASE 5: Engagement Strategy =====
-    print("[Brief Generator] Phase 5: Generating engagement strategy...")
+    print("[Brief Generator] Phase 5: Generating engagement strategy...", file=sys.stderr)
     
     strategy_prompt = f"""You are a B2B sales strategist for Connect Group, an EMS/PCB assembly provider.
 
@@ -303,10 +303,10 @@ Be specific and actionable."""
         strategy_response = chat.sample()
         
         strategy_data = json.loads(strategy_response.content)
-        print(f"[Brief Generator] Generated engagement strategy")
+        print(f"[Brief Generator] Generated engagement strategy", file=sys.stderr)
         
     except Exception as e:
-        print(f"[Brief Generator] Error in strategy generation: {e}")
+        print(f"[Brief Generator] Error in strategy generation: {e}", file=sys.stderr)
         strategy_data = {
             "whyThisProspectMatters": [],
             "recommendedApproach": [],
@@ -314,7 +314,7 @@ Be specific and actionable."""
         }
     
     # ===== PHASE 6: Assemble Brief =====
-    print("[Brief Generator] Phase 6: Assembling final brief...")
+    print("[Brief Generator] Phase 6: Assembling final brief...", file=sys.stderr)
     
     brief = {
         "companyName": company_name,
@@ -335,7 +335,7 @@ Be specific and actionable."""
     }
     
     client.close()
-    print(f"[Brief Generator] ✓ Brief generation complete")
+    print(f"[Brief Generator] ✓ Brief generation complete", file=sys.stderr)
     
     return brief
 
@@ -369,9 +369,10 @@ def main():
     if args.output:
         with open(args.output, 'w') as f:
             f.write(output_json)
-        print(f"\n✓ Brief saved to {args.output}")
+        print(f"\n✓ Brief saved to {args.output}", file=sys.stderr)
     else:
-        print("\n" + output_json)
+        # Output ONLY JSON to stdout (no newlines or extra text)
+        print(output_json)
 
 
 if __name__ == "__main__":

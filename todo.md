@@ -300,3 +300,6 @@
 
 ## Bug Fix: PYTHONPATH Issue
 - [x] Clear PYTHONPATH environment variable when executing Python script to prevent Python 3.11 from importing Python 3.13 modules
+
+## Bug Fix: Python Script JSON Output
+- [x] Fix Python script to output only JSON to stdout (redirect debug messages to stderr)

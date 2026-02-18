@@ -120,9 +120,15 @@ export async function generateSalesIntelligenceBrief(
   console.log(`[Brief Generator] Executing: ${command}`);
 
   try {
+    // Clear PYTHONPATH to prevent Python 3.11 from importing Python 3.13 modules
+    const cleanEnv = { ...process.env };
+    delete cleanEnv.PYTHONPATH;
+    delete cleanEnv.PYTHONHOME;
+    
     const { stdout, stderr } = await execAsync(command, {
       maxBuffer: 10 * 1024 * 1024, // 10MB buffer for large responses
       timeout: 300000, // 5 minute timeout
+      env: cleanEnv,
     });
 
     if (stderr) {

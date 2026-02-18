@@ -297,3 +297,6 @@
 ## Bug Fixes: Brief Generation
 - [x] Fix Python version mismatch (use /usr/bin/python3.11 instead of python3)
 - [x] Fix button positioning issue (changed flex layout to flex-col for vertical stacking)
+
+## Bug Fix: PYTHONPATH Issue
+- [x] Clear PYTHONPATH environment variable when executing Python script to prevent Python 3.11 from importing Python 3.13 modules

@@ -18,11 +18,11 @@ describe("Code Selection Service", () => {
     expect(result.naicsCodes).toBeInstanceOf(Array);
     expect(result.reasoning).toBeTruthy();
 
-    // Should have reasonable number of codes (8-15 as per prompt)
-    expect(result.sicCodes.length).toBeGreaterThan(5);
-    expect(result.sicCodes.length).toBeLessThan(20);
-    expect(result.naicsCodes.length).toBeGreaterThan(5);
-    expect(result.naicsCodes.length).toBeLessThan(20);
+    // Should have reasonable number of codes (30-50+ as per prompt)
+    expect(result.sicCodes.length).toBeGreaterThan(25); // Minimum 30 requested, allow some flexibility
+    expect(result.sicCodes.length).toBeLessThan(100); // Upper bound for sanity
+    expect(result.naicsCodes.length).toBeGreaterThan(25);
+    expect(result.naicsCodes.length).toBeLessThan(300); // NAICS can be more granular
 
     // SIC codes should be 4 digits
     result.sicCodes.forEach(code => {

@@ -145,3 +145,8 @@
 - [x] Filter Apollo results by selected SIC/NAICS codes
 - [x] Update UI to show selected codes and filtering rationale
 - [x] Write tests for code selection and filtering logic
+
+## Prompt Tuning: Expand Code Selection
+- [x] Revise code selection prompt to return 30-50+ codes instead of 8-15
+- [x] Update guidelines to be more inclusive across all target market segments
+- [x] Test with ConnectGroup offering to verify broader coverage (now returns 47 SIC + 48 NAICS codes)

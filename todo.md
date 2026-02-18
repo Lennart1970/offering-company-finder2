@@ -333,3 +333,7 @@
 ## Bug Fix: Remove Hover Effect from Brief Links
 - [x] Remove hover:text-blue-800 class from conversation starter links
 - [x] Keep links blue and readable at all times
+
+## Bug Fix: Remove All Hover Effects from Brief Modal
+- [x] Remove hover effect from close button (×)
+- [x] Ensure all text remains static with no color changes on hover

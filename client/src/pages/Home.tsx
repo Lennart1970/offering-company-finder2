@@ -855,7 +855,7 @@ function GenerateBriefButton({ companyId, companyName }: { companyId: number; co
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-4">
               <h2 className="text-2xl font-black">{companyName} - Sales Intelligence Brief</h2>
-              <button onClick={() => setShowBrief(false)} className="text-2xl font-black hover:text-red-600">×</button>
+              <button onClick={() => setShowBrief(false)} className="text-2xl font-black">×</button>
             </div>
 
             {/* Urgency Score */}

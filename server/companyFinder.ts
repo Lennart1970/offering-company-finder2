@@ -24,28 +24,52 @@ export const companyFinderRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Hardcoded ConnectGroup offering data
+      // Hardcoded ConnectGroup offering data (EXPANDED for wider reach)
       const connectGroupOffering = {
-        name: "Supply Chain Visibility & Traceability Solutions",
-        description: "ConnectGroup provides end-to-end supply chain visibility and traceability solutions for industrial, measurement & control, and medtech sectors. Their platform enables real-time tracking, quality control, and compliance management across complex global supply chains.",
-        targetMarket: "Mid-market to enterprise companies in Industrial Manufacturing, Measurement & Control Systems, and Medical Technology (MedTech) sectors that require supply chain transparency and regulatory compliance.",
-        keywords: ["supply chain", "traceability", "visibility", "industrial", "medtech", "compliance"],
+        name: "Electronics Manufacturing Services (EMS) - PCB Assembly, Cable Assembly & Module Building",
+        description: "ConnectGroup is a full-service EMS subcontractor providing PCB assembly, cable assembly (from complex harnesses to automated large-scale), and module building (integration of cables, electronics, and mechanics). With 33 years of industrial experience and 9 locations across 8 countries, they support companies from design to successful product with focus on efficiency, quality, and shorter time-to-market.",
+        targetMarket: "Mid-market to enterprise companies in Railway, Healthcare/MedTech, Infrastructure, Automotive & Off-road, Defense & Avionics, Industrial Manufacturing, Electronics, Telecommunications, Energy, Automation, Instrumentation, Aerospace, Marine, Agricultural Equipment, Construction Equipment, Mining, Oil & Gas, Renewable Energy, IoT, and Embedded Systems that require EMS services, cable assemblies, PCB assembly, or module building.",
+        keywords: ["ems", "electronics manufacturing", "pcb assembly", "cable assembly", "module building", "industrial", "railway", "healthcare", "automotive", "defense"],
         targetMarketKeywordTags: [
+          "railway",
+          "rail",
+          "medical devices",
+          "healthcare",
+          "automotive",
+          "off-road",
+          "defense",
+          "avionics",
+          "infrastructure",
           "industrial",
           "manufacturing",
-          "medtech",
-          "medical devices",
+          "electronics",
+          "telecommunications",
+          "energy",
+          "power systems",
+          "automation",
+          "instrumentation",
           "measurement",
           "control systems",
-          "instrumentation",
-          "quality control",
-          "compliance"
+          "process control",
+          "robotics",
+          "aerospace",
+          "marine",
+          "agricultural equipment",
+          "construction equipment",
+          "mining",
+          "oil and gas",
+          "renewable energy",
+          "smart grid",
+          "iot",
+          "industrial iot",
+          "embedded systems",
+          "electrical equipment"
         ],
       };
 
       const searchId = await createSearch({
         userId: ctx.user.id,
-        companyWebsite: "https://www.connectgroup.com/",
+        companyWebsite: "https://www.connectgroup.com/en/",
         location: input.location,
         status: "searching",
         offeringName: connectGroupOffering.name,

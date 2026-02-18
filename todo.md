@@ -91,3 +91,10 @@
 - [x] Skip Grok extraction step in backend
 - [x] Update UI to show ConnectGroup branding and pre-filled offering
 - [x] Test instant search with location-only input
+
+## Target Market Expansion
+- [x] Review ConnectGroup website for broader industry applications
+- [x] Expand target market definition beyond Industrial/MedTech/Measurement & Control
+- [x] Add more Apollo keyword tags for wider reach (32 tags total)
+- [x] Update hardcoded offering data with expanded target market
+- [x] Test expanded search results (29 tests passing with 32 keyword tags)

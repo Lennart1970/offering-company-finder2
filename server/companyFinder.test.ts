@@ -47,10 +47,10 @@ describe("companyFinder router", () => {
       expect(mockCreateSearch).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: 1,
-          companyWebsite: "https://www.connectgroup.com/",
+          companyWebsite: "https://www.connectgroup.com/en/",
           location: "Atlanta, GA",
           status: "searching",
-          offeringName: "Supply Chain Visibility & Traceability Solutions",
+          offeringName: "Electronics Manufacturing Services (EMS) - PCB Assembly, Cable Assembly & Module Building",
         })
       );
 

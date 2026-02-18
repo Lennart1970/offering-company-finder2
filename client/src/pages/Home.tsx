@@ -181,13 +181,13 @@ export default function Home() {
             {/* ConnectGroup Offering Info */}
             <div className="mb-12 p-8 border-4 border-black bg-gray-50">
               <div className="text-sm font-black mb-2 text-muted-foreground">[OFFERING]</div>
-              <h3 className="text-2xl font-black mb-4">Supply Chain Visibility & Traceability Solutions</h3>
+              <h3 className="text-2xl font-black mb-4">Electronics Manufacturing Services (EMS)</h3>
               <p className="text-base font-bold mb-4">
-                End-to-end supply chain visibility and traceability solutions for industrial, measurement & control, and medtech sectors.
+                Full-service EMS subcontractor: PCB Assembly • Cable Assembly • Module Building • Design to Product
               </p>
-              <div className="text-sm font-black mb-2 text-muted-foreground">[TARGET MARKET]</div>
+              <div className="text-sm font-black mb-2 text-muted-foreground">[TARGET MARKETS]</div>
               <p className="text-base font-bold">
-                Industrial Manufacturing • Measurement & Control Systems • Medical Technology (MedTech)
+                Railway • Healthcare/MedTech • Infrastructure • Automotive & Off-road • Defense & Avionics • Industrial Manufacturing • Electronics • Telecommunications • Energy • Automation • Instrumentation • Aerospace • Marine • Agricultural Equipment • Construction Equipment • Mining • Oil & Gas • Renewable Energy • IoT • Embedded Systems
               </p>
             </div>
 

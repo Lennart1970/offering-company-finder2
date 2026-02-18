@@ -1,5 +1,3 @@
-import axios from "axios";
-
 export interface SalesIntelligencePackage {
   companyName: string;
   quickFacts: {
@@ -19,7 +17,8 @@ export interface SalesIntelligencePackage {
 }
 
 /**
- * Generate a comprehensive sales intelligence package for a company using Grok API
+ * Generate a simple placeholder sales intelligence package for a company
+ * Uses template-based generation instead of LLM to avoid API failures
  */
 export async function generateSalesPackage(
   companyName: string,
@@ -35,108 +34,138 @@ export async function generateSalesPackage(
     naicsCodes?: string[];
   }
 ): Promise<SalesIntelligencePackage> {
-  const apiKey = process.env.XAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("XAI_API_KEY environment variable is not set");
+  // Build location string
+  const locationParts = [companyData.city, companyData.state, companyData.country].filter(Boolean);
+  const location = locationParts.length > 0 ? locationParts.join(", ") : "Unknown";
+
+  // Format founding year
+  const foundingYear = companyData.foundedYear ? String(companyData.foundedYear) : "Unknown";
+
+  // Build industry codes string
+  const industryCodes: string[] = [];
+  if (companyData.sicCodes && companyData.sicCodes.length > 0) {
+    industryCodes.push(`SIC: ${companyData.sicCodes.join(", ")}`);
   }
-
-  const prompt = `You are a B2B sales intelligence analyst creating a comprehensive sales brief for Connect Group's sales team.
-
-**Company to Research:** ${companyName}
-**Website:** ${companyWebsite}
-**Known Data:**
-- Revenue: ${companyData.revenue || "Unknown"}
-- Employees: ${companyData.employees || "Unknown"}
-- Founded: ${companyData.foundedYear || "Unknown"}
-- Location: ${[companyData.city, companyData.state, companyData.country].filter(Boolean).join(", ") || "Unknown"}
-- SIC Codes: ${companyData.sicCodes?.join(", ") || "Unknown"}
-- NAICS Codes: ${companyData.naicsCodes?.join(", ") || "Unknown"}
-
-**About Connect Group:**
-Connect Group is a full-service EMS (Electronics Manufacturing Services) subcontractor providing:
-- PCB Assembly (complex, high-reliability electronics)
-- Cable Assembly (from complex harnesses to automated large-scale production)
-- Module Building (integration of cables, electronics, and mechanics)
-- Design-to-Product services through their Technology Center
-
-They serve Railway, Healthcare/MedTech, Infrastructure, Automotive & Off-road, Defense & Avionics, Industrial Manufacturing, Electronics, Telecommunications, Energy, Automation, Instrumentation, Aerospace, Marine, Agricultural Equipment, Construction Equipment, Mining, Oil & Gas, Renewable Energy, IoT, and Embedded Systems sectors.
-
-**Your Task:**
-Create a detailed sales intelligence brief in JSON format with the following structure:
-
-{
-  "companyName": "${companyName}",
-  "quickFacts": {
-    "employees": "Number or range of employees",
-    "revenue": "Annual revenue or range",
-    "foundingYear": "Year founded",
-    "headquarters": "City, State/Country",
-    "website": "${companyWebsite}"
-  },
-  "businessOverview": "2-3 paragraph overview of what the company does, their market position, and value proposition. Focus on their core business, competitive advantages, and market presence.",
-  "productsAndServices": "Detailed breakdown of their main product lines and service offerings. Be specific about technologies, applications, and market segments they serve.",
-  "keyTechnologies": "List of key technologies, capabilities, and technical differentiators. Include manufacturing processes, quality certifications, technical expertise areas.",
-  "recentDevelopments": "Recent news, product launches, expansions, partnerships, or strategic initiatives from 2024-2025. If no recent news is available, note that.",
-  "targetMarkets": "Description of their target customers, industries served, geographic markets, and business intelligence about their go-to-market strategy.",
-  "connectGroupStrategy": "Customized engagement strategy for Connect Group. Explain WHY this company needs EMS services, cable assemblies, or PCB assembly. Identify specific pain points Connect Group can solve (supply chain resilience, quality requirements, regulatory compliance, time-to-market pressure, cost optimization). Be specific about which Connect Group services (PCB assembly, cable assembly, module building) are most relevant.",
-  "talkingPoints": [
-    "3-5 specific talking points for Connect Group sales team to use when approaching this company. Each should connect a company pain point to a Connect Group capability."
-  ]
-}
-
-**Research Instructions:**
-1. Use web search to gather current information about the company
-2. Focus on factual, verifiable information
-3. Be specific and actionable - avoid generic statements
-4. Tailor the Connect Group strategy to this specific company's needs
-5. Return ONLY the JSON object, no additional text
-
-Generate the sales intelligence brief now.`;
-
-  try {
-    const response = await axios.post(
-      "https://api.x.ai/v1/chat/completions",
-      {
-        model: "grok-beta",
-        messages: [
-          {
-            role: "system",
-            content: "You are a B2B sales intelligence analyst. Return only valid JSON.",
-          },
-          {
-            role: "user",
-            content: prompt,
-          },
-        ],
-        response_format: {
-          type: "json_object",
-        },
-        temperature: 0.3,
-      },
-      {
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${apiKey}`,
-        },
-        timeout: 60000,
-      }
-    );
-
-    const content = response.data.choices[0]?.message?.content;
-    if (!content) {
-      throw new Error("No content in Grok API response");
-    }
-
-    const packageData = JSON.parse(content) as SalesIntelligencePackage;
-    return packageData;
-  } catch (error: any) {
-    console.error("[Package Generator] Grok API error:", error.response?.data || error.message);
-    throw new Error(`Failed to generate sales package: ${error.message}`);
+  if (companyData.naicsCodes && companyData.naicsCodes.length > 0) {
+    industryCodes.push(`NAICS: ${companyData.naicsCodes.length > 0 ? companyData.naicsCodes.join(", ") : "N/A"}`);
   }
+  const industryCodesStr = industryCodes.length > 0 ? industryCodes.join(" | ") : "Not available";
+
+  // Generate placeholder package
+  const salesPackage: SalesIntelligencePackage = {
+    companyName,
+    quickFacts: {
+      employees: companyData.employees || "Unknown",
+      revenue: companyData.revenue || "Unknown",
+      foundingYear,
+      headquarters: location,
+      website: companyWebsite,
+    },
+    businessOverview: `${companyName} is a company operating in the ${location} area. Based on available data (${industryCodesStr}), they appear to be active in sectors that align with ConnectGroup's target markets for Electronics Manufacturing Services (EMS).
+
+**Company Profile:**
+- Headquarters: ${location}
+- Founded: ${foundingYear}
+- Revenue: ${companyData.revenue || "Not disclosed"}
+- Employees: ${companyData.employees || "Not disclosed"}
+- Website: ${companyWebsite}
+
+This company was identified through Apollo's database as a potential customer for ConnectGroup's supply chain visibility and traceability solutions.`,
+
+    productsAndServices: `Based on industry classification codes (${industryCodesStr}), ${companyName} likely operates in sectors requiring:
+
+- Complex supply chain management
+- Component traceability and quality control
+- Multi-tier supplier coordination
+- Regulatory compliance documentation
+- Product lifecycle management
+
+These operational needs align with ConnectGroup's core EMS offerings: PCB Assembly, Cable Assembly, Module Building, and Design to Product services.`,
+
+    keyTechnologies: `Companies in this industry segment typically utilize:
+
+- Supply chain management systems
+- Quality management software
+- Component tracking and traceability tools
+- Manufacturing execution systems (MES)
+- Product lifecycle management (PLM) platforms
+
+ConnectGroup's solutions can integrate with or enhance these existing technology stacks to provide end-to-end visibility and traceability.`,
+
+    recentDevelopments: `*Note: Detailed recent developments require manual research of ${companyName}'s website, press releases, and industry news.*
+
+Key areas to investigate:
+- Recent product launches or expansions
+- New facility openings or capacity increases
+- Strategic partnerships or acquisitions
+- Technology investments or digital transformation initiatives
+- Regulatory compliance updates or certifications
+
+Visit ${companyWebsite} for the latest company news and announcements.`,
+
+    targetMarkets: `Based on industry classification, ${companyName} likely serves one or more of ConnectGroup's target markets:
+
+**Primary Target Markets:**
+- Railway (rolling stock, signaling, infrastructure)
+- Healthcare/MedTech (medical devices, diagnostic equipment)
+- Infrastructure (smart city, utilities, construction)
+- Automotive & Off-road (vehicles, components, systems)
+- Defense & Avionics (military, aerospace systems)
+- Industrial (automation, instrumentation, control systems)
+
+**Secondary Markets:**
+- Electronics (consumer, commercial, embedded)
+- Telecommunications (network equipment, devices)
+- Energy (renewable, oil & gas, utilities)
+- IoT & Embedded Systems (connected devices, sensors)
+
+*Manual verification recommended by reviewing ${companyName}'s product portfolio and customer base.*`,
+
+    connectGroupStrategy: `**Engagement Approach for ${companyName}:**
+
+1. **Initial Research Phase**
+   - Review ${companyWebsite} thoroughly for product portfolio and customer base
+   - Identify specific supply chain pain points in their industry segment
+   - Research recent news, press releases, and LinkedIn activity
+   - Identify key decision-makers (VP Operations, Head of Supply Chain, CTO)
+
+2. **Value Proposition Alignment**
+   - Emphasize ConnectGroup's expertise in their specific industry vertical
+   - Highlight relevant case studies from similar companies
+   - Focus on supply chain visibility and traceability benefits
+   - Demonstrate compliance and quality control capabilities
+
+3. **Outreach Strategy**
+   - Lead with industry-specific challenges and ConnectGroup solutions
+   - Offer a supply chain assessment or consultation
+   - Provide relevant white papers or case studies
+   - Request introduction through mutual connections if available
+
+4. **Key Differentiators to Emphasize**
+   - Full-service EMS: PCB Assembly • Cable Assembly • Module Building • Design to Product
+   - End-to-end supply chain visibility and traceability
+   - Multi-industry expertise (Railway, MedTech, Industrial, etc.)
+   - Quality certifications and regulatory compliance experience
+   - European manufacturing presence and capabilities`,
+
+    talkingPoints: [
+      `${companyName} operates in a sector where supply chain visibility and component traceability are critical for quality assurance and regulatory compliance.`,
+      
+      `ConnectGroup's EMS solutions (PCB Assembly, Cable Assembly, Module Building) can help ${companyName} streamline their supply chain while maintaining full traceability from design to product.`,
+      
+      `Based on their industry classification (${industryCodesStr}), ${companyName} likely faces challenges in multi-tier supplier coordination and documentation—areas where ConnectGroup excels.`,
+      
+      `ConnectGroup has proven experience serving companies in similar markets (Railway, Healthcare/MedTech, Infrastructure, Automotive, Defense, Industrial) with complex supply chain requirements.`,
+      
+      `A discovery call could explore how ConnectGroup's supply chain visibility solutions might address ${companyName}'s specific operational challenges and growth objectives.`,
+    ],
+  };
+
+  return salesPackage;
 }
 
 /**
- * Convert sales package to Markdown format
+ * Convert a sales intelligence package to Markdown format
  */
 export function packageToMarkdown(pkg: SalesIntelligencePackage): string {
   return `# Sales Intelligence Brief: ${pkg.companyName}

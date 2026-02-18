@@ -32,7 +32,7 @@ function createAuthContext(): TrpcContext {
 
 describe("companyFinder router", () => {
   describe("startSearch", () => {
-    it("creates a search record and returns searchId", async () => {
+    it("creates a search record with hardcoded ConnectGroup offering", async () => {
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
@@ -40,7 +40,6 @@ describe("companyFinder router", () => {
       const mockCreateSearch = vi.spyOn(db, "createSearch").mockResolvedValue(123);
 
       const result = await caller.companyFinder.startSearch({
-        companyWebsite: "https://example.com",
         location: "Atlanta, GA",
       });
 
@@ -48,31 +47,22 @@ describe("companyFinder router", () => {
       expect(mockCreateSearch).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: 1,
+          companyWebsite: "https://www.connectgroup.com/",
           location: "Atlanta, GA",
-          status: "extracting",
+          status: "searching",
+          offeringName: "Supply Chain Visibility & Traceability Solutions",
         })
       );
-      // URL normalization may add trailing slash
-      const callArgs = mockCreateSearch.mock.calls[0][0] as any;
-      expect(callArgs.companyWebsite).toMatch(/^https:\/\/example\.com/);
 
       mockCreateSearch.mockRestore();
     });
 
-    it("validates required fields", async () => {
+    it("validates location is required", async () => {
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
       await expect(
         caller.companyFinder.startSearch({
-          companyWebsite: "",
-          location: "Atlanta, GA",
-        })
-      ).rejects.toThrow();
-
-      await expect(
-        caller.companyFinder.startSearch({
-          companyWebsite: "https://example.com",
           location: "",
         })
       ).rejects.toThrow();

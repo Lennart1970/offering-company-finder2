@@ -12,7 +12,6 @@ import { useLocation } from "wouter";
 export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
-  const [companyWebsite, setCompanyWebsite] = useState("");
   const [location, setLocation] = useState("");
   const [searchId, setSearchId] = useState<number | null>(null);
 
@@ -68,17 +67,12 @@ export default function Home() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!companyWebsite || !location) {
-      toast.error("Please fill in all fields");
+    if (!location) {
+      toast.error("Please enter a location");
       return;
     }
 
-    try {
-      const normalizedUrl = normalizeWebsiteUrl(companyWebsite);
-      startSearchMutation.mutate({ companyWebsite: normalizedUrl, location });
-    } catch (error) {
-      toast.error("Invalid website URL. Please check and try again.");
-    }
+    startSearchMutation.mutate({ location });
   };
 
   const handleExportCsv = async () => {
@@ -103,7 +97,6 @@ export default function Home() {
 
   const handleReset = () => {
     setSearchId(null);
-    setCompanyWebsite("");
     setLocation("");
   };
 
@@ -180,30 +173,28 @@ export default function Home() {
               </h2>
               <div className="border-l-8 border-black pl-8">
                 <p className="text-xl md:text-2xl font-bold text-muted-foreground">
-                  Enter a company website and location to find potential customers
+                  Find potential customers for ConnectGroup's supply chain solutions
                 </p>
               </div>
             </div>
 
+            {/* ConnectGroup Offering Info */}
+            <div className="mb-12 p-8 border-4 border-black bg-gray-50">
+              <div className="text-sm font-black mb-2 text-muted-foreground">[OFFERING]</div>
+              <h3 className="text-2xl font-black mb-4">Supply Chain Visibility & Traceability Solutions</h3>
+              <p className="text-base font-bold mb-4">
+                End-to-end supply chain visibility and traceability solutions for industrial, measurement & control, and medtech sectors.
+              </p>
+              <div className="text-sm font-black mb-2 text-muted-foreground">[TARGET MARKET]</div>
+              <p className="text-base font-bold">
+                Industrial Manufacturing • Measurement & Control Systems • Medical Technology (MedTech)
+              </p>
+            </div>
+
             <form onSubmit={handleSubmit} className="space-y-12">
               <div className="space-y-4">
-                <Label htmlFor="website" className="text-2xl font-black">
-                  [01] COMPANY WEBSITE
-                </Label>
-                <Input
-                  id="website"
-                  type="text"
-                  value={companyWebsite}
-                  onChange={(e) => setCompanyWebsite(e.target.value)}
-                  placeholder="connectgroup.com or just connectgroup"
-                  className="text-xl py-8 px-6 border-4 border-black focus:ring-4 focus:ring-black"
-                  required
-                />
-              </div>
-
-              <div className="space-y-4">
                 <Label htmlFor="location" className="text-2xl font-black">
-                  [02] TARGET LOCATION
+                  [01] TARGET LOCATION
                 </Label>
                 <Input
                   id="location"

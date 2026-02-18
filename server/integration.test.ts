@@ -32,16 +32,12 @@ function createAuthContext(): { ctx: TrpcContext } {
 }
 
 describe("companyFinder router", () => {
-  it("startSearch requires companyWebsite and location", async () => {
+  it("startSearch requires location", async () => {
     const { ctx } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
     await expect(
-      caller.companyFinder.startSearch({ companyWebsite: "", location: "Atlanta, GA" })
-    ).rejects.toThrow();
-
-    await expect(
-      caller.companyFinder.startSearch({ companyWebsite: "connectgroup.com", location: "" })
+      caller.companyFinder.startSearch({ location: "" })
     ).rejects.toThrow();
   });
 

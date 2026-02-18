@@ -16,26 +16,47 @@ import { searchApolloCompanies, enrichCompanyDetails } from "./apolloSearch";
 import { normalizeWebsiteUrl } from "../shared/urlUtils";
 
 export const companyFinderRouter = router({
-  // Create a new search and start the extraction process
+  // Create a new search with hardcoded ConnectGroup offering (skip extraction)
   startSearch: protectedProcedure
     .input(
       z.object({
-        companyWebsite: z.string().min(1),
         location: z.string().min(1),
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const normalizedWebsite = normalizeWebsiteUrl(input.companyWebsite);
+      // Hardcoded ConnectGroup offering data
+      const connectGroupOffering = {
+        name: "Supply Chain Visibility & Traceability Solutions",
+        description: "ConnectGroup provides end-to-end supply chain visibility and traceability solutions for industrial, measurement & control, and medtech sectors. Their platform enables real-time tracking, quality control, and compliance management across complex global supply chains.",
+        targetMarket: "Mid-market to enterprise companies in Industrial Manufacturing, Measurement & Control Systems, and Medical Technology (MedTech) sectors that require supply chain transparency and regulatory compliance.",
+        keywords: ["supply chain", "traceability", "visibility", "industrial", "medtech", "compliance"],
+        targetMarketKeywordTags: [
+          "industrial",
+          "manufacturing",
+          "medtech",
+          "medical devices",
+          "measurement",
+          "control systems",
+          "instrumentation",
+          "quality control",
+          "compliance"
+        ],
+      };
 
       const searchId = await createSearch({
         userId: ctx.user.id,
-        companyWebsite: normalizedWebsite,
+        companyWebsite: "https://www.connectgroup.com/",
         location: input.location,
-        status: "extracting",
+        status: "searching",
+        offeringName: connectGroupOffering.name,
+        offeringDescription: connectGroupOffering.description,
+        targetMarket: connectGroupOffering.targetMarket,
+        keywords: JSON.stringify(connectGroupOffering.keywords),
+        keywordTagsUsed: JSON.stringify(connectGroupOffering.targetMarketKeywordTags),
       });
 
-      // Start extraction in background (don't await)
-      extractAndSearch(searchId, normalizedWebsite, input.location).catch(async (error) => {
+      // Start search immediately (skip extraction)
+      searchWithHardcodedOffering(searchId, connectGroupOffering, input.location).catch(async (error) => {
         await updateSearch(searchId, {
           status: "failed",
           errorMessage: error.message,
@@ -192,6 +213,73 @@ export const companyFinderRouter = router({
       return { csv: csvContent };
     }),
 });
+
+// Background search function for hardcoded ConnectGroup offering (skip extraction)
+async function searchWithHardcodedOffering(
+  searchId: number,
+  offering: {
+    name: string;
+    description: string;
+    targetMarket: string;
+    keywords: string[];
+    targetMarketKeywordTags: string[];
+  },
+  location: string
+) {
+  try {
+    console.log(`[Search ${searchId}] Using hardcoded ConnectGroup offering`);
+    console.log(`[Search ${searchId}] Target market tags: ${JSON.stringify(offering.targetMarketKeywordTags)}`);
+
+    // Fast bulk search - NO enrichment, just find companies
+    console.log(`[Search ${searchId}] Fast Apollo search for companies in ${location}`);
+    const apolloResult = await searchApolloCompanies({
+      targetMarketKeywordTags: offering.targetMarketKeywordTags,
+      targetMarket: offering.targetMarket,
+      location,
+      limit: 100,
+    });
+
+    console.log(`[Search ${searchId}] Apollo found ${apolloResult.totalFound} total, returning ${apolloResult.companies.length}`);
+
+    // Store companies in database (all with enrichmentStatus: "pending")
+    const companiesToInsert = apolloResult.companies.map((company) => ({
+      searchId,
+      apolloId: company.id,
+      name: company.name,
+      websiteUrl: company.website_url,
+      primaryDomain: company.primary_domain,
+      linkedinUrl: company.linkedin_url,
+      phone: company.phone,
+      foundedYear: company.founded_year,
+      revenue: company.organization_revenue_printed,
+      headcountGrowth: [
+        company.organization_headcount_six_month_growth
+          ? `6mo: ${(company.organization_headcount_six_month_growth * 100).toFixed(1)}%`
+          : "",
+        company.organization_headcount_twelve_month_growth
+          ? `12mo: ${(company.organization_headcount_twelve_month_growth * 100).toFixed(1)}%`
+          : "",
+      ]
+        .filter(Boolean)
+        .join(", "),
+      sicCodes: company.sic_codes?.length ? JSON.stringify(company.sic_codes) : null,
+      naicsCodes: company.naics_codes?.length ? JSON.stringify(company.naics_codes) : null,
+      searchLocation: location,
+      enrichmentStatus: "pending" as const,
+    }));
+
+    await createCompanies(companiesToInsert);
+
+    await updateSearch(searchId, {
+      status: "completed",
+    });
+
+    console.log(`[Search ${searchId}] Completed with ${companiesToInsert.length} companies (pending enrichment)`);
+  } catch (error) {
+    console.error(`[Search ${searchId}] Error in searchWithHardcodedOffering:`, error);
+    throw error;
+  }
+}
 
 // Background extraction and search function (STEP 1 only - no enrichment)
 async function extractAndSearch(searchId: number, companyWebsite: string, location: string) {

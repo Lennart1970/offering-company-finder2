@@ -84,3 +84,10 @@
 - [x] Parse state from location input (e.g., "Atlanta, GA" → "Georgia")
 - [x] Update Apollo search to use state-level location filter
 - [x] Test with various location formats (city+state, state only, etc.)
+
+## ConnectGroup-Specific Customization
+- [x] Hardcode ConnectGroup offering data (name, description, target market, keyword tags)
+- [x] Remove company website input field from UI
+- [x] Skip Grok extraction step in backend
+- [x] Update UI to show ConnectGroup branding and pre-filled offering
+- [x] Test instant search with location-only input

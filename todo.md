@@ -70,3 +70,12 @@
 - [x] Store and display SIC/NAICS codes on company cards
 - [x] Display keyword tags used in search for transparency
 - [x] Test with ConnectGroup example (Industrial, Measurement & Control, MedTech)
+
+## Two-Step Search (Volume Optimization)
+- [x] Refactor Apollo search to skip enrichment in Step 1 (fast bulk search)
+- [x] Add enrichment status column to companies table (pending / enriched / failed)
+- [x] Create separate enrichment procedure (batch enrich all)
+- [x] Update frontend to show basic results first, then "Enrich All" button
+- [x] Show enrichment status per company (enriched badge vs pending)
+- [x] Allow paginated Apollo search to pull up to 100 companies
+- [x] Test two-step workflow end-to-end (29 tests passing)

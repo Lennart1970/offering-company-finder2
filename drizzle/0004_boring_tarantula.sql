@@ -1,0 +1,1 @@
+ALTER TABLE `companies` ADD `enrichmentStatus` enum('pending','enriched','failed') DEFAULT 'pending' NOT NULL;

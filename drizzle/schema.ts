@@ -73,6 +73,7 @@ export const companies = mysqlTable("companies", {
   rawAddress: text("rawAddress"),
   sicCodes: text("sicCodes"), // JSON array of SIC codes
   naicsCodes: text("naicsCodes"), // JSON array of NAICS codes
+  enrichmentStatus: mysqlEnum("enrichmentStatus", ["pending", "enriched", "failed"]).default("pending").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

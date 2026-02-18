@@ -15,7 +15,7 @@ export interface ApolloCompany {
   // SIC/NAICS codes from search response
   sic_codes?: string[];
   naics_codes?: string[];
-  // Location fields from enrichment
+  // Location fields from enrichment (only populated after enrichment)
   city?: string;
   state?: string;
   country?: string;
@@ -70,7 +70,6 @@ function parseTargetMarket(targetMarket: string): EmployeeRange[] {
 
 function normalizeLocation(location: string): string {
   const trimmed = location.trim();
-  // Don't append USA if it already has a country indicator
   if (
     !trimmed.toLowerCase().includes("usa") &&
     !trimmed.toLowerCase().includes("united states") &&
@@ -78,7 +77,6 @@ function normalizeLocation(location: string): string {
     !trimmed.toLowerCase().includes("germany") &&
     !trimmed.toLowerCase().includes("france")
   ) {
-    // Check if it looks like US city/state format
     if (/^[A-Za-z\s]+,\s*[A-Z]{2}$/.test(trimmed)) {
       return `${trimmed}, USA`;
     }
@@ -86,10 +84,145 @@ function normalizeLocation(location: string): string {
   return trimmed;
 }
 
+export interface ApolloSearchParams {
+  targetMarketKeywordTags: string[];
+  targetMarket: string;
+  location: string;
+  limit?: number;
+}
+
+export interface ApolloSearchResult {
+  companies: ApolloCompany[];
+  keywordTagsUsed: string[];
+  totalFound: number;
+}
+
 /**
- * Enriches a company with full details including location data
+ * STEP 1: Fast bulk search - finds companies by keyword tags + location
+ * Does NOT enrich with address details (fast, 1 API call per page)
  */
-async function enrichCompanyDetails(apolloId: string, apiKey: string): Promise<Partial<ApolloCompany>> {
+export async function searchApolloCompanies(
+  params: ApolloSearchParams
+): Promise<ApolloSearchResult> {
+  const apiKey = process.env.APOLLO_API_KEY;
+  if (!apiKey) {
+    throw new Error("APOLLO_API_KEY environment variable not set");
+  }
+
+  const { targetMarketKeywordTags, targetMarket, location, limit = 100 } = params;
+  const normalizedLocation = normalizeLocation(location);
+  const employeeRanges = parseTargetMarket(targetMarket);
+
+  const keywordTags = targetMarketKeywordTags.slice(0, 10);
+
+  console.log(`[Apollo Search] Location: ${normalizedLocation}`);
+  console.log(`[Apollo Search] Keyword tags: ${JSON.stringify(keywordTags)}`);
+  console.log(`[Apollo Search] Employee ranges: ${JSON.stringify(employeeRanges)}`);
+  console.log(`[Apollo Search] Target limit: ${limit}`);
+
+  try {
+    const companies: ApolloCompany[] = [];
+    let page = 1;
+    const perPage = 25;
+    let totalFound = 0;
+
+    while (companies.length < limit) {
+      const requestBody: Record<string, unknown> = {
+        page,
+        per_page: perPage,
+        organization_locations: [normalizedLocation],
+        q_organization_keyword_tags: keywordTags,
+        organization_num_employees_ranges: employeeRanges.map((range) =>
+          range.max ? `${range.min},${range.max}` : `${range.min},`
+        ),
+      };
+
+      console.log(`[Apollo Search] Page ${page} request...`);
+
+      const response = await axios.post(
+        "https://api.apollo.io/api/v1/mixed_companies/search",
+        requestBody,
+        {
+          headers: {
+            "X-Api-Key": apiKey,
+            "Content-Type": "application/json",
+          },
+          timeout: 30000,
+        }
+      );
+
+      totalFound = response.data.pagination?.total_entries || 0;
+      const results = response.data.organizations || [];
+
+      if (results.length === 0) {
+        break;
+      }
+
+      // Map results WITHOUT enrichment (fast)
+      for (const company of results) {
+        const mapped: ApolloCompany = {
+          id: company.id,
+          name: company.name,
+          website_url: company.website_url,
+          primary_domain: company.primary_domain,
+          linkedin_url: company.linkedin_url,
+          phone: company.phone || company.primary_phone?.number,
+          founded_year: company.founded_year,
+          organization_revenue_printed: company.organization_revenue_printed,
+          organization_revenue: company.organization_revenue,
+          organization_headcount_six_month_growth: company.organization_headcount_six_month_growth,
+          organization_headcount_twelve_month_growth: company.organization_headcount_twelve_month_growth,
+          sic_codes: company.sic_codes || [],
+          naics_codes: company.naics_codes || [],
+          // No location data yet - that comes from enrichment
+        };
+
+        companies.push(mapped);
+      }
+
+      console.log(`[Apollo Search] Page ${page}: got ${results.length} results, total collected: ${companies.length}/${totalFound}`);
+
+      if (companies.length >= limit || results.length < perPage) {
+        break;
+      }
+
+      page++;
+    }
+
+    console.log(`[Apollo Search] Done. Collected ${companies.length} companies out of ${totalFound} total.`);
+
+    return {
+      companies: companies.slice(0, limit),
+      keywordTagsUsed: keywordTags,
+      totalFound,
+    };
+  } catch (error) {
+    if (axios.isAxiosError(error)) {
+      console.error("[Apollo API Error] Status:", error.response?.status);
+      console.error("[Apollo API Error] Response:", JSON.stringify(error.response?.data, null, 2));
+      const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message;
+      throw new Error(`Apollo API error: ${errorMsg}`);
+    }
+    throw error;
+  }
+}
+
+/**
+ * STEP 2: Enrich a single company with full details (address, SIC/NAICS from enrichment)
+ * Called separately after initial search results are displayed
+ */
+export async function enrichCompanyDetails(apolloId: string): Promise<{
+  city?: string;
+  state?: string;
+  country?: string;
+  street_address?: string;
+  raw_address?: string;
+}> {
+  const apiKey = process.env.APOLLO_API_KEY;
+  if (!apiKey) {
+    throw new Error("APOLLO_API_KEY environment variable not set");
+  }
+
   try {
     const response = await axios.get(
       `https://api.apollo.io/api/v1/organizations/${apolloId}`,
@@ -112,126 +245,6 @@ async function enrichCompanyDetails(apolloId: string, apiKey: string): Promise<P
     };
   } catch (error) {
     console.warn(`[Apollo] Failed to enrich company ${apolloId}:`, error instanceof Error ? error.message : error);
-    return {};
-  }
-}
-
-export interface ApolloSearchParams {
-  targetMarketKeywordTags: string[];
-  targetMarket: string;
-  location: string;
-  limit?: number;
-}
-
-export interface ApolloSearchResult {
-  companies: ApolloCompany[];
-  keywordTagsUsed: string[];
-  totalFound: number;
-}
-
-export async function searchApolloCompanies(
-  params: ApolloSearchParams
-): Promise<ApolloSearchResult> {
-  const apiKey = process.env.APOLLO_API_KEY;
-  if (!apiKey) {
-    throw new Error("APOLLO_API_KEY environment variable not set");
-  }
-
-  const { targetMarketKeywordTags, targetMarket, location, limit = 50 } = params;
-  const normalizedLocation = normalizeLocation(location);
-  const employeeRanges = parseTargetMarket(targetMarket);
-
-  // Use the target market keyword tags directly for Apollo's keyword filter
-  const keywordTags = targetMarketKeywordTags.slice(0, 10); // Apollo works best with focused tags
-
-  console.log(`[Apollo Search] Location: ${normalizedLocation}`);
-  console.log(`[Apollo Search] Keyword tags: ${JSON.stringify(keywordTags)}`);
-  console.log(`[Apollo Search] Employee ranges: ${JSON.stringify(employeeRanges)}`);
-
-  try {
-    const companies: ApolloCompany[] = [];
-    let page = 1;
-    const perPage = 25;
-    let totalFound = 0;
-
-    while (companies.length < limit) {
-      const requestBody: Record<string, unknown> = {
-        page,
-        per_page: perPage,
-        organization_locations: [normalizedLocation],
-        q_organization_keyword_tags: keywordTags,
-        organization_num_employees_ranges: employeeRanges.map((range) =>
-          range.max ? `${range.min},${range.max}` : `${range.min},`
-        ),
-      };
-
-      console.log(`[Apollo Search] Page ${page} request:`, JSON.stringify(requestBody, null, 2));
-
-      const response = await axios.post(
-        "https://api.apollo.io/api/v1/mixed_companies/search",
-        requestBody,
-        {
-          headers: {
-            "X-Api-Key": apiKey,
-            "Content-Type": "application/json",
-          },
-          timeout: 30000,
-        }
-      );
-
-      totalFound = response.data.pagination?.total_entries || 0;
-      const results = response.data.organizations || [];
-
-      if (results.length === 0) {
-        break;
-      }
-
-      // Map results and capture SIC/NAICS codes from the response
-      for (const company of results) {
-        const mapped: ApolloCompany = {
-          id: company.id,
-          name: company.name,
-          website_url: company.website_url,
-          primary_domain: company.primary_domain,
-          linkedin_url: company.linkedin_url,
-          phone: company.phone || company.primary_phone?.number,
-          founded_year: company.founded_year,
-          organization_revenue_printed: company.organization_revenue_printed,
-          organization_revenue: company.organization_revenue,
-          organization_headcount_six_month_growth: company.organization_headcount_six_month_growth,
-          organization_headcount_twelve_month_growth: company.organization_headcount_twelve_month_growth,
-          sic_codes: company.sic_codes || [],
-          naics_codes: company.naics_codes || [],
-        };
-
-        // Enrich with location data
-        if (company.id) {
-          const enrichedData = await enrichCompanyDetails(company.id, apiKey);
-          Object.assign(mapped, enrichedData);
-        }
-
-        companies.push(mapped);
-      }
-
-      if (companies.length >= limit || results.length < perPage) {
-        break;
-      }
-
-      page++;
-    }
-
-    return {
-      companies: companies.slice(0, limit),
-      keywordTagsUsed: keywordTags,
-      totalFound,
-    };
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("[Apollo API Error] Status:", error.response?.status);
-      console.error("[Apollo API Error] Response:", JSON.stringify(error.response?.data, null, 2));
-      const errorMsg = error.response?.data?.error || error.response?.data?.message || error.message;
-      throw new Error(`Apollo API error: ${errorMsg}`);
-    }
     throw error;
   }
 }

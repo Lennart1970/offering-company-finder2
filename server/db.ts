@@ -138,3 +138,28 @@ export async function getCompaniesBySearchId(searchId: number) {
   
   return db.select().from(companies).where(eq(companies.searchId, searchId));
 }
+
+export async function getCompanyById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(companies).where(eq(companies.id, id)).limit(1);
+  return result[0];
+}
+
+export async function updateCompany(id: number, updates: Partial<InsertCompany>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.update(companies).set(updates).where(eq(companies.id, id));
+}
+
+export async function getPendingCompaniesBySearchId(searchId: number) {
+  const { and } = await import("drizzle-orm");
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(companies).where(
+    and(eq(companies.searchId, searchId), eq(companies.enrichmentStatus, "pending"))
+  );
+}

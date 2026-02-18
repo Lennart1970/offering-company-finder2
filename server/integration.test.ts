@@ -119,6 +119,46 @@ describe("offering extractor interface", () => {
   });
 });
 
+describe("two-step search architecture", () => {
+  it("Apollo search module exports searchApolloCompanies and enrichCompanyDetails separately", async () => {
+    const apolloModule = await import("./apolloSearch");
+    expect(typeof apolloModule.searchApolloCompanies).toBe("function");
+    expect(typeof apolloModule.enrichCompanyDetails).toBe("function");
+  });
+
+  it("Company finder router has enrichAll mutation", async () => {
+    const routerModule = await import("./companyFinder");
+    expect(routerModule.companyFinderRouter).toBeDefined();
+    const procedures = Object.keys((routerModule.companyFinderRouter as any)._def.procedures || {});
+    expect(procedures).toContain("enrichAll");
+    expect(procedures).toContain("startSearch");
+    expect(procedures).toContain("getSearch");
+    expect(procedures).toContain("exportCsv");
+    expect(procedures).toContain("getSearchHistory");
+  });
+
+  it("DB module exports enrichment-related helpers", async () => {
+    const dbModule = await import("./db");
+    expect(typeof dbModule.updateCompany).toBe("function");
+    expect(typeof dbModule.getCompanyById).toBe("function");
+    expect(typeof dbModule.getPendingCompaniesBySearchId).toBe("function");
+  });
+
+  it("companies table has enrichmentStatus column", async () => {
+    const schema = await import("../drizzle/schema");
+    const companiesTable = schema.companies;
+    expect((companiesTable as any).enrichmentStatus).toBeDefined();
+  });
+
+  it("enrichAll rejects invalid searchId", async () => {
+    const { ctx } = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+    await expect(
+      caller.companyFinder.enrichAll({ searchId: 999999 })
+    ).rejects.toThrow();
+  });
+});
+
 describe("apollo search interface", () => {
   it("exports searchApolloCompanies function", async () => {
     const mod = await import("./apolloSearch");

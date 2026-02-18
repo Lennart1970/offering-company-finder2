@@ -29,6 +29,13 @@
       "when": 1771405872982,
       "tag": "0003_mixed_cannonball",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1771406549178,
+      "tag": "0004_boring_tarantula",
+      "breakpoints": true
     }
   ]
 }

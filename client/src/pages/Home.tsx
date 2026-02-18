@@ -37,14 +37,29 @@ export default function Home() {
 
   const { data: searchData, isLoading: searchLoading } = trpc.companyFinder.getSearch.useQuery(
     { searchId: searchId! },
-    { 
-      enabled: !!searchId, 
+    {
+      enabled: !!searchId,
       refetchInterval: (query) => {
         const data = query.state.data;
-        return (data?.search.status === "completed" || data?.search.status === "failed" ? false : 2000);
-      }
+        return data?.search.status === "completed" || data?.search.status === "failed" ? false : 2000;
+      },
     }
   );
+
+  const utils = trpc.useUtils();
+
+  const enrichAllMutation = trpc.companyFinder.enrichAll.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message);
+      // Refetch search data to get updated enrichment statuses
+      if (searchId) {
+        utils.companyFinder.getSearch.invalidate({ searchId });
+      }
+    },
+    onError: (error) => {
+      toast.error(`Enrichment failed: ${error.message}`);
+    },
+  });
 
   const exportCsvQuery = trpc.companyFinder.exportCsv.useQuery(
     { searchId: searchId! },
@@ -57,8 +72,7 @@ export default function Home() {
       toast.error("Please fill in all fields");
       return;
     }
-    
-    // Normalize the URL input
+
     try {
       const normalizedUrl = normalizeWebsiteUrl(companyWebsite);
       startSearchMutation.mutate({ companyWebsite: normalizedUrl, location });
@@ -80,6 +94,11 @@ export default function Home() {
       URL.revokeObjectURL(url);
       toast.success("CSV downloaded");
     }
+  };
+
+  const handleEnrichAll = () => {
+    if (!searchId) return;
+    enrichAllMutation.mutate({ searchId });
   };
 
   const handleReset = () => {
@@ -108,7 +127,7 @@ export default function Home() {
               ANALYZE TARGET BUSINESS → EXTRACT OFFERINGS → FIND SIMILAR COMPANIES
             </p>
             <Button
-              onClick={() => window.location.href = getLoginUrl()}
+              onClick={() => (window.location.href = getLoginUrl())}
               className="text-2xl px-12 py-8 font-black border-4 border-black hover:bg-black hover:text-white transition-colors"
               variant="outline"
             >
@@ -119,6 +138,11 @@ export default function Home() {
       </div>
     );
   }
+
+  // Enrichment stats
+  const enrichmentStats = searchData?.enrichmentStats;
+  const hasEnrichedCompanies = enrichmentStats && enrichmentStats.enriched > 0;
+  const hasPendingCompanies = enrichmentStats && enrichmentStats.pending > 0;
 
   return (
     <div className="min-h-screen">
@@ -136,11 +160,7 @@ export default function Home() {
             </Button>
             <div className="text-right">
               <div className="text-sm font-bold mb-2">{user?.name || user?.email}</div>
-              <Button
-                onClick={() => window.location.href = "/"}
-                variant="ghost"
-                className="text-xs font-bold underline"
-              >
+              <Button onClick={() => (window.location.href = "/")} variant="ghost" className="text-xs font-bold underline">
                 RESET
               </Button>
             </div>
@@ -154,11 +174,13 @@ export default function Home() {
           <div className="max-w-4xl">
             <div className="mb-16">
               <h2 className="text-[8vw] md:text-8xl font-black leading-none mb-4">
-                INPUT<br />TARGET
+                INPUT
+                <br />
+                TARGET
               </h2>
               <div className="border-l-8 border-black pl-8">
                 <p className="text-xl md:text-2xl font-bold text-muted-foreground">
-                  Enter a company website and location to find similar businesses
+                  Enter a company website and location to find potential customers
                 </p>
               </div>
             </div>
@@ -212,15 +234,11 @@ export default function Home() {
                 <h2 className="text-5xl md:text-7xl font-black leading-none">
                   {searchData?.search.status === "completed" ? "[RESULTS]" : "[PROCESSING]"}
                 </h2>
-                <Button
-                  onClick={handleReset}
-                  variant="outline"
-                  className="text-xl px-8 py-6 font-black border-4 border-black"
-                >
+                <Button onClick={handleReset} variant="outline" className="text-xl px-8 py-6 font-black border-4 border-black">
                   NEW SEARCH
                 </Button>
               </div>
-              
+
               <div className="grid md:grid-cols-2 gap-8 mt-8">
                 <div>
                   <div className="text-sm font-black mb-2">TARGET</div>
@@ -233,19 +251,13 @@ export default function Home() {
               </div>
 
               {searchData?.search.status === "extracting" && (
-                <div className="mt-8 text-2xl font-black animate-pulse">
-                  → EXTRACTING OFFERING DATA...
-                </div>
+                <div className="mt-8 text-2xl font-black animate-pulse">→ STEP 1: EXTRACTING OFFERING DATA...</div>
               )}
               {searchData?.search.status === "searching" && (
-                <div className="mt-8 text-2xl font-black animate-pulse">
-                  → SEARCHING APOLLO DATABASE...
-                </div>
+                <div className="mt-8 text-2xl font-black animate-pulse">→ STEP 2: FAST SEARCH — FINDING COMPANIES...</div>
               )}
               {searchData?.search.status === "failed" && (
-                <div className="mt-8 text-2xl font-black text-destructive">
-                  ✕ ERROR: {searchData.search.errorMessage}
-                </div>
+                <div className="mt-8 text-2xl font-black text-destructive">✕ ERROR: {searchData.search.errorMessage}</div>
               )}
             </div>
 
@@ -298,28 +310,75 @@ export default function Home() {
             {/* Companies List */}
             {searchData?.search.status === "completed" && searchData.companies.length > 0 && (
               <div>
-                <div className="flex items-center justify-between mb-8">
-                  <h3 className="text-4xl md:text-6xl font-black">
-                    [{searchData.companies.length} MATCHES]
-                  </h3>
-                  <Button
-                    onClick={handleExportCsv}
-                    variant="outline"
-                    className="text-xl px-8 py-6 font-black border-4 border-black"
-                  >
-                    EXPORT CSV
-                  </Button>
+                {/* Action Bar */}
+                <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-8 gap-4">
+                  <div>
+                    <h3 className="text-4xl md:text-6xl font-black">[{searchData.companies.length} MATCHES]</h3>
+                    {enrichmentStats && (
+                      <div className="flex items-center gap-4 mt-2 text-sm font-black">
+                        <span className="border-2 border-black px-3 py-1">
+                          {enrichmentStats.enriched} ENRICHED
+                        </span>
+                        <span className="border-2 border-black px-3 py-1 bg-gray-100">
+                          {enrichmentStats.pending} PENDING
+                        </span>
+                      </div>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-4">
+                    {hasPendingCompanies && (
+                      <Button
+                        onClick={handleEnrichAll}
+                        disabled={enrichAllMutation.isPending}
+                        className="text-xl px-8 py-6 font-black border-4 border-black bg-black text-white hover:bg-white hover:text-black transition-colors"
+                      >
+                        {enrichAllMutation.isPending
+                          ? "[ENRICHING...]"
+                          : `[ENRICH ALL — ${enrichmentStats?.pending}]`}
+                      </Button>
+                    )}
+                    <Button
+                      onClick={handleExportCsv}
+                      variant="outline"
+                      className="text-xl px-8 py-6 font-black border-4 border-black"
+                    >
+                      EXPORT CSV
+                    </Button>
+                  </div>
                 </div>
+
+                {/* Enrichment Progress */}
+                {enrichAllMutation.isPending && (
+                  <div className="border-4 border-black p-6 mb-8 animate-pulse">
+                    <div className="text-2xl font-black">→ ENRICHING COMPANY DETAILS...</div>
+                    <div className="text-lg font-bold mt-2">
+                      Fetching addresses, SIC/NAICS codes for {enrichmentStats?.pending} companies. This may take a moment.
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-4">
                   {searchData.companies.map((company, index) => (
-                    <div
-                      key={company.id}
-                      className="border-4 border-black p-6 hover:bg-black hover:text-white transition-colors"
-                    >
+                    <div key={company.id} className="border-4 border-black p-6 hover:bg-black hover:text-white transition-colors group">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
-                          <div className="text-sm font-black mb-2">[{String(index + 1).padStart(2, "0")}]</div>
+                          <div className="flex items-center gap-3 mb-2">
+                            <span className="text-sm font-black">[{String(index + 1).padStart(2, "0")}]</span>
+                            {/* Enrichment Status Badge */}
+                            {company.enrichmentStatus === "enriched" ? (
+                              <span className="text-xs font-black border-2 border-current px-2 py-0.5 bg-black text-white group-hover:bg-white group-hover:text-black">
+                                ENRICHED
+                              </span>
+                            ) : company.enrichmentStatus === "failed" ? (
+                              <span className="text-xs font-black border-2 border-red-600 text-red-600 px-2 py-0.5">
+                                ENRICH FAILED
+                              </span>
+                            ) : (
+                              <span className="text-xs font-black border-2 border-current px-2 py-0.5 opacity-50">
+                                PENDING
+                              </span>
+                            )}
+                          </div>
                           <h4 className="text-2xl md:text-3xl font-black mb-2">{company.name}</h4>
                           {company.websiteUrl && (
                             <a
@@ -335,20 +394,18 @@ export default function Home() {
                       </div>
 
                       <div className="grid md:grid-cols-3 gap-4 text-sm">
-                        {/* Location Information */}
-                        {(company.city || company.state || company.country) && (
+                        {/* Location Information (only after enrichment) */}
+                        {company.enrichmentStatus === "enriched" && (company.city || company.state || company.country) && (
                           <div className="md:col-span-3 border-t-2 border-current pt-4 mt-2">
                             <div className="font-black mb-1">LOCATION</div>
                             <div className="font-bold">
                               {[company.city, company.state, company.country].filter(Boolean).join(", ")}
                             </div>
-                            {company.streetAddress && (
-                              <div className="font-bold text-xs mt-1">{company.streetAddress}</div>
-                            )}
+                            {company.streetAddress && <div className="font-bold text-xs mt-1">{company.streetAddress}</div>}
                           </div>
                         )}
                         {company.searchLocation && (
-                          <div className="md:col-span-3">
+                          <div className={company.enrichmentStatus !== "enriched" ? "md:col-span-3" : ""}>
                             <div className="font-black mb-1">SEARCH LOCATION</div>
                             <div className="font-bold">{company.searchLocation}</div>
                           </div>
@@ -390,28 +447,34 @@ export default function Home() {
                             </a>
                           </div>
                         )}
-                        {company.sicCodes && (() => {
-                          try {
-                            const codes = JSON.parse(company.sicCodes);
-                            return codes.length > 0 ? (
-                              <div>
-                                <div className="font-black mb-1">SIC CODES</div>
-                                <div className="font-bold">{codes.join(", ")}</div>
-                              </div>
-                            ) : null;
-                          } catch { return null; }
-                        })()}
-                        {company.naicsCodes && (() => {
-                          try {
-                            const codes = JSON.parse(company.naicsCodes);
-                            return codes.length > 0 ? (
-                              <div>
-                                <div className="font-black mb-1">NAICS CODES</div>
-                                <div className="font-bold">{codes.join(", ")}</div>
-                              </div>
-                            ) : null;
-                          } catch { return null; }
-                        })()}
+                        {company.sicCodes &&
+                          (() => {
+                            try {
+                              const codes = JSON.parse(company.sicCodes);
+                              return codes.length > 0 ? (
+                                <div>
+                                  <div className="font-black mb-1">SIC CODES</div>
+                                  <div className="font-bold">{codes.join(", ")}</div>
+                                </div>
+                              ) : null;
+                            } catch {
+                              return null;
+                            }
+                          })()}
+                        {company.naicsCodes &&
+                          (() => {
+                            try {
+                              const codes = JSON.parse(company.naicsCodes);
+                              return codes.length > 0 ? (
+                                <div>
+                                  <div className="font-black mb-1">NAICS CODES</div>
+                                  <div className="font-bold">{codes.join(", ")}</div>
+                                </div>
+                              ) : null;
+                            } catch {
+                              return null;
+                            }
+                          })()}
                       </div>
                     </div>
                   ))}
@@ -422,9 +485,7 @@ export default function Home() {
             {searchData?.search.status === "completed" && searchData.companies.length === 0 && (
               <div className="border-4 border-black p-12 text-center">
                 <div className="text-4xl font-black mb-4">NO MATCHES FOUND</div>
-                <div className="text-xl font-bold text-muted-foreground">
-                  Try a different location or company
-                </div>
+                <div className="text-xl font-bold text-muted-foreground">Try a different location or company</div>
               </div>
             )}
           </div>

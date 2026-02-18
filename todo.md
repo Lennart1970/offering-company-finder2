@@ -79,3 +79,8 @@
 - [x] Show enrichment status per company (enriched badge vs pending)
 - [x] Allow paginated Apollo search to pull up to 100 companies
 - [x] Test two-step workflow end-to-end (29 tests passing)
+
+## State-Wide Search
+- [x] Parse state from location input (e.g., "Atlanta, GA" → "Georgia")
+- [x] Update Apollo search to use state-level location filter
+- [x] Test with various location formats (city+state, state only, etc.)

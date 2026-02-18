@@ -68,19 +68,66 @@ function parseTargetMarket(targetMarket: string): EmployeeRange[] {
   ];
 }
 
+/**
+ * Parse state from location input for state-wide search
+ * Examples:
+ *   "Atlanta, GA" → "Georgia, USA"
+ *   "GA" → "Georgia, USA"
+ *   "Georgia" → "Georgia, USA"
+ *   "New York, NY" → "New York, USA"
+ */
 function normalizeLocation(location: string): string {
   const trimmed = location.trim();
-  if (
-    !trimmed.toLowerCase().includes("usa") &&
-    !trimmed.toLowerCase().includes("united states") &&
-    !trimmed.toLowerCase().includes("uk") &&
-    !trimmed.toLowerCase().includes("germany") &&
-    !trimmed.toLowerCase().includes("france")
-  ) {
-    if (/^[A-Za-z\s]+,\s*[A-Z]{2}$/.test(trimmed)) {
-      return `${trimmed}, USA`;
+  
+  // State abbreviation to full name mapping
+  const stateMap: Record<string, string> = {
+    "AL": "Alabama", "AK": "Alaska", "AZ": "Arizona", "AR": "Arkansas",
+    "CA": "California", "CO": "Colorado", "CT": "Connecticut", "DE": "Delaware",
+    "FL": "Florida", "GA": "Georgia", "HI": "Hawaii", "ID": "Idaho",
+    "IL": "Illinois", "IN": "Indiana", "IA": "Iowa", "KS": "Kansas",
+    "KY": "Kentucky", "LA": "Louisiana", "ME": "Maine", "MD": "Maryland",
+    "MA": "Massachusetts", "MI": "Michigan", "MN": "Minnesota", "MS": "Mississippi",
+    "MO": "Missouri", "MT": "Montana", "NE": "Nebraska", "NV": "Nevada",
+    "NH": "New Hampshire", "NJ": "New Jersey", "NM": "New Mexico", "NY": "New York",
+    "NC": "North Carolina", "ND": "North Dakota", "OH": "Ohio", "OK": "Oklahoma",
+    "OR": "Oregon", "PA": "Pennsylvania", "RI": "Rhode Island", "SC": "South Carolina",
+    "SD": "South Dakota", "TN": "Tennessee", "TX": "Texas", "UT": "Utah",
+    "VT": "Vermont", "VA": "Virginia", "WA": "Washington", "WV": "West Virginia",
+    "WI": "Wisconsin", "WY": "Wyoming", "DC": "District of Columbia"
+  };
+  
+  // Pattern: "City, ST" → extract state abbreviation
+  const cityStateMatch = trimmed.match(/^[A-Za-z\s]+,\s*([A-Z]{2})$/);
+  if (cityStateMatch) {
+    const stateAbbr = cityStateMatch[1];
+    const stateName = stateMap[stateAbbr];
+    if (stateName) {
+      console.log(`[Location Parser] "${trimmed}" → "${stateName}, USA" (state-wide)`);
+      return `${stateName}, USA`;
     }
   }
+  
+  // Pattern: Just state abbreviation "GA" → convert to full name
+  if (/^[A-Z]{2}$/.test(trimmed)) {
+    const stateName = stateMap[trimmed];
+    if (stateName) {
+      console.log(`[Location Parser] "${trimmed}" → "${stateName}, USA" (state-wide)`);
+      return `${stateName}, USA`;
+    }
+  }
+  
+  // Pattern: Full state name "Georgia" → add USA
+  const stateNames = Object.values(stateMap).map(s => s.toLowerCase());
+  if (stateNames.includes(trimmed.toLowerCase())) {
+    const properStateName = Object.values(stateMap).find(s => s.toLowerCase() === trimmed.toLowerCase());
+    if (properStateName) {
+      console.log(`[Location Parser] "${trimmed}" → "${properStateName}, USA" (state-wide)`);
+      return `${properStateName}, USA`;
+    }
+  }
+  
+  // Fallback: return as-is
+  console.log(`[Location Parser] "${trimmed}" → "${trimmed}" (as-is)`);
   return trimmed;
 }
 

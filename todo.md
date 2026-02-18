@@ -191,3 +191,11 @@
 - [x] Check if confirmAndSearch is being called correctly (yes, but parsing targetMarket instead of targetMarketKeywordTags)
 - [x] Fix confirmAndSearch to use keywordTagsUsed (Apollo search tags) instead of parsing targetMarket
 - [ ] Test with Amsterdam to verify fix (should run 32 separate searches, one per tag)
+
+## Bug: Paris search returns only 197 companies total (58 manufacturing) - too low for a large city
+- [x] Check server logs to see Apollo results before NAICS filtering (197 total after dedup)
+- [x] Check how many companies Apollo returns per keyword tag (2-24 per keyword, very low)
+- [x] Identified: Apollo is returning very few companies per search, not a filtering issue
+- [x] Check Apollo search parameters and page size (was 25 per page)
+- [x] Increase page size from 25 to 100 (Apollo's max) per keyword search
+- [ ] Test with Paris again after fix (expect 1000+ companies)

@@ -1,0 +1,40 @@
+{
+  "query": "SELECT s.id, s.location, s.status, COUNT(c.id) as company_count \nFROM searches s \nLEFT JOIN companies c ON s.id = c.searchId \nWHERE s.location LIKE '%Paris%' \nGROUP BY s.id \nORDER BY s.createdAt DESC \nLIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT s.id, s.location, s.status, COUNT(c.id) as company_count \nFROM searches s \nLEFT JOIN companies c ON s.id = c.searchId \nWHERE s.location LIKE '%Paris%' \nGROUP BY s.id \nORDER BY s.createdAt DESC \nLIMIT 5;",
+  "rows": [
+    {
+      "id": "150026",
+      "location": "Paris",
+      "status": "completed",
+      "company_count": "197"
+    },
+    {
+      "id": "150004",
+      "location": "Paris",
+      "status": "completed",
+      "company_count": "24"
+    },
+    {
+      "id": "150003",
+      "location": "Paris",
+      "status": "completed",
+      "company_count": "24"
+    },
+    {
+      "id": "150002",
+      "location": "Paris",
+      "status": "completed",
+      "company_count": "24"
+    },
+    {
+      "id": "120006",
+      "location": "Paris",
+      "status": "completed",
+      "company_count": "24"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tlocation\tstatus\tcompany_count\n150026\tParis\tcompleted\t197\n150004\tParis\tcompleted\t24\n150003\tParis\tcompleted\t24\n150002\tParis\tcompleted\t24\n120006\tParis\tcompleted\t24\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

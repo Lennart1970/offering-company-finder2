@@ -170,7 +170,7 @@ export async function searchApolloCompanies(
   try {
     const companies: ApolloCompany[] = [];
     let page = 1;
-    const perPage = 25;
+    const perPage = 100; // Apollo's max page size for better coverage
     let totalFound = 0;
 
     while (companies.length < limit) {

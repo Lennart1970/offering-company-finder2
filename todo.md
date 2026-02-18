@@ -157,3 +157,7 @@
 - [x] Implement hierarchical matching (match at sector/subsector level, not just exact 6-digit)
 - [x] Update UI to display NAICS hierarchy with sector labels (SelectedCodesDisplay component)
 - [x] Write tests for hierarchical matching logic (26 tests + updated code selection tests, 91 total passing)
+
+## Bug Fix: Duplicate React keys from duplicate SIC/NAICS codes
+- [x] Deduplicate codes in codeSelectionService before returning
+- [x] Deduplicate codes in SelectedCodesDisplay component as safety net

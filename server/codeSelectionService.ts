@@ -57,9 +57,16 @@ export async function selectIndustryCodes(offering: OfferingInput): Promise<Indu
     }
 
     const contentStr = typeof content === 'string' ? content : JSON.stringify(content);
-    const selection: IndustryCodeSelection = JSON.parse(contentStr);
+    const parsed: IndustryCodeSelection = JSON.parse(contentStr);
     
-    console.log(`[Code Selection] Selected ${selection.sicCodes.length} SIC codes and ${selection.naicsCodes.length} NAICS codes`);
+    // Deduplicate codes (LLM may return duplicates)
+    const selection: IndustryCodeSelection = {
+      sicCodes: Array.from(new Set(parsed.sicCodes)),
+      naicsCodes: Array.from(new Set(parsed.naicsCodes)),
+      reasoning: parsed.reasoning,
+    };
+    
+    console.log(`[Code Selection] Selected ${selection.sicCodes.length} SIC codes and ${selection.naicsCodes.length} NAICS codes (deduped from ${parsed.sicCodes.length}/${parsed.naicsCodes.length})`);
     console.log(`[Code Selection] SIC: ${selection.sicCodes.join(", ")}`);
     console.log(`[Code Selection] NAICS: ${selection.naicsCodes.join(", ")}`);
     console.log(`[Code Selection] Reasoning: ${selection.reasoning}`);

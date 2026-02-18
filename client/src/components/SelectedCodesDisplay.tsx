@@ -57,8 +57,11 @@ interface Props {
 
 export default function SelectedCodesDisplay({ sicCodes, naicsCodes, reasoning }: Props) {
   const [expanded, setExpanded] = useState(false);
-  const naicsGrouped = groupNaicsBySector(naicsCodes);
-  const sicGrouped = groupSicByMajor(sicCodes);
+  // Deduplicate codes as safety net (LLM may return duplicates)
+  const uniqueNaics = Array.from(new Set(naicsCodes));
+  const uniqueSic = Array.from(new Set(sicCodes));
+  const naicsGrouped = groupNaicsBySector(uniqueNaics);
+  const sicGrouped = groupSicByMajor(uniqueSic);
 
   const sectorCount = Object.keys(naicsGrouped).length;
 
@@ -69,7 +72,7 @@ export default function SelectedCodesDisplay({ sicCodes, naicsCodes, reasoning }
         onClick={() => setExpanded(!expanded)}
       >
         <div className="text-sm font-black text-blue-600">
-          🎯 INDUSTRY CODE TARGETING ({naicsCodes.length} NAICS across {sectorCount} sectors + {sicCodes.length} SIC)
+          🎯 INDUSTRY CODE TARGETING ({uniqueNaics.length} NAICS across {sectorCount} sectors + {uniqueSic.length} SIC)
         </div>
         <span className="text-blue-600 font-black text-lg">{expanded ? "▲" : "▼"}</span>
       </div>

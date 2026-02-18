@@ -125,7 +125,7 @@ Return JSON only:
 }`;
 
   const urgencyResponse = await xai.chat.completions.create({
-    model: "grok-2-1212",
+    model: "grok-4-1-fast-reasoning",
     messages: [{ role: "user", content: urgencyPrompt }],
     response_format: { type: "json_object" },
   });
@@ -163,7 +163,7 @@ Return JSON only:
 }`;
 
   const intelligenceResponse = await xai.chat.completions.create({
-    model: "grok-2-1212",
+    model: "grok-4-1-fast-reasoning",
     messages: [{ role: "user", content: intelligencePrompt }],
     response_format: { type: "json_object" },
   });
@@ -192,7 +192,7 @@ Return JSON only:
 }`;
 
   const conversationResponse = await xai.chat.completions.create({
-    model: "grok-2-1212",
+    model: "grok-4-1-fast-reasoning",
     messages: [{ role: "user", content: conversationPrompt }],
     response_format: { type: "json_object" },
   });
@@ -235,7 +235,7 @@ Return JSON only:
 }`;
 
   const strategyResponse = await xai.chat.completions.create({
-    model: "grok-2-1212",
+    model: "grok-4-1-fast-reasoning",
     messages: [{ role: "user", content: strategyPrompt }],
     response_format: { type: "json_object" },
   });

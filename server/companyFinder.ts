@@ -24,6 +24,7 @@ import { extractOffering } from "./offeringExtractor";
 import { searchApolloCompanies, enrichCompanyDetails } from "./apolloSearch";
 import { normalizeWebsiteUrl } from "../shared/urlUtils";
 import { generateSalesPackage, packageToMarkdown } from "./packageGenerator";
+import { selectIndustryCodes } from "./codeSelectionService";
 
 export const companyFinderRouter = router({
   // Create a new search with hardcoded ConnectGroup offering (skip extraction)
@@ -77,6 +78,15 @@ export const companyFinderRouter = router({
         ],
       };
 
+      // STEP 1: Select relevant SIC/NAICS codes using LLM
+      console.log(`[Search] Selecting industry codes for offering: ${connectGroupOffering.name}`);
+      const codeSelection = await selectIndustryCodes({
+        offeringName: connectGroupOffering.name,
+        offeringDescription: connectGroupOffering.description,
+        targetMarket: connectGroupOffering.targetMarket,
+        valueProposition: "Full-service EMS with 33 years experience, 9 global locations, design-to-product support",
+      });
+
       const searchId = await createSearch({
         userId: ctx.user.id,
         companyWebsite: "https://www.connectgroup.com/en/",
@@ -87,10 +97,13 @@ export const companyFinderRouter = router({
         targetMarket: connectGroupOffering.targetMarket,
         keywords: JSON.stringify(connectGroupOffering.keywords),
         keywordTagsUsed: JSON.stringify(connectGroupOffering.targetMarketKeywordTags),
+        selectedSicCodes: JSON.stringify(codeSelection.sicCodes),
+        selectedNaicsCodes: JSON.stringify(codeSelection.naicsCodes),
+        codeSelectionReasoning: codeSelection.reasoning,
       });
 
       // Start search immediately (skip extraction)
-      searchWithHardcodedOffering(searchId, connectGroupOffering, input.location).catch(async (error) => {
+      searchWithHardcodedOffering(searchId, connectGroupOffering, input.location, codeSelection).catch(async (error) => {
         await updateSearch(searchId, {
           status: "failed",
           errorMessage: error.message,
@@ -393,25 +406,44 @@ async function searchWithHardcodedOffering(
     keywords: string[];
     targetMarketKeywordTags: string[];
   },
-  location: string
+  location: string,
+  codeSelection: { sicCodes: string[]; naicsCodes: string[]; reasoning: string }
 ) {
   try {
     console.log(`[Search ${searchId}] Using hardcoded ConnectGroup offering`);
-    console.log(`[Search ${searchId}] Target market tags: ${JSON.stringify(offering.targetMarketKeywordTags)}`);
+    console.log(`[Search ${searchId}] LLM selected ${codeSelection.sicCodes.length} SIC codes and ${codeSelection.naicsCodes.length} NAICS codes`);
+    console.log(`[Search ${searchId}] SIC: ${codeSelection.sicCodes.join(", ")}`);
+    console.log(`[Search ${searchId}] NAICS: ${codeSelection.naicsCodes.join(", ")}`);
+    console.log(`[Search ${searchId}] Reasoning: ${codeSelection.reasoning}`);
 
-    // Fast bulk search - NO enrichment, just find companies
-    console.log(`[Search ${searchId}] Fast Apollo search for companies in ${location}`);
+    // Wide cast Apollo search - NO keyword filtering, just location + employee size
+    console.log(`[Search ${searchId}] Wide cast Apollo search for companies in ${location}`);
     const apolloResult = await searchApolloCompanies({
-      targetMarketKeywordTags: offering.targetMarketKeywordTags,
+      targetMarketKeywordTags: [], // Empty - no keyword filtering
       targetMarket: offering.targetMarket,
       location,
-      limit: 100,
+      limit: 500, // Increased limit for wide cast
     });
 
-    console.log(`[Search ${searchId}] Apollo found ${apolloResult.totalFound} total, returning ${apolloResult.companies.length}`);
+    console.log(`[Search ${searchId}] Apollo found ${apolloResult.totalFound} total, returned ${apolloResult.companies.length}`);
 
-    // Store companies in database (all with enrichmentStatus: "pending")
-    const companiesToInsert = apolloResult.companies.map((company) => ({
+    // Filter companies by selected SIC/NAICS codes
+    const selectedSicSet = new Set(codeSelection.sicCodes);
+    const selectedNaicsSet = new Set(codeSelection.naicsCodes);
+    
+    const filteredCompanies = apolloResult.companies.filter(company => {
+      // Check if company has any matching SIC codes
+      const hasSicMatch = company.sic_codes?.some(code => selectedSicSet.has(code)) || false;
+      // Check if company has any matching NAICS codes
+      const hasNaicsMatch = company.naics_codes?.some(code => selectedNaicsSet.has(code)) || false;
+      
+      return hasSicMatch || hasNaicsMatch;
+    });
+
+    console.log(`[Search ${searchId}] Filtered to ${filteredCompanies.length} companies matching selected codes (from ${apolloResult.companies.length} total)`);
+
+    // Store filtered companies in database (all with enrichmentStatus: "pending")
+    const companiesToInsert = filteredCompanies.map((company) => ({
       searchId,
       apolloId: company.id,
       name: company.name,

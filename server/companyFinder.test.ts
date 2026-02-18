@@ -1,7 +1,8 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import * as db from "./db";
+import * as codeSelectionService from "./codeSelectionService";
 
 type AuthenticatedUser = NonNullable<TrpcContext["user"]>;
 
@@ -36,6 +37,13 @@ describe("companyFinder router", () => {
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
+      // Mock LLM code selection
+      const mockSelectCodes = vi.spyOn(codeSelectionService, "selectIndustryCodes").mockResolvedValue({
+        sicCodes: ["3663", "3674"],
+        naicsCodes: ["334220", "334510"],
+        reasoning: "Test reasoning"
+      });
+
       // Mock database function
       const mockCreateSearch = vi.spyOn(db, "createSearch").mockResolvedValue(123);
 
@@ -55,7 +63,8 @@ describe("companyFinder router", () => {
       );
 
       mockCreateSearch.mockRestore();
-    });
+      mockSelectCodes.mockRestore();
+    }, 10000); // 10 second timeout for LLM call
 
     it("validates location is required", async () => {
       const ctx = createAuthContext();

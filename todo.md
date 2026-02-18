@@ -136,3 +136,12 @@
 - [x] Implement dynamic SIC/NAICS lookup via web scraping (siccode.com)
 - [x] Add database caching for looked-up codes
 - [x] Update UI to use dynamic lookup via CompanyCodeDisplay component
+
+## Feature: LLM-Powered SIC/NAICS Code Selection
+- [x] Design LLM prompt to select relevant SIC/NAICS codes based on offering
+- [x] Implement code selection step after offering extraction
+- [x] Store selected codes in searches table
+- [x] Update Apollo search to do wide cast (no keyword filtering)
+- [x] Filter Apollo results by selected SIC/NAICS codes
+- [x] Update UI to show selected codes and filtering rationale
+- [x] Write tests for code selection and filtering logic

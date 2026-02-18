@@ -43,6 +43,13 @@
       "when": 1771414113641,
       "tag": "0005_chubby_phil_sheldon",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1771415537731,
+      "tag": "0006_late_wildside",
+      "breakpoints": true
     }
   ]
 }

@@ -96,3 +96,37 @@ export const salesPackages = mysqlTable("salesPackages", {
 
 export type SalesPackage = typeof salesPackages.$inferSelect;
 export type InsertSalesPackage = typeof salesPackages.$inferInsert;
+
+/**
+ * Stores user decisions on company relevance (HITL training data)
+ */
+export const companyDecisions = mysqlTable("companyDecisions", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull().references(() => companies.id),
+  searchId: int("searchId").notNull().references(() => searches.id),
+  userId: int("userId").notNull().references(() => users.id),
+  decision: mysqlEnum("decision", ["call_today", "park", "not_relevant"]).notNull(),
+  reasonCode: varchar("reasonCode", { length: 50 }), // 'wrong_industry', 'too_small', 'wrong_geo', 'competitor', 'other'
+  reasonNotes: text("reasonNotes"),
+  decidedAt: timestamp("decidedAt").defaultNow().notNull(),
+});
+
+export type CompanyDecision = typeof companyDecisions.$inferSelect;
+export type InsertCompanyDecision = typeof companyDecisions.$inferInsert;
+
+/**
+ * Stores SIC/NAICS codes to exclude from future searches (built from HITL feedback)
+ */
+export const excludedCodes = mysqlTable("excludedCodes", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id),
+  codeType: mysqlEnum("codeType", ["sic", "naics"]).notNull(),
+  code: varchar("code", { length: 16 }).notNull(),
+  codeDescription: text("codeDescription"),
+  rejectionCount: int("rejectionCount").default(1).notNull(), // How many times companies with this code were rejected
+  lastRejectedAt: timestamp("lastRejectedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ExcludedCode = typeof excludedCodes.$inferSelect;
+export type InsertExcludedCode = typeof excludedCodes.$inferInsert;

@@ -1,6 +1,6 @@
-import { eq } from "drizzle-orm";
+import { eq, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, salesPackages, InsertSalesPackage } from "../drizzle/schema";
+import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -89,7 +89,6 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-import { companies, Company, InsertCompany, searches, Search, InsertSearch } from "../drizzle/schema";
 import { desc } from "drizzle-orm";
 
 // Search operations
@@ -186,4 +185,87 @@ export async function updateSalesPackage(id: number, updates: Partial<InsertSale
   if (!db) throw new Error("Database not available");
   
   await db.update(salesPackages).set(updates).where(eq(salesPackages.id, id));
+}
+
+// HITL Training: Company Decisions
+export async function createCompanyDecision(decision: InsertCompanyDecision) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const result = await db.insert(companyDecisions).values(decision);
+  return result[0].insertId;
+}
+
+export async function getCompanyDecision(companyId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(companyDecisions)
+    .where(and(
+      eq(companyDecisions.companyId, companyId),
+      eq(companyDecisions.userId, userId)
+    ))
+    .orderBy(desc(companyDecisions.decidedAt))
+    .limit(1);
+  
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getDecisionsBySearch(searchId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(companyDecisions)
+    .where(eq(companyDecisions.searchId, searchId))
+    .orderBy(desc(companyDecisions.decidedAt));
+}
+
+// HITL Training: Excluded Codes
+export async function addExcludedCode(code: InsertExcludedCode) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  // Check if code already exists for this user
+  const existing = await db.select().from(excludedCodes)
+    .where(and(
+      eq(excludedCodes.userId, code.userId),
+      eq(excludedCodes.codeType, code.codeType),
+      eq(excludedCodes.code, code.code)
+    ))
+    .limit(1);
+  
+  if (existing.length > 0) {
+    // Increment rejection count
+    await db.update(excludedCodes)
+      .set({
+        rejectionCount: existing[0].rejectionCount + 1,
+        lastRejectedAt: new Date(),
+      })
+      .where(eq(excludedCodes.id, existing[0].id));
+    return existing[0].id;
+  } else {
+    // Insert new excluded code
+    const result = await db.insert(excludedCodes).values(code);
+    return result[0].insertId;
+  }
+}
+
+export async function getExcludedCodes(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return await db.select().from(excludedCodes)
+    .where(eq(excludedCodes.userId, userId))
+    .orderBy(desc(excludedCodes.rejectionCount));
+}
+
+export async function removeExcludedCode(id: number, userId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.delete(excludedCodes)
+    .where(and(
+      eq(excludedCodes.id, id),
+      eq(excludedCodes.userId, userId)
+    ));
 }

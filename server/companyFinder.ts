@@ -13,6 +13,12 @@ import {
   createSalesPackage,
   getSalesPackageByCompanyId,
   updateSalesPackage,
+  createCompanyDecision,
+  getCompanyDecision,
+  getDecisionsBySearch,
+  addExcludedCode,
+  getExcludedCodes,
+  removeExcludedCode,
 } from "./db";
 import { extractOffering } from "./offeringExtractor";
 import { searchApolloCompanies, enrichCompanyDetails } from "./apolloSearch";
@@ -292,6 +298,87 @@ export const companyFinderRouter = router({
         packageData: pkg.packageData ? JSON.parse(pkg.packageData) : null,
         createdAt: pkg.createdAt,
       };
+    }),
+
+  // HITL: Submit decision on company relevance
+  submitDecision: protectedProcedure
+    .input(
+      z.object({
+        companyId: z.number(),
+        searchId: z.number(),
+        decision: z.enum(["call_today", "park", "not_relevant"]),
+        reasonCode: z.string().optional(),
+        reasonNotes: z.string().optional(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const company = await getCompanyById(input.companyId);
+      if (!company) {
+        throw new Error("Company not found");
+      }
+
+      // Store decision
+      const decisionId = await createCompanyDecision({
+        companyId: input.companyId,
+        searchId: input.searchId,
+        userId: ctx.user.id,
+        decision: input.decision,
+        reasonCode: input.reasonCode || null,
+        reasonNotes: input.reasonNotes || null,
+      });
+
+      // If decision is "not_relevant" and reason is "wrong_industry", add SIC/NAICS codes to exclusion list
+      if (input.decision === "not_relevant" && input.reasonCode === "wrong_industry") {
+        const sicCodes = company.sicCodes ? JSON.parse(company.sicCodes) : [];
+        const naicsCodes = company.naicsCodes ? JSON.parse(company.naicsCodes) : [];
+
+        for (const code of sicCodes) {
+          await addExcludedCode({
+            userId: ctx.user.id,
+            codeType: "sic",
+            code: code,
+            codeDescription: null,
+          });
+        }
+
+        for (const code of naicsCodes) {
+          await addExcludedCode({
+            userId: ctx.user.id,
+            codeType: "naics",
+            code: code,
+            codeDescription: null,
+          });
+        }
+      }
+
+      return { decisionId, success: true };
+    }),
+
+  // HITL: Get decision for a company
+  getDecision: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      return await getCompanyDecision(input.companyId, ctx.user.id);
+    }),
+
+  // HITL: Get all decisions for a search
+  getSearchDecisions: protectedProcedure
+    .input(z.object({ searchId: z.number() }))
+    .query(async ({ input }) => {
+      return await getDecisionsBySearch(input.searchId);
+    }),
+
+  // HITL: Get excluded codes
+  getExcludedCodes: protectedProcedure.query(async ({ ctx }) => {
+    return await getExcludedCodes(ctx.user.id);
+  }),
+
+  // HITL: Remove excluded code
+  removeExcludedCode: protectedProcedure
+    .input(z.object({ codeId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await removeExcludedCode(input.codeId, ctx.user.id);
+      return { success: true };
     }),
 });
 

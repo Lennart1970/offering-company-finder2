@@ -111,3 +111,15 @@
 - [x] Debug why package generation failed (no actual failure, stale Vite error)
 - [x] Replace complex Grok-powered generation with simple placeholder template
 - [x] Test placeholder package generation (31 tests passing)
+
+## HITL Method 1: Decision Capture
+- [x] Add company_decisions table to database schema
+- [x] Add excluded_codes table for SIC/NAICS exclusion list
+- [x] Create submitDecision tRPC procedure
+- [x] Create getDecision, getSearchDecisions, getExcludedCodes, removeExcludedCode procedures
+- [ ] Add decision buttons (Call Today / Park / Not Relevant) to company cards
+- [ ] Add reason picker modal for "Not Relevant" decisions
+- [ ] Create "Exclusion List" page showing rejected SIC/NAICS codes
+- [ ] Update Apollo search to filter out excluded codes
+- [ ] Add decision badges to company cards (✓ CALL / ⏸️ PARK / ❌ REJECT)
+- [ ] Test complete HITL workflow end-to-end

@@ -39,3 +39,11 @@
 
 ## Bug Fixes
 - [x] Fix Grok API 422 error - use standard chat completions instead of Responses API
+
+## Current Bug
+- [x] Debug Grok API 400 error - need to see full error response from xAI API
+- [x] Add better error logging to capture API response details
+- [x] Fix model name from grok-2-1212 to grok-2-vision-1212
+
+## Model Update
+- [x] Switch from grok-2-vision-1212 to grok-4-1-fast-reasoning (latest model)

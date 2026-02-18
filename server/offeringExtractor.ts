@@ -47,7 +47,7 @@ export async function extractOffering(companyWebsite: string): Promise<OfferingD
     const response = await axios.post(
       "https://api.x.ai/v1/chat/completions",
       {
-        model: "grok-2-1212",
+        model: "grok-4-1-fast-reasoning",
         messages: [
           {
             role: "system",
@@ -103,6 +103,16 @@ export async function extractOffering(companyWebsite: string): Promise<OfferingD
     return offering;
   } catch (error) {
     if (axios.isAxiosError(error)) {
+      // Log full error details for debugging
+      console.error('[Grok API Error] Status:', error.response?.status);
+      console.error('[Grok API Error] Response data:', JSON.stringify(error.response?.data, null, 2));
+      console.error('[Grok API Error] Request data:', JSON.stringify({
+        model: "grok-4-1-fast-reasoning",
+        messagesCount: 2,
+        temperature: 0.3,
+        max_tokens: 2000
+      }));
+      
       const errorDetails = error.response?.data?.error?.message || error.response?.data?.message || error.message;
       throw new Error(`Grok API error: ${errorDetails}`);
     }

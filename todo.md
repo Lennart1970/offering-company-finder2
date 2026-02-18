@@ -213,4 +213,16 @@
 - [x] Document unlimited results capability (10,000 limit per keyword)
 - [x] Document batched search with 32 keyword tags
 - [x] Validate updated skill (passed quick_validate.py)
-- [ ] Deliver updated skill to user
+- [x] Deliver updated skill to user
+
+## Bug: Results not displaying after batched search completes
+- [ ] Check server logs for errors during confirmAndSearch
+- [ ] Check if companies are being stored in database
+- [ ] Check frontend state management after search completes
+- [ ] Verify UI updates when search status changes to "completed"
+- [ ] Fix the issue and test end-to-end
+
+## Re-apply unlimited results change (reverted by server restart)
+- [x] Re-apply limit change from 100 to 10000 in confirmAndSearch.ts (already in code)
+- [x] Verify server picks up the change (triggered restart with touch command)
+- [ ] User to test with new Paris search (expecting 1000+ companies)

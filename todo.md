@@ -54,3 +54,11 @@
 - [x] Update database schema to add location columns to companies table
 - [x] Store search location with each company result
 - [x] Display both actual address and search location on company cards
+
+## Search History Feature
+- [x] Create SearchHistory component to display past searches
+- [x] Add navigation between new search and history views
+- [x] Display search cards with company website, location, date, and result count
+- [x] Add click handler to load previous search results
+- [x] Update Home.tsx to support viewing historical searches
+- [x] Test search history workflow end-to-end

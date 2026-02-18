@@ -4,15 +4,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { getLoginUrl } from "@/const";
 import { trpc } from "@/lib/trpc";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { normalizeWebsiteUrl } from "@shared/urlUtils";
+import { useLocation } from "wouter";
 
 export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
+  const [, navigate] = useLocation();
   const [companyWebsite, setCompanyWebsite] = useState("");
   const [location, setLocation] = useState("");
   const [searchId, setSearchId] = useState<number | null>(null);
+
+  // Check for searchId in URL parameters
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const urlSearchId = params.get("searchId");
+    if (urlSearchId) {
+      setSearchId(parseInt(urlSearchId, 10));
+    }
+  }, []);
 
   const startSearchMutation = trpc.companyFinder.startSearch.useMutation({
     onSuccess: (data) => {
@@ -115,15 +126,24 @@ export default function Home() {
       <div className="border-b-8 border-black p-8">
         <div className="container flex justify-between items-center">
           <h1 className="text-5xl md:text-7xl font-black leading-none">[CF]</h1>
-          <div className="text-right">
-            <div className="text-sm font-bold mb-2">{user?.name || user?.email}</div>
+          <div className="flex items-center gap-6">
             <Button
-              onClick={() => window.location.href = "/"}
-              variant="ghost"
-              className="text-xs font-bold underline"
+              onClick={() => navigate("/history")}
+              variant="outline"
+              className="text-lg px-6 py-4 font-black border-4 border-black"
             >
-              RESET
+              HISTORY
             </Button>
+            <div className="text-right">
+              <div className="text-sm font-bold mb-2">{user?.name || user?.email}</div>
+              <Button
+                onClick={() => window.location.href = "/"}
+                variant="ghost"
+                className="text-xs font-bold underline"
+              >
+                RESET
+              </Button>
+            </div>
           </div>
         </div>
       </div>

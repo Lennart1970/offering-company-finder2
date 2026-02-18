@@ -303,6 +303,24 @@ export default function Home() {
                       </div>
 
                       <div className="grid md:grid-cols-3 gap-4 text-sm">
+                        {/* Location Information */}
+                        {(company.city || company.state || company.country) && (
+                          <div className="md:col-span-3 border-t-2 border-current pt-4 mt-2">
+                            <div className="font-black mb-1">LOCATION</div>
+                            <div className="font-bold">
+                              {[company.city, company.state, company.country].filter(Boolean).join(", ")}
+                            </div>
+                            {company.streetAddress && (
+                              <div className="font-bold text-xs mt-1">{company.streetAddress}</div>
+                            )}
+                          </div>
+                        )}
+                        {company.searchLocation && (
+                          <div className="md:col-span-3">
+                            <div className="font-black mb-1">SEARCH LOCATION</div>
+                            <div className="font-bold">{company.searchLocation}</div>
+                          </div>
+                        )}
                         {company.phone && (
                           <div>
                             <div className="font-black mb-1">PHONE</div>

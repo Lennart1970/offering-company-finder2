@@ -63,6 +63,13 @@ export const companies = mysqlTable("companies", {
   foundedYear: int("foundedYear"),
   revenue: varchar("revenue", { length: 64 }),
   headcountGrowth: varchar("headcountGrowth", { length: 256 }),
+  // Location data from Apollo enrichment
+  searchLocation: varchar("searchLocation", { length: 256 }), // Location used in search query
+  city: varchar("city", { length: 128 }),
+  state: varchar("state", { length: 128 }),
+  country: varchar("country", { length: 128 }),
+  streetAddress: varchar("streetAddress", { length: 512 }),
+  rawAddress: text("rawAddress"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

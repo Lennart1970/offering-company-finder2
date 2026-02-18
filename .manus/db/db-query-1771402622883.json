@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `companies` ADD `searchLocation` varchar(256);\nALTER TABLE `companies` ADD `city` varchar(128);\nALTER TABLE `companies` ADD `state` varchar(128);\nALTER TABLE `companies` ADD `country` varchar(128);\nALTER TABLE `companies` ADD `streetAddress` varchar(512);\nALTER TABLE `companies` ADD `rawAddress` text;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute ALTER TABLE `companies` ADD `searchLocation` varchar(256);\nALTER TABLE `companies` ADD `city` varchar(128);\nALTER TABLE `companies` ADD `state` varchar(128);\nALTER TABLE `companies` ADD `country` varchar(128);\nALTER TABLE `companies` ADD `streetAddress` varchar(512);\nALTER TABLE `companies` ADD `rawAddress` text;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 2942
+}

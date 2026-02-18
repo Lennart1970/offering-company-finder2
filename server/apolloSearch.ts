@@ -11,6 +11,12 @@ export interface ApolloCompany {
   organization_revenue_printed?: string;
   organization_headcount_six_month_growth?: number;
   organization_headcount_twelve_month_growth?: number;
+  // Location fields from enrichment
+  city?: string;
+  state?: string;
+  country?: string;
+  street_address?: string;
+  raw_address?: string;
 }
 
 interface EmployeeRange {
@@ -70,6 +76,36 @@ function normalizeLocation(location: string): string {
   return trimmed;
 }
 
+/**
+ * Enriches a company with full details including location data
+ */
+async function enrichCompanyDetails(apolloId: string, apiKey: string): Promise<Partial<ApolloCompany>> {
+  try {
+    const response = await axios.get(
+      `https://api.apollo.io/api/v1/organizations/${apolloId}`,
+      {
+        headers: {
+          "X-Api-Key": apiKey,
+          "Content-Type": "application/json",
+        },
+        timeout: 10000,
+      }
+    );
+
+    const org = response.data.organization || {};
+    return {
+      city: org.city || undefined,
+      state: org.state || undefined,
+      country: org.country || undefined,
+      street_address: org.street_address || undefined,
+      raw_address: org.raw_address || undefined,
+    };
+  } catch (error) {
+    console.warn(`[Apollo] Failed to enrich company ${apolloId}:`, error instanceof Error ? error.message : error);
+    return {}; // Return empty object on error, don't fail the whole search
+  }
+}
+
 export async function searchApolloCompanies(
   offering: { keywords: string[]; targetMarket: string },
   location: string,
@@ -116,7 +152,15 @@ export async function searchApolloCompanies(
         break; // No more results
       }
 
-      companies.push(...results);
+      // Enrich each company with full details including location
+      for (const company of results) {
+        if (company.id) {
+          const enrichedData = await enrichCompanyDetails(company.id, apiKey);
+          companies.push({ ...company, ...enrichedData });
+        } else {
+          companies.push(company);
+        }
+      }
 
       if (companies.length >= limit || results.length < perPage) {
         break;

@@ -80,6 +80,11 @@ export const companyFinderRouter = router({
         "Founded",
         "Revenue",
         "Headcount Growth",
+        "Search Location",
+        "City",
+        "State",
+        "Country",
+        "Street Address",
       ];
       const rows = companiesList.map((c) => [
         c.name,
@@ -90,6 +95,11 @@ export const companyFinderRouter = router({
         c.foundedYear?.toString() || "",
         c.revenue || "",
         c.headcountGrowth || "",
+        c.searchLocation || "",
+        c.city || "",
+        c.state || "",
+        c.country || "",
+        c.streetAddress || "",
       ]);
 
       const csvContent = [
@@ -142,6 +152,13 @@ async function extractAndSearch(searchId: number, companyWebsite: string, locati
       ]
         .filter(Boolean)
         .join(", "),
+      // Location data
+      searchLocation: location,
+      city: company.city,
+      state: company.state,
+      country: company.country,
+      streetAddress: company.street_address,
+      rawAddress: company.raw_address,
     }));
 
     await createCompanies(companiesToInsert);

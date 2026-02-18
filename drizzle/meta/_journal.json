@@ -15,6 +15,13 @@
       "when": 1771344832540,
       "tag": "0001_mysterious_matthew_murdock",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1771402610956,
+      "tag": "0002_flat_naoko",
+      "breakpoints": true
     }
   ]
 }

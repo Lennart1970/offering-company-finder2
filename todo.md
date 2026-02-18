@@ -47,3 +47,10 @@
 
 ## Model Update
 - [x] Switch from grok-2-vision-1212 to grok-4-1-fast-reasoning (latest model)
+
+## Location Display Enhancement
+- [x] Fetch full company details using Get Complete Organization Info endpoint
+- [x] Extract and store address fields (city, state, country, street_address)
+- [x] Update database schema to add location columns to companies table
+- [x] Store search location with each company result
+- [x] Display both actual address and search location on company cards

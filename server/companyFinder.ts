@@ -40,7 +40,7 @@ export const companyFinderRouter = router({
       const connectGroupOffering = {
         name: "Electronics Manufacturing Services (EMS) - PCB Assembly, Cable Assembly & Module Building",
         description: "ConnectGroup is a full-service EMS subcontractor providing PCB assembly, cable assembly (from complex harnesses to automated large-scale), and module building (integration of cables, electronics, and mechanics). With 33 years of industrial experience and 9 locations across 8 countries, they support companies from design to successful product with focus on efficiency, quality, and shorter time-to-market.",
-        targetMarket: "Mid-market to enterprise companies in Railway, Healthcare/MedTech, Infrastructure, Automotive & Off-road, Defense & Avionics, Industrial Manufacturing, Electronics, Telecommunications, Energy, Automation, Instrumentation, Aerospace, Marine, Agricultural Equipment, Construction Equipment, Mining, Oil & Gas, Renewable Energy, IoT, and Embedded Systems that require EMS services, cable assemblies, PCB assembly, or module building.",
+        targetMarket: "Railway • Healthcare/MedTech • Infrastructure • Automotive & Off-road • Defense & Avionics • Industrial Manufacturing • Electronics • Telecommunications • Energy • Automation • Instrumentation • Aerospace • Marine • Agricultural Equipment • Construction Equipment • Mining • Oil & Gas • Renewable Energy • IoT • Embedded Systems",
         keywords: ["ems", "electronics manufacturing", "pcb assembly", "cable assembly", "module building", "industrial", "railway", "healthcare", "automotive", "defense"],
         targetMarketKeywordTags: [
           "railway",

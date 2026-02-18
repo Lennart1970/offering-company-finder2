@@ -1,0 +1,55 @@
+{
+  "query": "SELECT id, location, status, codesSearched, codesTotal, errorMessage, createdAt FROM searches WHERE location LIKE '%Amsterdam%' ORDER BY createdAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, location, status, codesSearched, codesTotal, errorMessage, createdAt FROM searches WHERE location LIKE '%Amsterdam%' ORDER BY createdAt DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "150021",
+      "location": "Amsterdam",
+      "status": "completed",
+      "codesSearched": "1",
+      "codesTotal": "1",
+      "errorMessage": "NULL",
+      "createdAt": "2026-02-18 15:10:20"
+    },
+    {
+      "id": "150020",
+      "location": "Amsterdam",
+      "status": "completed",
+      "codesSearched": "1",
+      "codesTotal": "1",
+      "errorMessage": "NULL",
+      "createdAt": "2026-02-18 15:08:56"
+    },
+    {
+      "id": "150011",
+      "location": "Amsterdam",
+      "status": "completed",
+      "codesSearched": "0",
+      "codesTotal": "0",
+      "errorMessage": "NULL",
+      "createdAt": "2026-02-18 13:46:45"
+    },
+    {
+      "id": "150001",
+      "location": "Amsterdam",
+      "status": "completed",
+      "codesSearched": "0",
+      "codesTotal": "0",
+      "errorMessage": "NULL",
+      "createdAt": "2026-02-18 12:47:09"
+    },
+    {
+      "id": "120004",
+      "location": "Amsterdam",
+      "status": "completed",
+      "codesSearched": "0",
+      "codesTotal": "0",
+      "errorMessage": "NULL",
+      "createdAt": "2026-02-18 11:40:18"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tlocation\tstatus\tcodesSearched\tcodesTotal\terrorMessage\tcreatedAt\n150021\tAmsterdam\tcompleted\t1\t1\tNULL\t2026-02-18 15:10:20\n150020\tAmsterdam\tcompleted\t1\t1\tNULL\t2026-02-18 15:08:56\n150011\tAmsterdam\tcompleted\t0\t0\tNULL\t2026-02-18 13:46:45\n150001\tAmsterdam\tcompleted\t0\t0\tNULL\t2026-02-18 12:47:09\n120004\tAmsterdam\tcompleted\t0\t0\tNULL\t2026-02-18 11:40:18\n",
+  "stderr": "",
+  "execution_time_ms": 54
+}

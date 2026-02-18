@@ -38,11 +38,10 @@ export async function confirmAndSearch({ searchId, location }: ConfirmAndSearchP
   console.log(`[Confirm & Search] Excluded sectors: ${excludedSectors.join(", ")}`);
   console.log(`[Confirm & Search] Confirmed sectors: ${confirmedSectors.join(", ")}`);
 
-  // Get keyword tags from target market
-  const targetMarkets: string = search.targetMarket || "";
-  const keywordTags = targetMarkets.split("•").map(t => t.trim()).filter(Boolean);
+  // Get keyword tags from keywordTagsUsed (Apollo search tags)
+  const keywordTags: string[] = search.keywordTagsUsed ? JSON.parse(search.keywordTagsUsed) : [];
   
-  console.log(`[Confirm & Search] Keyword tags: ${keywordTags.join(", ")}`);
+  console.log(`[Confirm & Search] Using ${keywordTags.length} Apollo search tags: ${keywordTags.join(", ")}`);
 
   // Update search with keyword count and status
   await updateSearch(searchId, {

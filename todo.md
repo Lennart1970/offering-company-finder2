@@ -185,3 +185,9 @@
 - [x] Frontend: Add "Confirm & Search" button when status is "code_targeting"
 - [x] Frontend: Show progress during batched search (progress bar + "Searching keyword X of Y")
 - [x] Write tests for batched keyword search and hierarchical filtering logic (4 new tests, 104 total passing)
+
+## Bug: Amsterdam search returns no companies
+- [x] Investigate why Amsterdam search returns 0 results (found: using wrong field for keywords)
+- [x] Check if confirmAndSearch is being called correctly (yes, but parsing targetMarket instead of targetMarketKeywordTags)
+- [x] Fix confirmAndSearch to use keywordTagsUsed (Apollo search tags) instead of parsing targetMarket
+- [ ] Test with Amsterdam to verify fix (should run 32 separate searches, one per tag)

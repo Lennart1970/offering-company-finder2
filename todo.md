@@ -393,24 +393,29 @@
   - [x] Remove conversation starters from briefGenerator.ts
   - [x] Remove engagement strategy from briefGenerator.ts
   - [x] Keep only urgency detection + company intelligence (2 Grok calls)
-  - [ ] Update UI button text and modal display
+  - [x] Update UI button text and modal display
 - [x] Update Sales Approach (Step 3)
   - [x] Add conversation starters to salesApproachGenerator.ts prompt
   - [x] Add engagement strategy to salesApproachGenerator.ts prompt
   - [x] Combine with existing outreach generation (1 Grok call total)
-  - [ ] Update modal to display all 3 components
+  - [x] Update modal to display all 3 components
 - [x] Add Contact Details Feature (Step 5) - Backend
   - [x] Create contacts table schema in drizzle/schema.ts
   - [x] Generate and apply migration SQL
   - [x] Create Apollo People Search integration
   - [x] Add database functions (createContact, getContactByCompanyId)
-  - [ ] Add findContact tRPC procedure
-  - [ ] Add UI button with job title input field
-  - [ ] Store 1 contact per company in database
-  - [ ] Display contact details in modal
-- [ ] Add Cost/Time Indicators
-  - [ ] Add badge to Deep Research button (~30s, 2 Grok calls)
-  - [ ] Add badge to Sales Approach button (~45s, 1 Grok call)
-  - [ ] Add badge to Company Details button (~5s, 1 Apollo credit)
-  - [ ] Add badge to Contact Details button (~10s, 1 Apollo credit, expensive)
-- [ ] Test complete 5-step workflow end-to-end
+  - [x] Add findContact tRPC procedure
+  - [x] Add UI button with job title input field
+  - [x] Store 1 contact per company in database
+  - [x] Display contact details in modal
+- [x] Add Cost/Time Indicators
+  - [x] Add badge to Deep Research button (~30s, 2 Grok calls)
+  - [x] Add badge to Sales Approach button (~45s, 1 Grok call)
+  - [x] Add badge to Company Details button (~5s, 1 Apollo credit)
+  - [x] Add badge to Contact Details button (~10s, 1 Apollo credit, expensive)
+- [x] Test complete 5-step workflow end-to-end
+
+## Bug: Main page hover overrides deep research card hover
+- [x] Investigate hover conflict between main page and deep research cards
+- [x] Fix hover states so card-level hovers work independently
+- [x] Review all UI hover states for consistency

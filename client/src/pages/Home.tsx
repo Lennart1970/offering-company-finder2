@@ -299,7 +299,7 @@ export default function Home() {
             </div>
 
             {/* ConnectGroup Offering Info */}
-            <div className="mb-12 p-8 border-4 border-black bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => navigate("/offering")}>
+            <div className="mb-12 p-8 border-4 border-black bg-gray-50 cursor-pointer" onClick={() => navigate("/offering")}>
               <div className="text-sm font-black mb-2 text-muted-foreground">[OFFERING]</div>
               <h3 className="text-2xl font-black mb-4">Electronics Manufacturing Services (EMS)</h3>
               <p className="text-base font-bold mb-4">
@@ -602,14 +602,14 @@ function CompanyCard({
   const hasNaicsCodes = !!(company.naicsCodes && JSON.parse(company.naicsCodes).length > 0);
 
   return (
-    <div className="border-4 border-black p-6 hover:bg-black hover:text-white transition-colors group">
+    <div className="border-4 border-black p-6 bg-white">
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">
             <span className="text-sm font-black">[{String(index + 1).padStart(2, "0")}]</span>
             {/* Enrichment Status Badge */}
             {company.enrichmentStatus === "enriched" ? (
-              <span className="text-xs font-black border-2 border-current px-2 py-0.5 bg-black text-white group-hover:bg-white group-hover:text-black">
+              <span className="text-xs font-black border-2 border-black px-2 py-0.5 bg-black text-white">
                 ENRICHED
               </span>
             ) : company.enrichmentStatus === "failed" ? (
@@ -719,6 +719,8 @@ function CompanyCard({
           {company.briefData && (
             <CreateSalesApproachButton companyId={company.id} companyName={company.name} />
           )}
+          {/* Find Contact Button */}
+          <FindContactButton companyId={company.id} companyName={company.name} />
         </div>
       )}
     </div>
@@ -758,12 +760,12 @@ function DeepResearchButton({ companyId, companyName }: { companyId: number; com
   return (
     <>
       <Button
-        onClick={handleGenerate}
+        onClick={(e) => { e.stopPropagation(); handleGenerate(); }}
         disabled={isGenerating}
         variant="outline"
-        className="font-black border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white w-full"
+        className="font-black border-2 border-blue-600 text-blue-600 bg-blue-50 w-full cursor-pointer"
       >
-        {isGenerating ? "[RESEARCHING...]" : "[DEEP RESEARCH]"}
+        {isGenerating ? "[RESEARCHING...]" : <>[DEEP RESEARCH]<span className="ml-2 text-xs font-bold opacity-60">~30s • 2 Grok calls</span></>}
       </Button>
 
       {/* Brief Display Modal */}
@@ -926,11 +928,11 @@ function EnrichButton({ companyId, companyName }: { companyId: number; companyNa
 
   return (
     <Button
-      onClick={() => enrichMutation.mutate({ companyId })}
+      onClick={(e) => { e.stopPropagation(); enrichMutation.mutate({ companyId }); }}
       disabled={enrichMutation.isPending}
-      className="w-full text-lg px-4 py-3 font-black border-2 border-black bg-white text-black hover:bg-black hover:text-white transition-colors"
+      className="w-full text-lg px-4 py-3 font-black border-2 border-black bg-gray-100 text-black cursor-pointer"
     >
-      {enrichMutation.isPending ? "[ENRICHING...]" : "[ENRICH]"}
+      {enrichMutation.isPending ? "[ENRICHING...]" : <>[ENRICH]<span className="ml-2 text-xs font-bold opacity-60">~5s • 1 Apollo credit</span></>}
     </Button>
   );
 }
@@ -968,12 +970,12 @@ function CreateSalesApproachButton({ companyId, companyName }: { companyId: numb
   return (
     <>
       <Button
-        onClick={handleGenerate}
+        onClick={(e) => { e.stopPropagation(); handleGenerate(); }}
         disabled={isGenerating}
         variant="outline"
-        className="font-black border-2 border-green-600 text-green-600 hover:bg-green-600 hover:text-white w-full"
+        className="font-black border-2 border-green-600 text-green-600 bg-green-50 w-full cursor-pointer"
       >
-        {isGenerating ? "[CREATING APPROACH...]" : "[CREATE SALES APPROACH]"}
+        {isGenerating ? "[CREATING APPROACH...]" : <>[CREATE SALES APPROACH]<span className="ml-2 text-xs font-bold opacity-60">~45s • 1 Grok call</span></>}
       </Button>
 
       {/* Sales Approach Display Modal */}
@@ -1093,5 +1095,204 @@ function CreateSalesApproachButton({ companyId, companyName }: { companyId: numb
         </div>
       )}
     </>
+  );
+}
+
+
+// Component for finding a contact at a company (Apollo People Search)
+function FindContactButton({ companyId, companyName }: { companyId: number; companyName: string }) {
+  const [jobTitle, setJobTitle] = useState("");
+  const [showInput, setShowInput] = useState(false);
+  const [contactData, setContactData] = useState<any>(null);
+  const [showContact, setShowContact] = useState(false);
+
+  // Check if we already have a cached contact
+  const { data: existingContact } = trpc.companyFinder.getContact.useQuery(
+    { companyId },
+    { enabled: true }
+  );
+
+  const findContactMutation = trpc.companyFinder.findContact.useMutation({
+    onSuccess: (data) => {
+      if (data.success && data.contact) {
+        setContactData(data.contact);
+        setShowContact(true);
+        setShowInput(false);
+        toast.success(data.cached ? "Using cached contact" : `Found: ${data.contact.fullName || `${data.contact.firstName} ${data.contact.lastName}`}`);
+      } else {
+        toast.error("message" in data ? data.message : "No contact found");
+      }
+    },
+    onError: (error) => {
+      toast.error(`Contact search failed: ${error.message}`);
+    },
+  });
+
+  const handleSearch = () => {
+    if (!jobTitle.trim()) {
+      toast.error("Please enter a job title");
+      return;
+    }
+    findContactMutation.mutate({ companyId, jobTitle: jobTitle.trim() });
+  };
+
+  // If we have a cached contact, show "View Contact" button
+  if (existingContact?.contact) {
+    const c = existingContact.contact;
+    return (
+      <>
+        <Button
+          onClick={(e) => { e.stopPropagation(); setContactData(c); setShowContact(true); }}
+          variant="outline"
+          className="font-black border-2 border-orange-600 text-orange-600 bg-orange-50 w-full cursor-pointer"
+        >
+          [VIEW CONTACT: {c.fullName || `${c.firstName} ${c.lastName}`}]
+        </Button>
+
+        {showContact && contactData && (
+          <ContactModal contact={contactData} companyName={companyName} onClose={() => setShowContact(false)} />
+        )}
+      </>
+    );
+  }
+
+  return (
+    <>
+      {!showInput ? (
+        <Button
+          onClick={(e) => { e.stopPropagation(); setShowInput(true); }}
+          variant="outline"
+          className="font-black border-2 border-orange-600 text-orange-600 bg-orange-50 w-full cursor-pointer"
+        >
+          [FIND CONTACT]
+          <span className="ml-2 text-xs font-bold opacity-60">~10s • 1 Apollo credit</span>
+        </Button>
+      ) : (
+        <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
+          <input
+            type="text"
+            value={jobTitle}
+            onChange={(e) => setJobTitle(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            placeholder="Job title (e.g. VP Operations)"
+            className="flex-1 px-3 py-2 border-2 border-orange-600 font-bold text-sm bg-white text-black"
+            autoFocus
+          />
+          <Button
+            onClick={handleSearch}
+            disabled={findContactMutation.isPending}
+            className="font-black border-2 border-orange-600 bg-orange-600 text-white px-4 cursor-pointer"
+          >
+            {findContactMutation.isPending ? "..." : "GO"}
+          </Button>
+          <Button
+            onClick={() => setShowInput(false)}
+            variant="outline"
+            className="font-black border-2 border-black px-3 cursor-pointer"
+          >
+            ×
+          </Button>
+        </div>
+      )}
+
+      {showContact && contactData && (
+        <ContactModal contact={contactData} companyName={companyName} onClose={() => setShowContact(false)} />
+      )}
+    </>
+  );
+}
+
+// Modal for displaying contact details
+function ContactModal({ contact, companyName, onClose }: { contact: any; companyName: string; onClose: () => void }) {
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white max-w-lg w-full p-6 border-4 border-orange-600" onClick={(e) => e.stopPropagation()}>
+        <div className="flex justify-between items-start mb-4">
+          <h2 className="text-2xl font-black text-black">Contact at {companyName}</h2>
+          <button onClick={onClose} className="text-2xl font-black text-black">×</button>
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <div className="text-xs font-black text-orange-600 mb-1">NAME</div>
+            <div className="text-xl font-black text-black">{contact.fullName || `${contact.firstName} ${contact.lastName}`}</div>
+          </div>
+
+          {contact.title && (
+            <div>
+              <div className="text-xs font-black text-orange-600 mb-1">TITLE</div>
+              <div className="font-bold text-black">{contact.title}</div>
+            </div>
+          )}
+
+          {contact.email && (
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs font-black text-orange-600 mb-1">EMAIL</div>
+                <div className="font-bold text-black">{contact.email}</div>
+              </div>
+              <Button
+                onClick={() => copyToClipboard(contact.email, "Email")}
+                variant="outline"
+                size="sm"
+                className="font-black border-2 border-black text-black cursor-pointer"
+              >
+                COPY
+              </Button>
+            </div>
+          )}
+
+          {contact.phone && (
+            <div className="flex items-center justify-between">
+              <div>
+                <div className="text-xs font-black text-orange-600 mb-1">PHONE</div>
+                <div className="font-bold text-black">{contact.phone}</div>
+              </div>
+              <Button
+                onClick={() => copyToClipboard(contact.phone, "Phone")}
+                variant="outline"
+                size="sm"
+                className="font-black border-2 border-black text-black cursor-pointer"
+              >
+                COPY
+              </Button>
+            </div>
+          )}
+
+          {contact.linkedinUrl && (
+            <div>
+              <div className="text-xs font-black text-orange-600 mb-1">LINKEDIN</div>
+              <a
+                href={contact.linkedinUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="font-bold underline text-black break-all"
+              >
+                {contact.linkedinUrl}
+              </a>
+            </div>
+          )}
+
+          {contact.searchedTitle && (
+            <div>
+              <div className="text-xs font-black text-orange-600 mb-1">SEARCHED FOR</div>
+              <div className="font-bold text-black opacity-60">{contact.searchedTitle}</div>
+            </div>
+          )}
+        </div>
+
+        <Button
+          onClick={onClose}
+          className="w-full mt-6 font-black bg-black text-white cursor-pointer"
+        >
+          CLOSE
+        </Button>
+      </div>
+    </div>
   );
 }

@@ -19,7 +19,10 @@ import {
   addExcludedCode,
   getExcludedCodes,
   removeExcludedCode,
+  createContact,
+  getContactByCompanyId,
 } from "./db";
+import { searchApolloContacts } from "./apolloPeopleSearch";
 import { extractOffering } from "./offeringExtractor";
 import { searchApolloCompanies, enrichCompanyDetails } from "./apolloSearch";
 import { normalizeWebsiteUrl } from "../shared/urlUtils";
@@ -526,6 +529,84 @@ export const companyFinderRouter = router({
         console.error(`[generateSalesApproach] Error:`, error);
         throw new Error(`Failed to generate sales approach: ${error.message}`);
       }
+    }),
+
+  // Find contact at a company by job title (Apollo People Search)
+  findContact: protectedProcedure
+    .input(z.object({
+      companyId: z.number(),
+      jobTitle: z.string().min(1),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const company = await getCompanyById(input.companyId);
+      if (!company) throw new Error("Company not found");
+
+      // Check if we already have a contact for this company
+      const existingContact = await getContactByCompanyId(input.companyId);
+      if (existingContact) {
+        return {
+          success: true as const,
+          contact: existingContact,
+          cached: true,
+        };
+      }
+
+      // Need company domain for Apollo People Search
+      const domain = company.websiteUrl
+        ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
+        : null;
+      if (!domain) throw new Error("Company has no website URL for contact search");
+
+      console.log(`[findContact] Searching for "${input.jobTitle}" at ${company.name} (${domain})`);
+
+      try {
+        const contact = await searchApolloContacts({
+          companyDomain: domain,
+          jobTitle: input.jobTitle,
+          limit: 1,
+        });
+
+        if (!contact) {
+          return {
+            success: false as const,
+            message: `No contacts found matching "${input.jobTitle}" at ${company.name}`,
+          };
+        }
+
+        const savedContact = await createContact({
+          companyId: input.companyId,
+          apolloPersonId: contact.id,
+          firstName: contact.firstName,
+          lastName: contact.lastName,
+          fullName: contact.name,
+          title: contact.title,
+          email: contact.email || null,
+          phone: contact.phone || null,
+          linkedinUrl: contact.linkedinUrl || null,
+          searchedTitle: input.jobTitle,
+        });
+
+        console.log(`[findContact] \u2713 Found: ${contact.name} - ${contact.title}`);
+
+        return {
+          success: true as const,
+          contact: savedContact,
+          cached: false,
+        };
+      } catch (error: any) {
+        console.error(`[findContact] Error:`, error);
+        throw new Error(`Failed to find contact: ${error.message}`);
+      }
+    }),
+
+  // Get contact for a company
+  getContact: protectedProcedure
+    .input(z.object({
+      companyId: z.number(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const contact = await getContactByCompanyId(input.companyId);
+      return { contact };
     }),
 });
 

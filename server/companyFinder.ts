@@ -506,6 +506,25 @@ export const companyFinderRouter = router({
 
       console.log(`[generateSalesApproach] Starting sales approach generation for company ${input.companyId}`);
 
+      // Check if cached sales approach exists and is recent (< 7 days old)
+      if (company.salesApproachData && company.salesApproachGeneratedAt) {
+        const cacheAge = Date.now() - new Date(company.salesApproachGeneratedAt).getTime();
+        const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+        
+        if (cacheAge < sevenDaysMs) {
+          console.log(`[generateSalesApproach] Using cached sales approach (age: ${Math.floor(cacheAge / (24 * 60 * 60 * 1000))} days)`);
+          const cachedApproach = JSON.parse(company.salesApproachData);
+          return {
+            success: true,
+            salesApproach: cachedApproach,
+            cached: true,
+            cacheAge: Math.floor(cacheAge / (24 * 60 * 60 * 1000)), // days
+          };
+        } else {
+          console.log(`[generateSalesApproach] Cached sales approach expired (age: ${Math.floor(cacheAge / (24 * 60 * 60 * 1000))} days), regenerating...`);
+        }
+      }
+
       // Import sales approach generator
       const { generateSalesApproach } = await import("./salesApproachGenerator");
 

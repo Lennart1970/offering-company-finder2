@@ -427,3 +427,9 @@
 - [x] Remove hover effects from global CSS (index.css - none found)
 - [x] Remove hover effects from any other components
 - [x] Test application to ensure no hover effects remain
+
+## Bug: Sales Approach not using cached data
+- [x] Investigate why "Create Sales Approach" regenerates instead of using cached data
+- [x] Compare with Deep Research caching implementation (shows "using cached research")
+- [x] Add caching logic to sales approach procedure
+- [x] Test that cached sales approach displays without regenerating

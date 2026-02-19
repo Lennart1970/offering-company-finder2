@@ -5,6 +5,7 @@ import {
   updateSearch,
   getSearchById,
   getUserSearches,
+  getPreviousOffering,
   createCompanies,
   getCompaniesBySearchId,
   getCompanyById,
@@ -636,6 +637,217 @@ export const companyFinderRouter = router({
     .query(async ({ ctx }) => {
       const results = await getCallTodayCompanies(ctx.user.id);
       return { companies: results };
+    }),
+
+  // ============================================================================
+  // HITL Gate Procedures
+  // ============================================================================
+
+  // Check if user has a previous offering for this website
+  checkPreviousOffering: protectedProcedure
+    .input(z.object({
+      websiteUrl: z.string().url(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const normalizedUrl = normalizeWebsiteUrl(input.websiteUrl);
+      const previousSearch = await getPreviousOffering(ctx.user.id, normalizedUrl);
+      
+      if (!previousSearch || !previousSearch.offeringName) {
+        return { hasPrevious: false, previousOffering: null };
+      }
+
+      return {
+        hasPrevious: true,
+        previousOffering: {
+          name: previousSearch.offeringName,
+          description: previousSearch.offeringDescription,
+          targetMarket: previousSearch.targetMarket,
+          valueProposition: previousSearch.valueProposition,
+          keywords: previousSearch.keywords ? JSON.parse(previousSearch.keywords) : [],
+        },
+      };
+    }),
+
+  // Create new search and extract offering from website
+  extractOffering: protectedProcedure
+    .input(z.object({
+      websiteUrl: z.string().url(),
+      location: z.string().min(1),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const normalizedUrl = normalizeWebsiteUrl(input.websiteUrl);
+      
+      // Create search record in "extracting" status
+      const searchId = await createSearch({
+        userId: ctx.user.id,
+        companyWebsite: normalizedUrl,
+        location: input.location,
+        status: "extracting",
+      });
+
+      try {
+        // Extract offering from website
+        const offering = await extractOffering(normalizedUrl);
+
+        // Update search with offering data
+        await updateSearch(searchId, {
+          offeringName: offering.name,
+          offeringDescription: offering.description,
+          targetMarket: offering.targetMarket,
+          valueProposition: offering.valueProposition,
+          keywords: JSON.stringify(offering.keywords),
+          crossBorderIndicators: offering.crossBorderIndicators,
+          status: "code_targeting",
+        });
+
+        return { searchId, offering };
+      } catch (error: any) {
+        await updateSearch(searchId, {
+          status: "failed",
+          errorMessage: error.message,
+        });
+        throw error;
+      }
+    }),
+
+  // Accept previous offering and create new search with copied data
+  acceptPreviousOffering: protectedProcedure
+    .input(z.object({
+      websiteUrl: z.string().url(),
+      location: z.string().min(1),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const normalizedUrl = normalizeWebsiteUrl(input.websiteUrl);
+      const previousSearch = await getPreviousOffering(ctx.user.id, normalizedUrl);
+
+      if (!previousSearch) {
+        throw new Error("No previous offering found");
+      }
+
+      // Create new search with copied offering data
+      const searchId = await createSearch({
+        userId: ctx.user.id,
+        companyWebsite: normalizedUrl,
+        location: input.location,
+        offeringName: previousSearch.offeringName,
+        offeringDescription: previousSearch.offeringDescription,
+        targetMarket: previousSearch.targetMarket,
+        valueProposition: previousSearch.valueProposition,
+        keywords: previousSearch.keywords,
+        crossBorderIndicators: previousSearch.crossBorderIndicators,
+        status: "code_targeting",
+      });
+
+      const offering = {
+        name: previousSearch.offeringName || "",
+        description: previousSearch.offeringDescription || "",
+        targetMarket: previousSearch.targetMarket || "",
+        valueProposition: previousSearch.valueProposition || "",
+        keywords: previousSearch.keywords ? JSON.parse(previousSearch.keywords) : [],
+      };
+
+      return { searchId, offering };
+    }),
+
+  // Manually update offering data
+  updateOffering: protectedProcedure
+    .input(z.object({
+      searchId: z.number(),
+      offering: z.object({
+        name: z.string(),
+        description: z.string(),
+        targetMarket: z.string(),
+        valueProposition: z.string().optional(),
+        keywords: z.array(z.string()),
+      }),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await updateSearch(input.searchId, {
+        offeringName: input.offering.name,
+        offeringDescription: input.offering.description,
+        targetMarket: input.offering.targetMarket,
+        valueProposition: input.offering.valueProposition,
+        keywords: JSON.stringify(input.offering.keywords),
+        status: "code_targeting",
+      });
+
+      return { success: true };
+    }),
+
+  // Run code targeting (LLM selection of NAICS/SIC codes)
+  runCodeTargeting: protectedProcedure
+    .input(z.object({
+      searchId: z.number(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const search = await getSearchById(input.searchId);
+      if (!search) throw new Error("Search not found");
+
+      try {
+        // Run LLM code selection
+        const codeSelection = await selectIndustryCodes({
+          offeringName: search.offeringName || "",
+          offeringDescription: search.offeringDescription || "",
+          targetMarket: search.targetMarket || "",
+          valueProposition: search.valueProposition || "",
+        });
+
+        // Update search with selected codes
+        await updateSearch(input.searchId, {
+          selectedSicCodes: JSON.stringify(codeSelection.sicCodes),
+          selectedNaicsCodes: JSON.stringify(codeSelection.naicsCodes),
+          codeSelectionReasoning: codeSelection.reasoning,
+          status: "searching",
+        });
+
+        return { 
+          success: true,
+          codes: {
+            sicCodes: codeSelection.sicCodes,
+            naicsCodes: codeSelection.naicsCodes,
+            reasoning: codeSelection.reasoning,
+          },
+        };
+      } catch (error: any) {
+        await updateSearch(input.searchId, {
+          status: "failed",
+          errorMessage: error.message,
+        });
+        throw error;
+      }
+    }),
+
+  // Accept code targeting (use codes from previous search or current extraction)
+  acceptCodeTargeting: protectedProcedure
+    .input(z.object({
+      searchId: z.number(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Just update status to "searching" - codes are already in the search record
+      await updateSearch(input.searchId, {
+        status: "searching",
+      });
+
+      return { success: true };
+    }),
+
+  // Manually expand/edit code targeting
+  updateCodeTargeting: protectedProcedure
+    .input(z.object({
+      searchId: z.number(),
+      codes: z.object({
+        sicCodes: z.array(z.string()),
+        naicsCodes: z.array(z.string()),
+      }),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await updateSearch(input.searchId, {
+        selectedSicCodes: JSON.stringify(input.codes.sicCodes),
+        selectedNaicsCodes: JSON.stringify(input.codes.naicsCodes),
+        status: "searching",
+      });
+
+      return { success: true };
     }),
 });
 

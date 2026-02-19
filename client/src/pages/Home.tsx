@@ -16,7 +16,18 @@ export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
   const [location, setLocation] = useState("");
+  const [websiteUrl, setWebsiteUrl] = useState("");
   const [searchId, setSearchId] = useState<number | null>(null);
+
+  // HITL workflow state
+  type WorkflowStep = "input" | "offering_review" | "code_review" | "results";
+  const [workflowStep, setWorkflowStep] = useState<WorkflowStep>("input");
+  const [currentOffering, setCurrentOffering] = useState<any>(null);
+  const [isEditingOffering, setIsEditingOffering] = useState(false);
+  const [editedOffering, setEditedOffering] = useState<any>(null);
+  const [isEditingCodes, setIsEditingCodes] = useState(false);
+  const [editedSicCodes, setEditedSicCodes] = useState("");
+  const [editedNaicsCodes, setEditedNaicsCodes] = useState("");
 
   // Check for searchId and companyId in URL parameters
   useEffect(() => {
@@ -26,16 +37,15 @@ export default function Home() {
     
     if (urlSearchId) {
       setSearchId(parseInt(urlSearchId, 10));
+      setWorkflowStep("results");
     }
     
     // Scroll to and highlight company if companyId is present
     if (urlCompanyId) {
-      // Wait for DOM to render, then scroll
       setTimeout(() => {
         const companyCard = document.getElementById(`company-${urlCompanyId}`);
         if (companyCard) {
           companyCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          // Add highlight effect
           companyCard.style.backgroundColor = '#ffeb3b';
           companyCard.style.transition = 'background-color 2s';
           setTimeout(() => {
@@ -46,13 +56,98 @@ export default function Home() {
     }
   }, []);
 
+  // Check for previous offering when website URL is entered
+  const { data: previousOfferingData } = trpc.companyFinder.checkPreviousOffering.useQuery(
+    { websiteUrl: websiteUrl },
+    { enabled: !!websiteUrl && websiteUrl.startsWith("http") }
+  );
+
   const startSearchMutation = trpc.companyFinder.startSearch.useMutation({
     onSuccess: (data) => {
       setSearchId(data.searchId);
+      setWorkflowStep("results");
       toast.success("Search started");
     },
     onError: (error) => {
       toast.error(error.message);
+    },
+  });
+
+  // HITL: Extract offering from website
+  const extractOfferingMutation = trpc.companyFinder.extractOffering.useMutation({
+    onSuccess: (data) => {
+      setSearchId(data.searchId);
+      setCurrentOffering(data.offering);
+      setWorkflowStep("offering_review");
+      toast.success("Offering extracted! Please review.");
+    },
+    onError: (error) => {
+      toast.error(`Extraction failed: ${error.message}`);
+    },
+  });
+
+  // HITL: Accept previous offering
+  const acceptPreviousOfferingMutation = trpc.companyFinder.acceptPreviousOffering.useMutation({
+    onSuccess: (data) => {
+      setSearchId(data.searchId);
+      setCurrentOffering(data.offering);
+      setWorkflowStep("offering_review");
+      toast.success("Previous offering loaded! Please review.");
+    },
+    onError: (error) => {
+      toast.error(`Failed: ${error.message}`);
+    },
+  });
+
+  // HITL: Update offering manually
+  const updateOfferingMutation = trpc.companyFinder.updateOffering.useMutation({
+    onSuccess: () => {
+      setCurrentOffering(editedOffering);
+      setIsEditingOffering(false);
+      toast.success("Offering updated!");
+    },
+    onError: (error) => {
+      toast.error(`Update failed: ${error.message}`);
+    },
+  });
+
+  // HITL: Run code targeting
+  const runCodeTargetingMutation = trpc.companyFinder.runCodeTargeting.useMutation({
+    onSuccess: (data) => {
+      setWorkflowStep("code_review");
+      // Refetch search data to get the codes
+      if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
+      toast.success("Code targeting complete! Please review.");
+    },
+    onError: (error) => {
+      toast.error(`Code targeting failed: ${error.message}`);
+    },
+  });
+
+  // HITL: Accept code targeting and start search
+  const acceptCodeTargetingMutation = trpc.companyFinder.acceptCodeTargeting.useMutation({
+    onSuccess: () => {
+      toast.success("Codes accepted! Starting search...");
+      setWorkflowStep("results");
+      // Now trigger the actual Apollo search
+      if (searchId) {
+        confirmAndSearchMutation.mutate({ searchId });
+      }
+    },
+    onError: (error) => {
+      toast.error(`Failed: ${error.message}`);
+    },
+  });
+
+  // HITL: Update code targeting manually
+  const updateCodeTargetingMutation = trpc.companyFinder.updateCodeTargeting.useMutation({
+    onSuccess: () => {
+      setIsEditingCodes(false);
+      if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
+      toast.success("Codes updated!");
+    },
+    onError: (error) => {
+      toast.error(`Update failed: ${error.message}`);
     },
   });
 
@@ -86,6 +181,7 @@ export default function Home() {
 
   const confirmAndSearchMutation = trpc.companyFinder.confirmAndSearch.useMutation({
     onSuccess: () => {
+      setWorkflowStep("results");
       toast.success("Batched keyword search started! Progress will update automatically.");
       // Refetch search data to see progress
       if (searchId) {
@@ -130,12 +226,71 @@ export default function Home() {
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!websiteUrl) {
+      toast.error("Please enter a website URL");
+      return;
+    }
     if (!location) {
       toast.error("Please enter a location");
       return;
     }
 
-    startSearchMutation.mutate({ location });
+    // If previous offering exists, use accept flow; otherwise extract new
+    if (previousOfferingData?.hasPrevious) {
+      acceptPreviousOfferingMutation.mutate({ websiteUrl, location });
+    } else {
+      extractOfferingMutation.mutate({ websiteUrl, location });
+    }
+  };
+
+  // Handle accepting offering and moving to code targeting
+  const handleAcceptOffering = () => {
+    if (!searchId) return;
+    runCodeTargetingMutation.mutate({ searchId });
+  };
+
+  // Handle re-extracting offering from website
+  const handleReExtractOffering = () => {
+    if (!searchId) return;
+    extractOfferingMutation.mutate({ websiteUrl, location });
+  };
+
+  // Handle saving manual offering edits
+  const handleSaveOfferingEdit = () => {
+    if (!searchId || !editedOffering) return;
+    updateOfferingMutation.mutate({
+      searchId,
+      offering: {
+        name: editedOffering.offeringName,
+        description: editedOffering.offeringDescription,
+        targetMarket: editedOffering.targetMarket,
+        keywords: editedOffering.keywords,
+      },
+    });
+  };
+
+  // Handle accepting codes and starting Apollo search
+  const handleAcceptCodes = () => {
+    if (!searchId) return;
+    acceptCodeTargetingMutation.mutate({ searchId });
+  };
+
+  // Handle re-running code targeting
+  const handleReRunCodes = () => {
+    if (!searchId) return;
+    runCodeTargetingMutation.mutate({ searchId });
+  };
+
+  // Handle saving manual code edits
+  const handleSaveCodeEdit = () => {
+    if (!searchId) return;
+    updateCodeTargetingMutation.mutate({
+      searchId,
+      codes: {
+        sicCodes: editedSicCodes.split(",").map(c => c.trim()).filter(Boolean),
+        naicsCodes: editedNaicsCodes.split(",").map(c => c.trim()).filter(Boolean),
+      },
+    });
   };
 
   const handleExportCsv = async () => {
@@ -161,6 +316,14 @@ export default function Home() {
   const handleReset = () => {
     setSearchId(null);
     setLocation("");
+    setWebsiteUrl("");
+    setWorkflowStep("input");
+    setCurrentOffering(null);
+    setIsEditingOffering(false);
+    setEditedOffering(null);
+    setIsEditingCodes(false);
+    setEditedSicCodes("");
+    setEditedNaicsCodes("");
   };
 
   // Build excluded code sets for filtering
@@ -318,8 +481,8 @@ export default function Home() {
       </div>
 
       <div className="container py-16">
-        {!searchId ? (
-          /* Search Form */
+        {workflowStep === "input" ? (
+          /* Step 1: Input Website + Location */
           <div className="max-w-4xl">
             <div className="mb-16">
               <h2 className="text-[8vw] md:text-8xl font-black leading-none mb-4">
@@ -327,22 +490,21 @@ export default function Home() {
                 <br />
                 TARGET
               </h2>
-
             </div>
 
-            {/* ConnectGroup Offering Info */}
-            <div className="mb-12 p-8 border-4 border-black bg-gray-50 cursor-pointer" onClick={() => navigate("/offering")}>
-              <div className="text-sm font-black mb-2 text-muted-foreground">[OFFERING]</div>
-              <h3 className="text-2xl font-black mb-4">Electronics Manufacturing Services (EMS)</h3>
-              <p className="text-base font-bold mb-4">
-                Full-service EMS subcontractor: PCB Assembly • Cable Assembly • Module Building • Design to Product
-              </p>
-              <div className="text-sm font-black mb-2 text-muted-foreground">[TARGET MARKETS]</div>
-              <p className="text-base font-bold">
-                Railway • Healthcare/MedTech • Infrastructure • Automotive & Off-road • Defense & Avionics • Industrial Manufacturing • Electronics • Telecommunications • Energy • Automation • Instrumentation • Aerospace • Marine • Agricultural Equipment • Construction Equipment • Mining • Oil & Gas • Renewable Energy • IoT • Embedded Systems
-              </p>
-              <div className="mt-4 text-sm font-black text-blue-600">[CLICK TO VIEW FULL DETAILS]</div>
-            </div>
+            {/* Previous Offering Indicator */}
+            {previousOfferingData?.hasPrevious && (
+              <div className="mb-8 p-6 border-4 border-green-600 bg-green-50">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-black text-green-600">PREVIOUS OFFERING FOUND</div>
+                    <div className="text-lg font-black mt-1">{previousOfferingData.previousOffering?.name}</div>
+                    <div className="text-sm font-bold mt-1 opacity-70">{previousOfferingData.previousOffering?.description}</div>
+                  </div>
+                  <span className="text-xs font-black border-2 border-green-600 text-green-600 px-3 py-1">WILL REUSE</span>
+                </div>
+              </div>
+            )}
 
             {/* Exclusion Warning */}
             {excludedCount > 0 && (
@@ -368,8 +530,23 @@ export default function Home() {
 
             <form onSubmit={handleSubmit} className="space-y-12">
               <div className="space-y-4">
+                <Label htmlFor="websiteUrl" className="text-2xl font-black">
+                  [01] TARGET WEBSITE
+                </Label>
+                <Input
+                  id="websiteUrl"
+                  type="url"
+                  value={websiteUrl}
+                  onChange={(e) => setWebsiteUrl(e.target.value)}
+                  placeholder="https://www.example.com"
+                  className="text-xl py-8 px-6 border-4 border-black focus:ring-4 focus:ring-black"
+                  required
+                />
+              </div>
+
+              <div className="space-y-4">
                 <Label htmlFor="location" className="text-2xl font-black">
-                  [01] TARGET LOCATION
+                  [02] TARGET LOCATION
                 </Label>
                 <Input
                   id="location"
@@ -384,13 +561,292 @@ export default function Home() {
 
               <Button
                 type="submit"
-                disabled={startSearchMutation.isPending}
+                disabled={extractOfferingMutation.isPending || acceptPreviousOfferingMutation.isPending}
                 className="text-3xl px-16 py-10 font-black border-4 border-black bg-black text-white w-full md:w-auto"
               >
-                {startSearchMutation.isPending ? "[PROCESSING...]" : "[START SEARCH]"}
+                {extractOfferingMutation.isPending || acceptPreviousOfferingMutation.isPending
+                  ? "[EXTRACTING OFFERING...]"
+                  : previousOfferingData?.hasPrevious
+                    ? "[USE PREVIOUS OFFERING →]"
+                    : "[EXTRACT OFFERING →]"}
               </Button>
             </form>
           </div>
+
+        ) : workflowStep === "offering_review" ? (
+          /* Step 2: Offering Review HITL Gate */
+          <div className="max-w-4xl">
+            <div className="mb-12">
+              <div className="flex items-center gap-4 mb-4">
+                <Button onClick={handleReset} variant="outline" className="text-sm font-black border-2 border-black">
+                  ← BACK
+                </Button>
+                <h2 className="text-4xl md:text-6xl font-black leading-none">
+                  REVIEW OFFERING
+                </h2>
+              </div>
+              <div className="text-lg font-bold text-muted-foreground">
+                Review the extracted offering. Accept, edit, or re-extract.
+              </div>
+            </div>
+
+            {!isEditingOffering ? (
+              /* Display Mode */
+              <div className="border-4 border-black p-8 mb-8">
+                <div className="mb-6">
+                  <div className="text-sm font-black mb-2 text-muted-foreground">[OFFERING NAME]</div>
+                  <div className="text-2xl font-black">{currentOffering?.offeringName || currentOffering?.name}</div>
+                </div>
+                <div className="mb-6">
+                  <div className="text-sm font-black mb-2 text-muted-foreground">[DESCRIPTION]</div>
+                  <div className="text-lg font-bold">{currentOffering?.offeringDescription || currentOffering?.description}</div>
+                </div>
+                <div className="mb-6">
+                  <div className="text-sm font-black mb-2 text-muted-foreground">[TARGET MARKET]</div>
+                  <div className="text-lg font-bold">{currentOffering?.targetMarket}</div>
+                </div>
+                {currentOffering?.keywords && (
+                  <div>
+                    <div className="text-sm font-black mb-2 text-muted-foreground">[KEYWORDS]</div>
+                    <div className="flex flex-wrap gap-2">
+                      {(Array.isArray(currentOffering.keywords) ? currentOffering.keywords : []).map((kw: string, i: number) => (
+                        <span key={i} className="border-2 border-black px-4 py-2 text-sm font-black">{kw}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ) : (
+              /* Edit Mode */
+              <div className="border-4 border-blue-600 p-8 mb-8">
+                <div className="text-sm font-black text-blue-600 mb-4">EDITING OFFERING</div>
+                <div className="space-y-6">
+                  <div>
+                    <Label className="text-sm font-black">OFFERING NAME</Label>
+                    <Input
+                      value={editedOffering?.offeringName || ""}
+                      onChange={(e) => setEditedOffering({ ...editedOffering, offeringName: e.target.value })}
+                      className="text-lg py-4 px-4 border-2 border-black mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-black">DESCRIPTION</Label>
+                    <textarea
+                      value={editedOffering?.offeringDescription || ""}
+                      onChange={(e) => setEditedOffering({ ...editedOffering, offeringDescription: e.target.value })}
+                      className="w-full text-lg py-4 px-4 border-2 border-black mt-2 min-h-[120px] font-bold"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-black">TARGET MARKET</Label>
+                    <textarea
+                      value={editedOffering?.targetMarket || ""}
+                      onChange={(e) => setEditedOffering({ ...editedOffering, targetMarket: e.target.value })}
+                      className="w-full text-lg py-4 px-4 border-2 border-black mt-2 min-h-[80px] font-bold"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-black">KEYWORDS (comma-separated)</Label>
+                    <Input
+                      value={editedOffering?.keywords?.join(", ") || ""}
+                      onChange={(e) => setEditedOffering({ ...editedOffering, keywords: e.target.value.split(",").map((k: string) => k.trim()).filter(Boolean) })}
+                      className="text-lg py-4 px-4 border-2 border-black mt-2"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex flex-col md:flex-row gap-4">
+              {!isEditingOffering ? (
+                <>
+                  <Button
+                    onClick={handleAcceptOffering}
+                    disabled={runCodeTargetingMutation.isPending}
+                    className="text-2xl px-12 py-8 font-black border-4 border-black bg-green-600 text-white flex-1"
+                  >
+                    {runCodeTargetingMutation.isPending ? "[TARGETING CODES...]" : "[ACCEPT → CODE TARGETING]"}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setIsEditingOffering(true);
+                      setEditedOffering({
+                        offeringName: currentOffering?.offeringName || currentOffering?.name || "",
+                        offeringDescription: currentOffering?.offeringDescription || currentOffering?.description || "",
+                        targetMarket: currentOffering?.targetMarket || "",
+                        keywords: currentOffering?.keywords || [],
+                      });
+                    }}
+                    variant="outline"
+                    className="text-xl px-8 py-6 font-black border-4 border-black"
+                  >
+                    [EDIT]
+                  </Button>
+                  <Button
+                    onClick={handleReExtractOffering}
+                    disabled={extractOfferingMutation.isPending}
+                    variant="outline"
+                    className="text-xl px-8 py-6 font-black border-4 border-blue-600 text-blue-600"
+                  >
+                    {extractOfferingMutation.isPending ? "[EXTRACTING...]" : "[RE-EXTRACT]"}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={handleSaveOfferingEdit}
+                    disabled={updateOfferingMutation.isPending}
+                    className="text-2xl px-12 py-8 font-black border-4 border-black bg-blue-600 text-white flex-1"
+                  >
+                    {updateOfferingMutation.isPending ? "[SAVING...]" : "[SAVE CHANGES]"}
+                  </Button>
+                  <Button
+                    onClick={() => setIsEditingOffering(false)}
+                    variant="outline"
+                    className="text-xl px-8 py-6 font-black border-4 border-black"
+                  >
+                    [CANCEL]
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+
+        ) : workflowStep === "code_review" ? (
+          /* Step 3: Code Targeting Review HITL Gate */
+          <div className="max-w-4xl">
+            <div className="mb-12">
+              <div className="flex items-center gap-4 mb-4">
+                <Button onClick={() => setWorkflowStep("offering_review")} variant="outline" className="text-sm font-black border-2 border-black">
+                  ← BACK TO OFFERING
+                </Button>
+                <h2 className="text-4xl md:text-6xl font-black leading-none">
+                  REVIEW CODES
+                </h2>
+              </div>
+              <div className="text-lg font-bold text-muted-foreground">
+                Review the selected industry codes. Accept, edit, or re-run targeting.
+              </div>
+            </div>
+
+            {/* Display selected codes from search data */}
+            {searchData?.search.selectedSicCodes && searchData?.search.selectedNaicsCodes && !isEditingCodes ? (
+              <div className="border-4 border-black p-8 mb-8">
+                <div className="mb-6">
+                  <div className="text-sm font-black mb-2 text-muted-foreground">[SIC CODES]</div>
+                  <div className="flex flex-wrap gap-2">
+                    {JSON.parse(searchData.search.selectedSicCodes).map((code: any, i: number) => (
+                      <span key={i} className="border-2 border-black px-4 py-2 text-sm font-black">
+                        {typeof code === 'string' ? code : `${code.code} — ${code.description}`}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                <div className="mb-6">
+                  <div className="text-sm font-black mb-2 text-muted-foreground">[NAICS CODES]</div>
+                  <div className="flex flex-wrap gap-2">
+                    {JSON.parse(searchData.search.selectedNaicsCodes).map((code: any, i: number) => (
+                      <span key={i} className="border-2 border-black bg-black text-white px-4 py-2 text-sm font-black">
+                        {typeof code === 'string' ? code : `${code.code} — ${code.description}`}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+                {searchData.search.codeSelectionReasoning && (
+                  <div>
+                    <div className="text-sm font-black mb-2 text-muted-foreground">[REASONING]</div>
+                    <div className="text-sm font-bold opacity-70">{searchData.search.codeSelectionReasoning}</div>
+                  </div>
+                )}
+              </div>
+            ) : isEditingCodes ? (
+              /* Edit Mode for Codes */
+              <div className="border-4 border-blue-600 p-8 mb-8">
+                <div className="text-sm font-black text-blue-600 mb-4">EDITING CODES</div>
+                <div className="space-y-6">
+                  <div>
+                    <Label className="text-sm font-black">SIC CODES (comma-separated, e.g. 3672, 3679)</Label>
+                    <Input
+                      value={editedSicCodes}
+                      onChange={(e) => setEditedSicCodes(e.target.value)}
+                      className="text-lg py-4 px-4 border-2 border-black mt-2"
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-sm font-black">NAICS CODES (comma-separated, e.g. 334412, 334418)</Label>
+                    <Input
+                      value={editedNaicsCodes}
+                      onChange={(e) => setEditedNaicsCodes(e.target.value)}
+                      className="text-lg py-4 px-4 border-2 border-black mt-2"
+                    />
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="border-4 border-black p-8 mb-8 animate-pulse">
+                <div className="text-2xl font-black">→ LOADING CODES...</div>
+              </div>
+            )}
+
+            {/* Action Buttons */}
+            <div className="flex flex-col md:flex-row gap-4">
+              {!isEditingCodes ? (
+                <>
+                  <Button
+                    onClick={handleAcceptCodes}
+                    disabled={acceptCodeTargetingMutation.isPending || confirmAndSearchMutation.isPending}
+                    className="text-2xl px-12 py-8 font-black border-4 border-black bg-green-600 text-white flex-1"
+                  >
+                    {acceptCodeTargetingMutation.isPending || confirmAndSearchMutation.isPending
+                      ? "[STARTING SEARCH...]"
+                      : "[ACCEPT → START SEARCH]"}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setIsEditingCodes(true);
+                      try {
+                        const sic = JSON.parse(searchData?.search.selectedSicCodes || "[]");
+                        const naics = JSON.parse(searchData?.search.selectedNaicsCodes || "[]");
+                        setEditedSicCodes(sic.map((c: any) => typeof c === 'string' ? c : c.code).join(", "));
+                        setEditedNaicsCodes(naics.map((c: any) => typeof c === 'string' ? c : c.code).join(", "));
+                      } catch {}
+                    }}
+                    variant="outline"
+                    className="text-xl px-8 py-6 font-black border-4 border-black"
+                  >
+                    [EDIT]
+                  </Button>
+                  <Button
+                    onClick={handleReRunCodes}
+                    disabled={runCodeTargetingMutation.isPending}
+                    variant="outline"
+                    className="text-xl px-8 py-6 font-black border-4 border-blue-600 text-blue-600"
+                  >
+                    {runCodeTargetingMutation.isPending ? "[TARGETING...]" : "[RE-RUN]"}
+                  </Button>
+                </>
+              ) : (
+                <>
+                  <Button
+                    onClick={handleSaveCodeEdit}
+                    disabled={updateCodeTargetingMutation.isPending}
+                    className="text-2xl px-12 py-8 font-black border-4 border-black bg-blue-600 text-white flex-1"
+                  >
+                    {updateCodeTargetingMutation.isPending ? "[SAVING...]" : "[SAVE CHANGES]"}
+                  </Button>
+                  <Button
+                    onClick={() => setIsEditingCodes(false)}
+                    variant="outline"
+                    className="text-xl px-8 py-6 font-black border-4 border-black"
+                  >
+                    [CANCEL]
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+
         ) : (
           /* Results Display */
           <div className="space-y-16">

@@ -543,3 +543,21 @@
 - [x] Keep data structure intact for future formal citation implementation (types still accept optional source/url)
 - [x] Fixed git merge conflict markers in briefGenerator.ts prompt
 - [x] Verified no broken links remain in the UI
+
+## Feature: HITL Gates for Offering and Code Targeting
+- [x] Add backend procedure: getPreviousOffering(userId, websiteUrl) → returns most recent search
+- [x] Add backend procedure: checkPreviousOffering → query to check if previous offering exists
+- [x] Add backend procedure: extractOffering → run LLM extraction
+- [x] Add backend procedure: acceptPreviousOffering → copy from previous search
+- [x] Add backend procedure: updateOffering → manual edit
+- [x] Add backend procedure: runCodeTargeting → run LLM code selection
+- [x] Add backend procedure: acceptCodeTargeting → skip to search
+- [x] Add backend procedure: updateCodeTargeting → manual expand
+- [x] Implement offering HITL gate UI: show previous offering with Accept/Re-extract/Edit buttons
+- [x] Implement code targeting HITL gate UI: show previous codes with Accept/Expand/Re-run buttons
+- [x] Add manual edit form for offering (textarea for offering text, target markets, keywords)
+- [x] Add manual expand form for code targeting (add/remove NAICS/SIC codes with descriptions)
+- [x] Update workflow: on Accept, copy data from previous search and skip LLM step
+- [x] Update workflow: on Re-extract/Re-run, call LLM as normal
+- [x] Add loading states and transitions between HITL gates
+- [ ] Test full HITL workflow from offering extraction through code targeting

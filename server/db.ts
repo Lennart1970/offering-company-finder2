@@ -122,6 +122,21 @@ export async function getUserSearches(userId: number) {
   return db.select().from(searches).where(eq(searches.userId, userId)).orderBy(desc(searches.createdAt));
 }
 
+export async function getPreviousOffering(userId: number, websiteUrl: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  
+  const result = await db.select().from(searches)
+    .where(and(
+      eq(searches.userId, userId),
+      eq(searches.companyWebsite, websiteUrl)
+    ))
+    .orderBy(desc(searches.createdAt))
+    .limit(1);
+  
+  return result[0];
+}
+
 // Company operations
 export async function createCompanies(companyList: InsertCompany[]) {
   const db = await getDb();

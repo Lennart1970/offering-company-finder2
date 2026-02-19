@@ -411,8 +411,8 @@ export const companyFinderRouter = router({
       if (!search || search.userId !== ctx.user.id) {
         throw new Error("Search not found");
       }
-      if (search.status !== "code_targeting") {
-        throw new Error("Search must be in code_targeting status");
+      if (search.status !== "searching") {
+        throw new Error("Search must be in searching status");
       }
       
       // Import confirmAndSearch function

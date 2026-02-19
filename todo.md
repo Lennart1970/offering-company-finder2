@@ -571,3 +571,9 @@
 - [x] Wire up Re-extract button to call extractOffering mutation
 - [ ] Add "EDIT OFFERING" button to allow manual modification (deferred - edit available in offering_review step)
 - [ ] Wire up Edit button to show offering edit form (deferred - edit available in offering_review step)
+
+## Bug Fix: "Search must be in code_targeting status" Error
+- [x] Investigate which mutation is throwing the status check error (confirmAndSearch procedure)
+- [x] Check the workflow state transitions (runCodeTargeting and acceptCodeTargeting set status to "searching")
+- [x] Fix the status validation logic - changed confirmAndSearch to expect "searching" instead of "code_targeting"
+- [x] Ensure status is properly updated after each workflow step

@@ -565,3 +565,9 @@
 ## Bug Fix: HITL Procedures Not Found in tRPC Router
 - [x] Check if extractOffering and checkPreviousOffering are properly registered in companyFinder router (they were)
 - [x] Fix: server restart required to pick up new procedures (tsx watch didn't auto-reload)
+
+## UI Fix: Add Re-extract and Edit Buttons to Previous Offering Section
+- [x] Add "RE-EXTRACT OFFERING" button next to "USE PREVIOUS OFFERING"
+- [x] Wire up Re-extract button to call extractOffering mutation
+- [ ] Add "EDIT OFFERING" button to allow manual modification (deferred - edit available in offering_review step)
+- [ ] Wire up Edit button to show offering edit form (deferred - edit available in offering_review step)

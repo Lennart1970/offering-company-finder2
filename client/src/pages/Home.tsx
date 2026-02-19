@@ -559,17 +559,42 @@ export default function Home() {
                 />
               </div>
 
-              <Button
-                type="submit"
-                disabled={extractOfferingMutation.isPending || acceptPreviousOfferingMutation.isPending}
-                className="text-3xl px-16 py-10 font-black border-4 border-black bg-black text-white w-full md:w-auto"
-              >
-                {extractOfferingMutation.isPending || acceptPreviousOfferingMutation.isPending
-                  ? "[EXTRACTING OFFERING...]"
-                  : previousOfferingData?.hasPrevious
-                    ? "[USE PREVIOUS OFFERING →]"
+              {previousOfferingData?.hasPrevious ? (
+                <div className="flex flex-wrap gap-4">
+                  <Button
+                    type="submit"
+                    disabled={extractOfferingMutation.isPending || acceptPreviousOfferingMutation.isPending}
+                    className="text-3xl px-16 py-10 font-black border-4 border-black bg-black text-white"
+                  >
+                    {acceptPreviousOfferingMutation.isPending
+                      ? "[USING PREVIOUS...]"
+                      : "[USE PREVIOUS OFFERING →]"}
+                  </Button>
+                  <Button
+                    type="button"
+                    onClick={() => {
+                      extractOfferingMutation.mutate({ websiteUrl, location });
+                    }}
+                    disabled={extractOfferingMutation.isPending || acceptPreviousOfferingMutation.isPending}
+                    variant="outline"
+                    className="text-3xl px-16 py-10 font-black border-4 border-black"
+                  >
+                    {extractOfferingMutation.isPending
+                      ? "[RE-EXTRACTING...]"
+                      : "[RE-EXTRACT OFFERING]"}
+                  </Button>
+                </div>
+              ) : (
+                <Button
+                  type="submit"
+                  disabled={extractOfferingMutation.isPending}
+                  className="text-3xl px-16 py-10 font-black border-4 border-black bg-black text-white w-full md:w-auto"
+                >
+                  {extractOfferingMutation.isPending
+                    ? "[EXTRACTING OFFERING...]"
                     : "[EXTRACT OFFERING →]"}
-              </Button>
+                </Button>
+              )}
             </form>
           </div>
 

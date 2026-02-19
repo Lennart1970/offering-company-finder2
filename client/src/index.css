@@ -43,33 +43,52 @@
 }
 
 :root {
+  /* Primary colors - black background with white text */
   --primary: oklch(0 0 0);
   --primary-foreground: oklch(1 0 0);
   --sidebar-primary: oklch(0 0 0);
   --sidebar-primary-foreground: oklch(1 0 0);
+  
+  /* Chart colors - grayscale */
   --chart-1: oklch(0.3 0 0);
   --chart-2: oklch(0.4 0 0);
   --chart-3: oklch(0.5 0 0);
   --chart-4: oklch(0.6 0 0);
   --chart-5: oklch(0.7 0 0);
+  
+  /* Border radius - sharp edges for brutalist design */
   --radius: 0rem;
+  
+  /* Background colors - white backgrounds with black text */
   --background: oklch(1 0 0);
   --foreground: oklch(0 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0 0 0);
+  
+  /* Secondary colors - light gray background with black text */
   --secondary: oklch(0.95 0 0);
   --secondary-foreground: oklch(0 0 0);
+  
+  /* Muted colors - medium gray background with dark gray text */
   --muted: oklch(0.9 0 0);
-  --muted-foreground: oklch(0.4 0 0);
-  --accent: oklch(0 0 0);
-  --accent-foreground: oklch(1 0 0);
+  --muted-foreground: oklch(0.45 0 0);
+  
+  /* Accent colors - FIXED: black background with white text for proper contrast */
+  --accent: oklch(0.95 0 0);
+  --accent-foreground: oklch(0 0 0);
+  
+  /* Destructive colors - red with white text */
   --destructive: oklch(0.5 0.2 30);
   --destructive-foreground: oklch(1 0 0);
+  
+  /* Border and input colors */
   --border: oklch(0 0 0);
   --input: oklch(0 0 0);
   --ring: oklch(0 0 0);
+  
+  /* Sidebar colors */
   --sidebar: oklch(1 0 0);
   --sidebar-foreground: oklch(0 0 0);
   --sidebar-accent: oklch(0.95 0 0);

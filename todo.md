@@ -380,3 +380,10 @@
   - [ ] Search → Enrich → Deep Research → Create Sales Approach
   - [ ] Verify all data flows correctly
   - [ ] Test UI interactions and modals
+
+## Bug: White text on white background - readability issue
+- [x] Review global CSS theme configuration (index.css)
+- [x] Check text color variables and ensure proper contrast
+- [x] Fix hover states that cause white text on white background
+- [x] Ensure all text is readable without selection
+- [x] Test across all pages and components

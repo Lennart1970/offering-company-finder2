@@ -255,16 +255,26 @@ export default function CallToday() {
                           <div className="p-4 border-2 border-black">
                             <div className="text-sm font-bold mb-2">🔔 URGENCY SIGNALS</div>
                             <ul className="space-y-2 text-sm">
-                              {briefData.urgencySignals.map((signal: any, idx: number) => (
-                                <li key={idx} className="pl-4 border-l-2 border-black">
-                                  <div className="font-bold">{signal.signal || signal}</div>
-                                  {signal.source && (
-                                    <a href={signal.source} target="_blank" rel="noopener noreferrer" className="text-xs underline">
-                                      Source →
-                                    </a>
-                                  )}
-                                </li>
-                              ))}
+                              {briefData.urgencySignals.map((signal: any, idx: number) => {
+                                // Handle both string and object formats
+                                const signalText = typeof signal === 'string' ? signal : (signal.description || signal.signal || '');
+                                const signalSource = typeof signal === 'object' ? (signal.url || signal.source) : null;
+                                const signalCategory = typeof signal === 'object' ? signal.category : null;
+                                
+                                return (
+                                  <li key={idx} className="pl-4 border-l-2 border-black">
+                                    {signalCategory && (
+                                      <div className="text-xs text-gray-600 mb-1">{signalCategory}</div>
+                                    )}
+                                    <div className="font-bold">{signalText}</div>
+                                    {signalSource && (
+                                      <a href={signalSource} target="_blank" rel="noopener noreferrer" className="text-xs underline">
+                                        Source →
+                                      </a>
+                                    )}
+                                  </li>
+                                );
+                              })}
                             </ul>
                           </div>
                         )}

@@ -481,3 +481,7 @@
 - [x] Sort companies by urgency score (highest first) by default
 - [x] Add pipeline readiness indicators (Deep Research ✓, Sales Approach ✓, Contact ✓)
 - [x] Restructure card layout to follow sales workflow (Header → Before Dial → During Call → After Call → Company Context)
+
+## Bug Fix: Urgency Signals Rendering Error
+- [x] Fix React error when rendering urgency signals objects (category, type, description, weight, source, url, detectedAt)
+- [x] Update CallToday.tsx to properly extract and display signal properties instead of rendering objects directly

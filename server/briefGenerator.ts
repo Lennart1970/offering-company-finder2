@@ -89,6 +89,9 @@ export async function generateSalesIntelligenceBrief(
   console.log(`[Brief Generator] Phase 1: Detecting urgency signals...`);
   const urgencyPrompt = `You are a B2B sales intelligence analyst. Analyze the company "${company.name}" (${domain}) to detect urgency signals for potential EMS/electronics manufacturing partnerships.
 
+**IMPORTANT: Search the web for recent, factual information about this company. For every piece of information you include, provide the actual source URL where you found it.**
+
+
 Use web search to find recent developments (2024-2025) including:
 - Expansion plans or new facilities
 - Product launches or R&D announcements
@@ -112,12 +115,20 @@ Return JSON only:
   "recentDevelopments": [
     {
       "text": "2025: Launched new product line for IoT sensors",
+<<<<<<< Updated upstream
       "source": "https://example.com/press-release",
+=======
+      "source": "https://company.com/press-release-2025-01",
+>>>>>>> Stashed changes
       "date": "2025-01-15"
     },
     {
       "text": "2024: Expanded manufacturing to APAC region",
+<<<<<<< Updated upstream
       "source": "https://example.com/news",
+=======
+      "source": "https://reuters.com/article/company-expansion",
+>>>>>>> Stashed changes
       "date": "2024-11-20"
     }
   ],

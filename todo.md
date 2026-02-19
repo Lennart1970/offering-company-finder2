@@ -338,6 +338,7 @@
 - [x] Remove hover effect from close button (×)
 - [x] Ensure all text remains static with no color changes on hover
 
+<<<<<<< Updated upstream
 ## Feature: Dedicated Offering Details Page
 - [x] Create OfferingDetails page component with offering name, description, target markets, and keywords
 - [x] Add navigation from Home to OfferingDetails page
@@ -516,3 +517,22 @@
 - [x] Store enriched citations in briefData JSON structure
 - [x] Display citations as clickable "Source" links in UI next to each development
 - [ ] Add source type icons (web/news/x) to citations (future enhancement)
+
+## Enhancement: Optimize Grok Prompts for Citations (Hybrid Approach - Option C)
+- [x] Enhance urgency prompt to explicitly request source URLs for each development
+- [x] Enhance urgency prompt to explicitly request source URLs for each signal
+- [x] Add clear instructions: "Include the actual source URL where you found this information"
+- [x] Add instruction: "Search the web for recent information and cite your sources"
+- [ ] Test that Grok returns real URLs in JSON response
+- [ ] Verify citations are displayed correctly in UI
+
+## Bug Fix: Missing Enrich Button
+- [x] Investigate why Enrich button is missing from company cards
+- [x] Restore Enrich button to company cards in Home.tsx (was already present)
+- [x] Verify button appears and works correctly
+
+## Bug Fix: CHANGE Button Not Working on Decision Badges
+- [x] Investigate CHANGE button next to CALL TODAY badge on company cards
+- [x] Fix click handler - replaced setData(undefined) with local isChanging state for proper re-render
+- [x] Added invalidation for getSearchDecisions and getSearch on decision change
+- [x] Added e.stopPropagation() to prevent parent card click interference

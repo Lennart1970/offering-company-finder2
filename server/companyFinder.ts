@@ -205,7 +205,7 @@ export const companyFinderRouter = router({
       return { enriched, failed, message: `Enriched ${enriched} companies, ${failed} failed` };
     }),
 
-  // Enrich a single company
+  // Export companies as CSV
   enrichSingle: protectedProcedure
     .input(z.object({ companyId: z.number() }))
     .mutation(async ({ ctx, input }) => {

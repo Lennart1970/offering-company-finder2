@@ -31,6 +31,7 @@ export default function CompanyDecisionButtons({
 }: CompanyDecisionButtonsProps) {
   const [showReasonPicker, setShowReasonPicker] = useState(false);
   const [reasonNotes, setReasonNotes] = useState("");
+  const [isChanging, setIsChanging] = useState(false);
 
   const utils = trpc.useUtils();
 
@@ -41,9 +42,12 @@ export default function CompanyDecisionButtons({
   const submitMutation = trpc.companyFinder.submitDecision.useMutation({
     onSuccess: (_, variables) => {
       utils.companyFinder.getDecision.invalidate({ companyId });
+      utils.companyFinder.getSearchDecisions.invalidate();
+      utils.companyFinder.getSearch.invalidate();
       utils.companyFinder.getExcludedCodes.invalidate();
       setShowReasonPicker(false);
       setReasonNotes("");
+      setIsChanging(false);
 
       const labels: Record<Decision, string> = {
         call_today: "CALL TODAY",
@@ -91,7 +95,7 @@ export default function CompanyDecisionButtons({
   }
 
   // Show existing decision badge
-  if (existingDecision) {
+  if (existingDecision && !isChanging) {
     const badges: Record<string, { label: string; style: string }> = {
       call_today: {
         label: "✓ CALL TODAY",
@@ -120,12 +124,12 @@ export default function CompanyDecisionButtons({
           </span>
         )}
         <button
-          onClick={() => {
-            // Allow re-decision by clearing and showing buttons
+          onClick={(e) => {
+            e.stopPropagation();
+            setIsChanging(true);
             submitMutation.reset();
-            utils.companyFinder.getDecision.setData({ companyId }, undefined);
           }}
-          className="text-xs font-bold underline opacity-50 hover:opacity-100"
+          className="text-xs font-bold underline opacity-50 cursor-pointer"
         >
           CHANGE
         </button>

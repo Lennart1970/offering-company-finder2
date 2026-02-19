@@ -501,3 +501,10 @@
 - [x] Add auto-scroll to specific company card when companyId is present in URL
 - [x] Add visual highlight to the target company card for 2 seconds
 - [x] Update Call Today action buttons to include company ID in link (e.g., /?companyId=123&searchId=456)
+
+## Feature: Add "Call Today" Filter to Search Results
+- [x] Add "CALL TODAY" filter button to Home.tsx alongside existing filters
+- [x] Filter companies to show only those with decision='call_today'
+- [x] Show count of companies marked for calling (e.g., "CALL TODAY (5)")
+- [x] Remove separate /call-today page route from navigation
+- [x] Update navigation to remove CALL TODAY tab from header

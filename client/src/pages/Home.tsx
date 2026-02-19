@@ -110,6 +110,9 @@ export default function Home() {
 
   // Sector-level exclusions (persisted per search)
   const [excludedSectors, setExcludedSectors] = useState<string[]>([]);
+  
+  // Call Today filter
+  const [showCallTodayOnly, setShowCallTodayOnly] = useState(false);
 
   // Load excluded sectors from search data when it arrives
   useEffect(() => {
@@ -176,8 +179,8 @@ export default function Home() {
 
   const excludedSectorsSet = useMemo(() => new Set(excludedSectors), [excludedSectors]);
 
-  const { filteredCompanies, excludedCompanies } = useMemo(() => {
-    if (!searchData?.companies) return { filteredCompanies: [], excludedCompanies: [] };
+  const { filteredCompanies, excludedCompanies, callTodayCompanies } = useMemo(() => {
+    if (!searchData?.companies) return { filteredCompanies: [], excludedCompanies: [], callTodayCompanies: [] };
 
     const filtered: typeof searchData.companies = [];
     const excluded: typeof searchData.companies = [];
@@ -224,8 +227,17 @@ export default function Home() {
       }
     }
 
-    return { filteredCompanies: filtered, excludedCompanies: excluded };
-  }, [searchData?.companies, excludedSicSet, excludedNaicsSet, excludedSectorsSet]);
+    // Separate out call today companies
+    const callToday = filtered.filter(c => {
+      const decision = searchData?.decisions?.find((d: any) => d.companyId === c.id);
+      return decision?.decision === 'call_today';
+    });
+    
+    return { filteredCompanies: filtered, excludedCompanies: excluded, callTodayCompanies: callToday };
+  }, [searchData?.companies, searchData?.decisions, excludedSicSet, excludedNaicsSet, excludedSectorsSet]);
+  
+  // Apply Call Today filter
+  const displayedCompanies = showCallTodayOnly ? callTodayCompanies : filteredCompanies;
 
 
 
@@ -294,13 +306,7 @@ export default function Home() {
             >
               HISTORY
             </Button>
-            <Button
-              onClick={() => navigate("/call-today")}
-              variant="outline"
-              className="text-lg px-6 py-4 font-black border-4 border-black bg-green-500 text-white"
-            >
-              CALL TODAY
-            </Button>
+
             <div className="text-right">
               <div className="text-sm font-bold mb-2">{user?.name || user?.email}</div>
               <Button onClick={() => (window.location.href = "/")} variant="ghost" className="text-xs font-bold underline">
@@ -587,9 +593,31 @@ export default function Home() {
                   </div>
                 )}
 
+                {/* Filter Buttons */}
+                <div className="flex items-center gap-4 mb-6">
+                  <Button
+                    onClick={() => setShowCallTodayOnly(false)}
+                    variant="outline"
+                    className={`text-lg px-6 py-4 font-black border-4 border-black ${
+                      !showCallTodayOnly ? 'bg-black text-white' : ''
+                    }`}
+                  >
+                    ALL COMPANIES ({filteredCompanies.length})
+                  </Button>
+                  <Button
+                    onClick={() => setShowCallTodayOnly(true)}
+                    variant="outline"
+                    className={`text-lg px-6 py-4 font-black border-4 border-black ${
+                      showCallTodayOnly ? 'bg-green-500 text-white' : ''
+                    }`}
+                  >
+                    CALL TODAY ({callTodayCompanies?.length || 0})
+                  </Button>
+                </div>
+
                 {/* Company Cards */}
                 <div className="space-y-4">
-                  {filteredCompanies.map((company, index) => (
+                  {displayedCompanies?.map((company, index) => (
                     <CompanyCard
                       key={company.id}
                       company={company}

@@ -122,6 +122,7 @@ export const companyFinderRouter = router({
       }
 
       const companiesList = await getCompaniesBySearchId(input.searchId);
+      const decisions = await getDecisionsBySearch(input.searchId);
 
       // Count enrichment stats
       const enrichedCount = companiesList.filter((c) => c.enrichmentStatus === "enriched").length;
@@ -130,6 +131,7 @@ export const companyFinderRouter = router({
       return {
         search,
         companies: companiesList,
+        decisions,
         enrichmentStats: {
           total: companiesList.length,
           enriched: enrichedCount,

@@ -561,3 +561,7 @@
 - [x] Update workflow: on Re-extract/Re-run, call LLM as normal
 - [x] Add loading states and transitions between HITL gates
 - [ ] Test full HITL workflow from offering extraction through code targeting
+
+## Bug Fix: HITL Procedures Not Found in tRPC Router
+- [x] Check if extractOffering and checkPreviousOffering are properly registered in companyFinder router (they were)
+- [x] Fix: server restart required to pick up new procedures (tsx watch didn't auto-reload)

@@ -735,6 +735,8 @@ function DeepResearchButton({ companyId, companyName }: { companyId: number; com
   const [isGenerating, setIsGenerating] = useState(false);
   const [showBrief, setShowBrief] = useState(false);
 
+  const utils = trpc.useUtils();
+  
   const generateBriefMutation = trpc.companyFinder.generateBrief.useMutation({
     onSuccess: (data) => {
       setBriefData(data.brief);
@@ -745,6 +747,8 @@ function DeepResearchButton({ companyId, companyName }: { companyId: number; com
       } else {
         toast.success(`Research completed - Urgency score: ${data.brief.urgencyScore}`);
       }
+      // Invalidate search query to refresh company data and show Sales Approach button immediately
+      utils.companyFinder.getSearch.invalidate();
     },
     onError: (error) => {
       toast.error(`Research failed: ${error.message}`);

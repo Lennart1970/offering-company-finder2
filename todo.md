@@ -439,3 +439,9 @@
 - [x] Find root cause of HTML response (duplicate key error in code caching)
 - [x] Fix the server-side error (use onDuplicateKeyUpdate for race conditions)
 - [x] Test page load with searchId=210006
+
+## Bug: Create Sales Approach button not always showing after enrichment
+- [x] Investigate button visibility conditions in Home.tsx
+- [x] Check if Deep Research requirement is causing the issue
+- [x] Fix conditional logic to show button correctly after enrichment (added query invalidation)
+- [x] Test button appears consistently after Deep Research

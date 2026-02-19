@@ -495,3 +495,9 @@
 - [x] Replace "Run 'Deep Research' from search results" warning with clickable button
 - [x] Replace "Run 'Create Sales Approach' from search results" warning with clickable button
 - [x] Link buttons back to search results page (Home) where user can perform the action
+
+## Feature: Deep-link to Specific Company from Call Today
+- [x] Update Home.tsx to accept company ID URL parameter (e.g., /?companyId=123)
+- [x] Add auto-scroll to specific company card when companyId is present in URL
+- [x] Add visual highlight to the target company card for 2 seconds
+- [x] Update Call Today action buttons to include company ID in link (e.g., /?companyId=123&searchId=456)

@@ -182,7 +182,7 @@ export default function CallToday() {
                     ) : (
                       <div className="p-4 border-2 border-red-600 bg-red-50">
                         <p className="text-sm font-bold text-red-600 mb-2">⚠ NO CONTACT FOUND</p>
-                        <Link href="/">
+                        <Link href={`/?searchId=${company.searchId}&companyId=${company.id}`}>
                           <button className="px-4 py-2 bg-black text-white font-bold text-sm">
                             GO TO SEARCH → FIND CONTACT
                           </button>
@@ -318,7 +318,7 @@ export default function CallToday() {
                     ) : (
                       <div className="p-4 border-2 border-red-600 bg-red-50">
                         <p className="text-sm font-bold text-red-600 mb-2">⚠ NO DEEP RESEARCH</p>
-                        <Link href="/">
+                        <Link href={`/?searchId=${company.searchId}&companyId=${company.id}`}>
                           <button className="px-4 py-2 bg-black text-white font-bold text-sm">
                             GO TO SEARCH → RUN DEEP RESEARCH
                           </button>
@@ -374,7 +374,7 @@ export default function CallToday() {
                     ) : (
                       <div className="p-4 border-2 border-red-600 bg-red-50">
                         <p className="text-sm font-bold text-red-600 mb-2">⚠ NO CALL SCRIPT</p>
-                        <Link href="/">
+                        <Link href={`/?searchId=${company.searchId}&companyId=${company.id}`}>
                           <button className="px-4 py-2 bg-black text-white font-bold text-sm">
                             GO TO SEARCH → CREATE SALES APPROACH
                           </button>
@@ -437,7 +437,7 @@ export default function CallToday() {
                     ) : (
                       <div className="p-4 border-2 border-red-600 bg-red-50">
                         <p className="text-sm font-bold text-red-600 mb-2">⚠ NO SALES APPROACH</p>
-                        <Link href="/">
+                        <Link href={`/?searchId=${company.searchId}&companyId=${company.id}`}>
                           <button className="px-4 py-2 bg-black text-white font-bold text-sm">
                             GO TO SEARCH → CREATE SALES APPROACH
                           </button>

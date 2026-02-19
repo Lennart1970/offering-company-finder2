@@ -18,12 +18,31 @@ export default function Home() {
   const [location, setLocation] = useState("");
   const [searchId, setSearchId] = useState<number | null>(null);
 
-  // Check for searchId in URL parameters
+  // Check for searchId and companyId in URL parameters
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const urlSearchId = params.get("searchId");
+    const urlCompanyId = params.get("companyId");
+    
     if (urlSearchId) {
       setSearchId(parseInt(urlSearchId, 10));
+    }
+    
+    // Scroll to and highlight company if companyId is present
+    if (urlCompanyId) {
+      // Wait for DOM to render, then scroll
+      setTimeout(() => {
+        const companyCard = document.getElementById(`company-${urlCompanyId}`);
+        if (companyCard) {
+          companyCard.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          // Add highlight effect
+          companyCard.style.backgroundColor = '#ffeb3b';
+          companyCard.style.transition = 'background-color 2s';
+          setTimeout(() => {
+            companyCard.style.backgroundColor = 'white';
+          }, 2000);
+        }
+      }, 500);
     }
   }, []);
 
@@ -609,7 +628,7 @@ function CompanyCard({
   const hasNaicsCodes = !!(company.naicsCodes && JSON.parse(company.naicsCodes).length > 0);
 
   return (
-    <div className="border-4 border-black p-6 bg-white">
+    <div id={`company-${company.id}`} className="border-4 border-black p-6 bg-white">
       <div className="flex items-start justify-between mb-4">
         <div className="flex-1">
           <div className="flex items-center gap-3 mb-2">

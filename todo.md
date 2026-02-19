@@ -536,3 +536,10 @@
 - [x] Fix click handler - replaced setData(undefined) with local isChanging state for proper re-render
 - [x] Added invalidation for getSearchDecisions and getSearch on decision change
 - [x] Added e.stopPropagation() to prevent parent card click interference
+## Cleanup: Remove Source/Citation URLs (Causing 404s)
+- [x] Remove source URL request from Grok prompt in briefGenerator.ts
+- [x] Remove source URL display from urgency signals in Home.tsx and CallToday.tsx
+- [x] Remove [Source] links from recentDevelopments rendering
+- [x] Keep data structure intact for future formal citation implementation (types still accept optional source/url)
+- [x] Fixed git merge conflict markers in briefGenerator.ts prompt
+- [x] Verified no broken links remain in the UI

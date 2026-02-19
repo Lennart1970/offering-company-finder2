@@ -860,21 +860,8 @@ function DeepResearchButton({ companyId, companyName }: { companyId: number; com
                 <h3 className="text-xl font-black mb-2">Recent Developments (2024-2025)</h3>
                 <ul className="list-disc pl-5 space-y-2">
                   {briefData.recentDevelopments.map((dev: any, i: number) => (
-                    <li key={i} className="flex items-start gap-2">
-                      <span className="flex-1">
-                        {typeof dev === 'string' ? dev : dev.text}
-                      </span>
-                      {typeof dev === 'object' && dev.source && (
-                        <a
-                          href={dev.source}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-xs font-bold text-blue-600 hover:underline whitespace-nowrap"
-                          title={dev.source}
-                        >
-                          [Source]
-                        </a>
-                      )}
+                    <li key={i}>
+                      {typeof dev === 'string' ? dev : dev.text}
                     </li>
                   ))}
                 </ul>

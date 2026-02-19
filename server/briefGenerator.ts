@@ -4,7 +4,9 @@
  * Generates comprehensive sales briefs using xAI Grok API for:
  * - Urgency detection (recent developments, growth signals)
  * - Company intelligence (products, technologies, target markets)
- * - Engagement strategy generation
+ * 
+ * NOTE: Citations/source URLs removed for now (Grok hallucinated URLs causing 404s).
+ * Will re-implement using formal xAI SDK web_search tool in the future.
  */
 
 import OpenAI from "openai";
@@ -44,11 +46,7 @@ export interface SalesIntelligenceBrief {
     name: string;
     description: string;
   }>;
-  recentDevelopments: Array<{
-    text: string;
-    source: string;
-    date: string;
-  }>;
+  recentDevelopments: Array<string | { text: string; source?: string; date?: string }>;
   targetMarkets: Array<{
     segment: string;
     description: string;
@@ -60,9 +58,9 @@ export interface SalesIntelligenceBrief {
     type: string;
     description: string;
     weight: number;
-    source: string;
-    url: string;
-    detectedAt: string;
+    source?: string;
+    url?: string;
+    detectedAt?: string;
   }>;
   // conversationStarters and engagementStrategy moved to Sales Approach (Step 3)
 }
@@ -89,9 +87,6 @@ export async function generateSalesIntelligenceBrief(
   console.log(`[Brief Generator] Phase 1: Detecting urgency signals...`);
   const urgencyPrompt = `You are a B2B sales intelligence analyst. Analyze the company "${company.name}" (${domain}) to detect urgency signals for potential EMS/electronics manufacturing partnerships.
 
-**IMPORTANT: Search the web for recent, factual information about this company. For every piece of information you include, provide the actual source URL where you found it.**
-
-
 Use web search to find recent developments (2024-2025) including:
 - Expansion plans or new facilities
 - Product launches or R&D announcements
@@ -113,34 +108,15 @@ Return JSON only:
     "recentActivity": 10
   },
   "recentDevelopments": [
-    {
-      "text": "2025: Launched new product line for IoT sensors",
-<<<<<<< Updated upstream
-      "source": "https://example.com/press-release",
-=======
-      "source": "https://company.com/press-release-2025-01",
->>>>>>> Stashed changes
-      "date": "2025-01-15"
-    },
-    {
-      "text": "2024: Expanded manufacturing to APAC region",
-<<<<<<< Updated upstream
-      "source": "https://example.com/news",
-=======
-      "source": "https://reuters.com/article/company-expansion",
->>>>>>> Stashed changes
-      "date": "2024-11-20"
-    }
+    "2025: Launched new product line for IoT sensors",
+    "2024: Expanded manufacturing to APAC region"
   ],
   "urgencySignals": [
     {
       "category": "Growth",
       "type": "Product Launch",
       "description": "Launched new IoT sensor line in Q1 2025",
-      "weight": 8,
-      "source": "Company press release",
-      "url": "https://example.com/news",
-      "detectedAt": "2025-01-15"
+      "weight": 8
     }
   ]
 }`;

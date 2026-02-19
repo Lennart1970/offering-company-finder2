@@ -248,21 +248,8 @@ export default function CallToday() {
                             <div className="text-sm font-bold mb-2">📰 RECENT DEVELOPMENTS</div>
                             <ul className="space-y-2 text-sm">
                               {briefData.recentDevelopments.map((dev: any, idx: number) => (
-                                <li key={idx} className="flex items-start gap-2">
-                                  <span className="flex-1">
-                                    • {typeof dev === 'string' ? dev : dev.text}
-                                  </span>
-                                  {typeof dev === 'object' && dev.source && (
-                                    <a
-                                      href={dev.source}
-                                      target="_blank"
-                                      rel="noopener noreferrer"
-                                      className="text-xs font-bold text-blue-600 hover:underline whitespace-nowrap"
-                                      title={dev.source}
-                                    >
-                                      [Source]
-                                    </a>
-                                  )}
+                                <li key={idx}>
+                                  • {typeof dev === 'string' ? dev : dev.text}
                                 </li>
                               ))}
                             </ul>
@@ -277,7 +264,6 @@ export default function CallToday() {
                               {briefData.urgencySignals.map((signal: any, idx: number) => {
                                 // Handle both string and object formats
                                 const signalText = typeof signal === 'string' ? signal : (signal.description || signal.signal || '');
-                                const signalSource = typeof signal === 'object' ? (signal.url || signal.source) : null;
                                 const signalCategory = typeof signal === 'object' ? signal.category : null;
                                 
                                 return (
@@ -286,11 +272,6 @@ export default function CallToday() {
                                       <div className="text-xs text-gray-600 mb-1">{signalCategory}</div>
                                     )}
                                     <div className="font-bold">{signalText}</div>
-                                    {signalSource && (
-                                      <a href={signalSource} target="_blank" rel="noopener noreferrer" className="text-xs underline">
-                                        Source →
-                                      </a>
-                                    )}
                                   </li>
                                 );
                               })}

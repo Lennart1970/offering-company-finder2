@@ -467,3 +467,17 @@
 - [x] Display company info, urgency score, contact details, sales approach
 - [x] Add navigation link to Call Today view in header
 - [ ] Test Call Today view with marked companies
+
+## Call Today Page Enhancement
+- [x] Add navigation header with BACK TO SEARCH button
+- [x] Show full call script (opening + discovery questions + value proposition + CTA)
+- [x] Show conversation starters (3 openers from sales approach)
+- [x] Show engagement strategy (whyThisProspectMatters, recommendedApproach, keyTalkingPoints)
+- [x] Show LinkedIn follow-up message (not just connection request)
+- [x] Show deep research intelligence (products/services, technologies, markets, recent developments)
+- [x] Show urgency score breakdown (Context/Signals/Activity components)
+- [x] Show individual urgency signals with source URLs
+- [x] Add copy-to-clipboard buttons for email, LinkedIn messages, and call script
+- [x] Sort companies by urgency score (highest first) by default
+- [x] Add pipeline readiness indicators (Deep Research ✓, Sales Approach ✓, Contact ✓)
+- [x] Restructure card layout to follow sales workflow (Header → Before Dial → During Call → After Call → Company Context)

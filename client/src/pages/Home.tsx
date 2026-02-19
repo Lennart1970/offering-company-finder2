@@ -295,11 +295,7 @@ export default function Home() {
                 <br />
                 TARGET
               </h2>
-              <div className="border-l-8 border-black pl-8">
-                <p className="text-xl md:text-2xl font-bold text-muted-foreground">
-                  Find potential customers for ConnectGroup's supply chain solutions
-                </p>
-              </div>
+
             </div>
 
             {/* ConnectGroup Offering Info */}

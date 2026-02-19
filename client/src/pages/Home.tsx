@@ -303,7 +303,7 @@ export default function Home() {
             </div>
 
             {/* ConnectGroup Offering Info */}
-            <div className="mb-12 p-8 border-4 border-black bg-gray-50">
+            <div className="mb-12 p-8 border-4 border-black bg-gray-50 cursor-pointer hover:bg-gray-100 transition-colors" onClick={() => navigate("/offering")}>
               <div className="text-sm font-black mb-2 text-muted-foreground">[OFFERING]</div>
               <h3 className="text-2xl font-black mb-4">Electronics Manufacturing Services (EMS)</h3>
               <p className="text-base font-bold mb-4">
@@ -313,6 +313,7 @@ export default function Home() {
               <p className="text-base font-bold">
                 Railway • Healthcare/MedTech • Infrastructure • Automotive & Off-road • Defense & Avionics • Industrial Manufacturing • Electronics • Telecommunications • Energy • Automation • Instrumentation • Aerospace • Marine • Agricultural Equipment • Construction Equipment • Mining • Oil & Gas • Renewable Energy • IoT • Embedded Systems
               </p>
+              <div className="mt-4 text-sm font-black text-blue-600">[CLICK TO VIEW FULL DETAILS]</div>
             </div>
 
             {/* Exclusion Warning */}

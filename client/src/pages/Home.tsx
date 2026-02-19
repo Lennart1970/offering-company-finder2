@@ -231,7 +231,7 @@ export default function Home() {
             </p>
             <Button
               onClick={() => (window.location.href = getLoginUrl())}
-              className="text-2xl px-12 py-8 font-black border-4 border-black hover:bg-black hover:text-white transition-colors"
+              className="text-2xl px-12 py-8 font-black border-4 border-black"
               variant="outline"
             >
               [LOGIN]
@@ -325,7 +325,7 @@ export default function Home() {
                   <Button
                     onClick={() => navigate("/exclusions")}
                     variant="outline"
-                    className="text-xs font-black border-2 border-red-600 text-red-600 hover:bg-red-600 hover:text-white"
+                    className="text-xs font-black border-2 border-red-600 text-red-600"
                     size="sm"
                   >
                     VIEW LIST
@@ -353,7 +353,7 @@ export default function Home() {
               <Button
                 type="submit"
                 disabled={startSearchMutation.isPending}
-                className="text-3xl px-16 py-10 font-black border-4 border-black bg-black text-white hover:bg-white hover:text-black transition-colors w-full md:w-auto"
+                className="text-3xl px-16 py-10 font-black border-4 border-black bg-black text-white w-full md:w-auto"
               >
                 {startSearchMutation.isPending ? "[PROCESSING...]" : "[START SEARCH]"}
               </Button>
@@ -500,7 +500,7 @@ export default function Home() {
                       {excludedCompanies.length > 0 && (
                         <button
                           onClick={() => setShowExcluded(!showExcluded)}
-                          className="border-2 border-red-600 text-red-600 px-3 py-1 hover:bg-red-600 hover:text-white transition-colors cursor-pointer"
+                          className="border-2 border-red-600 text-red-600 px-3 py-1 cursor-pointer"
                         >
                           {excludedCompanies.length} EXCLUDED {showExcluded ? "▲" : "▼"}
                         </button>
@@ -512,7 +512,7 @@ export default function Home() {
                       <Button
                         onClick={handleEnrichAll}
                         disabled={enrichAllMutation.isPending}
-                        className="text-xl px-8 py-6 font-black border-4 border-black bg-black text-white hover:bg-white hover:text-black transition-colors"
+                        className="text-xl px-8 py-6 font-black border-4 border-black bg-black text-white"
                       >
                         {enrichAllMutation.isPending
                           ? "[ENRICHING...]"

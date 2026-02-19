@@ -155,7 +155,7 @@ export default function OfferingDetails() {
             <div className="flex gap-4 pt-8">
               <Button
                 onClick={() => navigate("/")}
-                className="text-2xl px-12 py-8 font-black border-4 border-black bg-black text-white hover:bg-white hover:text-black transition-colors flex-1"
+                className="text-2xl px-12 py-8 font-black border-4 border-black bg-black text-white flex-1"
               >
                 [PROCEED TO SEARCH]
               </Button>

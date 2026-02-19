@@ -508,3 +508,11 @@
 - [x] Show count of companies marked for calling (e.g., "CALL TODAY (5)")
 - [x] Remove separate /call-today page route from navigation
 - [x] Update navigation to remove CALL TODAY tab from header
+
+## Feature: Add Citations to Recent Developments
+- [x] Read citation-processing skill to understand enrichment pipeline
+- [x] Analyze current Deep Research brief generation to find where citations are available
+- [x] Implement citation enrichment for Recent Developments section
+- [x] Store enriched citations in briefData JSON structure
+- [x] Display citations as clickable "Source" links in UI next to each development
+- [ ] Add source type icons (web/news/x) to citations (future enhancement)

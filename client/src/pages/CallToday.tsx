@@ -246,9 +246,24 @@ export default function CallToday() {
                         {briefData.recentDevelopments && briefData.recentDevelopments.length > 0 && (
                           <div className="p-4 border-2 border-black">
                             <div className="text-sm font-bold mb-2">📰 RECENT DEVELOPMENTS</div>
-                            <ul className="space-y-1 text-sm">
-                              {briefData.recentDevelopments.map((dev: string, idx: number) => (
-                                <li key={idx}>• {dev}</li>
+                            <ul className="space-y-2 text-sm">
+                              {briefData.recentDevelopments.map((dev: any, idx: number) => (
+                                <li key={idx} className="flex items-start gap-2">
+                                  <span className="flex-1">
+                                    • {typeof dev === 'string' ? dev : dev.text}
+                                  </span>
+                                  {typeof dev === 'object' && dev.source && (
+                                    <a
+                                      href={dev.source}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="text-xs font-bold text-blue-600 hover:underline whitespace-nowrap"
+                                      title={dev.source}
+                                    >
+                                      [Source]
+                                    </a>
+                                  )}
+                                </li>
                               ))}
                             </ul>
                           </div>

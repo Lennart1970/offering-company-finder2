@@ -44,7 +44,11 @@ export interface SalesIntelligenceBrief {
     name: string;
     description: string;
   }>;
-  recentDevelopments: string[];
+  recentDevelopments: Array<{
+    text: string;
+    source: string;
+    date: string;
+  }>;
   targetMarkets: Array<{
     segment: string;
     description: string;
@@ -105,7 +109,18 @@ Return JSON only:
     "marketSignals": 15,
     "recentActivity": 10
   },
-  "recentDevelopments": ["2025: Launched new product line...", "2024: Expanded to APAC..."],
+  "recentDevelopments": [
+    {
+      "text": "2025: Launched new product line for IoT sensors",
+      "source": "https://example.com/press-release",
+      "date": "2025-01-15"
+    },
+    {
+      "text": "2024: Expanded manufacturing to APAC region",
+      "source": "https://example.com/news",
+      "date": "2024-11-20"
+    }
+  ],
   "urgencySignals": [
     {
       "category": "Growth",

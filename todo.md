@@ -489,3 +489,9 @@
 ## Bug Fix: Products/Services/Technologies Object Rendering Error
 - [x] Fix React error when rendering objects with {category, description, capabilities} structure
 - [x] Update CallToday.tsx to handle object format for products/services, technologies, and target markets
+
+## UX Improvement: Replace Warning Messages with Action Buttons
+- [x] Replace "Run 'Find Contact' from search results" warning with clickable button
+- [x] Replace "Run 'Deep Research' from search results" warning with clickable button
+- [x] Replace "Run 'Create Sales Approach' from search results" warning with clickable button
+- [x] Link buttons back to search results page (Home) where user can perform the action

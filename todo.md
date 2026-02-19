@@ -344,3 +344,10 @@
 - [x] Add "Proceed to Search" button to navigate from OfferingDetails to search form
 - [x] Display offering in professional brutalist format matching existing design
 - [x] Test offering details page and search flow end-to-end
+
+## Feature: Individual Enrich Button on Company Cards
+- [x] Create enrichSingle tRPC procedure for enriching individual companies
+- [x] Add ENRICH button to each pending company card
+- [x] Show loading state while enriching
+- [x] Update company card after enrichment completes
+- [x] Test individual enrichment workflow end-to-end

@@ -704,6 +704,13 @@ function CompanyCard({
         />
       </div>
 
+      {/* Enrich Button (for pending companies) */}
+      {company.enrichmentStatus === "pending" && (
+        <div className="mt-3">
+          <EnrichButton companyId={company.id} companyName={company.name} />
+        </div>
+      )}
+
       {/* Generate Package Button (only for enriched companies) */}
       {company.enrichmentStatus === "enriched" && (
         <div className="mt-3 flex flex-col gap-2">
@@ -987,5 +994,27 @@ function GenerateBriefButton({ companyId, companyName }: { companyId: number; co
         </div>
       )}
     </>
+  );
+}
+
+// Component for enriching a single company
+function EnrichButton({ companyId, companyName }: { companyId: number; companyName: string }) {
+  const enrichMutation = trpc.companyFinder.enrichSingle.useMutation({
+    onSuccess: () => {
+      toast.success(`${companyName} enriched successfully`);
+    },
+    onError: (error) => {
+      toast.error(`Enrichment failed: ${error.message}`);
+    },
+  });
+
+  return (
+    <Button
+      onClick={() => enrichMutation.mutate({ companyId })}
+      disabled={enrichMutation.isPending}
+      className="w-full text-lg px-4 py-3 font-black border-2 border-black bg-white text-black hover:bg-black hover:text-white transition-colors"
+    >
+      {enrichMutation.isPending ? "[ENRICHING...]" : "[ENRICH]"}
+    </Button>
   );
 }

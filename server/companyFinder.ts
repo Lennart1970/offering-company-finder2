@@ -199,6 +199,44 @@ export const companyFinderRouter = router({
       return { enriched, failed, message: `Enriched ${enriched} companies, ${failed} failed` };
     }),
 
+  // Enrich a single company
+  enrichSingle: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const company = await getCompanyById(input.companyId);
+      if (!company) {
+        throw new Error("Company not found");
+      }
+
+      const search = await getSearchById(company.searchId);
+      if (!search || search.userId !== ctx.user.id) {
+        throw new Error("Unauthorized");
+      }
+
+      if (!company.apolloId) {
+        await updateCompany(company.id, { enrichmentStatus: "failed" });
+        throw new Error("Company has no Apollo ID");
+      }
+
+      try {
+        console.log(`[Enrich] Enriching single company ${company.id}`);
+        const details = await enrichCompanyDetails(company.apolloId);
+        await updateCompany(company.id, {
+          city: details.city || null,
+          state: details.state || null,
+          country: details.country || null,
+          streetAddress: details.street_address || null,
+          rawAddress: details.raw_address || null,
+          enrichmentStatus: "enriched",
+        });
+        return { success: true, message: "Company enriched successfully" };
+      } catch (error) {
+        console.warn(`[Enrich] Failed for company ${company.id}:`, error instanceof Error ? error.message : error);
+        await updateCompany(company.id, { enrichmentStatus: "failed" });
+        throw new Error(`Enrichment failed: ${error instanceof Error ? error.message : "Unknown error"}`);
+      }
+    }),
+
   // Export companies as CSV
   exportCsv: protectedProcedure
     .input(z.object({ searchId: z.number() }))

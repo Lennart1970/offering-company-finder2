@@ -999,9 +999,12 @@ function GenerateBriefButton({ companyId, companyName }: { companyId: number; co
 
 // Component for enriching a single company
 function EnrichButton({ companyId, companyName }: { companyId: number; companyName: string }) {
+  const utils = trpc.useUtils();
   const enrichMutation = trpc.companyFinder.enrichSingle.useMutation({
     onSuccess: () => {
       toast.success(`${companyName} enriched successfully`);
+      // Invalidate the search query to refresh company data
+      utils.companyFinder.getSearch.invalidate();
     },
     onError: (error) => {
       toast.error(`Enrichment failed: ${error.message}`);

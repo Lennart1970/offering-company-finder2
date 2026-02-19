@@ -351,3 +351,9 @@
 - [x] Show loading state while enriching
 - [x] Update company card after enrichment completes
 - [x] Test individual enrichment workflow end-to-end
+
+## Bug: Individual ENRICH button not executing enrichment
+- [x] Investigate why [ENRICH] button doesn't work like [ENRICH ALL]
+- [x] Check browser console for errors
+- [x] Compare enrichSingle vs enrichAll mutation implementation
+- [x] Fix the issue and verify enrichment works

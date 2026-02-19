@@ -275,6 +275,13 @@ export default function Home() {
             >
               HISTORY
             </Button>
+            <Button
+              onClick={() => navigate("/call-today")}
+              variant="outline"
+              className="text-lg px-6 py-4 font-black border-4 border-black bg-green-500 text-white"
+            >
+              CALL TODAY
+            </Button>
             <div className="text-right">
               <div className="text-sm font-bold mb-2">{user?.name || user?.email}</div>
               <Button onClick={() => (window.location.href = "/")} variant="ghost" className="text-xs font-bold underline">

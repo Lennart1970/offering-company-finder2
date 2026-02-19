@@ -21,6 +21,7 @@ import {
   removeExcludedCode,
   createContact,
   getContactByCompanyId,
+  getCallTodayCompanies,
 } from "./db";
 import { searchApolloContacts } from "./apolloPeopleSearch";
 import { extractOffering } from "./offeringExtractor";
@@ -626,6 +627,13 @@ export const companyFinderRouter = router({
     .query(async ({ ctx, input }) => {
       const contact = await getContactByCompanyId(input.companyId);
       return { contact };
+    }),
+
+  // Get all companies marked as CALL TODAY for the current user
+  getCallToday: protectedProcedure
+    .query(async ({ ctx }) => {
+      const results = await getCallTodayCompanies(ctx.user.id);
+      return { companies: results };
     }),
 });
 

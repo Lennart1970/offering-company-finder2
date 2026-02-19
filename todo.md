@@ -451,3 +451,19 @@
 - [x] Apply onDuplicateKeyUpdate to individual SIC insert (line 32)
 - [x] Apply onDuplicateKeyUpdate to individual NAICS insert (line 70)
 - [x] Test all code caching paths
+
+## Feature: Call Today View for Sales Team
+- [ ] Create backend procedure to fetch all companies marked as CALL TODAY
+- [ ] Create CallToday.tsx page component
+- [ ] Display filtered company list with sales approach and contact info
+- [ ] Add navigation link in header to Call Today view
+- [ ] Show urgency scores and key decision triggers
+- [ ] Test Call Today view with multiple searches
+
+## Feature: Call Today View for Sales Team
+- [x] Create getCallTodayCompanies database function
+- [x] Add getCallToday tRPC procedure
+- [x] Create CallToday page component
+- [x] Display company info, urgency score, contact details, sales approach
+- [x] Add navigation link to Call Today view in header
+- [ ] Test Call Today view with marked companies

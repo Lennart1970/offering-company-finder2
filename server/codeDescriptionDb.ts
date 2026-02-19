@@ -1,6 +1,6 @@
 import { getDb } from "./db";
 import { codeDescriptions } from "../drizzle/schema";
-import { eq, and, inArray } from "drizzle-orm";
+import { eq, and, inArray, sql } from "drizzle-orm";
 import { fetchSicDescription, fetchNaicsDescription, batchFetchSicDescriptions, batchFetchNaicsDescriptions } from "./codeDescriptionLookup";
 
 /**
@@ -177,7 +177,9 @@ export async function batchGetNaicsDescriptions(codes: string[]): Promise<Map<st
     
     if (toInsert.length > 0) {
       try {
-        await db.insert(codeDescriptions).values(toInsert);
+        await db.insert(codeDescriptions).values(toInsert).onDuplicateKeyUpdate({
+          set: { description: sql`VALUES(description)` }
+        });
       } catch (error) {
         console.error("[Code Cache] Failed to batch cache NAICS codes:", error);
       }

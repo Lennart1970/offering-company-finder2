@@ -433,3 +433,9 @@
 - [x] Compare with Deep Research caching implementation (shows "using cached research")
 - [x] Add caching logic to sales approach procedure
 - [x] Test that cached sales approach displays without regenerating
+
+## Bug: tRPC API returning HTML instead of JSON on page load
+- [x] Check server logs to identify failing endpoint
+- [x] Find root cause of HTML response (duplicate key error in code caching)
+- [x] Fix the server-side error (use onDuplicateKeyUpdate for race conditions)
+- [x] Test page load with searchId=210006

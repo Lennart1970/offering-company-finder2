@@ -50,7 +50,7 @@ export default function Home() {
 
   const utils = trpc.useUtils();
 
-  const [generatingPackages, setGeneratingPackages] = useState<Set<number>>(new Set());
+
 
   const enrichAllMutation = trpc.companyFinder.enrichAll.useMutation({
     onSuccess: (data) => {
@@ -711,111 +711,24 @@ function CompanyCard({
         </div>
       )}
 
-      {/* Generate Package Button (only for enriched companies) */}
+      {/* Deep Research Button (only for enriched companies) */}
       {company.enrichmentStatus === "enriched" && (
         <div className="mt-3 flex flex-col gap-2">
-          <GeneratePackageButton companyId={company.id} companyName={company.name} />
-          <GenerateBriefButton companyId={company.id} companyName={company.name} />
+          <DeepResearchButton companyId={company.id} companyName={company.name} />
+          {/* Create Sales Approach Button (only shows after Deep Research is complete) */}
+          {company.briefData && (
+            <CreateSalesApproachButton companyId={company.id} companyName={company.name} />
+          )}
         </div>
       )}
     </div>
   );
 }
 
-// Component for generating sales intelligence package
-function GeneratePackageButton({ companyId, companyName }: { companyId: number; companyName: string }) {
-  const [packageData, setPackageData] = useState<any>(null);
-  const [isGenerating, setIsGenerating] = useState(false);
 
-  const { data: existingPackage } = trpc.companyFinder.getPackage.useQuery(
-    { companyId },
-    {
-      refetchInterval: (query) => {
-        const data = query.state.data;
-        return data?.status === "generating" ? 2000 : false;
-      },
-    }
-  );
 
-  const generateMutation = trpc.companyFinder.generatePackage.useMutation({
-    onSuccess: () => {
-      setIsGenerating(true);
-      toast.success("Generating sales package...");
-    },
-    onError: (error) => {
-      toast.error(error.message);
-      setIsGenerating(false);
-    },
-  });
-
-  useEffect(() => {
-    if (existingPackage) {
-      if (existingPackage.status === "completed") {
-        setPackageData(existingPackage);
-        setIsGenerating(false);
-      } else if (existingPackage.status === "generating") {
-        setIsGenerating(true);
-      } else if (existingPackage.status === "failed") {
-        setIsGenerating(false);
-        toast.error("Package generation failed");
-      }
-    }
-  }, [existingPackage]);
-
-  const handleGenerate = () => {
-    generateMutation.mutate({ companyId });
-  };
-
-  const handleDownload = () => {
-    if (!packageData?.markdownContent) return;
-
-    const blob = new Blob([packageData.markdownContent], { type: "text/markdown" });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement("a");
-    a.href = url;
-    a.download = `SALES_INTELLIGENCE_BRIEF_${companyName.replace(/[^a-zA-Z0-9]/g, "_")}.md`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success("Package downloaded");
-  };
-
-  if (packageData) {
-    return (
-      <div className="space-y-3">
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-black border-2 border-green-600 text-green-600 px-2 py-0.5">PACKAGE READY</span>
-          <Button
-            onClick={handleDownload}
-            variant="outline"
-            className="font-black border-2 border-black hover:bg-black hover:text-white"
-            size="sm"
-          >
-            DOWNLOAD .MD
-          </Button>
-        </div>
-        <div className="text-xs font-bold text-muted-foreground">
-          Sales Intelligence Brief • {new Date(packageData.createdAt).toLocaleDateString()}
-        </div>
-      </div>
-    );
-  }
-
-  return (
-    <Button
-      onClick={handleGenerate}
-      disabled={isGenerating}
-      variant="outline"
-      className="font-black border-2 border-black hover:bg-black hover:text-white w-full"
-    >
-      {isGenerating ? "[GENERATING PACKAGE...]" : "[GENERATE SALES PACKAGE]"}
-    </Button>
-  );
-}
-
-// Component for generating sales intelligence brief using Grok
-function GenerateBriefButton({ companyId, companyName }: { companyId: number; companyName: string }) {
+// Component for Deep Research using Grok (4-phase intelligence gathering)
+function DeepResearchButton({ companyId, companyName }: { companyId: number; companyName: string }) {
   const [briefData, setBriefData] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showBrief, setShowBrief] = useState(false);
@@ -826,13 +739,13 @@ function GenerateBriefButton({ companyId, companyName }: { companyId: number; co
       setIsGenerating(false);
       setShowBrief(true);
       if (data.cached) {
-        toast.success(`Using cached brief (${data.cacheAge} days old) - Urgency: ${data.brief.urgencyScore}`);
+        toast.success(`Using cached research (${data.cacheAge} days old) - Urgency: ${data.brief.urgencyScore}`);
       } else {
-        toast.success(`Brief generated with urgency score: ${data.brief.urgencyScore}`);
+        toast.success(`Research completed - Urgency score: ${data.brief.urgencyScore}`);
       }
     },
     onError: (error) => {
-      toast.error(`Failed to generate brief: ${error.message}`);
+      toast.error(`Research failed: ${error.message}`);
       setIsGenerating(false);
     },
   });
@@ -850,7 +763,7 @@ function GenerateBriefButton({ companyId, companyName }: { companyId: number; co
         variant="outline"
         className="font-black border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white w-full"
       >
-        {isGenerating ? "[GENERATING BRIEF...]" : "[GENERATE BRIEF]"}
+        {isGenerating ? "[RESEARCHING...]" : "[DEEP RESEARCH]"}
       </Button>
 
       {/* Brief Display Modal */}
@@ -858,7 +771,7 @@ function GenerateBriefButton({ companyId, companyName }: { companyId: number; co
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowBrief(false)}>
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-4">
-              <h2 className="text-2xl font-black">{companyName} - Sales Intelligence Brief</h2>
+              <h2 className="text-2xl font-black">{companyName} - Deep Research</h2>
               <button onClick={() => setShowBrief(false)} className="text-2xl font-black">×</button>
             </div>
 
@@ -1019,5 +932,166 @@ function EnrichButton({ companyId, companyName }: { companyId: number; companyNa
     >
       {enrichMutation.isPending ? "[ENRICHING...]" : "[ENRICH]"}
     </Button>
+  );
+}
+
+
+// Component for Create Sales Approach (personalized outreach generation)
+function CreateSalesApproachButton({ companyId, companyName }: { companyId: number; companyName: string }) {
+  const [salesApproach, setSalesApproach] = useState<any>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [showApproach, setShowApproach] = useState(false);
+
+  const generateApproachMutation = trpc.companyFinder.generateSalesApproach.useMutation({
+    onSuccess: (data) => {
+      setSalesApproach(data.salesApproach);
+      setIsGenerating(false);
+      setShowApproach(true);
+      toast.success("Sales approach generated!");
+    },
+    onError: (error) => {
+      toast.error(`Failed to generate sales approach: ${error.message}`);
+      setIsGenerating(false);
+    },
+  });
+
+  const handleGenerate = () => {
+    setIsGenerating(true);
+    generateApproachMutation.mutate({ companyId });
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
+  };
+
+  return (
+    <>
+      <Button
+        onClick={handleGenerate}
+        disabled={isGenerating}
+        variant="outline"
+        className="font-black border-2 border-green-600 text-green-600 hover:bg-green-600 hover:text-white w-full"
+      >
+        {isGenerating ? "[CREATING APPROACH...]" : "[CREATE SALES APPROACH]"}
+      </Button>
+
+      {/* Sales Approach Display Modal */}
+      {showApproach && salesApproach && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowApproach(false)}>
+          <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex justify-between items-start mb-4">
+              <h2 className="text-2xl font-black">{companyName} - Sales Approach</h2>
+              <button onClick={() => setShowApproach(false)} className="text-2xl font-black">×</button>
+            </div>
+
+            {/* Email Draft */}
+            <div className="mb-6 p-4 border-2 border-green-600 rounded">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-xl font-black text-green-600">Email Draft</h3>
+                <Button
+                  onClick={() => copyToClipboard(`Subject: ${salesApproach.emailDraft.subject}\n\n${salesApproach.emailDraft.body}`, "Email")}
+                  variant="outline"
+                  size="sm"
+                  className="font-black"
+                >
+                  COPY
+                </Button>
+              </div>
+              <div className="mb-2">
+                <span className="font-bold">Subject:</span> {salesApproach.emailDraft.subject}
+              </div>
+              <div className="whitespace-pre-wrap text-sm">{salesApproach.emailDraft.body}</div>
+            </div>
+
+            {/* LinkedIn Message */}
+            <div className="mb-6 p-4 border-2 border-blue-600 rounded">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-xl font-black text-blue-600">LinkedIn Message</h3>
+              </div>
+              
+              <div className="mb-4">
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-bold">Connection Request:</span>
+                  <Button
+                    onClick={() => copyToClipboard(salesApproach.linkedinMessage.connectionRequest, "Connection Request")}
+                    variant="outline"
+                    size="sm"
+                    className="font-black"
+                  >
+                    COPY
+                  </Button>
+                </div>
+                <div className="text-sm bg-blue-50 p-2 rounded">{salesApproach.linkedinMessage.connectionRequest}</div>
+              </div>
+
+              <div>
+                <div className="flex justify-between items-center mb-1">
+                  <span className="font-bold">Follow-up:</span>
+                  <Button
+                    onClick={() => copyToClipboard(salesApproach.linkedinMessage.followUp, "Follow-up Message")}
+                    variant="outline"
+                    size="sm"
+                    className="font-black"
+                  >
+                    COPY
+                  </Button>
+                </div>
+                <div className="text-sm bg-blue-50 p-2 rounded">{salesApproach.linkedinMessage.followUp}</div>
+              </div>
+            </div>
+
+            {/* Call Script */}
+            <div className="mb-6 p-4 border-2 border-purple-600 rounded">
+              <div className="flex justify-between items-center mb-2">
+                <h3 className="text-xl font-black text-purple-600">Call Script</h3>
+                <Button
+                  onClick={() => copyToClipboard(
+                    `OPENING:\n${salesApproach.callScript.opening}\n\nDISCOVERY QUESTIONS:\n${salesApproach.callScript.discoveryQuestions.join("\n")}\n\nVALUE PROPOSITION:\n${salesApproach.callScript.valueProposition}\n\nCALL TO ACTION:\n${salesApproach.callScript.callToAction}`,
+                    "Call Script"
+                  )}
+                  variant="outline"
+                  size="sm"
+                  className="font-black"
+                >
+                  COPY
+                </Button>
+              </div>
+
+              <div className="mb-3">
+                <span className="font-bold">Opening:</span>
+                <div className="text-sm mt-1">{salesApproach.callScript.opening}</div>
+              </div>
+
+              <div className="mb-3">
+                <span className="font-bold">Discovery Questions:</span>
+                <ul className="list-disc pl-5 text-sm mt-1">
+                  {salesApproach.callScript.discoveryQuestions.map((q: string, i: number) => (
+                    <li key={i}>{q}</li>
+                  ))}
+                </ul>
+              </div>
+
+              <div className="mb-3">
+                <span className="font-bold">Value Proposition:</span>
+                <div className="text-sm mt-1">{salesApproach.callScript.valueProposition}</div>
+              </div>
+
+              <div>
+                <span className="font-bold">Call to Action:</span>
+                <div className="text-sm mt-1">{salesApproach.callScript.callToAction}</div>
+              </div>
+            </div>
+
+            <Button
+              onClick={() => setShowApproach(false)}
+              className="w-full font-black"
+            >
+              CLOSE
+            </Button>
+          </div>
+        </div>
+      )}
+    </>
   );
 }

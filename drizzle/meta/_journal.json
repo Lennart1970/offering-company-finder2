@@ -85,6 +85,13 @@
       "when": 1771431791711,
       "tag": "0011_lucky_taskmaster",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1771494036107,
+      "tag": "0012_flowery_absorbing_man",
+      "breakpoints": true
     }
   ]
 }

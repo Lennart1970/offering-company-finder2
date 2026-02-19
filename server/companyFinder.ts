@@ -23,7 +23,7 @@ import {
 import { extractOffering } from "./offeringExtractor";
 import { searchApolloCompanies, enrichCompanyDetails } from "./apolloSearch";
 import { normalizeWebsiteUrl } from "../shared/urlUtils";
-import { generateSalesPackage, packageToMarkdown } from "./packageGenerator";
+
 import { selectIndustryCodes } from "./codeSelectionService";
 import { naicsMatchesHierarchically, sicMatchesHierarchically } from "../shared/naicsHierarchy";
 
@@ -293,58 +293,7 @@ export const companyFinderRouter = router({
       return { csv: csvContent };
     }),
 
-  // Generate sales intelligence package for a company
-  generatePackage: protectedProcedure
-    .input(z.object({ companyId: z.number() }))
-    .mutation(async ({ ctx, input }) => {
-      const company = await getCompanyById(input.companyId);
-      if (!company) {
-        throw new Error("Company not found");
-      }
 
-      // Check if package already exists
-      const existing = await getSalesPackageByCompanyId(input.companyId);
-      if (existing) {
-        return { packageId: existing.id, status: existing.status };
-      }
-
-      // Create package record
-      const packageId = await createSalesPackage({
-        companyId: input.companyId,
-        userId: ctx.user.id,
-        packageData: "",
-        markdownContent: "",
-        status: "generating",
-      });
-
-      // Generate package in background
-      generatePackageBackground(packageId, company).catch(async (error: any) => {
-        await updateSalesPackage(packageId, {
-          status: "failed",
-          errorMessage: error.message,
-        });
-      });
-
-      return { packageId, status: "generating" };
-    }),
-
-  // Get sales package for a company
-  getPackage: protectedProcedure
-    .input(z.object({ companyId: z.number() }))
-    .query(async ({ input }) => {
-      const pkg = await getSalesPackageByCompanyId(input.companyId);
-      if (!pkg) {
-        return null;
-      }
-
-      return {
-        id: pkg.id,
-        status: pkg.status,
-        markdownContent: pkg.markdownContent,
-        packageData: pkg.packageData ? JSON.parse(pkg.packageData) : null,
-        createdAt: pkg.createdAt,
-      };
-    }),
 
   // HITL: Submit decision on company relevance
   submitDecision: protectedProcedure
@@ -535,6 +484,49 @@ export const companyFinderRouter = router({
         throw new Error(`Failed to generate brief: ${error.message}`);
       }
     }),
+
+  // Generate personalized sales approach for a company (requires Deep Research first)
+  generateSalesApproach: protectedProcedure
+    .input(z.object({
+      companyId: z.number(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const company = await getCompanyById(input.companyId);
+      if (!company) {
+        throw new Error("Company not found");
+      }
+
+      // Check if deep research exists
+      if (!company.briefData) {
+        throw new Error("Deep research not found. Please run Deep Research first.");
+      }
+
+      console.log(`[generateSalesApproach] Starting sales approach generation for company ${input.companyId}`);
+
+      // Import sales approach generator
+      const { generateSalesApproach } = await import("./salesApproachGenerator");
+
+      try {
+        // Generate personalized sales approach
+        const salesApproach = await generateSalesApproach(input.companyId);
+
+        // Update company with sales approach data
+        await updateCompany(input.companyId, {
+          salesApproachData: JSON.stringify(salesApproach),
+          salesApproachGeneratedAt: new Date(),
+        });
+
+        console.log(`[generateSalesApproach] ✓ Sales approach generated for ${company.name}`);
+
+        return {
+          success: true,
+          salesApproach,
+        };
+      } catch (error: any) {
+        console.error(`[generateSalesApproach] Error:`, error);
+        throw new Error(`Failed to generate sales approach: ${error.message}`);
+      }
+    }),
 });
 
 // Background search function for hardcoded ConnectGroup offering (skip extraction)
@@ -702,37 +694,4 @@ async function extractAndSearch(searchId: number, companyWebsite: string, locati
   }
 }
 
-// Background package generation function
-async function generatePackageBackground(packageId: number, company: any) {
-  try {
-    console.log(`[Package ${packageId}] Generating sales package for ${company.name}`);
 
-    const packageData = await generateSalesPackage(
-      company.name,
-      company.websiteUrl || company.primaryDomain || "",
-      {
-        revenue: company.revenue,
-        employees: company.headcountGrowth,
-        foundedYear: company.foundedYear,
-        city: company.city,
-        state: company.state,
-        country: company.country,
-        sicCodes: company.sicCodes ? JSON.parse(company.sicCodes) : [],
-        naicsCodes: company.naicsCodes ? JSON.parse(company.naicsCodes) : [],
-      }
-    );
-
-    const markdownContent = packageToMarkdown(packageData);
-
-    await updateSalesPackage(packageId, {
-      packageData: JSON.stringify(packageData),
-      markdownContent,
-      status: "completed",
-    });
-
-    console.log(`[Package ${packageId}] Completed for ${company.name}`);
-  } catch (error: any) {
-    console.error(`[Package ${packageId}] Error generating package:`, error);
-    throw error;
-  }
-}

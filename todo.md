@@ -357,3 +357,26 @@
 - [x] Check browser console for errors
 - [x] Compare enrichSingle vs enrichAll mutation implementation
 - [x] Fix the issue and verify enrichment works
+
+## Feature: Streamlined Sales Workflow (Remove Package, Rename Brief, Add Sales Approach)
+- [x] Remove Sales Package feature completely
+  - [x] Delete "Generate Package" button from UI
+  - [x] Remove generatePackage procedure from companyFinder.ts
+  - [x] Remove getPackage procedure from companyFinder.ts
+  - [x] Delete packageGenerator.ts file
+  - [x] Remove sales_packages table references from db.ts
+- [x] Rename "Generate Brief" to "Deep Research"
+  - [x] Update button text in UI
+  - [x] Update procedure names in backend (keep functionality)
+  - [x] Update modal/display titles
+- [x] Add "Create Sales Approach" feature
+  - [x] Create salesApproachGenerator.ts with Grok prompt
+  - [x] Add generateSalesApproach procedure to companyFinder.ts
+  - [x] Add database schema for sales approach storage
+  - [x] Add "Create Sales Approach" button (only shows after Deep Research)
+  - [x] Create modal to display sales approach (email, LinkedIn, call script)
+  - [x] Add copy-to-clipboard functionality for each approach type
+- [ ] Test complete workflow end-to-end
+  - [ ] Search → Enrich → Deep Research → Create Sales Approach
+  - [ ] Verify all data flows correctly
+  - [ ] Test UI interactions and modals

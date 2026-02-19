@@ -81,8 +81,10 @@ export const companies = mysqlTable("companies", {
   naicsCodes: text("naicsCodes"), // JSON array of NAICS codes
   sliceMetadata: text("sliceMetadata"), // JSON object: { employeeBand, industry, keywordSet, matchedKeywords }
   urgencyScore: int("urgencyScore"), // 0-100 urgency score from Grok analysis
-  briefData: text("briefData"), // JSON-stringified SalesIntelligenceBrief
+  briefData: text("briefData"), // JSON-stringified SalesIntelligenceBrief (Deep Research)
   briefGeneratedAt: timestamp("briefGeneratedAt"), // When the brief was generated
+  salesApproachData: text("salesApproachData"), // JSON-stringified SalesApproach (email, LinkedIn, call script)
+  salesApproachGeneratedAt: timestamp("salesApproachGeneratedAt"), // When the sales approach was generated
   enrichmentStatus: mysqlEnum("enrichmentStatus", ["pending", "enriched", "failed"]).default("pending").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

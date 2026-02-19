@@ -445,3 +445,9 @@
 - [x] Check if Deep Research requirement is causing the issue
 - [x] Fix conditional logic to show button correctly after enrichment (added query invalidation)
 - [x] Test button appears consistently after Deep Research
+
+## Bug: Duplicate key error still occurring - incomplete fix
+- [x] Apply onDuplicateKeyUpdate to SIC batch insert (line 121)
+- [x] Apply onDuplicateKeyUpdate to individual SIC insert (line 32)
+- [x] Apply onDuplicateKeyUpdate to individual NAICS insert (line 70)
+- [x] Test all code caching paths

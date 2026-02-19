@@ -33,6 +33,8 @@ export async function getSicDescriptionCached(code: string): Promise<string | nu
       code,
       codeType: "SIC",
       description,
+    }).onDuplicateKeyUpdate({
+      set: { description: sql`VALUES(description)` }
     });
   } catch (error) {
     console.error(`[Code Cache] Failed to cache SIC ${code}:`, error);
@@ -71,6 +73,8 @@ export async function getNaicsDescriptionCached(code: string): Promise<string | 
       code,
       codeType: "NAICS",
       description,
+    }).onDuplicateKeyUpdate({
+      set: { description: sql`VALUES(description)` }
     });
   } catch (error) {
     console.error(`[Code Cache] Failed to cache NAICS ${code}:`, error);
@@ -118,7 +122,9 @@ export async function batchGetSicDescriptions(codes: string[]): Promise<Map<stri
     
     if (toInsert.length > 0) {
       try {
-        await db.insert(codeDescriptions).values(toInsert);
+        await db.insert(codeDescriptions).values(toInsert).onDuplicateKeyUpdate({
+          set: { description: sql`VALUES(description)` }
+        });
       } catch (error) {
         console.error("[Code Cache] Failed to batch cache SIC codes:", error);
       }

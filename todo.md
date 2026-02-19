@@ -485,3 +485,7 @@
 ## Bug Fix: Urgency Signals Rendering Error
 - [x] Fix React error when rendering urgency signals objects (category, type, description, weight, source, url, detectedAt)
 - [x] Update CallToday.tsx to properly extract and display signal properties instead of rendering objects directly
+
+## Bug Fix: Products/Services/Technologies Object Rendering Error
+- [x] Fix React error when rendering objects with {category, description, capabilities} structure
+- [x] Update CallToday.tsx to handle object format for products/services, technologies, and target markets

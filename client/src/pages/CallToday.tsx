@@ -440,9 +440,10 @@ export default function CallToday() {
                         <div>
                           <div className="text-xs font-bold mb-1">Products & Services</div>
                           <ul className="text-sm space-y-1">
-                            {briefData.productsServices.map((item: string, idx: number) => (
-                              <li key={idx}>• {item}</li>
-                            ))}
+                            {briefData.productsServices.map((item: any, idx: number) => {
+                              const itemText = typeof item === 'string' ? item : (item.description || item.category || '');
+                              return <li key={idx}>• {itemText}</li>;
+                            })}
                           </ul>
                         </div>
                       )}
@@ -452,9 +453,10 @@ export default function CallToday() {
                         <div>
                           <div className="text-xs font-bold mb-1">Key Technologies</div>
                           <ul className="text-sm space-y-1">
-                            {briefData.keyTechnologies.map((tech: string, idx: number) => (
-                              <li key={idx}>• {tech}</li>
-                            ))}
+                            {briefData.keyTechnologies.map((tech: any, idx: number) => {
+                              const techText = typeof tech === 'string' ? tech : (tech.description || tech.category || '');
+                              return <li key={idx}>• {techText}</li>;
+                            })}
                           </ul>
                         </div>
                       )}
@@ -464,9 +466,10 @@ export default function CallToday() {
                         <div>
                           <div className="text-xs font-bold mb-1">Target Markets</div>
                           <ul className="text-sm space-y-1">
-                            {briefData.targetMarkets.map((market: string, idx: number) => (
-                              <li key={idx}>• {market}</li>
-                            ))}
+                            {briefData.targetMarkets.map((market: any, idx: number) => {
+                              const marketText = typeof market === 'string' ? market : (market.description || market.category || '');
+                              return <li key={idx}>• {marketText}</li>;
+                            })}
                           </ul>
                         </div>
                       )}

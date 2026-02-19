@@ -387,3 +387,30 @@
 - [x] Fix hover states that cause white text on white background
 - [x] Ensure all text is readable without selection
 - [x] Test across all pages and components
+
+## Feature: Restructure 5-Step Sales Workflow
+- [x] Restructure Deep Research (Step 2)
+  - [x] Remove conversation starters from briefGenerator.ts
+  - [x] Remove engagement strategy from briefGenerator.ts
+  - [x] Keep only urgency detection + company intelligence (2 Grok calls)
+  - [ ] Update UI button text and modal display
+- [x] Update Sales Approach (Step 3)
+  - [x] Add conversation starters to salesApproachGenerator.ts prompt
+  - [x] Add engagement strategy to salesApproachGenerator.ts prompt
+  - [x] Combine with existing outreach generation (1 Grok call total)
+  - [ ] Update modal to display all 3 components
+- [x] Add Contact Details Feature (Step 5) - Backend
+  - [x] Create contacts table schema in drizzle/schema.ts
+  - [x] Generate and apply migration SQL
+  - [x] Create Apollo People Search integration
+  - [x] Add database functions (createContact, getContactByCompanyId)
+  - [ ] Add findContact tRPC procedure
+  - [ ] Add UI button with job title input field
+  - [ ] Store 1 contact per company in database
+  - [ ] Display contact details in modal
+- [ ] Add Cost/Time Indicators
+  - [ ] Add badge to Deep Research button (~30s, 2 Grok calls)
+  - [ ] Add badge to Sales Approach button (~45s, 1 Grok call)
+  - [ ] Add badge to Company Details button (~5s, 1 Apollo credit)
+  - [ ] Add badge to Contact Details button (~10s, 1 Apollo credit, expensive)
+- [ ] Test complete 5-step workflow end-to-end

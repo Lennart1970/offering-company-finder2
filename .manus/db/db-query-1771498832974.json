@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `contacts` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`companyId` int NOT NULL,\n\t`apolloPersonId` varchar(128),\n\t`firstName` varchar(128),\n\t`lastName` varchar(128),\n\t`fullName` varchar(256),\n\t`title` varchar(256),\n\t`email` varchar(320),\n\t`phone` varchar(64),\n\t`linkedinUrl` varchar(512),\n\t`searchedTitle` varchar(256),\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `contacts_id` PRIMARY KEY(`id`)\n);\n\nALTER TABLE `contacts` ADD CONSTRAINT `contacts_companyId_companies_id_fk` FOREIGN KEY (`companyId`) REFERENCES `companies`(`id`) ON DELETE no action ON UPDATE no action;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute CREATE TABLE `contacts` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`companyId` int NOT NULL,\n\t`apolloPersonId` varchar(128),\n\t`firstName` varchar(128),\n\t`lastName` varchar(128),\n\t`fullName` varchar(256),\n\t`title` varchar(256),\n\t`email` varchar(320),\n\t`phone` varchar(64),\n\t`linkedinUrl` varchar(512),\n\t`searchedTitle` varchar(256),\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `contacts_id` PRIMARY KEY(`id`)\n);\n\nALTER TABLE `contacts` ADD CONSTRAINT `contacts_companyId_companies_id_fk` FOREIGN KEY (`companyId`) REFERENCES `companies`(`id`) ON DELETE no action ON UPDATE no action;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1453
+}

@@ -60,12 +60,7 @@ export interface SalesIntelligenceBrief {
     url: string;
     detectedAt: string;
   }>;
-  conversationStarters: string[];
-  engagementStrategy: {
-    whyThisProspectMatters: string[];
-    recommendedApproach: string[];
-    keyTalkingPoints: string[];
-  };
+  // conversationStarters and engagementStrategy moved to Sales Approach (Step 3)
 }
 
 /**
@@ -175,75 +170,7 @@ Return JSON only:
     `[Brief Generator] Found ${intelligenceData.productsServices?.length || 0} product categories`
   );
 
-  // Phase 3: Generate conversation starters
-  console.log(`[Brief Generator] Phase 3: Generating conversation starters...`);
-  const conversationPrompt = `Based on these recent developments for "${company.name}":
-${urgencyData.recentDevelopments?.join("\n") || "No recent developments found"}
-
-Generate 3 specific conversation starters that reference these developments and position ConnectGroup's EMS capabilities (PCB assembly, cable assembly, module building, design-to-product).
-
-Return JSON only:
-{
-  "conversationStarters": [
-    "I saw that you recently launched X - are you evaluating manufacturing partners to scale production?",
-    "Noticed your expansion into Y market - how are you handling the increased PCB assembly demands?",
-    "Your recent Z announcement suggests growth - are you looking to optimize your supply chain for faster time-to-market?"
-  ]
-}`;
-
-  const conversationResponse = await xai.chat.completions.create({
-    model: "grok-4-1-fast-reasoning",
-    messages: [{ role: "user", content: conversationPrompt }],
-    response_format: { type: "json_object" },
-  });
-
-  const conversationData = JSON.parse(
-    conversationResponse.choices[0].message.content || "{}"
-  );
-  console.log(
-    `[Brief Generator] Generated ${conversationData.conversationStarters?.length || 0} conversation starters`
-  );
-
-  // Phase 4: Generate engagement strategy
-  console.log(`[Brief Generator] Phase 4: Generating engagement strategy...`);
-  const strategyPrompt = `You are a B2B sales strategist. Based on this intelligence for "${company.name}":
-
-Urgency Score: ${urgencyData.urgencyScore}/100
-Products: ${intelligenceData.productsServices?.map((p: any) => p.category).join(", ")}
-Technologies: ${intelligenceData.keyTechnologies?.map((t: any) => t.name).join(", ")}
-Recent Developments: ${urgencyData.recentDevelopments?.join("; ")}
-
-Generate an engagement strategy for ConnectGroup (EMS provider: PCB assembly, cable assembly, module building, design-to-product) to approach this prospect.
-
-Return JSON only:
-{
-  "whyThisProspectMatters": [
-    "Strong fit with ConnectGroup's IoT manufacturing capabilities",
-    "Growing market presence indicates scaling needs",
-    "Technology stack aligns with our expertise"
-  ],
-  "recommendedApproach": [
-    "Lead with design-to-product capabilities for their IoT expansion",
-    "Highlight our experience in similar smart home projects",
-    "Emphasize fast time-to-market and supply chain optimization"
-  ],
-  "keyTalkingPoints": [
-    "Our PCB assembly capabilities support complex IoT designs",
-    "We've helped similar companies scale from prototype to production",
-    "Our cable assembly expertise can streamline their manufacturing"
-  ]
-}`;
-
-  const strategyResponse = await xai.chat.completions.create({
-    model: "grok-4-1-fast-reasoning",
-    messages: [{ role: "user", content: strategyPrompt }],
-    response_format: { type: "json_object" },
-  });
-
-  const strategyData = JSON.parse(
-    strategyResponse.choices[0].message.content || "{}"
-  );
-  console.log(`[Brief Generator] Generated engagement strategy`);
+  // Phase 3 & 4 removed - conversation starters and engagement strategy moved to Sales Approach (Step 3)
 
   // Assemble final brief
   const brief: SalesIntelligenceBrief = {
@@ -282,12 +209,6 @@ Return JSON only:
     industryKeywords: intelligenceData.industryKeywords || [],
     naicsCodes: naicsCodes,
     urgencySignals: urgencyData.urgencySignals || [],
-    conversationStarters: conversationData.conversationStarters || [],
-    engagementStrategy: {
-      whyThisProspectMatters: strategyData.whyThisProspectMatters || [],
-      recommendedApproach: strategyData.recommendedApproach || [],
-      keyTalkingPoints: strategyData.keyTalkingPoints || [],
-    },
   };
 
   console.log(

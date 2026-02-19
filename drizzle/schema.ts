@@ -154,3 +154,24 @@ export const codeDescriptions = mysqlTable("code_descriptions", {
 
 export type CodeDescription = typeof codeDescriptions.$inferSelect;
 export type InsertCodeDescription = typeof codeDescriptions.$inferInsert;
+
+/**
+ * Stores contact details (decision-makers) found via Apollo People Search
+ */
+export const contacts = mysqlTable("contacts", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull().references(() => companies.id),
+  apolloPersonId: varchar("apolloPersonId", { length: 128 }),
+  firstName: varchar("firstName", { length: 128 }),
+  lastName: varchar("lastName", { length: 128 }),
+  fullName: varchar("fullName", { length: 256 }),
+  title: varchar("title", { length: 256 }),
+  email: varchar("email", { length: 320 }),
+  phone: varchar("phone", { length: 64 }),
+  linkedinUrl: varchar("linkedinUrl", { length: 512 }),
+  searchedTitle: varchar("searchedTitle", { length: 256 }), // The job title user searched for
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Contact = typeof contacts.$inferSelect;
+export type InsertContact = typeof contacts.$inferInsert;

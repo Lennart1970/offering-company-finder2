@@ -1,6 +1,6 @@
 import { eq, and } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch } from "../drizzle/schema";
+import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -268,4 +268,29 @@ export async function removeExcludedCode(id: number, userId: number) {
       eq(excludedCodes.id, id),
       eq(excludedCodes.userId, userId)
     ));
+}
+
+// ============================================================================
+// Contact Functions
+// ============================================================================
+
+export async function createContact(contact: InsertContact): Promise<Contact> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const [inserted] = await db.insert(contacts).values(contact);
+  const [created] = await db.select().from(contacts)
+    .where(eq(contacts.id, inserted.insertId));
+  return created;
+}
+
+export async function getContactByCompanyId(companyId: number): Promise<Contact | null> {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const [contact] = await db.select().from(contacts)
+    .where(eq(contacts.companyId, companyId))
+    .orderBy(desc(contacts.createdAt))
+    .limit(1);
+  return contact || null;
 }

@@ -21,6 +21,12 @@ const xai = new OpenAI({
 export interface SalesApproach {
   companyName: string;
   generatedAt: string;
+  conversationStarters: string[];
+  engagementStrategy: {
+    whyThisProspectMatters: string[];
+    recommendedApproach: string[];
+    keyTalkingPoints: string[];
+  };
   emailDraft: {
     subject: string;
     body: string;
@@ -60,8 +66,8 @@ export async function generateSalesApproach(
 
   const domain = company.primaryDomain || company.websiteUrl || "unknown.com";
 
-  // Generate personalized sales approach using all research data
-  const approachPrompt = `You are a B2B sales expert crafting personalized outreach for ConnectGroup (EMS provider: PCB assembly, cable assembly, module building, design-to-product services).
+  // Generate comprehensive sales approach (conversation starters, strategy, outreach)
+  const approachPrompt = `You are a B2B sales expert crafting a complete sales approach for ConnectGroup (EMS provider: PCB assembly, cable assembly, module building, design-to-product services).
 
 **Target Company:** ${company.name} (${domain})
 
@@ -71,14 +77,36 @@ export async function generateSalesApproach(
 - Products/Services: ${briefData.productsServices?.map((p: any) => p.category).join(", ") || "Unknown"}
 - Key Technologies: ${briefData.keyTechnologies?.map((t: any) => t.name).join(", ") || "Unknown"}
 - Target Markets: ${briefData.targetMarkets?.map((m: any) => m.segment).join(", ") || "Unknown"}
-- Why This Prospect Matters: ${briefData.engagementStrategy?.whyThisProspectMatters?.join("; ") || "Unknown"}
-- Recommended Approach: ${briefData.engagementStrategy?.recommendedApproach?.join("; ") || "Unknown"}
-- Conversation Starters: ${briefData.conversationStarters?.join("; ") || "None"}
 
-**Your Task:** Generate personalized sales outreach materials that reference specific recent developments and demonstrate understanding of their business.
+**Your Task:** Generate a complete sales approach including:
+1. Conversation starters (3 specific openers referencing recent developments)
+2. Engagement strategy (why this prospect matters, recommended approach, key talking points)
+3. Personalized outreach materials (email, LinkedIn, call script)
 
 Return JSON only:
 {
+  "conversationStarters": [
+    "I saw that you recently launched X - are you evaluating manufacturing partners to scale production?",
+    "Noticed your expansion into Y market - how are you handling the increased PCB assembly demands?",
+    "Your recent Z announcement suggests growth - are you looking to optimize your supply chain for faster time-to-market?"
+  ],
+  "engagementStrategy": {
+    "whyThisProspectMatters": [
+      "Strong fit with ConnectGroup's IoT manufacturing capabilities",
+      "Growing market presence indicates scaling needs",
+      "Technology stack aligns with our expertise"
+    ],
+    "recommendedApproach": [
+      "Lead with design-to-product capabilities for their IoT expansion",
+      "Highlight our experience in similar smart home projects",
+      "Emphasize fast time-to-market and supply chain optimization"
+    ],
+    "keyTalkingPoints": [
+      "Our PCB assembly capabilities support complex IoT designs",
+      "We've helped similar companies scale from prototype to production",
+      "Our cable assembly expertise can streamline their manufacturing"
+    ]
+  },
   "emailDraft": {
     "subject": "Brief, specific subject line referencing recent development or pain point",
     "body": "3-paragraph email:\n1. Hook (reference specific recent development)\n2. Value prop (how ConnectGroup solves their specific challenge)\n3. CTA (request 15-min call)\n\nTone: Professional, consultative, not salesy. Use 'you/your' not 'we/our'."
@@ -113,6 +141,12 @@ Return JSON only:
   const salesApproach: SalesApproach = {
     companyName: company.name,
     generatedAt: new Date().toISOString(),
+    conversationStarters: approachData.conversationStarters || [],
+    engagementStrategy: approachData.engagementStrategy || {
+      whyThisProspectMatters: [],
+      recommendedApproach: [],
+      keyTalkingPoints: [],
+    },
     emailDraft: approachData.emailDraft || {
       subject: "Exploring EMS partnership opportunities",
       body: "Email generation failed. Please try again.",

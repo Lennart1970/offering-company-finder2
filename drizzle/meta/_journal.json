@@ -92,6 +92,13 @@
       "when": 1771494036107,
       "tag": "0012_flowery_absorbing_man",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1771498818697,
+      "tag": "0013_chief_sentry",
+      "breakpoints": true
     }
   ]
 }

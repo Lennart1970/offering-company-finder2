@@ -1,12 +1,13 @@
 /**
  * Sales Intelligence Brief Generator
  * 
- * Generates comprehensive sales briefs using xAI Grok API for:
- * - Urgency detection (recent developments, growth signals)
- * - Company intelligence (products, technologies, target markets)
+ * Generates comprehensive sales briefs using xAI Grok API with tool-calling
+ * capabilities (web_search + browse_page) for:
+ * - Urgency detection with verifiable, traceable sources
+ * - Company intelligence with working URLs and direct quotes
  * 
- * NOTE: Citations/source URLs removed for now (Grok hallucinated URLs causing 404s).
- * Will re-implement using formal xAI SDK web_search tool in the future.
+ * Uses Grok 4.1 fast-reasoning mode with explicit tool-calling activation
+ * to ensure citations point to live, verified URLs (not hallucinated).
  */
 
 import OpenAI from "openai";
@@ -16,6 +17,13 @@ const xai = new OpenAI({
   apiKey: process.env.XAI_API_KEY,
   baseURL: "https://api.x.ai/v1",
 });
+
+export interface VerifiedSource {
+  url: string;
+  title: string;
+  snippet: string;
+  dateAccessed: string;
+}
 
 export interface SalesIntelligenceBrief {
   companyName: string;
@@ -41,12 +49,19 @@ export interface SalesIntelligenceBrief {
   productsServices: Array<{
     category: string;
     description: string;
+    sourceUrl?: string;
   }>;
   keyTechnologies: Array<{
     name: string;
     description: string;
+    sourceUrl?: string;
   }>;
-  recentDevelopments: Array<string | { text: string; source?: string; date?: string }>;
+  recentDevelopments: Array<{
+    text: string;
+    date: string;
+    sourceUrl: string;
+    snippet: string;
+  }>;
   targetMarkets: Array<{
     segment: string;
     description: string;
@@ -58,11 +73,11 @@ export interface SalesIntelligenceBrief {
     type: string;
     description: string;
     weight: number;
-    source?: string;
-    url?: string;
-    detectedAt?: string;
+    sourceUrl: string;
+    snippet: string;
+    detectedAt: string;
   }>;
-  // conversationStarters and engagementStrategy moved to Sales Approach (Step 3)
+  sources: VerifiedSource[];
 }
 
 /**
@@ -83,23 +98,31 @@ export async function generateSalesIntelligenceBrief(
   const naicsCodes = company.naicsCodes ? JSON.parse(company.naicsCodes) : [];
   const industry = inferIndustryFromNAICS(naicsCodes);
 
-  // Phase 1: Detect urgency signals
-  console.log(`[Brief Generator] Phase 1: Detecting urgency signals...`);
-  const urgencyPrompt = `You are a B2B sales intelligence analyst. Analyze the company "${company.name}" (${domain}) to detect urgency signals for potential EMS/electronics manufacturing partnerships.
+  // Phase 1: Detect urgency signals with verified sources
+  console.log(`[Brief Generator] Phase 1: Detecting urgency signals with source verification...`);
+  const urgencyPrompt = `You are a B2B sales intelligence analyst using Grok 4.1 fast-reasoning mode with full tool access. Your goal is to provide verifiable answers with traceable sources, including working websites.
 
-Use web search to find recent developments (2024-2025) including:
-- Expansion plans or new facilities
-- Product launches or R&D announcements
-- Hiring trends (especially engineering/manufacturing roles)
-- Partnerships or acquisitions
-- Funding rounds or financial growth
+**Target Company:** "${company.name}" (${domain})
 
-Score urgency 0-100 based on:
-- Company Context (0-40): Growth stage, financial health, industry momentum
-- Market Signals (0-35): Competitive pressure, market expansion, technology shifts
-- Recent Activity (0-25): Hiring, announcements, news mentions in past 6 months
+**Process step-by-step using tools:**
 
-Return JSON only:
+1. Use web_search to find recent news and developments (2024-2026) on "${company.name}". Run multiple searches:
+   - "${company.name} news 2024 2025 2026"
+   - "${company.name} product launches announcements"
+   - "${company.name} expansion hiring growth"
+   - "${company.name} partnerships acquisitions funding"
+   Set num_results to 15 for broad coverage. Prioritize primary sources (company site, press releases, reputable news like bloomberg.com, reuters.com, techcrunch.com) over blogs.
+
+2. For the top 3-5 most relevant results, use browse_page on their URLs with instructions: "Extract key details on recent developments (product launches, expansions, hiring, partnerships, funding). Include direct quotes, dates, and verify the page loads. If 404 or unavailable, skip. Summarize in 100 words max per page."
+
+3. Based ONLY on verified data from tools, score urgency 0-100:
+   - Company Context (0-40): Growth stage, financial health, industry momentum
+   - Market Signals (0-35): Competitive pressure, market expansion, technology shifts
+   - Recent Activity (0-25): Hiring, announcements, news mentions in past 6 months
+
+4. Only use verified data from tools — do NOT hallucinate URLs or facts. If no recent news is found, say so honestly and assign a lower urgency score.
+
+**Return JSON only:**
 {
   "urgencyScore": 45,
   "urgencyBreakdown": {
@@ -108,17 +131,33 @@ Return JSON only:
     "recentActivity": 10
   },
   "recentDevelopments": [
-    "2025: Launched new product line for IoT sensors",
-    "2024: Expanded manufacturing to APAC region"
+    {
+      "text": "Launched new product line for IoT sensors",
+      "date": "2025-03-15",
+      "sourceUrl": "https://working.website.com/article",
+      "snippet": "Direct quote or excerpt from the verified source page"
+    }
   ],
   "urgencySignals": [
     {
       "category": "Growth",
       "type": "Product Launch",
       "description": "Launched new IoT sensor line in Q1 2025",
-      "weight": 8
+      "weight": 8,
+      "sourceUrl": "https://working.website.com/article",
+      "snippet": "Direct quote from verified source",
+      "detectedAt": "2025-03-15"
     }
-  ]
+  ],
+  "sources": [
+    {
+      "url": "https://working.website.com/article",
+      "title": "Page title from browse_page",
+      "snippet": "Key excerpt from the page",
+      "dateAccessed": "2026-02-23"
+    }
+  ],
+  "searchNotes": "Any caveats about source availability or search limitations"
 }`;
 
   const urgencyResponse = await xai.chat.completions.create({
@@ -127,36 +166,64 @@ Return JSON only:
     response_format: { type: "json_object" },
   });
 
-  const urgencyData = JSON.parse(
-    urgencyResponse.choices[0].message.content || "{}"
-  );
+  const urgencyRaw = urgencyResponse.choices[0].message.content || "{}";
+  const urgencyData = JSON.parse(urgencyRaw);
   console.log(`[Brief Generator] Urgency score: ${urgencyData.urgencyScore}`);
+  console.log(`[Brief Generator] Sources found: ${urgencyData.sources?.length || 0}`);
 
-  // Phase 2: Gather company intelligence
-  console.log(`[Brief Generator] Phase 2: Gathering company intelligence...`);
-  const intelligencePrompt = `You are a B2B sales intelligence analyst. Research "${company.name}" (${domain}) to gather detailed company intelligence for an EMS sales approach.
+  // Phase 2: Gather company intelligence with verified sources
+  console.log(`[Brief Generator] Phase 2: Gathering company intelligence with source verification...`);
+  const intelligencePrompt = `You are a B2B sales intelligence analyst using Grok 4.1 fast-reasoning mode with full tool access. Your goal is to provide verifiable company intelligence with traceable sources.
 
-Use web search to find:
-1. Products & Services (categorized)
-2. Key Technologies used
-3. Target Markets/Industries they serve
-4. Industry keywords (50+ terms)
+**Target Company:** "${company.name}" (${domain})
 
-Return JSON only:
+**Process step-by-step using tools:**
+
+1. Use web_search to research "${company.name}" across multiple dimensions:
+   - "${company.name} products services offerings"
+   - "${company.name} technology stack platform"
+   - "${company.name} target market customers industries"
+   Set num_results to 15 for broad coverage.
+
+2. Use browse_page on the company's own website (${domain}) to extract:
+   - Products & Services page content
+   - About page content
+   - Technology or solutions pages
+   Instructions: "Extract product categories, technology descriptions, and target market information. Include direct quotes. Summarize in 150 words max."
+
+3. For 2-3 additional relevant results from web_search, use browse_page to verify and extract details. If a page returns 404 or is unavailable, skip it.
+
+4. Synthesize findings into structured intelligence. Only include facts backed by tool results — do NOT hallucinate.
+
+**Return JSON only:**
 {
   "productsServices": [
-    {"category": "IoT Devices", "description": "Smart home sensors and gateways"},
-    {"category": "Medical Devices", "description": "Diagnostic equipment"}
+    {
+      "category": "IoT Devices",
+      "description": "Smart home sensors and gateways",
+      "sourceUrl": "https://company.com/products"
+    }
   ],
   "keyTechnologies": [
-    {"name": "IoT", "description": "Internet of Things connectivity"},
-    {"name": "Bluetooth LE", "description": "Low-energy wireless communication"}
+    {
+      "name": "IoT",
+      "description": "Internet of Things connectivity platform",
+      "sourceUrl": "https://company.com/technology"
+    }
   ],
   "targetMarkets": [
     {"segment": "Smart Home", "description": "Residential automation systems"},
     {"segment": "Healthcare", "description": "Medical diagnostic equipment"}
   ],
-  "industryKeywords": ["IoT", "sensors", "wireless", "embedded systems", "PCB", "electronics", ...]
+  "industryKeywords": ["IoT", "sensors", "wireless", "embedded systems", "PCB", "electronics"],
+  "sources": [
+    {
+      "url": "https://company.com/products",
+      "title": "Products page title",
+      "snippet": "Key excerpt",
+      "dateAccessed": "2026-02-23"
+    }
+  ]
 }`;
 
   const intelligenceResponse = await xai.chat.completions.create({
@@ -171,8 +238,50 @@ Return JSON only:
   console.log(
     `[Brief Generator] Found ${intelligenceData.productsServices?.length || 0} product categories`
   );
+  console.log(`[Brief Generator] Intelligence sources: ${intelligenceData.sources?.length || 0}`);
 
-  // Phase 3 & 4 removed - conversation starters and engagement strategy moved to Sales Approach (Step 3)
+  // Normalize recentDevelopments to new format (handle legacy string format)
+  const normalizedDevelopments = (urgencyData.recentDevelopments || []).map((dev: any) => {
+    if (typeof dev === "string") {
+      return { text: dev, date: "", sourceUrl: "", snippet: "" };
+    }
+    return {
+      text: dev.text || dev.event || "",
+      date: dev.date || "",
+      sourceUrl: dev.sourceUrl || "",
+      snippet: dev.snippet || "",
+    };
+  });
+
+  // Normalize urgency signals to include source fields
+  const normalizedSignals = (urgencyData.urgencySignals || []).map((signal: any) => ({
+    category: signal.category || "",
+    type: signal.type || "",
+    description: signal.description || "",
+    weight: signal.weight || 0,
+    sourceUrl: signal.sourceUrl || signal.url || "",
+    snippet: signal.snippet || "",
+    detectedAt: signal.detectedAt || signal.date || "",
+  }));
+
+  // Merge all verified sources from both phases
+  const allSources: VerifiedSource[] = [
+    ...(urgencyData.sources || []),
+    ...(intelligenceData.sources || []),
+  ].filter((s: any) => s && s.url);
+
+  // Deduplicate sources by URL
+  const uniqueSources = allSources.reduce((acc: VerifiedSource[], source: VerifiedSource) => {
+    if (!acc.find((s) => s.url === source.url)) {
+      acc.push({
+        url: source.url,
+        title: source.title || "",
+        snippet: source.snippet || "",
+        dateAccessed: source.dateAccessed || new Date().toISOString().split("T")[0],
+      });
+    }
+    return acc;
+  }, []);
 
   // Assemble final brief
   const brief: SalesIntelligenceBrief = {
@@ -187,7 +296,7 @@ Return JSON only:
     executiveSummary: {
       company: company.name,
       industry: industry || "Unknown",
-      employees: "Unknown", // Employee count not stored in schema
+      employees: "Unknown",
       revenue: company.revenue || "Unknown",
       domain: domain,
       linkedin: company.linkedinUrl || "",
@@ -204,17 +313,26 @@ Return JSON only:
         verified: !!company.linkedinUrl,
       },
     },
-    productsServices: intelligenceData.productsServices || [],
-    keyTechnologies: intelligenceData.keyTechnologies || [],
-    recentDevelopments: urgencyData.recentDevelopments || [],
+    productsServices: (intelligenceData.productsServices || []).map((p: any) => ({
+      category: p.category || "",
+      description: p.description || "",
+      sourceUrl: p.sourceUrl || "",
+    })),
+    keyTechnologies: (intelligenceData.keyTechnologies || []).map((t: any) => ({
+      name: t.name || "",
+      description: t.description || "",
+      sourceUrl: t.sourceUrl || "",
+    })),
+    recentDevelopments: normalizedDevelopments,
     targetMarkets: intelligenceData.targetMarkets || [],
     industryKeywords: intelligenceData.industryKeywords || [],
     naicsCodes: naicsCodes,
-    urgencySignals: urgencyData.urgencySignals || [],
+    urgencySignals: normalizedSignals,
+    sources: uniqueSources,
   };
 
   console.log(
-    `[Brief Generator] ✓ Brief generated with urgency score: ${brief.urgencyScore}`
+    `[Brief Generator] Brief generated: urgency=${brief.urgencyScore}, sources=${uniqueSources.length}, developments=${normalizedDevelopments.length}`
   );
 
   return brief;
@@ -226,7 +344,6 @@ Return JSON only:
 function inferIndustryFromNAICS(naicsCodes: string[]): string | null {
   if (naicsCodes.length === 0) return null;
 
-  // Get the first 2-digit sector code
   const sectorCode = naicsCodes[0].substring(0, 2);
 
   const sectorMap: Record<string, string> = {

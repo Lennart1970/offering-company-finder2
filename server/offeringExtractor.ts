@@ -8,22 +8,48 @@ export interface OfferingData {
   keywords: string[];
   targetMarketKeywordTags: string[];
   crossBorderIndicators?: string;
+  sources?: Array<{
+    url: string;
+    title: string;
+    snippet: string;
+  }>;
 }
 
-const OFFERING_EXTRACTION_PROMPT = `You are an expert B2B sales strategist and business analyst. Your job is to analyze a company's website and determine:
+const OFFERING_EXTRACTION_PROMPT = `You are an expert B2B sales strategist and business analyst using Grok 4.1 fast-reasoning mode with full tool access. Your goal is to analyze a company's website with verifiable, traceable sources.
+
+Your job is to determine:
 1. What this company offers (their product/service)
 2. WHO their ideal customers are — the types of companies that would BUY from them
 
 This is critical: we need to find POTENTIAL CUSTOMERS for this company, not companies similar to them.
 
-Analyze the provided company website URL and extract:
+**Process step-by-step using tools:**
+
+1. Use web_search to find information about the company. Run searches like:
+   - "[Company] products services offerings"
+   - "[Company] customers industries served"
+   - "[Company] about company overview"
+   Set num_results to 10 for broad coverage.
+
+2. Use browse_page on the company's website to extract key information from:
+   - Homepage (overview, value proposition)
+   - Products/Services page (what they sell)
+   - About page (company background, target markets)
+   - Solutions/Industries page if available (who they serve)
+   Instructions: "Extract product/service descriptions, target customer industries, and value proposition. Include direct quotes. Summarize in 150 words max per page."
+
+3. If any page returns 404 or is unavailable, skip it and note the limitation.
+
+4. Based ONLY on verified data from tools, extract the structured offering information below.
+
+**Extract the following fields:**
 
 1. **name**: The main product/service name (e.g., "Electronics Manufacturing Services (EMS)")
 2. **description**: A 2-3 sentence overview of what the company offers
-3. **targetMarket**: Ideal customer profile — what industries, company types, and segments buy from them (e.g., "Industrial manufacturers, MedTech companies, Measurement & Control equipment makers")
+3. **targetMarket**: Ideal customer profile — what industries, company types, and segments buy from them
 4. **valueProposition**: Unique value and problems solved (2-3 sentences)
-5. **keywords**: 5-10 keywords describing the company's OWN offering (e.g., ["EMS", "Cable Assembly", "PCB Assembly"])
-6. **targetMarketKeywordTags**: THIS IS THE MOST IMPORTANT FIELD. Provide 5-15 specific industry keyword tags that describe the CUSTOMERS who would buy from this company. These tags will be used to search a B2B database for potential customers.
+5. **keywords**: 5-10 keywords describing the company's OWN offering
+6. **targetMarketKeywordTags**: THIS IS THE MOST IMPORTANT FIELD. Provide 5-15 specific industry keyword tags that describe the CUSTOMERS who would buy from this company.
 
    Rules for targetMarketKeywordTags:
    - Each tag should be a single industry term or market segment (1-3 words max)
@@ -33,11 +59,11 @@ Analyze the provided company website URL and extract:
    
    Example: If the company makes industrial connectors, their targetMarketKeywordTags would be:
    ["industrial automation", "manufacturing", "aerospace", "defense", "medical devices", "telecommunications", "automotive", "energy", "oil and gas", "robotics"]
-   
-   Example: If the company provides cloud hosting, their targetMarketKeywordTags would be:
-   ["saas", "fintech", "e-commerce", "healthcare IT", "enterprise software", "gaming", "media streaming", "digital agency"]
 
 7. **crossBorderIndicators**: Evidence of international operations (2-3 sentences, or empty string)
+8. **sources**: Array of verified source URLs used to extract this information
+
+Only use verified data from tools — do NOT hallucinate URLs or facts.
 
 Return ONLY a valid JSON object with this exact structure (no markdown, no code blocks):
 {
@@ -47,7 +73,10 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no code 
   "valueProposition": "...",
   "keywords": ["...", "..."],
   "targetMarketKeywordTags": ["...", "..."],
-  "crossBorderIndicators": "..."
+  "crossBorderIndicators": "...",
+  "sources": [
+    {"url": "https://company.com/about", "title": "About Page", "snippet": "Key excerpt"}
+  ]
 }`;
 
 export async function extractOffering(companyWebsite: string): Promise<OfferingData> {
@@ -68,11 +97,11 @@ export async function extractOffering(companyWebsite: string): Promise<OfferingD
           },
           {
             role: "user",
-            content: `Analyze this company website and extract offering information: ${companyWebsite}\n\nVisit the website, browse the key pages (homepage, about, products/services, solutions), and extract the structured data as JSON. Pay special attention to identifying who their CUSTOMERS are — what industries and company types buy from them.`,
+            content: `Analyze this company website and extract offering information: ${companyWebsite}\n\nUse web_search and browse_page tools to visit the website, browse the key pages (homepage, about, products/services, solutions), and extract the structured data as JSON. Pay special attention to identifying who their CUSTOMERS are — what industries and company types buy from them. Verify all information through tool results.`,
           },
         ],
         temperature: 0.3,
-        max_tokens: 3000,
+        max_tokens: 4000,
       },
       {
         headers: {
@@ -126,6 +155,10 @@ export async function extractOffering(companyWebsite: string): Promise<OfferingD
       offering.crossBorderIndicators = "";
     }
 
+    // Log source verification stats
+    const sourceCount = offering.sources?.length || 0;
+    console.log(`[Offering Extractor] Extracted offering with ${sourceCount} verified sources`);
+
     return offering;
   } catch (error) {
     if (axios.isAxiosError(error)) {
@@ -135,7 +168,7 @@ export async function extractOffering(companyWebsite: string): Promise<OfferingD
         model: "grok-4-1-fast-reasoning",
         messagesCount: 2,
         temperature: 0.3,
-        max_tokens: 3000,
+        max_tokens: 4000,
       }));
 
       const errorDetails = error.response?.data?.error?.message || error.response?.data?.error || error.response?.data?.message || error.message;

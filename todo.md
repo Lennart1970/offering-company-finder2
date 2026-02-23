@@ -577,3 +577,14 @@
 - [x] Check the workflow state transitions (runCodeTargeting and acceptCodeTargeting set status to "searching")
 - [x] Fix the status validation logic - changed confirmAndSearch to expect "searching" instead of "code_targeting"
 - [x] Ensure status is properly updated after each workflow step
+
+## Prompt Upgrade: Tool-Calling with Verifiable Sources
+- [x] Update briefGenerator.ts Phase 1 (urgency) prompt with web_search + browse_page tool-calling pattern
+- [x] Update briefGenerator.ts Phase 2 (intelligence) prompt with web_search + browse_page tool-calling pattern
+- [x] Update recentDevelopments schema to include sourceUrl and snippet fields
+- [x] Update urgencySignals schema to require verified sourceUrl
+- [x] Update salesApproachGenerator.ts to reference verified sources from deep research
+- [x] Update offeringExtractor.ts with tool-calling prompt pattern for website analysis
+- [x] Update frontend UI to display clickable source URLs on deep research results
+- [x] Write tests for updated prompts and source verification
+- [x] Save checkpoint

@@ -1338,11 +1338,20 @@ function DeepResearchButton({ companyId, companyName }: { companyId: number; com
             {/* Recent Developments */}
             {briefData.recentDevelopments && briefData.recentDevelopments.length > 0 && (
               <div className="mb-6">
-                <h3 className="text-xl font-black mb-2">Recent Developments (2024-2025)</h3>
-                <ul className="list-disc pl-5 space-y-2">
+                <h3 className="text-xl font-black mb-2">Recent Developments (2024-2026)</h3>
+                <ul className="list-disc pl-5 space-y-3">
                   {briefData.recentDevelopments.map((dev: any, i: number) => (
                     <li key={i}>
-                      {typeof dev === 'string' ? dev : dev.text}
+                      <div>{typeof dev === 'string' ? dev : dev.text}</div>
+                      {typeof dev !== 'string' && dev.date && (
+                        <div className="text-xs text-gray-500 mt-1">{dev.date}</div>
+                      )}
+                      {typeof dev !== 'string' && dev.snippet && (
+                        <div className="text-xs text-gray-600 italic mt-1 border-l-2 border-gray-300 pl-2">"{dev.snippet}"</div>
+                      )}
+                      {typeof dev !== 'string' && dev.sourceUrl && (
+                        <a href={dev.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">Source</a>
+                      )}
                     </li>
                   ))}
                 </ul>
@@ -1353,9 +1362,11 @@ function DeepResearchButton({ companyId, companyName }: { companyId: number; com
             {briefData.conversationStarters && briefData.conversationStarters.length > 0 && (
               <div className="mb-6">
                 <h3 className="text-xl font-black mb-2">Conversation Starters</h3>
-                <ul className="list-disc pl-5 space-y-1">
-                  {briefData.conversationStarters.map((starter: string, i: number) => (
-                    <li key={i} className="text-blue-600">{starter}</li>
+                <ul className="list-disc pl-5 space-y-2">
+                  {briefData.conversationStarters.map((starter: any, i: number) => (
+                    <li key={i} className="text-blue-600">
+                      {typeof starter === 'string' ? starter : starter.opener || starter}
+                    </li>
                   ))}
                 </ul>
               </div>
@@ -1367,7 +1378,7 @@ function DeepResearchButton({ companyId, companyName }: { companyId: number; com
                 <h3 className="text-xl font-black mb-2">Products & Services</h3>
                 {briefData.productsServices.map((ps: any, i: number) => (
                   <div key={i} className="mb-2">
-                    <div className="font-bold">{ps.category}</div>
+                    <div className="font-bold">{ps.category}{ps.sourceUrl && <a href={ps.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline ml-2 font-normal">Source</a>}</div>
                     <div className="text-sm">{ps.description}</div>
                   </div>
                 ))}
@@ -1380,7 +1391,7 @@ function DeepResearchButton({ companyId, companyName }: { companyId: number; com
                 <h3 className="text-xl font-black mb-2">Key Technologies</h3>
                 {briefData.keyTechnologies.map((tech: any, i: number) => (
                   <div key={i} className="mb-2">
-                    <div className="font-bold">{tech.name}</div>
+                    <div className="font-bold">{tech.name}{tech.sourceUrl && <a href={tech.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline ml-2 font-normal">Source</a>}</div>
                     <div className="text-sm">{tech.description}</div>
                   </div>
                 ))}
@@ -1437,6 +1448,48 @@ function DeepResearchButton({ companyId, companyName }: { companyId: number; com
                     </ul>
                   </div>
                 )}
+              </div>
+            )}
+
+            {/* Urgency Signals with Sources */}
+            {briefData.urgencySignals && briefData.urgencySignals.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-xl font-black mb-2">Urgency Signals</h3>
+                <div className="space-y-2">
+                  {briefData.urgencySignals.map((signal: any, i: number) => (
+                    <div key={i} className="p-3 bg-yellow-50 border border-yellow-300 rounded">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <span className="font-bold text-sm">{signal.category} — {signal.type}</span>
+                          <div className="text-sm mt-1">{signal.description}</div>
+                          {signal.snippet && (
+                            <div className="text-xs text-gray-600 italic mt-1 border-l-2 border-yellow-400 pl-2">"{signal.snippet}"</div>
+                          )}
+                          {signal.sourceUrl && (
+                            <a href={signal.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">Source</a>
+                          )}
+                        </div>
+                        <span className="text-sm font-black text-yellow-700 ml-4">+{signal.weight}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Verified Sources */}
+            {briefData.sources && briefData.sources.length > 0 && (
+              <div className="mb-6">
+                <h3 className="text-xl font-black mb-2">Verified Sources ({briefData.sources.length})</h3>
+                <div className="space-y-2">
+                  {briefData.sources.map((source: any, i: number) => (
+                    <div key={i} className="p-2 bg-gray-50 border border-gray-200 rounded text-sm">
+                      <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-bold">{source.title || source.url}</a>
+                      {source.snippet && <div className="text-xs text-gray-600 mt-1">{source.snippet}</div>}
+                      {source.dateAccessed && <div className="text-xs text-gray-400 mt-1">Accessed: {source.dateAccessed}</div>}
+                    </div>
+                  ))}
+                </div>
               </div>
             )}
 
@@ -1528,6 +1581,26 @@ function CreateSalesApproachButton({ companyId, companyName }: { companyId: numb
               <button onClick={() => setShowApproach(false)} className="text-2xl font-black">×</button>
             </div>
 
+            {/* Conversation Starters (source-backed) */}
+            {salesApproach.conversationStarters && salesApproach.conversationStarters.length > 0 && (
+              <div className="mb-6 p-4 border-2 border-amber-600 rounded">
+                <h3 className="text-xl font-black text-amber-600 mb-2">Conversation Starters</h3>
+                <div className="space-y-3">
+                  {salesApproach.conversationStarters.map((starter: any, i: number) => (
+                    <div key={i} className="p-2 bg-amber-50 rounded">
+                      <div className="text-sm font-medium">{typeof starter === 'string' ? starter : starter.opener}</div>
+                      {typeof starter !== 'string' && starter.basedOn && (
+                        <div className="text-xs text-gray-500 mt-1">Based on: {starter.basedOn}</div>
+                      )}
+                      {typeof starter !== 'string' && starter.sourceUrl && (
+                        <a href={starter.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">Source</a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* Email Draft */}
             <div className="mb-6 p-4 border-2 border-green-600 rounded">
               <div className="flex justify-between items-center mb-2">
@@ -1545,6 +1618,14 @@ function CreateSalesApproachButton({ companyId, companyName }: { companyId: numb
                 <span className="font-bold">Subject:</span> {salesApproach.emailDraft.subject}
               </div>
               <div className="whitespace-pre-wrap text-sm">{salesApproach.emailDraft.body}</div>
+              {salesApproach.emailDraft.referencedSources && salesApproach.emailDraft.referencedSources.length > 0 && (
+                <div className="mt-2 pt-2 border-t border-green-200">
+                  <div className="text-xs text-gray-500">Referenced sources:</div>
+                  {salesApproach.emailDraft.referencedSources.map((src: string, i: number) => (
+                    <a key={i} href={src} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline block">{src}</a>
+                  ))}
+                </div>
+              )}
             </div>
 
             {/* LinkedIn Message */}

@@ -4,40 +4,35 @@ import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
-import Home from "./pages/Home";
-import OfferingDetails from "./pages/OfferingDetails";
-import SearchHistory from "./pages/SearchHistory";
+import DashboardLayout from "./components/DashboardLayout";
+import FocusedOffering from "./pages/FocusedOffering";
+import SearchScenario from "./pages/SearchScenario";
+import SearchResults from "./pages/SearchResults";
+import DeepResearchDashboard from "./pages/DeepResearchDashboard";
 import Exclusions from "./pages/Exclusions";
 import CallToday from "./pages/CallToday";
 
 function Router() {
-  // make sure to consider if you need authentication for certain routes
   return (
-    <Switch>
-      <Route path={"/"} component={Home} />
-      <Route path={"/offering"} component={OfferingDetails} />
-      <Route path={"/history"} component={SearchHistory} />
-      <Route path={"/exclusions"} component={Exclusions} />
-      <Route path={"/call-today"} component={CallToday} />
-      <Route path={"/404"} component={NotFound} />
-      {/* Final fallback route */}
-      <Route component={NotFound} />
-    </Switch>
+    <DashboardLayout>
+      <Switch>
+        <Route path={"/"} component={FocusedOffering} />
+        <Route path={"/search-scenario"} component={SearchScenario} />
+        <Route path={"/search-results/:searchId"} component={SearchResults} />
+        <Route path={"/deep-research"} component={DeepResearchDashboard} />
+        <Route path={"/exclusions"} component={Exclusions} />
+        <Route path={"/call-today"} component={CallToday} />
+        <Route path={"/404"} component={NotFound} />
+        <Route component={NotFound} />
+      </Switch>
+    </DashboardLayout>
   );
 }
-
-// NOTE: About Theme
-// - First choose a default theme according to your design style (dark or light bg), than change color palette in index.css
-//   to keep consistent foreground/background color across components
-// - If you want to make theme switchable, pass `switchable` ThemeProvider and use `useTheme` hook
 
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider
-        defaultTheme="light"
-        // switchable
-      >
+      <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
           <Router />

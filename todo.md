@@ -588,3 +588,14 @@
 - [x] Update frontend UI to display clickable source URLs on deep research results
 - [x] Write tests for updated prompts and source verification
 - [x] Save checkpoint
+
+## Cockpit Restructuring: Sidebar Navigation with 4 Screens
+- [x] Create sidebar cockpit layout with persistent navigation
+- [x] Build Screen 1: Focused Offering (extract/edit offering, keywords, target market tags)
+- [x] Build Screen 2: Search Scenario (select offering + derived keywords + location → launch Apollo search)
+- [x] Build Screen 3: Search Results (company list from a search, enrichment, select for deep research, decisions)
+- [x] Build Screen 4: Deep Research Dashboard (all deep-researched companies, filter by search run date+ID)
+- [x] Update App.tsx routing for new screen structure
+- [x] Migrate existing Home.tsx logic into separate screen components
+- [x] Write tests for new screen structure (144 passing, 1 pre-existing failure)
+- [ ] Save checkpoint

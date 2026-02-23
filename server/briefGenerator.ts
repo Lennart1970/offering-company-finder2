@@ -106,8 +106,8 @@ export async function generateSalesIntelligenceBrief(
 
 **Process step-by-step using tools:**
 
-1. Use web_search to find recent news and developments (2024-2026) on "${company.name}". Run multiple searches:
-   - "${company.name} news 2024 2025 2026"
+1. Use web_search to find recent news and developments (2025-2026) on "${company.name}". Run multiple searches:
+   - "${company.name} news 2025 2026"
    - "${company.name} product launches announcements"
    - "${company.name} expansion hiring growth"
    - "${company.name} partnerships acquisitions funding"
@@ -118,7 +118,7 @@ export async function generateSalesIntelligenceBrief(
 3. Based ONLY on verified data from tools, score urgency 0-100:
    - Company Context (0-40): Growth stage, financial health, industry momentum
    - Market Signals (0-35): Competitive pressure, market expansion, technology shifts
-   - Recent Activity (0-25): Hiring, announcements, news mentions in past 6 months
+   - Recent Activity (0-25): Hiring, announcements, news mentions in past 12 months (2025-2026)
 
 4. Only use verified data from tools — do NOT hallucinate URLs or facts. If no recent news is found, say so honestly and assign a lower urgency score.
 
@@ -133,7 +133,7 @@ export async function generateSalesIntelligenceBrief(
   "recentDevelopments": [
     {
       "text": "Launched new product line for IoT sensors",
-      "date": "2025-03-15",
+      "date": "2026-01-15",
       "sourceUrl": "https://working.website.com/article",
       "snippet": "Direct quote or excerpt from the verified source page"
     }
@@ -142,11 +142,11 @@ export async function generateSalesIntelligenceBrief(
     {
       "category": "Growth",
       "type": "Product Launch",
-      "description": "Launched new IoT sensor line in Q1 2025",
+      "description": "Launched new IoT sensor line in Q4 2025",
       "weight": 8,
       "sourceUrl": "https://working.website.com/article",
       "snippet": "Direct quote from verified source",
-      "detectedAt": "2025-03-15"
+      "detectedAt": "2026-01-15"
     }
   ],
   "sources": [

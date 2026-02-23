@@ -598,4 +598,12 @@
 - [x] Update App.tsx routing for new screen structure
 - [x] Migrate existing Home.tsx logic into separate screen components
 - [x] Write tests for new screen structure (144 passing, 1 pre-existing failure)
-- [ ] Save checkpoint
+- [x] Save checkpoint
+
+## Bug Fix: Grok Web Search Returning Stale 2024 Content Instead of 2026
+- [x] Review Grok API documentation for web search parameters and recency controls (no recency params - must use prompt)
+- [x] Test current briefGenerator implementation to see actual API responses (found hardcoded "2024-2026" in prompts)
+- [x] Check if tool-calling pattern is actually triggering web_search tool (yes, pattern is correct)
+- [x] Add explicit recency parameters or prompt instructions for latest content (updated to "2025-2026")
+- [ ] Verify fix returns actual 2026 content for recent developments (needs live test after checkpoint)
+- [x] Save checkpoint

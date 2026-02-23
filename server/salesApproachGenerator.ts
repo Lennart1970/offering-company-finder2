@@ -107,7 +107,7 @@ ${verifiedDevelopments || "No verified developments available."}
 ${verifiedSources || "No verified sources available."}
 
 **IMPORTANT INSTRUCTIONS:**
-1. Use web_search to verify and supplement the deep research data. Search for "${company.name} latest news" and "${company.name} ${domain} products" to find any additional recent developments.
+1. Use web_search to verify and supplement the deep research data. Search for "${company.name} news 2025 2026" and "${company.name} ${domain} products latest" to find any additional recent developments from 2025-2026.
 2. For the top 2-3 results, use browse_page to extract specific details that can be referenced in outreach.
 3. Ground ALL conversation starters in specific, verified developments with working source URLs.
 4. The email draft should reference at least one specific, verified development.

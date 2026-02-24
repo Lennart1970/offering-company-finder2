@@ -98,19 +98,31 @@ export async function extractOffering(companyWebsite: string): Promise<OfferingD
 
     const data = await response.json();
     
-    // Responses API returns output in different format
-    let assistantMessage: string;
-    if (data.output_text) {
-      assistantMessage = data.output_text;
-    } else if (data.output && Array.isArray(data.output)) {
-      const messageItem = data.output.find((item: any) => item.type === "message");
-      if (messageItem?.content?.[0]?.text) {
-        assistantMessage = messageItem.content[0].text;
-      } else {
-        throw new Error("Unexpected Responses API format: no message content found");
+    // Responses API returns output in nested array structure:
+    // response.output[] contains tool calls and content items
+    // The actual text output is in items with content[].text where content[].type === "output_text"
+    let assistantMessage: string | null = null;
+    
+    if (data.output && Array.isArray(data.output)) {
+      // Find the output item that contains content (not tool calls)
+      for (const item of data.output) {
+        if (item.content && Array.isArray(item.content)) {
+          const textContent = item.content.find((c: any) => c.type === "output_text");
+          if (textContent?.text) {
+            assistantMessage = textContent.text;
+            break;
+          }
+        }
       }
-    } else {
-      throw new Error("Unexpected Responses API format: no output_text or message content found");
+    }
+    
+    // Fallback: check for direct text field (older format)
+    if (!assistantMessage && data.text) {
+      assistantMessage = data.text;
+    }
+    
+    if (!assistantMessage) {
+      throw new Error("Unexpected Responses API format: no output text found in response.output[].content[]");
     }
 
     // Parse JSON from response (handle markdown code blocks and thinking tags)

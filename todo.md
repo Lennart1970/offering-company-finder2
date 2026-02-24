@@ -618,8 +618,17 @@
 - [ ] Save checkpoint
 
 ## Test Responses API and Update grok-mcp-fast Skill
-- [ ] Save checkpoint for Responses API migration
+- [x] Save checkpoint for Responses API migration
 - [ ] Test Deep Research with boldwool.com to verify 2026 content and working citations
-- [ ] Update grok-mcp-fast skill with Responses API approach
-- [ ] Add Responses API examples to grok-mcp-fast skill
-- [ ] Validate and deliver updated grok-mcp-fast skill
+- [x] Update grok-mcp-fast skill with Responses API approach
+- [x] Add Responses API examples (Node.js and Python) to grok-mcp-fast skill
+- [x] Add response structure comparison and parsing guidance
+- [x] Add best practices for getting current content
+- [x] Validate and deliver updated grok-mcp-fast skill
+
+## Fix Responses API Response Parsing
+- [x] Fix briefGenerator.ts to extract output from response.output[].content[].text
+- [x] Fix salesApproachGenerator.ts to extract output from response.output[].content[].text
+- [x] Fix offeringExtractor.ts to extract output from response.output[].content[].text
+- [ ] Test with boldwool.com to verify 2025-2026 content is returned with working citations (deferred to post-checkpoint)
+- [x] Save checkpoint

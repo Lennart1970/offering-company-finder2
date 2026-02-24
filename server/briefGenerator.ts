@@ -102,21 +102,27 @@ async function callGrokWithWebSearch(input: string): Promise<string> {
 
   const data = await response.json();
   
-  // Responses API returns output in different format than Chat Completions
-  // Look for output_text in the response
-  if (data.output_text) {
-    return data.output_text;
-  }
-  
-  // Alternative: check for message content in output array
+  // Responses API returns output in nested array structure:
+  // response.output[] contains tool calls and content items
+  // The actual text output is in items with content[].text where content[].type === "output_text"
   if (data.output && Array.isArray(data.output)) {
-    const messageItem = data.output.find((item: any) => item.type === "message");
-    if (messageItem?.content?.[0]?.text) {
-      return messageItem.content[0].text;
+    // Find the output item that contains content (not tool calls)
+    for (const item of data.output) {
+      if (item.content && Array.isArray(item.content)) {
+        const textContent = item.content.find((c: any) => c.type === "output_text");
+        if (textContent?.text) {
+          return textContent.text;
+        }
+      }
     }
   }
   
-  throw new Error("Unexpected Responses API format: no output_text or message content found");
+  // Fallback: check for direct text field (older format)
+  if (data.text) {
+    return data.text;
+  }
+  
+  throw new Error("Unexpected Responses API format: no output text found in response.output[].content[]");
 }
 
 /**

@@ -919,6 +919,13 @@ export const companyFinderRouter = router({
       const { getNationalScanProgress } = await import("./nationalScan");
       return getNationalScanProgress();
     }),
+
+  // Stop the currently running national scan
+  stopNationalScan: protectedProcedure
+    .mutation(async () => {
+      const { stopNationalScan } = await import("./nationalScan");
+      return stopNationalScan();
+    }),
 });
 
 // Background search function for hardcoded ConnectGroup offering (skip extraction)

@@ -717,4 +717,18 @@
 - [x] Change test mode from 3 states to 2 states (Delaware, Rhode Island)
 - [x] Update UI button text to reflect "TEST (2 STATES)"
 - [x] Update time estimate for test mode (3-5 minutes)
+- [x] Save checkpoint
+
+## Add Stop Scan Functionality
+- [ ] Add stopNationalScan function in nationalScan.ts
+- [ ] Add tRPC mutation for stopping scan
+- [ ] Add "Stop Scan" button in UI (visible only when scan is running)
+- [ ] Test stop functionality
+- [ ] Save checkpoint
+
+## Stop Running Scan and Remove National Scan UI
+- [x] Restart dev server to kill running scan
+- [x] Remove NationalScanSection component
+- [x] Remove national scan UI from SearchScenario page
+- [x] Keep backend nationalScan.ts for manual execution
 - [ ] Save checkpoint

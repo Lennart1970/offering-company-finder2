@@ -16,6 +16,7 @@ let scanProgress = {
   failedStates: [] as Array<{ state: string; error: string }>,
   startedAt: null as Date | null,
   estimatedCompletionAt: null as Date | null,
+  shouldStop: false, // Flag to signal scan should stop
 };
 
 /**
@@ -26,18 +27,38 @@ export function getNationalScanProgress() {
 }
 
 /**
+ * Stop the currently running national scan
+ */
+export function stopNationalScan() {
+  if (!scanProgress.isRunning) {
+    throw new Error("No scan is currently running");
+  }
+  
+  scanProgress.shouldStop = true;
+  console.log("[National Scan] Stop requested by user");
+  
+  return {
+    success: true,
+    message: "Scan will stop after completing the current state",
+  };
+}
+
+/**
  * Run a national scan across all 50 US states
  * Only retrieves companies (no Deep Research)
  * @param userId - User ID to associate searches with
- * @param testMode - If true, only run 3 states (Delaware, Rhode Island, Vermont) for testing
+ * @param testMode - If true, only run 2 states (Delaware, Rhode Island) for testing
+ * @param customStates - Optional array of specific states to scan (overrides testMode)
  */
-export async function runNationalScan(userId: number, testMode = false) {
+export async function runNationalScan(userId: number, testMode = false, customStates?: string[]) {
   if (scanProgress.isRunning) {
     throw new Error("A national scan is already running");
   }
 
   // Select states to scan
-  const statesToScan = testMode 
+  const statesToScan = customStates 
+    ? customStates
+    : testMode 
     ? ["Delaware", "Rhode Island"] 
     : US_STATES;
 
@@ -52,6 +73,7 @@ export async function runNationalScan(userId: number, testMode = false) {
     failedStates: [],
     startedAt: new Date(),
     estimatedCompletionAt: null,
+    shouldStop: false,
   };
 
   console.log(`[National Scan] Starting ${testMode ? 'TEST' : 'FULL'} scan for ${statesToScan.length} states`);
@@ -112,6 +134,23 @@ export async function runNationalScan(userId: number, testMode = false) {
 
   // STEP 2: Loop through selected states
   for (let i = 0; i < statesToScan.length; i++) {
+    // Check if stop was requested
+    if (scanProgress.shouldStop) {
+      console.log(`[National Scan] Stop requested, terminating scan after ${i} states`);
+      scanProgress.isRunning = false;
+      scanProgress.currentState = "Stopped by user";
+      scanProgress.shouldStop = false; // Reset flag
+      return {
+        success: true,
+        stopped: true,
+        testMode,
+        totalCompanies: scanProgress.totalCompaniesFound,
+        completedStates: scanProgress.completedStates.length,
+        failedStates: scanProgress.failedStates.length,
+        failedStatesList: scanProgress.failedStates,
+      };
+    }
+
     const state = statesToScan[i];
     scanProgress.currentState = state;
     scanProgress.currentStateIndex = i + 1;

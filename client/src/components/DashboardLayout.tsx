@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { Crosshair, Search, List, Microscope, ShieldBan, Phone, LogOut, PanelLeft } from "lucide-react";
+import { Crosshair, Search, List, Microscope, ShieldBan, LogOut, PanelLeft } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -33,7 +33,6 @@ const menuItems = [
   { icon: List, label: "Search Results", path: "/search-results" },
   { icon: Microscope, label: "Deep Research", path: "/deep-research" },
   { icon: ShieldBan, label: "Exclusions", path: "/exclusions" },
-  { icon: Phone, label: "Call Today", path: "/call-today" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

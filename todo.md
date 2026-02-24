@@ -632,3 +632,39 @@
 - [x] Fix offeringExtractor.ts to extract output from response.output[].content[].text
 - [ ] Test with boldwool.com to verify 2025-2026 content is returned with working citations (deferred to post-checkpoint)
 - [x] Save checkpoint
+
+## Fix Foreign Key Constraint for Cascade Deletion
+- [x] Read current schema to understand searchId foreign key constraint
+- [x] Update drizzle/schema.ts to add ON DELETE CASCADE to searchId foreign key (companies and companyDecisions tables)
+- [x] Generate migration SQL with drizzle-kit (0014_hot_mockingbird.sql)
+- [x] Execute migration SQL to update searchId constraints (0014_hot_mockingbird.sql - 1261ms)
+- [x] Update companyId foreign keys to add ON DELETE CASCADE (salesPackages, companyDecisions, contacts)
+- [x] Generate and execute migration for companyId constraints (0015_great_beast.sql - 1985ms)
+- [ ] Test deletion to verify cascade works correctly
+- [ ] Save checkpoint
+
+## Auto-Trigger Deep Research and Sales Approach on Call Today
+- [x] Read submitDecision procedure in companyFinder.ts
+- [x] Update submitDecision to check if decision is "call_today"
+- [x] If call_today and no briefData exists, auto-trigger Deep Research in background
+- [x] If call_today and no salesApproachData exists, auto-trigger Sales Approach in background
+- [x] Ensure background execution doesn't block the decision response (using async IIFE without await)
+- [ ] Test the auto-trigger flow with Call Today decision
+- [ ] Save checkpoint
+
+## Fix Deep Research Dashboard Errors
+- [ ] Fix object rendering error - recent developments with {opener, sourceUrl, basedOn} keys
+- [ ] Fix duplicate key error - company ID 360002 appears twice
+- [ ] Fix tRPC HTML response error - server returning HTML instead of JSON
+- [ ] Test the fixes
+- [ ] Save checkpoint
+
+## Merge Deep Research Dashboard and Call Today Pages
+- [x] Fix getCallTodayCompanies query to deduplicate companies
+- [x] Fix React rendering error for {opener, sourceUrl, basedOn} objects (fixed with proper type checking)
+- [x] Add filter tabs to Deep Research Dashboard (All / Call Today)
+- [x] Update page to show Call Today companies when filter is active
+- [x] Remove separate /call-today route from App.tsx
+- [x] Update DashboardLayout navigation to remove Call Today link (removed Phone icon import and menu item)
+- [x] Test the merged page with both filters (TypeScript compiles cleanly, dev server running)
+- [x] Save checkpoint

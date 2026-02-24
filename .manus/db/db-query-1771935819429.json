@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `companyDecisions` DROP FOREIGN KEY `companyDecisions_companyId_companies_id_fk`;\nALTER TABLE `contacts` DROP FOREIGN KEY `contacts_companyId_companies_id_fk`;\nALTER TABLE `salesPackages` DROP FOREIGN KEY `salesPackages_companyId_companies_id_fk`;\nALTER TABLE `companyDecisions` ADD CONSTRAINT `companyDecisions_companyId_companies_id_fk` FOREIGN KEY (`companyId`) REFERENCES `companies`(`id`) ON DELETE cascade ON UPDATE no action;\nALTER TABLE `contacts` ADD CONSTRAINT `contacts_companyId_companies_id_fk` FOREIGN KEY (`companyId`) REFERENCES `companies`(`id`) ON DELETE cascade ON UPDATE no action;\nALTER TABLE `salesPackages` ADD CONSTRAINT `salesPackages_companyId_companies_id_fk` FOREIGN KEY (`companyId`) REFERENCES `companies`(`id`) ON DELETE cascade ON UPDATE no action;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute ALTER TABLE `companyDecisions` DROP FOREIGN KEY `companyDecisions_companyId_companies_id_fk`;\nALTER TABLE `contacts` DROP FOREIGN KEY `contacts_companyId_companies_id_fk`;\nALTER TABLE `salesPackages` DROP FOREIGN KEY `salesPackages_companyId_companies_id_fk`;\nALTER TABLE `companyDecisions` ADD CONSTRAINT `companyDecisions_companyId_companies_id_fk` FOREIGN KEY (`companyId`) REFERENCES `companies`(`id`) ON DELETE cascade ON UPDATE no action;\nALTER TABLE `contacts` ADD CONSTRAINT `contacts_companyId_companies_id_fk` FOREIGN KEY (`companyId`) REFERENCES `companies`(`id`) ON DELETE cascade ON UPDATE no action;\nALTER TABLE `salesPackages` ADD CONSTRAINT `salesPackages_companyId_companies_id_fk` FOREIGN KEY (`companyId`) REFERENCES `companies`(`id`) ON DELETE cascade ON UPDATE no action;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1985
+}

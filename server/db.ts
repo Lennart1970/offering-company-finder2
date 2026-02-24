@@ -318,20 +318,26 @@ export async function getCallTodayCompanies(userId: number) {
   const db = await getDb();
   if (!db) return [];
   
-  // Get all companies marked as "CALL TODAY" by this user
+  // Get all companies marked as "CALL TODAY" by this user (without contacts to avoid duplicates)
   const decisions = await db.select({
     company: companies,
     decision: companyDecisions,
-    contact: contacts,
   })
     .from(companyDecisions)
     .innerJoin(companies, eq(companyDecisions.companyId, companies.id))
-    .leftJoin(contacts, eq(contacts.companyId, companies.id))
     .where(and(
       eq(companyDecisions.userId, userId),
       eq(companyDecisions.decision, "call_today")
     ))
     .orderBy(desc(companyDecisions.decidedAt));
   
-  return decisions;
+  // Deduplicate by company ID (in case multiple decisions exist)
+  const uniqueCompanies = new Map();
+  for (const row of decisions) {
+    if (!uniqueCompanies.has(row.company.id)) {
+      uniqueCompanies.set(row.company.id, row);
+    }
+  }
+  
+  return Array.from(uniqueCompanies.values());
 }

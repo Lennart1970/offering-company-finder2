@@ -10,7 +10,7 @@ import SearchScenario from "./pages/SearchScenario";
 import SearchResults from "./pages/SearchResults";
 import DeepResearchDashboard from "./pages/DeepResearchDashboard";
 import Exclusions from "./pages/Exclusions";
-import CallToday from "./pages/CallToday";
+
 
 function Router() {
   return (
@@ -21,7 +21,7 @@ function Router() {
         <Route path={"/search-results/:searchId"} component={SearchResults} />
         <Route path={"/deep-research"} component={DeepResearchDashboard} />
         <Route path={"/exclusions"} component={Exclusions} />
-        <Route path={"/call-today"} component={CallToday} />
+
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />
       </Switch>

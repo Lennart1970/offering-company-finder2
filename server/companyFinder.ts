@@ -353,6 +353,45 @@ export const companyFinderRouter = router({
         }
       }
 
+      // If decision is "call_today", auto-trigger Deep Research and Sales Approach in background
+      if (input.decision === "call_today") {
+        // Don't await - run in background
+        (async () => {
+          try {
+            // Step 1: Generate Deep Research if not already done
+            if (!company.briefData) {
+              console.log(`[submitDecision] Auto-triggering Deep Research for company ${input.companyId}`);
+              const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
+              const brief = await generateSalesIntelligenceBrief(input.companyId);
+              await updateCompany(input.companyId, {
+                urgencyScore: brief.urgencyScore,
+                briefData: JSON.stringify(brief),
+                briefGeneratedAt: new Date(),
+              });
+              console.log(`[submitDecision] ✓ Deep Research completed for company ${input.companyId}`);
+            } else {
+              console.log(`[submitDecision] Deep Research already exists for company ${input.companyId}, skipping`);
+            }
+
+            // Step 2: Generate Sales Approach if not already done
+            if (!company.salesApproachData) {
+              console.log(`[submitDecision] Auto-triggering Sales Approach for company ${input.companyId}`);
+              const { generateSalesApproach } = await import("./salesApproachGenerator");
+              const salesApproach = await generateSalesApproach(input.companyId);
+              await updateCompany(input.companyId, {
+                salesApproachData: JSON.stringify(salesApproach),
+                salesApproachGeneratedAt: new Date(),
+              });
+              console.log(`[submitDecision] ✓ Sales Approach completed for company ${input.companyId}`);
+            } else {
+              console.log(`[submitDecision] Sales Approach already exists for company ${input.companyId}, skipping`);
+            }
+          } catch (error: any) {
+            console.error(`[submitDecision] Background generation error for company ${input.companyId}:`, error.message);
+          }
+        })();
+      }
+
       return { decisionId, success: true };
     }),
 

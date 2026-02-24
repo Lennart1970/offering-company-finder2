@@ -60,7 +60,7 @@ export type InsertSearch = typeof searches.$inferInsert;
  */
 export const companies = mysqlTable("companies", {
   id: int("id").autoincrement().primaryKey(),
-  searchId: int("searchId").notNull().references(() => searches.id),
+  searchId: int("searchId").notNull().references(() => searches.id, { onDelete: "cascade" }),
   apolloId: varchar("apolloId", { length: 128 }),
   name: varchar("name", { length: 512 }).notNull(),
   websiteUrl: varchar("websiteUrl", { length: 512 }),
@@ -97,7 +97,7 @@ export type InsertCompany = typeof companies.$inferInsert;
  */
 export const salesPackages = mysqlTable("salesPackages", {
   id: int("id").autoincrement().primaryKey(),
-  companyId: int("companyId").notNull().references(() => companies.id),
+  companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
   userId: int("userId").notNull().references(() => users.id),
   packageData: text("packageData").notNull(), // JSON-stringified SalesIntelligencePackage
   markdownContent: text("markdownContent").notNull(),
@@ -114,8 +114,8 @@ export type InsertSalesPackage = typeof salesPackages.$inferInsert;
  */
 export const companyDecisions = mysqlTable("companyDecisions", {
   id: int("id").autoincrement().primaryKey(),
-  companyId: int("companyId").notNull().references(() => companies.id),
-  searchId: int("searchId").notNull().references(() => searches.id),
+  companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  searchId: int("searchId").notNull().references(() => searches.id, { onDelete: "cascade" }),
   userId: int("userId").notNull().references(() => users.id),
   decision: mysqlEnum("decision", ["call_today", "park", "not_relevant"]).notNull(),
   reasonCode: varchar("reasonCode", { length: 50 }), // 'wrong_industry', 'too_small', 'wrong_geo', 'competitor', 'other'
@@ -160,7 +160,7 @@ export type InsertCodeDescription = typeof codeDescriptions.$inferInsert;
  */
 export const contacts = mysqlTable("contacts", {
   id: int("id").autoincrement().primaryKey(),
-  companyId: int("companyId").notNull().references(() => companies.id),
+  companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
   apolloPersonId: varchar("apolloPersonId", { length: 128 }),
   firstName: varchar("firstName", { length: 128 }),
   lastName: varchar("lastName", { length: 128 }),

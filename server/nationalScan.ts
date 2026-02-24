@@ -38,7 +38,7 @@ export async function runNationalScan(userId: number, testMode = false) {
 
   // Select states to scan
   const statesToScan = testMode 
-    ? ["Delaware", "Rhode Island", "Vermont"] 
+    ? ["Delaware", "Rhode Island"] 
     : US_STATES;
 
   // Reset progress

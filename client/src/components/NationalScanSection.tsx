@@ -59,7 +59,7 @@ export default function NationalScanSection() {
             variant="outline"
             className="text-sm font-black border-2 border-black disabled:opacity-50"
           >
-            {isRunning ? "SCAN IN PROGRESS..." : "TEST (3 STATES)"}
+            {isRunning ? "SCAN IN PROGRESS..." : "TEST (2 STATES)"}
           </Button>
           <Button
             onClick={() => startScanMutation.mutate({ testMode: false })}

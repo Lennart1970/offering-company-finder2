@@ -904,8 +904,8 @@ export const companyFinderRouter = router({
         console.error(`[National Scan] Fatal error:`, error);
       });
       
-      const stateCount = input.testMode ? 3 : 50;
-      const timeEstimate = input.testMode ? "5-10 minutes" : "2-4 hours";
+      const stateCount = input.testMode ? 2 : 50;
+      const timeEstimate = input.testMode ? "3-5 minutes" : "2-4 hours";
       
       return { 
         success: true, 

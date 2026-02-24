@@ -711,4 +711,10 @@
 - [x] Add error handling for failed states (log and continue)
 - [x] Add test mode (3 states: Delaware, Rhode Island, Vermont)
 - [x] Add UI buttons for both test and full scan
+- [x] Save checkpoint
+
+## Update National Scan Test Mode
+- [x] Change test mode from 3 states to 2 states (Delaware, Rhode Island)
+- [x] Update UI button text to reflect "TEST (2 STATES)"
+- [x] Update time estimate for test mode (3-5 minutes)
 - [ ] Save checkpoint

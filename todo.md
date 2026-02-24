@@ -668,3 +668,25 @@
 - [x] Update DashboardLayout navigation to remove Call Today link (removed Phone icon import and menu item)
 - [x] Test the merged page with both filters (TypeScript compiles cleanly, dev server running)
 - [x] Save checkpoint
+
+## Add Social Media and Parent Company Fields
+- [x] Update companies table schema with twitterUrl, facebookUrl, parentCompanyName, parentCompanyId fields
+- [x] Generate migration SQL with drizzle-kit (0016_curved_wild_pack.sql)
+- [x] Execute migration SQL (completed in 2002ms)
+- [ ] Update Apollo enrichment code to populate new fields from API response
+- [ ] Update UI to display social media links and parent company info
+- [ ] Test enrichment with a company that has parent company data
+- [ ] Save checkpoint
+
+## REST API for Dataverse Integration
+- [x] Create REST API router (server/routes/api.ts)
+- [x] Add API key authentication middleware (Bearer token)
+- [x] Implement GET /api/v1/companies endpoint (list all companies with pagination)
+- [x] Implement GET /api/v1/companies/:id endpoint (get single company)
+- [x] Implement GET /api/v1/searches endpoint (list all searches)
+- [x] Implement GET /api/v1/searches/:id/companies endpoint (get companies for a search)
+- [x] Register API router in Express app
+- [x] Set API_KEY environment variable
+- [x] Add vitest tests for REST API authentication (all tests passing)
+- [x] Document API endpoints (REST_API_DOCS.md)
+- [x] Create Copilot prompt for Dataverse integration (DATAVERSE_COPILOT_PROMPT.md)

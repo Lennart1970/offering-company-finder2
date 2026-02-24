@@ -66,10 +66,14 @@ export const companies = mysqlTable("companies", {
   websiteUrl: varchar("websiteUrl", { length: 512 }),
   primaryDomain: varchar("primaryDomain", { length: 256 }),
   linkedinUrl: varchar("linkedinUrl", { length: 512 }),
+  twitterUrl: varchar("twitterUrl", { length: 512 }),
+  facebookUrl: varchar("facebookUrl", { length: 512 }),
   phone: varchar("phone", { length: 64 }),
   foundedYear: int("foundedYear"),
   revenue: varchar("revenue", { length: 64 }),
   headcountGrowth: varchar("headcountGrowth", { length: 256 }),
+  parentCompanyName: varchar("parentCompanyName", { length: 512 }),
+  parentCompanyId: varchar("parentCompanyId", { length: 128 }),
   // Location data from Apollo enrichment
   searchLocation: varchar("searchLocation", { length: 256 }), // Location used in search query
   city: varchar("city", { length: 128 }),

@@ -54,7 +54,7 @@ router.use(apiKeyAuth);
  * - limit: Items per page (default: 50, max: 200)
  * - searchId: Filter by search ID (optional)
  */
-router.get("/v1/companies", async (req, res) => {
+router.get("/companies", async (req, res) => {
   try {
     const page = Math.max(1, parseInt(req.query.page as string) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit as string) || 50));
@@ -108,7 +108,7 @@ router.get("/v1/companies", async (req, res) => {
  * GET /api/v1/companies/:id
  * Get a single company by ID
  */
-router.get("/v1/companies/:id", async (req, res) => {
+router.get("/companies/:id", async (req, res) => {
   try {
     const db = await getDb();
     if (!db) {
@@ -154,7 +154,7 @@ router.get("/v1/companies/:id", async (req, res) => {
  * - page: Page number (default: 1)
  * - limit: Items per page (default: 50, max: 200)
  */
-router.get("/v1/searches", async (req, res) => {
+router.get("/searches", async (req, res) => {
   try {
     const db = await getDb();
     if (!db) {
@@ -199,7 +199,7 @@ router.get("/v1/searches", async (req, res) => {
  * GET /api/v1/searches/:id
  * Get a single search by ID
  */
-router.get("/v1/searches/:id", async (req, res) => {
+router.get("/searches/:id", async (req, res) => {
   try {
     const db = await getDb();
     if (!db) {
@@ -245,7 +245,7 @@ router.get("/v1/searches/:id", async (req, res) => {
  * - page: Page number (default: 1)
  * - limit: Items per page (default: 50, max: 200)
  */
-router.get("/v1/searches/:id/companies", async (req, res) => {
+router.get("/searches/:id/companies", async (req, res) => {
   try {
     const db = await getDb();
     if (!db) {

@@ -36,8 +36,8 @@ async function startServer() {
   app.use(express.urlencoded({ limit: "50mb", extended: true }));
   // OAuth callback under /api/oauth/callback
   registerOAuthRoutes(app);
-  // REST API for external integrations (e.g., Dataverse)
-  app.use("/api", apiRouter);
+  // REST API for external integrations (e.g., Dataverse) - mounted at /api/v1 to avoid conflict with tRPC
+  app.use("/api/v1", apiRouter);
   // tRPC API
   app.use(
     "/api/trpc",

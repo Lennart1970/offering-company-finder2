@@ -690,3 +690,11 @@
 - [x] Add vitest tests for REST API authentication (all tests passing)
 - [x] Document API endpoints (REST_API_DOCS.md)
 - [x] Create Copilot prompt for Dataverse integration (DATAVERSE_COPILOT_PROMPT.md)
+
+## Bug Fix: REST API Circular Reference Error
+- [x] Diagnose "Unable to transform response from server" error
+- [x] Identify root cause: REST API router mounted at /api was intercepting tRPC routes at /api/trpc
+- [x] Fix by changing mount path from /api to /api/v1 (avoiding tRPC conflict)
+- [x] Update router paths from /v1/companies to /companies (since /v1 is now in mount path)
+- [x] Test fix and verify no transformation errors (all 6 tests passing)
+- [x] Verify REST API endpoints still work with new path structure

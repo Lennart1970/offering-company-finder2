@@ -698,3 +698,17 @@
 - [x] Update router paths from /v1/companies to /companies (since /v1 is now in mount path)
 - [x] Test fix and verify no transformation errors (all 6 tests passing)
 - [x] Verify REST API endpoints still work with new path structure
+
+## State-by-State USA Company Retrieval (No Deep Research)
+- [x] Create list of all 50 US states (usStates.ts)
+- [x] Create backend procedure: runNationalScan (loops through all states)
+- [x] For each state: extract offering once, run Apollo search, store companies
+- [x] Add progress tracking (current state, companies found so far)
+- [x] Add tRPC mutation: startNationalScan
+- [x] Add tRPC query: getNationalScanProgress
+- [x] Create UI button in Search Scenario page to trigger scan
+- [x] Add progress display showing current state and total companies
+- [x] Add error handling for failed states (log and continue)
+- [x] Add test mode (3 states: Delaware, Rhode Island, Vermont)
+- [x] Add UI buttons for both test and full scan
+- [ ] Save checkpoint

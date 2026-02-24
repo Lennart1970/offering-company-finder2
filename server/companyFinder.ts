@@ -888,6 +888,37 @@ export const companyFinderRouter = router({
 
       return { success: true };
     }),
+
+  // ============================================================================
+  // National Scan Procedures
+  // ============================================================================
+
+  // Start a national scan across all 50 US states
+  startNationalScan: protectedProcedure
+    .input(z.object({ testMode: z.boolean().optional().default(false) }))
+    .mutation(async ({ ctx, input }) => {
+      const { runNationalScan } = await import("./nationalScan");
+      
+      // Run in background (don't await)
+      runNationalScan(ctx.user.id, input.testMode).catch(error => {
+        console.error(`[National Scan] Fatal error:`, error);
+      });
+      
+      const stateCount = input.testMode ? 3 : 50;
+      const timeEstimate = input.testMode ? "5-10 minutes" : "2-4 hours";
+      
+      return { 
+        success: true, 
+        message: `${input.testMode ? 'Test' : 'National'} scan started for ${stateCount} states. Estimated time: ${timeEstimate}.` 
+      };
+    }),
+
+  // Get progress of the current national scan
+  getNationalScanProgress: protectedProcedure
+    .query(async () => {
+      const { getNationalScanProgress } = await import("./nationalScan");
+      return getNationalScanProgress();
+    }),
 });
 
 // Background search function for hardcoded ConnectGroup offering (skip extraction)

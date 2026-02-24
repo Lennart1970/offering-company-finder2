@@ -7,6 +7,7 @@ import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { useLocation, useSearch } from "wouter";
 import SelectedCodesDisplay from "@/components/SelectedCodesDisplay";
+import NationalScanSection from "@/components/NationalScanSection";
 
 export default function SearchScenario() {
   const { user } = useAuth();
@@ -151,6 +152,9 @@ export default function SearchScenario() {
           Select a focused offering, configure industry code targeting, set location, and launch the Apollo search.
         </p>
       </div>
+
+      {/* National Scan Section */}
+      <NationalScanSection />
 
       {/* Search Selector */}
       {!searchId ? (

@@ -607,3 +607,19 @@
 - [x] Add explicit recency parameters or prompt instructions for latest content (updated to "2025-2026")
 - [ ] Verify fix returns actual 2026 content for recent developments (needs live test after checkpoint)
 - [x] Save checkpoint
+
+## Switch to Responses API with Explicit web_search Tool
+- [x] Update briefGenerator.ts to use /v1/responses endpoint with web_search tool
+- [x] Update salesApproachGenerator.ts to use /v1/responses endpoint with web_search tool
+- [x] Update offeringExtractor.ts to use /v1/responses endpoint with web_search tool
+- [x] Update response parsing to handle Responses API format (output_text instead of message.content)
+- [ ] Test with real company to verify 2026 content is returned
+- [ ] Verify citations are working and URLs are valid
+- [ ] Save checkpoint
+
+## Test Responses API and Update grok-mcp-fast Skill
+- [ ] Save checkpoint for Responses API migration
+- [ ] Test Deep Research with boldwool.com to verify 2026 content and working citations
+- [ ] Update grok-mcp-fast skill with Responses API approach
+- [ ] Add Responses API examples to grok-mcp-fast skill
+- [ ] Validate and deliver updated grok-mcp-fast skill

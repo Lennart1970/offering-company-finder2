@@ -1,4 +1,9 @@
-import axios from "axios";
+/**
+ * Offering Extractor
+ * 
+ * Extracts company offering data using xAI Grok Responses API with explicit web_search tool.
+ * Analyzes company websites to determine what they offer and who their ideal customers are.
+ */
 
 export interface OfferingData {
   name: string;
@@ -15,7 +20,10 @@ export interface OfferingData {
   }>;
 }
 
-const OFFERING_EXTRACTION_PROMPT = `You are an expert B2B sales strategist and business analyst using Grok 4.1 fast-reasoning mode with full tool access. Your goal is to analyze a company's website with verifiable, traceable sources.
+const XAI_API_KEY = process.env.XAI_API_KEY;
+const XAI_BASE_URL = "https://api.x.ai/v1";
+
+const OFFERING_EXTRACTION_PROMPT = `You are an expert B2B sales strategist and business analyst. Today is February 23, 2026. Your goal is to analyze a company's website with verifiable, traceable sources.
 
 Your job is to determine:
 1. What this company offers (their product/service)
@@ -23,24 +31,10 @@ Your job is to determine:
 
 This is critical: we need to find POTENTIAL CUSTOMERS for this company, not companies similar to them.
 
-**Process step-by-step using tools:**
-
-1. Use web_search to find information about the company. Run searches like:
-   - "[Company] products services offerings"
-   - "[Company] customers industries served"
-   - "[Company] about company overview"
-   Set num_results to 10 for broad coverage.
-
-2. Use browse_page on the company's website to extract key information from:
-   - Homepage (overview, value proposition)
-   - Products/Services page (what they sell)
-   - About page (company background, target markets)
-   - Solutions/Industries page if available (who they serve)
-   Instructions: "Extract product/service descriptions, target customer industries, and value proposition. Include direct quotes. Summarize in 150 words max per page."
-
-3. If any page returns 404 or is unavailable, skip it and note the limitation.
-
-4. Based ONLY on verified data from tools, extract the structured offering information below.
+**Instructions:**
+1. Search for information about the company's products, services, customers, and industries served
+2. Visit the company website to extract key information from homepage, products/services, about, and solutions pages
+3. Only use verified data from your searches — do NOT hallucinate URLs or facts
 
 **Extract the following fields:**
 
@@ -63,8 +57,6 @@ This is critical: we need to find POTENTIAL CUSTOMERS for this company, not comp
 7. **crossBorderIndicators**: Evidence of international operations (2-3 sentences, or empty string)
 8. **sources**: Array of verified source URLs used to extract this information
 
-Only use verified data from tools — do NOT hallucinate URLs or facts.
-
 Return ONLY a valid JSON object with this exact structure (no markdown, no code blocks):
 {
   "name": "...",
@@ -80,42 +72,45 @@ Return ONLY a valid JSON object with this exact structure (no markdown, no code 
 }`;
 
 export async function extractOffering(companyWebsite: string): Promise<OfferingData> {
-  const apiKey = process.env.XAI_API_KEY;
-  if (!apiKey) {
+  if (!XAI_API_KEY) {
     throw new Error("XAI_API_KEY environment variable not set");
   }
 
   try {
-    const response = await axios.post(
-      "https://api.x.ai/v1/chat/completions",
-      {
-        model: "grok-4-1-fast-reasoning",
-        messages: [
-          {
-            role: "system",
-            content: OFFERING_EXTRACTION_PROMPT,
-          },
-          {
-            role: "user",
-            content: `Analyze this company website and extract offering information: ${companyWebsite}\n\nUse web_search and browse_page tools to visit the website, browse the key pages (homepage, about, products/services, solutions), and extract the structured data as JSON. Pay special attention to identifying who their CUSTOMERS are — what industries and company types buy from them. Verify all information through tool results.`,
-          },
-        ],
-        temperature: 0.3,
-        max_tokens: 4000,
+    const response = await fetch(`${XAI_BASE_URL}/responses`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${XAI_API_KEY}`,
+        "Content-Type": "application/json",
       },
-      {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-          "Content-Type": "application/json",
-        },
-        timeout: 180000, // 3 minute timeout
-      }
-    );
+      body: JSON.stringify({
+        model: "grok-4-1-fast-reasoning",
+        tools: [{ type: "web_search" }],  // Explicit web_search tool
+        input: `${OFFERING_EXTRACTION_PROMPT}\n\nAnalyze this company website and extract offering information: ${companyWebsite}\n\nSearch for and browse the website to extract the structured data as JSON. Pay special attention to identifying who their CUSTOMERS are — what industries and company types buy from them. Verify all information through your searches.`,
+        response_format: { type: "json_object" },
+      }),
+    });
 
-    // Extract the assistant's final message
-    const assistantMessage = response.data.choices[0]?.message?.content;
-    if (!assistantMessage) {
-      throw new Error("No response from Grok API");
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Grok API error: ${response.status} - ${error}`);
+    }
+
+    const data = await response.json();
+    
+    // Responses API returns output in different format
+    let assistantMessage: string;
+    if (data.output_text) {
+      assistantMessage = data.output_text;
+    } else if (data.output && Array.isArray(data.output)) {
+      const messageItem = data.output.find((item: any) => item.type === "message");
+      if (messageItem?.content?.[0]?.text) {
+        assistantMessage = messageItem.content[0].text;
+      } else {
+        throw new Error("Unexpected Responses API format: no message content found");
+      }
+    } else {
+      throw new Error("Unexpected Responses API format: no output_text or message content found");
     }
 
     // Parse JSON from response (handle markdown code blocks and thinking tags)
@@ -148,32 +143,12 @@ export async function extractOffering(companyWebsite: string): Promise<OfferingD
         .split(/[,;]/)
         .map((s) => s.trim().toLowerCase())
         .filter((s) => s.length > 2 && s.length < 40)
-        .slice(0, 10);
+        .slice(0, 15);
     }
-
-    if (!offering.crossBorderIndicators) {
-      offering.crossBorderIndicators = "";
-    }
-
-    // Log source verification stats
-    const sourceCount = offering.sources?.length || 0;
-    console.log(`[Offering Extractor] Extracted offering with ${sourceCount} verified sources`);
 
     return offering;
-  } catch (error) {
-    if (axios.isAxiosError(error)) {
-      console.error("[Grok API Error] Status:", error.response?.status);
-      console.error("[Grok API Error] Response data:", JSON.stringify(error.response?.data, null, 2));
-      console.error("[Grok API Error] Request data:", JSON.stringify({
-        model: "grok-4-1-fast-reasoning",
-        messagesCount: 2,
-        temperature: 0.3,
-        max_tokens: 4000,
-      }));
-
-      const errorDetails = error.response?.data?.error?.message || error.response?.data?.error || error.response?.data?.message || error.message;
-      throw new Error(`Grok API error: ${errorDetails}`);
-    }
-    throw error;
+  } catch (error: any) {
+    console.error("Error extracting offering:", error);
+    throw new Error(`Failed to extract offering: ${error.message}`);
   }
 }

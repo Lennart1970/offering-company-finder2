@@ -1,11 +1,8 @@
 /**
  * Sales Approach Generator
  * 
- * Generates personalized sales outreach materials using xAI Grok API based on
- * deep research data (urgency signals, company intelligence, engagement strategy).
- * 
- * Now leverages verified sources from the Deep Research brief to ground
- * conversation starters and outreach in real, traceable developments.
+ * Generates personalized sales outreach materials using xAI Grok Responses API
+ * with explicit web_search tool based on deep research data.
  * 
  * Outputs:
  * - Email draft (personalized cold outreach)
@@ -13,13 +10,10 @@
  * - Call script (structured talking points for phone/video call)
  */
 
-import OpenAI from "openai";
 import { getCompanyById } from "./db";
 
-const xai = new OpenAI({
-  apiKey: process.env.XAI_API_KEY,
-  baseURL: "https://api.x.ai/v1",
-});
+const XAI_API_KEY = process.env.XAI_API_KEY;
+const XAI_BASE_URL = "https://api.x.ai/v1";
 
 export interface SalesApproach {
   companyName: string;
@@ -49,6 +43,46 @@ export interface SalesApproach {
     valueProposition: string;
     callToAction: string;
   };
+}
+
+/**
+ * Call xAI Responses API with explicit web_search tool
+ */
+async function callGrokWithWebSearch(input: string): Promise<string> {
+  const response = await fetch(`${XAI_BASE_URL}/responses`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${XAI_API_KEY}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      model: "grok-4-1-fast-reasoning",
+      tools: [{ type: "web_search" }],  // Explicit web_search tool
+      input,
+      response_format: { type: "json_object" },
+    }),
+  });
+
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Grok API error: ${response.status} - ${error}`);
+  }
+
+  const data = await response.json();
+  
+  // Responses API returns output in different format
+  if (data.output_text) {
+    return data.output_text;
+  }
+  
+  if (data.output && Array.isArray(data.output)) {
+    const messageItem = data.output.find((item: any) => item.type === "message");
+    if (messageItem?.content?.[0]?.text) {
+      return messageItem.content[0].text;
+    }
+  }
+  
+  throw new Error("Unexpected Responses API format: no output_text or message content found");
 }
 
 /**
@@ -89,8 +123,8 @@ export async function generateSalesApproach(
     .map((s: any) => `- ${s.title || "Source"}: ${s.url}`)
     .join("\n");
 
-  // Generate comprehensive sales approach (conversation starters, strategy, outreach)
-  const approachPrompt = `You are a B2B sales expert using Grok 4.1 fast-reasoning mode with full tool access. You are crafting a complete sales approach for ConnectGroup (EMS provider: PCB assembly, cable assembly, module building, design-to-product services).
+  // Generate comprehensive sales approach
+  const approachPrompt = `You are a B2B sales expert. Today is February 23, 2026. You are crafting a complete sales approach for ConnectGroup (EMS provider: PCB assembly, cable assembly, module building, design-to-product services).
 
 **Target Company:** ${company.name} (${domain})
 
@@ -106,14 +140,13 @@ ${verifiedDevelopments || "No verified developments available."}
 **Verified Sources from Deep Research:**
 ${verifiedSources || "No verified sources available."}
 
-**IMPORTANT INSTRUCTIONS:**
-1. Use web_search to verify and supplement the deep research data. Search for "${company.name} news 2025 2026" and "${company.name} ${domain} products latest" to find any additional recent developments from 2025-2026.
-2. For the top 2-3 results, use browse_page to extract specific details that can be referenced in outreach.
-3. Ground ALL conversation starters in specific, verified developments with working source URLs.
-4. The email draft should reference at least one specific, verified development.
-5. Only use verified data from tools — do NOT hallucinate URLs or facts.
+**INSTRUCTIONS:**
+1. Search for the absolute latest news about "${company.name}" from the past 12 months to supplement the deep research
+2. Ground ALL conversation starters in specific, verified developments with working source URLs
+3. The email draft should reference at least one specific, verified development
+4. Only use verified data from your searches — do NOT hallucinate URLs or facts
 
-**Your Task:** Generate a complete sales approach including:
+**Generate a complete sales approach including:**
 1. Conversation starters (3 specific openers, each tied to a verified source URL)
 2. Engagement strategy (why this prospect matters, recommended approach, key talking points)
 3. Personalized outreach materials (email, LinkedIn, call script)
@@ -162,15 +195,8 @@ Return JSON only:
   }
 }`;
 
-  const approachResponse = await xai.chat.completions.create({
-    model: "grok-4-1-fast-reasoning",
-    messages: [{ role: "user", content: approachPrompt }],
-    response_format: { type: "json_object" },
-  });
-
-  const approachData = JSON.parse(
-    approachResponse.choices[0].message.content || "{}"
-  );
+  const approachRaw = await callGrokWithWebSearch(approachPrompt);
+  const approachData = JSON.parse(approachRaw);
 
   // Normalize conversation starters (handle both old and new format)
   const normalizedStarters = (approachData.conversationStarters || []).map((starter: any) => {

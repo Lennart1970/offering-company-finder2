@@ -33,6 +33,7 @@ export interface PeopleSearchParams {
   companyName?: string;
   jobTitle: string; // e.g., "CEO", "VP Operations", "Director Supply Chain"
   limit?: number;
+  includePhone?: boolean; // Optional: 8 credits per net-new phone
 }
 
 /**
@@ -44,6 +45,8 @@ export interface PeopleSearchParams {
  * Returns full names (unlike api_search which obfuscates last names).
  * May include email if already in Apollo's database.
  * Use enrichPerson() afterwards if email is not returned.
+ * 
+ * Step 3 (optional): Add includePhone=true to enrichPerson() for phone numbers (8 credits)
  */
 async function searchPeopleAtCompany(
   apiKey: string,
@@ -119,17 +122,20 @@ async function searchPeopleAtCompany(
 }
 
 /**
- * Step 2: Enrich a person's contact data using Apollo People Match API
+ * Step 2/3: Enrich a person's contact data using Apollo People Match API
  * 
  * Uses /people/match endpoint
- * Cost: 1 credit per net-new email returned
+ * Cost: 
+ *   - 1 credit per net-new email returned
+ *   - 8 credits per net-new phone number (if includePhone=true)
  * 
  * IMPORTANT: Requires first_name + last_name + domain for accurate matching
  */
 export async function enrichPerson(
   firstName: string,
   lastName: string,
-  companyDomain: string
+  companyDomain: string,
+  includePhone: boolean = false
 ): Promise<{ email?: string; phone?: string; linkedinUrl?: string }> {
   const apiKey = process.env.APOLLO_API_KEY;
   if (!apiKey) {
@@ -147,12 +153,17 @@ export async function enrichPerson(
   console.log(`[Apollo People Enrich] Step 2: Enriching ${firstName} ${lastName} at ${cleanDomain}`);
 
   try {
-    const requestBody = {
+    const requestBody: any = {
       first_name: firstName,
       last_name: lastName,
       domain: cleanDomain,
       reveal_personal_emails: true,
     };
+
+    if (includePhone) {
+      requestBody.reveal_phone_number = true;
+      console.log(`[Apollo People Enrich] ⚠️  WARNING: Phone enrichment enabled (8 credits per net-new phone)`);
+    }
 
     console.log(`[Apollo People Enrich] Request body:`, JSON.stringify(requestBody, null, 2));
 
@@ -201,9 +212,10 @@ export async function enrichPerson(
 /**
  * Main function: Find a contact at a company by job title
  * 
- * Combines Step 1 (free search) + Step 2 (paid enrichment) for best results:
- * 1. Search for people at the company domain with matching title (FREE)
+ * Combines Step 1 (search) + Step 2 (email) + Step 3 (phone) for best results:
+ * 1. Search for people at the company domain with matching title (1 credit)
  * 2. Enrich the best match to unlock email address (1 credit)
+ * 3. Optionally enrich for phone number (8 credits if includePhone=true)
  * 
  * Returns the first matching contact with enriched data.
  */
@@ -215,7 +227,7 @@ export async function searchApolloContacts(
     throw new Error("APOLLO_API_KEY environment variable not set");
   }
 
-  const { companyDomain, companyName, jobTitle, limit = 3 } = params;
+  const { companyDomain, companyName, jobTitle, limit = 3, includePhone = false } = params;
 
   try {
     // STEP 1: Search for people (FREE)
@@ -248,7 +260,7 @@ export async function searchApolloContacts(
     if (contact.firstName && contact.lastName) {
       console.log(`[Apollo People Search] Proceeding to enrichment for ${contact.name}...`);
       try {
-        const enriched = await enrichPerson(contact.firstName, contact.lastName, companyDomain);
+        const enriched = await enrichPerson(contact.firstName, contact.lastName, companyDomain, includePhone);
         if (enriched.email) {
           contact.email = enriched.email;
           console.log(`[Apollo People Search] ✓ Email unlocked: ${contact.email}`);

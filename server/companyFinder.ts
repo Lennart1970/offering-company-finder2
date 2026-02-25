@@ -598,6 +598,7 @@ export const companyFinderRouter = router({
     .input(z.object({
       companyId: z.number(),
       jobTitle: z.string().min(1),
+      includePhone: z.boolean().optional(), // Optional: 8 credits per net-new phone
     }))
     .mutation(async ({ ctx, input }) => {
       const company = await getCompanyById(input.companyId);
@@ -626,6 +627,7 @@ export const companyFinderRouter = router({
           companyDomain: domain,
           jobTitle: input.jobTitle,
           limit: 1,
+          includePhone: input.includePhone || false,
         });
 
         if (!contact) {

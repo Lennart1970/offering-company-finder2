@@ -766,4 +766,46 @@
 - [x] Add domain cleaning (strip www., http://, trailing paths)
 - [x] Add company name verification logging
 - [x] Test with real companies - confirmed working correctly!
+- [x] Save checkpoint
+
+## Create Apollo People Finder Skill
+- [x] Understand skill requirements and gather examples
+- [x] Plan reusable skill contents (scripts, references, templates)
+- [x] Initialize skill using init_skill.py
+- [x] Create skill resources and write SKILL.md
+- [x] Validate skill with quick_validate.py
+- [ ] Deliver skill to user
+
+## Update Apollo People Finder Skill: Add Phone Enrichment
+- [x] Update SKILL.md to add Step 3 for phone enrichment with cost warnings
+- [x] Update Python script to support --phone flag
+- [x] Update API reference with phone enrichment details
+- [x] Validate updated skill
+- [ ] Deliver updated skill to user
+
+## Add Phone Enrichment to App Contact Finder
+- [x] Update apolloPeopleSearch.ts to accept includePhone parameter
+- [x] Update enrichPerson function to conditionally add reveal_phone_number
+- [x] Update tRPC procedure findContact to accept includePhone input
+- [x] Update UI ContactDialog to add phone checkbox with cost warning (both SearchResults + Home)
+- [x] Display phone number in contact details when available (already in ContactModal)
+- [x] Test phone enrichment feature (8 vitest tests passing)
+- [ ] Save checkpoint
+
+## ConnectGroup Brain: Deep Offering Intelligence
+- [ ] Design architecture: offering intelligence model that deeply understands ConnectGroup
+- [ ] Create database table for offering_intelligence (stores deep research about ConnectGroup)
+- [ ] Build Deep Research button in UI to trigger ConnectGroup analysis
+- [ ] Create LLM-powered offering analyzer that researches ConnectGroup's:
+  - [ ] Core capabilities and technical differentiators
+  - [ ] Ideal customer profile (ICP) with specific characteristics
+  - [ ] Past success stories and case studies
+  - [ ] Competitive positioning vs other EMS providers
+  - [ ] Key buying signals that indicate high fit
+  - [ ] Industry-specific value propositions
+- [ ] Store the intelligence as structured JSON for reuse across all prospect evaluations
+- [ ] Integrate Brain into fit scoring: use offering intelligence to assess prospect fit
+- [ ] Integrate Brain into urgency assessment: use offering intelligence to identify urgency signals
+- [ ] Add transparency: show how Brain influenced fit/urgency scores
+- [ ] Test end-to-end with real companies
 - [ ] Save checkpoint

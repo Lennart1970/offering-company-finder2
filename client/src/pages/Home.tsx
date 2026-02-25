@@ -1727,6 +1727,7 @@ function FindContactButton({ companyId, companyName }: { companyId: number; comp
   const [showInput, setShowInput] = useState(false);
   const [contactData, setContactData] = useState<any>(null);
   const [showContact, setShowContact] = useState(false);
+  const [includePhone, setIncludePhone] = useState(false);
 
   // Check if we already have a cached contact
   const { data: existingContact } = trpc.companyFinder.getContact.useQuery(
@@ -1755,7 +1756,7 @@ function FindContactButton({ companyId, companyName }: { companyId: number; comp
       toast.error("Please enter a job title");
       return;
     }
-    findContactMutation.mutate({ companyId, jobTitle: jobTitle.trim() });
+    findContactMutation.mutate({ companyId, jobTitle: jobTitle.trim(), includePhone });
   };
 
   // If we have a cached contact, show "View Contact" button
@@ -1790,30 +1791,42 @@ function FindContactButton({ companyId, companyName }: { companyId: number; comp
           <span className="ml-2 text-xs font-bold opacity-60">~10s • 1 Apollo credit</span>
         </Button>
       ) : (
-        <div className="flex gap-2 items-center" onClick={(e) => e.stopPropagation()}>
-          <input
-            type="text"
-            value={jobTitle}
-            onChange={(e) => setJobTitle(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-            placeholder="Job title (e.g. VP Operations)"
-            className="flex-1 px-3 py-2 border-2 border-orange-600 font-bold text-sm bg-white text-black"
-            autoFocus
-          />
-          <Button
-            onClick={handleSearch}
-            disabled={findContactMutation.isPending}
-            className="font-black border-2 border-orange-600 bg-orange-600 text-white px-4 cursor-pointer"
-          >
-            {findContactMutation.isPending ? "..." : "GO"}
-          </Button>
-          <Button
-            onClick={() => setShowInput(false)}
-            variant="outline"
-            className="font-black border-2 border-black px-3 cursor-pointer"
-          >
-            ×
-          </Button>
+        <div onClick={(e) => e.stopPropagation()}>
+          <div className="flex gap-2 items-center">
+            <input
+              type="text"
+              value={jobTitle}
+              onChange={(e) => setJobTitle(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+              placeholder="Job title (e.g. VP Operations)"
+              className="flex-1 px-3 py-2 border-2 border-orange-600 font-bold text-sm bg-white text-black"
+              autoFocus
+            />
+            <Button
+              onClick={handleSearch}
+              disabled={findContactMutation.isPending}
+              className="font-black border-2 border-orange-600 bg-orange-600 text-white px-4 cursor-pointer"
+            >
+              {findContactMutation.isPending ? "..." : "GO"}
+            </Button>
+            <Button
+              onClick={() => setShowInput(false)}
+              variant="outline"
+              className="font-black border-2 border-black px-3 cursor-pointer"
+            >
+              ×
+            </Button>
+          </div>
+          <label className="flex items-center gap-2 mt-1 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={includePhone}
+              onChange={(e) => setIncludePhone(e.target.checked)}
+              className="accent-orange-600 w-4 h-4"
+            />
+            <span className="text-xs font-bold text-black">Include phone number</span>
+            <span className="text-xs font-bold text-red-600">⚠ +8 credits</span>
+          </label>
         </div>
       )}
 

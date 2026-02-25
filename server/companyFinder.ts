@@ -926,6 +926,63 @@ export const companyFinderRouter = router({
       const { stopNationalScan } = await import("./nationalScan");
       return stopNationalScan();
     }),
+
+  // Import companies from Apollo CSV export
+  importCampaignFromCSV: protectedProcedure
+    .input(z.object({
+      csvContent: z.string(),
+      campaignName: z.string().min(1),
+      location: z.string().optional(), // Optional location override
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { parseApolloCSV, mapApolloRowToCompany } = await import("./apolloCSVParser");
+      
+      console.log(`[CSV Import] Starting campaign: ${input.campaignName}`);
+      
+      // Parse CSV
+      const rows = parseApolloCSV(input.csvContent);
+      console.log(`[CSV Import] Parsed ${rows.length} companies from CSV`);
+      
+      if (rows.length === 0) {
+        throw new Error("CSV file is empty or invalid");
+      }
+      
+      // Create a search record for this campaign
+      const searchId = await createSearch({
+        userId: ctx.user.id,
+        companyWebsite: "N/A", // Not applicable for CSV imports
+        location: input.location || "CSV Import",
+        offeringName: input.campaignName,
+        offeringDescription: `Campaign imported from Apollo CSV with ${rows.length} companies`,
+        targetMarket: null,
+        valueProposition: null,
+        keywords: null,
+        crossBorderIndicators: null,
+        keywordTagsUsed: null,
+        selectedSicCodes: null,
+        selectedNaicsCodes: null,
+        codeSelectionReasoning: null,
+        excludedSectors: null,
+        codesSearched: rows.length,
+        codesTotal: rows.length,
+        status: "completed",
+      });
+      
+      console.log(`[CSV Import] Created search record ${searchId}`);
+      
+      // Map and insert all companies
+      const companies = rows.map((row) => mapApolloRowToCompany(row, searchId));
+      
+      await createCompanies(companies);
+      
+      console.log(`[CSV Import] ✓ Imported ${companies.length} companies for campaign: ${input.campaignName}`);
+      
+      return {
+        searchId,
+        companiesImported: companies.length,
+        campaignName: input.campaignName,
+      };
+    }),
 });
 
 // Background search function for hardcoded ConnectGroup offering (skip extraction)
@@ -1092,5 +1149,3 @@ async function extractAndSearch(searchId: number, companyWebsite: string, locati
     throw error;
   }
 }
-
-

@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { Crosshair, Search, List, Microscope, ShieldBan, LogOut, PanelLeft } from "lucide-react";
+import { Crosshair, Search, List, Microscope, ShieldBan, Upload, LogOut, PanelLeft } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -30,6 +30,7 @@ import { Button } from "./ui/button";
 const menuItems = [
   { icon: Crosshair, label: "Focused Offering", path: "/" },
   { icon: Search, label: "Search Scenario", path: "/search-scenario" },
+  { icon: Upload, label: "Import Campaign", path: "/import-campaign" },
   { icon: List, label: "Search Results", path: "/search-results" },
   { icon: Microscope, label: "Deep Research", path: "/deep-research" },
   { icon: ShieldBan, label: "Exclusions", path: "/exclusions" },

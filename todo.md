@@ -731,4 +731,27 @@
 - [x] Remove NationalScanSection component
 - [x] Remove national scan UI from SearchScenario page
 - [x] Keep backend nationalScan.ts for manual execution
+- [x] Save checkpoint
+
+## Fix Company Contact Details Display Issue
+- [x] Add logging to apolloPeopleSearch.ts to capture raw API response
+- [x] Identified issue: using /mixed_people/search which returns cached data
+- [x] Solution: Use /people/match enrichment API to unlock emails
+- [x] Implement two-step approach: search first, then enrich
+- [x] Add enrichPerson function using /people/match endpoint
+- [x] Update apolloPeopleSearch to call enrichment after finding contact
+- [ ] Test with sample companies to verify real emails are returned
+- [ ] Save checkpoint
+
+## CSV Import: Campaign-Based Apollo Upload
+- [x] Create CSV parser utility (parseApolloCSV)
+- [x] Map all Apollo CSV fields to companies schema
+- [x] Install csv-parse package
+- [x] Create tRPC procedure: importCampaignFromCSV (accepts file + campaign name)
+- [x] Create a new search record for each campaign with status "completed"
+- [x] Parse and import companies from CSV (tested with 34 companies)
+- [x] Handle employee count, revenue, SIC codes, keywords in sliceMetadata
+- [x] Add UI: Import Campaign page with file input + campaign name
+- [x] Add Import Campaign to sidebar navigation
+- [x] Fix TypeScript errors in DashboardLayout (array closing bracket)
 - [ ] Save checkpoint

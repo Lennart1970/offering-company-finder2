@@ -10,6 +10,7 @@ import SearchScenario from "./pages/SearchScenario";
 import SearchResults from "./pages/SearchResults";
 import DeepResearchDashboard from "./pages/DeepResearchDashboard";
 import Exclusions from "./pages/Exclusions";
+import ImportCampaign from "./pages/ImportCampaign";
 
 
 function Router() {
@@ -21,6 +22,7 @@ function Router() {
         <Route path={"/search-results/:searchId"} component={SearchResults} />
         <Route path={"/deep-research"} component={DeepResearchDashboard} />
         <Route path={"/exclusions"} component={Exclusions} />
+        <Route path={"/import-campaign"} component={ImportCampaign} />
 
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />

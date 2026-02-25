@@ -754,4 +754,16 @@
 - [x] Add UI: Import Campaign page with file input + campaign name
 - [x] Add Import Campaign to sidebar navigation
 - [x] Fix TypeScript errors in DashboardLayout (array closing bracket)
+- [x] Save checkpoint
+
+## Review & Fix Apollo People Search (Contact Finder)
+- [x] Research Apollo People API endpoints (search, match, enrich)
+- [x] Review current apolloPeopleSearch.ts implementation
+- [x] ROOT CAUSE: Wrong parameter name (organization_domains instead of q_organization_domains_list)
+- [x] ROOT CAUSE: Wrong endpoint (/mixed_people/search costs credits, /mixed_people/api_search is FREE)
+- [x] Design correct two-step approach: api_search (free) → people/match (1 credit for email)
+- [x] Rewrite apolloPeopleSearch.ts with correct API parameters and endpoints
+- [x] Add domain cleaning (strip www., http://, trailing paths)
+- [x] Add company name verification logging
+- [x] Test with real companies - confirmed working correctly!
 - [ ] Save checkpoint

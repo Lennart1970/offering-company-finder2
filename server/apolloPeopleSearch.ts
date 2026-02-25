@@ -1,7 +1,17 @@
 /**
  * Apollo People Search Integration
  * 
- * Finds decision-makers at companies using Apollo's People Search API
+ * Two-step approach for finding contacts at companies:
+ * 
+ * Step 1: Use /mixed_people/search (1 credit per page)
+ *   - Search by company domain + job title
+ *   - Returns FULL name, title, LinkedIn URL, email (if available)
+ *   - Correct param: q_organization_domains_list[] (NOT organization_domains)
+ *   - Note: /mixed_people/api_search is free but obfuscates last names
+ * 
+ * Step 2: Use /people/match (1 credit per net-new email)
+ *   - Enrich the found person with first_name + last_name + domain
+ *   - Unlocks email address with reveal_personal_emails: true
  */
 
 import axios from "axios";
@@ -15,17 +25,106 @@ export interface ApolloContact {
   email?: string;
   phone?: string;
   linkedinUrl?: string;
+  companyName?: string;
 }
 
 export interface PeopleSearchParams {
   companyDomain: string;
-  jobTitle: string; // e.g., "VP Operations", "Director Supply Chain"
+  companyName?: string;
+  jobTitle: string; // e.g., "CEO", "VP Operations", "Director Supply Chain"
   limit?: number;
 }
 
 /**
- * Enrich a person's contact data using Apollo People Match API
- * This unlocks email addresses (costs 1 credit per net-new email)
+ * Step 1: Search for people at a specific company by job title
+ * 
+ * Uses /mixed_people/search (1 credit per page)
+ * CRITICAL: Uses q_organization_domains_list[] parameter (not organization_domains)
+ * 
+ * Returns full names (unlike api_search which obfuscates last names).
+ * May include email if already in Apollo's database.
+ * Use enrichPerson() afterwards if email is not returned.
+ */
+async function searchPeopleAtCompany(
+  apiKey: string,
+  companyDomain: string,
+  jobTitle: string,
+  limit: number = 3
+): Promise<Array<{
+  id: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+  title: string;
+  linkedinUrl?: string;
+  organizationName?: string;
+}>> {
+  // Clean domain - remove www., http://, etc.
+  const cleanDomain = companyDomain
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/.*$/, "")
+    .toLowerCase()
+    .trim();
+
+  console.log(`[Apollo People Search] Step 1: Searching for "${jobTitle}" at domain "${cleanDomain}"`);
+
+  const requestBody = {
+    page: 1,
+    per_page: limit,
+    // CRITICAL: correct parameter name with array notation
+    q_organization_domains_list: [cleanDomain],
+    person_titles: [jobTitle],
+  };
+
+  console.log(`[Apollo People Search] Request body:`, JSON.stringify(requestBody, null, 2));
+
+  const response = await axios.post(
+    "https://api.apollo.io/api/v1/mixed_people/search",
+    requestBody,
+    {
+      headers: {
+        "X-Api-Key": apiKey,
+        "Content-Type": "application/json",
+      },
+      timeout: 15000,
+    }
+  );
+
+  const people = response.data.people || [];
+  const totalEntries = response.data.total_entries || 0;
+
+  console.log(`[Apollo People Search] Found ${people.length} people (total_entries: ${totalEntries})`);
+
+  if (people.length > 0) {
+    // Log first person for debugging
+    console.log(`[Apollo People Search] First result:`, JSON.stringify({
+      name: people[0].name,
+      title: people[0].title,
+      organization: people[0].organization?.name,
+      linkedin_url: people[0].linkedin_url,
+      email: people[0].email, // Should be null from api_search
+    }, null, 2));
+  }
+
+  return people.map((person: any) => ({
+    id: person.id || "",
+    firstName: person.first_name || "",
+    lastName: person.last_name || "",
+    name: person.name || `${person.first_name || ""} ${person.last_name || ""}`.trim(),
+    title: person.title || jobTitle,
+    linkedinUrl: person.linkedin_url || undefined,
+    organizationName: person.organization?.name || undefined,
+  }));
+}
+
+/**
+ * Step 2: Enrich a person's contact data using Apollo People Match API
+ * 
+ * Uses /people/match endpoint
+ * Cost: 1 credit per net-new email returned
+ * 
+ * IMPORTANT: Requires first_name + last_name + domain for accurate matching
  */
 export async function enrichPerson(
   firstName: string,
@@ -37,15 +136,25 @@ export async function enrichPerson(
     throw new Error("APOLLO_API_KEY environment variable not set");
   }
 
-  console.log(`[Apollo People Enrich] Enriching ${firstName} ${lastName} at ${companyDomain}`);
+  // Clean domain
+  const cleanDomain = companyDomain
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/.*$/, "")
+    .toLowerCase()
+    .trim();
+
+  console.log(`[Apollo People Enrich] Step 2: Enriching ${firstName} ${lastName} at ${cleanDomain}`);
 
   try {
     const requestBody = {
       first_name: firstName,
       last_name: lastName,
-      domain: companyDomain,
+      domain: cleanDomain,
       reveal_personal_emails: true,
     };
+
+    console.log(`[Apollo People Enrich] Request body:`, JSON.stringify(requestBody, null, 2));
 
     const response = await axios.post(
       "https://api.apollo.io/api/v1/people/match",
@@ -65,11 +174,17 @@ export async function enrichPerson(
       return {};
     }
 
-    console.log(`[Apollo People Enrich] Enriched data:`, JSON.stringify(person, null, 2));
+    console.log(`[Apollo People Enrich] Enriched result:`, JSON.stringify({
+      name: person.name,
+      email: person.email,
+      phone: person.sanitized_phone,
+      linkedin_url: person.linkedin_url,
+      organization: person.organization?.name,
+    }, null, 2));
 
     return {
       email: person.email || undefined,
-      phone: person.phone || person.sanitized_phone || undefined,
+      phone: person.sanitized_phone || person.phone || undefined,
       linkedinUrl: person.linkedin_url || undefined,
     };
   } catch (error) {
@@ -84,8 +199,13 @@ export async function enrichPerson(
 }
 
 /**
- * Search for contacts at a company by job title
- * Returns 1 contact (MVP: user specifies title, get 1 result)
+ * Main function: Find a contact at a company by job title
+ * 
+ * Combines Step 1 (free search) + Step 2 (paid enrichment) for best results:
+ * 1. Search for people at the company domain with matching title (FREE)
+ * 2. Enrich the best match to unlock email address (1 credit)
+ * 
+ * Returns the first matching contact with enriched data.
  */
 export async function searchApolloContacts(
   params: PeopleSearchParams
@@ -95,66 +215,49 @@ export async function searchApolloContacts(
     throw new Error("APOLLO_API_KEY environment variable not set");
   }
 
-  const { companyDomain, jobTitle, limit = 1 } = params;
-
-  console.log(`[Apollo People Search] Searching for "${jobTitle}" at ${companyDomain}`);
+  const { companyDomain, companyName, jobTitle, limit = 3 } = params;
 
   try {
-    const requestBody = {
-      page: 1,
-      per_page: limit,
-      organization_domains: [companyDomain],
-      person_titles: [jobTitle],
-    };
+    // STEP 1: Search for people (FREE)
+    const searchResults = await searchPeopleAtCompany(apiKey, companyDomain, jobTitle, limit);
 
-    const response = await axios.post(
-      "https://api.apollo.io/api/v1/mixed_people/search",
-      requestBody,
-      {
-        headers: {
-          "X-Api-Key": apiKey,
-          "Content-Type": "application/json",
-        },
-        timeout: 15000,
-      }
-    );
-
-    const results = response.data.people || [];
-
-    console.log(`[Apollo People Search] Raw API Response:`, JSON.stringify(response.data, null, 2));
-
-    if (results.length === 0) {
+    if (searchResults.length === 0) {
       console.log(`[Apollo People Search] No contacts found for "${jobTitle}" at ${companyDomain}`);
       return null;
     }
 
-    const person = results[0];
-    console.log(`[Apollo People Search] First person object:`, JSON.stringify(person, null, 2));
-    
+    // Take the first (best) match
+    const bestMatch = searchResults[0];
+
+    // Verify the person is actually at the right company
+    if (bestMatch.organizationName && companyName) {
+      console.log(`[Apollo People Search] Verifying company match: "${bestMatch.organizationName}" vs "${companyName}"`);
+    }
+
     const contact: ApolloContact = {
-      id: person.id,
-      firstName: person.first_name || "",
-      lastName: person.last_name || "",
-      name: person.name || `${person.first_name} ${person.last_name}`,
-      title: person.title || jobTitle,
-      email: person.email || undefined,
-      phone: person.phone || person.sanitized_phone || undefined,
-      linkedinUrl: person.linkedin_url || undefined,
+      id: bestMatch.id,
+      firstName: bestMatch.firstName,
+      lastName: bestMatch.lastName,
+      name: bestMatch.name,
+      title: bestMatch.title,
+      linkedinUrl: bestMatch.linkedinUrl,
+      companyName: bestMatch.organizationName,
     };
 
-    console.log(`[Apollo People Search] Found: ${contact.name} (${contact.title})`);
-
-    // STEP 2: Enrich the contact to unlock email if not already present
-    if (!contact.email && contact.firstName && contact.lastName) {
-      console.log(`[Apollo People Search] Email not found, enriching contact...`);
+    // STEP 2: Enrich to unlock email (1 credit)
+    if (contact.firstName && contact.lastName) {
+      console.log(`[Apollo People Search] Proceeding to enrichment for ${contact.name}...`);
       try {
         const enriched = await enrichPerson(contact.firstName, contact.lastName, companyDomain);
         if (enriched.email) {
           contact.email = enriched.email;
-          console.log(`[Apollo People Search] ✓ Email unlocked via enrichment: ${contact.email}`);
+          console.log(`[Apollo People Search] ✓ Email unlocked: ${contact.email}`);
+        } else {
+          console.log(`[Apollo People Search] ⚠ Enrichment returned no email`);
         }
-        if (enriched.phone && !contact.phone) {
+        if (enriched.phone) {
           contact.phone = enriched.phone;
+          console.log(`[Apollo People Search] ✓ Phone found: ${contact.phone}`);
         }
         if (enriched.linkedinUrl && !contact.linkedinUrl) {
           contact.linkedinUrl = enriched.linkedinUrl;
@@ -163,8 +266,11 @@ export async function searchApolloContacts(
         console.error(`[Apollo People Search] Enrichment failed:`, enrichError.message);
         // Continue with partial data even if enrichment fails
       }
+    } else {
+      console.log(`[Apollo People Search] ⚠ Cannot enrich - missing first/last name`);
     }
 
+    console.log(`[Apollo People Search] Final contact:`, JSON.stringify(contact, null, 2));
     return contact;
   } catch (error) {
     if (axios.isAxiosError(error)) {

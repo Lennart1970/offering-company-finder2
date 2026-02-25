@@ -179,3 +179,38 @@ export const contacts = mysqlTable("contacts", {
 
 export type Contact = typeof contacts.$inferSelect;
 export type InsertContact = typeof contacts.$inferInsert;
+
+/**
+ * Stores deep offering intelligence ("Brain") for the user's own company.
+ * This is the contextual intelligence layer that informs fit/urgency scoring.
+ * One active brain per user — can be refreshed or edited.
+ */
+export const offeringBrain = mysqlTable("offering_brain", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id),
+  companyName: varchar("companyName", { length: 256 }).notNull(),
+  companyWebsite: varchar("companyWebsite", { length: 512 }).notNull(),
+  // Core offering intelligence
+  offeringSummary: text("offeringSummary"), // What the company does in 2-3 sentences
+  coreCapabilities: text("coreCapabilities"), // JSON array of key capabilities
+  valuePropositions: text("valuePropositions"), // JSON array of value props with target audience
+  competitiveAdvantages: text("competitiveAdvantages"), // What makes them unique
+  // Ideal Customer Profile
+  icpIndustries: text("icpIndustries"), // JSON array of ideal industries
+  icpCompanySize: text("icpCompanySize"), // Ideal company size range
+  icpGeography: text("icpGeography"), // Target geographies
+  icpPainPoints: text("icpPainPoints"), // JSON array of pain points the offering solves
+  icpBuyingSignals: text("icpBuyingSignals"), // JSON array of signals indicating readiness to buy
+  // Fit & Urgency Scoring Criteria
+  fitCriteria: text("fitCriteria"), // JSON: structured criteria for scoring prospect fit
+  urgencyTriggers: text("urgencyTriggers"), // JSON: events/signals that indicate urgency
+  // Metadata
+  rawResearchData: text("rawResearchData"), // Full LLM research output for reference
+  status: mysqlEnum("status", ["researching", "completed", "failed"]).default("researching").notNull(),
+  isActive: int("isActive").default(1).notNull(), // 1 = active brain, 0 = archived
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type OfferingBrain = typeof offeringBrain.$inferSelect;
+export type InsertOfferingBrain = typeof offeringBrain.$inferInsert;

@@ -10,10 +10,48 @@
  * via Responses API (/v1/responses) to ensure current 2026 content.
  */
 
-import { getCompanyById } from "./db";
+import { getCompanyById, getActiveBrain } from "./db";
 
 const XAI_API_KEY = process.env.XAI_API_KEY;
 const XAI_BASE_URL = "https://api.x.ai/v1";
+
+/**
+ * Build Brain context string for injection into prompts.
+ * Returns empty string if no brain is active.
+ */
+async function getBrainContext(userId: number): Promise<string> {
+  try {
+    const brain = await getActiveBrain(userId);
+    if (!brain || brain.status !== "completed") return "";
+
+    const capabilities = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
+    const valueProps = brain.valuePropositions ? JSON.parse(brain.valuePropositions) : [];
+    const icpIndustries = brain.icpIndustries ? JSON.parse(brain.icpIndustries) : [];
+    const painPoints = brain.icpPainPoints ? JSON.parse(brain.icpPainPoints) : [];
+    const buyingSignals = brain.icpBuyingSignals ? JSON.parse(brain.icpBuyingSignals) : [];
+    const fitCriteria = brain.fitCriteria ? JSON.parse(brain.fitCriteria) : { mustHave: [], niceToHave: [], disqualifiers: [] };
+    const urgencyTriggers = brain.urgencyTriggers ? JSON.parse(brain.urgencyTriggers) : [];
+
+    return `
+**YOUR COMPANY (Seller) — Offering Brain Intelligence:**
+- Company: ${brain.companyName}
+- Summary: ${brain.offeringSummary}
+- Core Capabilities: ${capabilities.join("; ")}
+- Value Propositions: ${valueProps.map((vp: any) => `${vp.proposition} (for: ${vp.targetAudience})`).join("; ")}
+- Competitive Advantages: ${brain.competitiveAdvantages}
+- ICP Industries: ${icpIndustries.join(", ")}
+- ICP Company Size: ${brain.icpCompanySize}
+- ICP Pain Points: ${painPoints.join("; ")}
+- Buying Signals to Watch: ${buyingSignals.join("; ")}
+- Fit Must-Haves: ${fitCriteria.mustHave?.join("; ") || "None"}
+- Fit Disqualifiers: ${fitCriteria.disqualifiers?.join("; ") || "None"}
+- Urgency Triggers: ${urgencyTriggers.join("; ")}
+`;
+  } catch (error) {
+    console.warn("[Brain Context] Failed to load brain:", error);
+    return "";
+  }
+}
 
 export interface VerifiedSource {
   url: string;
@@ -129,7 +167,8 @@ async function callGrokWithWebSearch(input: string): Promise<string> {
  * Generate a sales intelligence brief for a company
  */
 export async function generateSalesIntelligenceBrief(
-  companyId: number
+  companyId: number,
+  userId?: number
 ): Promise<SalesIntelligenceBrief> {
   // Load company data from database
   const company = await getCompanyById(companyId);
@@ -143,11 +182,23 @@ export async function generateSalesIntelligenceBrief(
   const naicsCodes = company.naicsCodes ? JSON.parse(company.naicsCodes) : [];
   const industry = inferIndustryFromNAICS(naicsCodes);
 
+  // Load Brain context if userId is available
+  const brainContext = userId ? await getBrainContext(userId) : "";
+  if (brainContext) {
+    console.log(`[Brief Generator] Brain context loaded — will inform fit/urgency evaluation`);
+  }
+
   // Phase 1: Detect urgency signals with verified sources
   console.log(`[Brief Generator] Phase 1: Detecting urgency signals with source verification...`);
-  const urgencyPrompt = `You are a B2B sales intelligence analyst. Today is February 23, 2026. Your goal is to provide verifiable answers with traceable sources from the most recent content available.
+  const urgencyPrompt = `You are a B2B sales intelligence analyst. Today is February 25, 2026. Your goal is to provide verifiable answers with traceable sources from the most recent content available.
+${brainContext ? `${brainContext}
+**Use the Offering Brain intelligence above to:**
+- Assess how well this prospect fits the seller's ICP
+- Identify specific buying signals that match the seller's offering
+- Weight urgency higher when the prospect shows signals matching the seller's urgency triggers
+- Note any disqualifiers from the fit criteria
 
-**Target Company:** "${company.name}" (${domain})
+` : ""}**Target Company:** "${company.name}" (${domain})
 
 **Instructions:**
 1. Search for the absolute latest news and developments about "${company.name}" from the past 12 months
@@ -205,9 +256,14 @@ export async function generateSalesIntelligenceBrief(
 
   // Phase 2: Gather company intelligence with verified sources
   console.log(`[Brief Generator] Phase 2: Gathering company intelligence with source verification...`);
-  const intelligencePrompt = `You are a B2B sales intelligence analyst. Today is February 23, 2026. Your goal is to provide verifiable company intelligence with traceable sources.
+  const intelligencePrompt = `You are a B2B sales intelligence analyst. Today is February 25, 2026. Your goal is to provide verifiable company intelligence with traceable sources.
+${brainContext ? `${brainContext}
+**Use the Offering Brain intelligence above to:**
+- Focus on products/services that overlap with the seller's capabilities
+- Identify technologies that indicate the prospect needs the seller's services
+- Highlight target markets where the seller can add value
 
-**Target Company:** "${company.name}" (${domain})
+` : ""}**Target Company:** "${company.name}" (${domain})
 
 **Instructions:**
 1. Research "${company.name}" to find:

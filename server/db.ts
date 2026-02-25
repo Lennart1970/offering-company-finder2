@@ -341,3 +341,63 @@ export async function getCallTodayCompanies(userId: number) {
   
   return Array.from(uniqueCompanies.values());
 }
+
+// ============================================================================
+// Offering Brain Functions
+// ============================================================================
+
+import { offeringBrain, OfferingBrain, InsertOfferingBrain } from "../drizzle/schema";
+
+export async function createOfferingBrain(brain: InsertOfferingBrain): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  // Deactivate any existing active brains for this user
+  await db.update(offeringBrain)
+    .set({ isActive: 0 })
+    .where(and(
+      eq(offeringBrain.userId, brain.userId),
+      eq(offeringBrain.isActive, 1)
+    ));
+  
+  const [inserted] = await db.insert(offeringBrain).values(brain);
+  return inserted.insertId;
+}
+
+export async function getActiveBrain(userId: number): Promise<OfferingBrain | null> {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const [brain] = await db.select().from(offeringBrain)
+    .where(and(
+      eq(offeringBrain.userId, userId),
+      eq(offeringBrain.isActive, 1)
+    ))
+    .limit(1);
+  return brain || null;
+}
+
+export async function updateOfferingBrain(id: number, updates: Partial<InsertOfferingBrain>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  await db.update(offeringBrain).set(updates).where(eq(offeringBrain.id, id));
+}
+
+export async function getBrainHistory(userId: number): Promise<OfferingBrain[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(offeringBrain)
+    .where(eq(offeringBrain.userId, userId))
+    .orderBy(desc(offeringBrain.createdAt));
+}
+
+export async function getContactsByCompanyId(companyId: number): Promise<Contact[]> {
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select().from(contacts)
+    .where(eq(contacts.companyId, companyId))
+    .orderBy(desc(contacts.createdAt));
+}

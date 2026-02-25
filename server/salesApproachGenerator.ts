@@ -10,10 +10,39 @@
  * - Call script (structured talking points for phone/video call)
  */
 
-import { getCompanyById } from "./db";
+import { getCompanyById, getActiveBrain } from "./db";
 
 const XAI_API_KEY = process.env.XAI_API_KEY;
 const XAI_BASE_URL = "https://api.x.ai/v1";
+
+/**
+ * Build Brain context string for injection into sales approach prompts.
+ */
+async function getBrainContextForApproach(userId: number): Promise<{ context: string; companyName: string }> {
+  try {
+    const brain = await getActiveBrain(userId);
+    if (!brain || brain.status !== "completed") return { context: "", companyName: "ConnectGroup" };
+
+    const capabilities = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
+    const valueProps = brain.valuePropositions ? JSON.parse(brain.valuePropositions) : [];
+    const painPoints = brain.icpPainPoints ? JSON.parse(brain.icpPainPoints) : [];
+
+    return {
+      companyName: brain.companyName || "ConnectGroup",
+      context: `
+**YOUR COMPANY (Seller) — ${brain.companyName}:**
+- Summary: ${brain.offeringSummary}
+- Core Capabilities: ${capabilities.join("; ")}
+- Value Propositions: ${valueProps.map((vp: any) => `${vp.proposition} (for: ${vp.targetAudience})`).join("; ")}
+- Competitive Advantages: ${brain.competitiveAdvantages}
+- Pain Points We Solve: ${painPoints.join("; ")}
+`,
+    };
+  } catch (error) {
+    console.warn("[Brain Context] Failed to load brain for sales approach:", error);
+    return { context: "", companyName: "ConnectGroup" };
+  }
+}
 
 export interface SalesApproach {
   companyName: string;
@@ -98,7 +127,8 @@ async function callGrokWithWebSearch(input: string): Promise<string> {
  * Requires that Deep Research (briefData) has already been generated
  */
 export async function generateSalesApproach(
-  companyId: number
+  companyId: number,
+  userId?: number
 ): Promise<SalesApproach> {
   // Load company data from database
   const company = await getCompanyById(companyId);
@@ -116,6 +146,10 @@ export async function generateSalesApproach(
 
   const domain = company.primaryDomain || company.websiteUrl || "unknown.com";
 
+  // Load Brain context for seller intelligence
+  const brainInfo = userId ? await getBrainContextForApproach(userId) : { context: "", companyName: "ConnectGroup" };
+  const sellerName = brainInfo.companyName;
+
   // Build verified developments summary with source URLs
   const verifiedDevelopments = (briefData.recentDevelopments || [])
     .filter((d: any) => d && (typeof d === "string" || d.text))
@@ -132,7 +166,10 @@ export async function generateSalesApproach(
     .join("\n");
 
   // Generate comprehensive sales approach
-  const approachPrompt = `You are a B2B sales expert. Today is February 23, 2026. You are crafting a complete sales approach for ConnectGroup (EMS provider: PCB assembly, cable assembly, module building, design-to-product services).
+  const approachPrompt = `You are a B2B sales expert. Today is February 25, 2026. You are crafting a complete sales approach for ${sellerName}.
+${brainInfo.context ? `${brainInfo.context}
+**Use the seller intelligence above to tailor all outreach materials to the seller's specific capabilities and value propositions.**
+` : ""}
 
 **Target Company:** ${company.name} (${domain})
 

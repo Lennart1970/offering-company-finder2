@@ -790,22 +790,46 @@
 - [x] Update UI ContactDialog to add phone checkbox with cost warning (both SearchResults + Home)
 - [x] Display phone number in contact details when available (already in ContactModal)
 - [x] Test phone enrichment feature (8 vitest tests passing)
-- [ ] Save checkpoint
+- [x] Save checkpoint
 
 ## ConnectGroup Brain: Deep Offering Intelligence
-- [ ] Design architecture: offering intelligence model that deeply understands ConnectGroup
-- [ ] Create database table for offering_intelligence (stores deep research about ConnectGroup)
-- [ ] Build Deep Research button in UI to trigger ConnectGroup analysis
-- [ ] Create LLM-powered offering analyzer that researches ConnectGroup's:
-  - [ ] Core capabilities and technical differentiators
-  - [ ] Ideal customer profile (ICP) with specific characteristics
-  - [ ] Past success stories and case studies
-  - [ ] Competitive positioning vs other EMS providers
-  - [ ] Key buying signals that indicate high fit
-  - [ ] Industry-specific value propositions
-- [ ] Store the intelligence as structured JSON for reuse across all prospect evaluations
-- [ ] Integrate Brain into fit scoring: use offering intelligence to assess prospect fit
-- [ ] Integrate Brain into urgency assessment: use offering intelligence to identify urgency signals
+- [x] Design architecture: offering intelligence model that deeply understands ConnectGroup
+- [x] Create database table for offering_intelligence (stores deep research about ConnectGroup)
+- [x] Build Deep Research button in UI to trigger ConnectGroup analysis
+- [x] Create LLM-powered offering analyzer that researches ConnectGroup's:
+  - [x] Core capabilities and technical differentiators
+  - [x] Ideal customer profile (ICP) with specific characteristics
+  - [x] Past success stories and case studies
+  - [x] Competitive positioning vs other EMS providers
+  - [x] Key buying signals that indicate high fit
+  - [x] Industry-specific value propositions
+- [x] Store the intelligence as structured JSON for reuse across all prospect evaluations
+- [x] Integrate Brain into fit scoring: use offering intelligence to assess prospect fit
+- [x] Integrate Brain into urgency assessment: use offering intelligence to identify urgency signals
 - [ ] Add transparency: show how Brain influenced fit/urgency scores
 - [ ] Test end-to-end with real companies
 - [ ] Save checkpoint
+
+## Feature: ConnectGroup Brain (Deep Offering Intelligence)
+- [x] Design database schema: offering_brain table (20 columns, structured intelligence)
+- [x] Create migration SQL and apply via webdev_execute_sql
+- [x] Build backend procedure: researchOfferingBrain (uses Grok to deeply analyze a company website)
+- [x] Store structured intelligence: ICP, value propositions, competitive advantages, buying signals
+- [x] Build UI: "Research Brain" page in sidebar with research button and intelligence display
+- [x] Allow user to edit/refine Brain intelligence (HITL)
+- [x] Integrate Brain context into Deep Research prompts for better fit/urgency scoring
+- [x] Test Brain feature
+- [ ] Save checkpoint
+
+## Feature: Find All C-Suite
+- [x] Create backend procedure: findAllCSuite (batch search for CEO, CFO, CTO, COO, VP Sales)
+- [x] Add tRPC mutation: findAllCSuite (accepts companyId, returns array of contacts)
+- [x] Store found contacts in database (new contacts table or extend existing)
+- [x] Build UI: "Find All C-Suite" button on company cards
+- [x] Display contact list in expandable section per company
+- [x] Test C-Suite feature
+- [ ] Save checkpoint
+
+## Bug Fix: Contact Details Display
+- [x] Fix messy/broken contact details display when contacts are found
+- [x] Ensure clean, organized layout for contact information

@@ -7,17 +7,35 @@ import { useLocation, useParams } from "wouter";
 import CompanyDecisionButtons from "@/components/CompanyDecisionButtons";
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
 
+// Format revenue to human-readable string
+function formatRevenue(revenue: number | string | null): string {
+  if (!revenue) return "—";
+  const num = typeof revenue === "string" ? parseFloat(revenue) : revenue;
+  if (isNaN(num)) return String(revenue);
+  if (num >= 1_000_000_000) return `$${(num / 1_000_000_000).toFixed(1)}B`;
+  if (num >= 1_000_000) return `$${(num / 1_000_000).toFixed(0)}M`;
+  if (num >= 1_000) return `$${(num / 1_000).toFixed(0)}K`;
+  return `$${num}`;
+}
+
+// Format employee count
+function formatEmployees(count: number | string | null): string {
+  if (!count) return "—";
+  const num = typeof count === "string" ? parseInt(count, 10) : count;
+  if (isNaN(num)) return String(count);
+  if (num >= 1_000) return `${(num / 1_000).toFixed(1)}K`;
+  return String(num);
+}
+
 export default function SearchResults() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const params = useParams<{ searchId: string }>();
   const searchIdParam = params.searchId;
 
-  // If "select" is the param, show the search selector
   const isSelectMode = searchIdParam === "select" || !searchIdParam;
   const searchId = isSelectMode ? null : parseInt(searchIdParam, 10);
 
-  // Fetch search data
   const { data: searchData, isLoading: searchLoading } = trpc.companyFinder.getSearch.useQuery(
     { searchId: searchId! },
     {
@@ -29,15 +47,10 @@ export default function SearchResults() {
     }
   );
 
-  // Fetch search history for selector
   const { data: searchHistory } = trpc.companyFinder.getSearchHistory.useQuery();
-
-  // Fetch excluded codes
   const { data: excludedCodes } = trpc.companyFinder.getExcludedCodes.useQuery();
-
   const utils = trpc.useUtils();
 
-  // Sector-level exclusions
   const [excludedSectors, setExcludedSectors] = useState<string[]>([]);
   const [showCallTodayOnly, setShowCallTodayOnly] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
@@ -80,7 +93,6 @@ export default function SearchResults() {
     }
   };
 
-  // Build excluded code sets for filtering
   const excludedSicSet = useMemo(() => {
     if (!excludedCodes) return new Set<string>();
     return new Set(excludedCodes.filter((c) => c.codeType === "sic").map((c) => c.code));
@@ -270,7 +282,9 @@ export default function SearchResults() {
               <div className="mt-3 w-full bg-gray-200 h-4">
                 <div
                   className="bg-blue-600 h-4 transition-all duration-300"
-                  style={{ width: `${(((searchData.search.codesSearched ?? 0) / searchData.search.codesTotal) * 100)}%` }}
+                  style={{
+                    width: `${((searchData.search.codesSearched ?? 0) / (searchData.search.codesTotal || 1)) * 100}%`,
+                  }}
                 />
               </div>
             </div>
@@ -278,29 +292,23 @@ export default function SearchResults() {
         </div>
       )}
 
-      {/* Action Bar */}
-      {searchData.search.status === "completed" && searchData.companies.length > 0 && (
+      {(searchData.search.status === "completed" || searchData.search.status === "searching") && searchData.companies.length > 0 && (
         <>
-          <div className="flex flex-col md:flex-row items-start md:items-center justify-between mb-6 gap-4">
-            <div>
-              <h3 className="text-3xl md:text-4xl font-black">
-                [{filteredCompanies.length} MATCHES]
-              </h3>
-              <div className="flex items-center gap-4 mt-2 text-sm font-black flex-wrap">
-                {enrichmentStats && (
-                  <>
-                    <span className="border-2 border-black px-3 py-1">
-                      {enrichmentStats.enriched} ENRICHED
-                    </span>
-                    <span className="border-2 border-black px-3 py-1 bg-gray-100">
-                      {enrichmentStats.pending} PENDING
-                    </span>
-                  </>
-                )}
+          {/* Stats Bar */}
+          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
+            <div className="flex items-center gap-4">
+              <div className="text-3xl font-black">[{filteredCompanies.length} MATCHES]</div>
+              <div className="flex gap-3">
+                <span className="text-xs font-black border-2 border-black px-3 py-1">
+                  {enrichmentStats?.enriched || 0} ENRICHED
+                </span>
+                <span className="text-xs font-black border-2 border-black px-3 py-1">
+                  {enrichmentStats?.pending || 0} PENDING
+                </span>
                 {excludedCompanies.length > 0 && (
                   <button
                     onClick={() => setShowExcluded(!showExcluded)}
-                    className="border-2 border-red-600 text-red-600 px-3 py-1 cursor-pointer"
+                    className="text-xs font-black border-2 border-red-600 text-red-600 px-3 py-1 cursor-pointer"
                   >
                     {excludedCompanies.length} EXCLUDED {showExcluded ? "▲" : "▼"}
                   </button>
@@ -414,122 +422,133 @@ export default function SearchResults() {
   );
 }
 
-// Company card component
+// ============================================================================
+// Company Card — Compact Layout
+// ============================================================================
 function CompanyCard({ company, index, searchId }: { company: any; index: number; searchId: number }) {
   const hasSicCodes = !!(company.sicCodes && JSON.parse(company.sicCodes).length > 0);
   const hasNaicsCodes = !!(company.naicsCodes && JSON.parse(company.naicsCodes).length > 0);
 
+  const location = company.enrichmentStatus === "enriched" && (company.city || company.state || company.country)
+    ? [company.city, company.state, company.country].filter(Boolean).join(", ")
+    : company.searchLocation || "—";
+
   return (
-    <div id={`company-${company.id}`} className="border-4 border-black p-6 bg-white">
-      <div className="flex items-start justify-between mb-4">
-        <div className="flex-1">
-          <div className="flex items-center gap-3 mb-2">
-            <span className="text-sm font-black">[{String(index + 1).padStart(2, "0")}]</span>
-            {company.enrichmentStatus === "enriched" ? (
-              <span className="text-xs font-black border-2 border-black px-2 py-0.5 bg-black text-white">ENRICHED</span>
-            ) : company.enrichmentStatus === "failed" ? (
-              <span className="text-xs font-black border-2 border-red-600 text-red-600 px-2 py-0.5">ENRICH FAILED</span>
-            ) : (
-              <span className="text-xs font-black border-2 border-current px-2 py-0.5 opacity-50">PENDING</span>
-            )}
-            {company.briefData && (
-              <span className="text-xs font-black border-2 border-blue-600 text-blue-600 px-2 py-0.5">RESEARCHED</span>
-            )}
-            {company.salesApproachData && (
-              <span className="text-xs font-black border-2 border-green-600 text-green-600 px-2 py-0.5">SALES READY</span>
+    <div id={`company-${company.id}`} className="border-4 border-black bg-white">
+      {/* Header Row: Index + Badges + Name + Website */}
+      <div className="p-4 pb-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2 mb-1 flex-wrap">
+              <span className="text-xs font-black text-muted-foreground">[{String(index + 1).padStart(2, "0")}]</span>
+              {company.enrichmentStatus === "enriched" ? (
+                <span className="text-[10px] font-black border border-black px-1.5 py-0.5 bg-black text-white">ENRICHED</span>
+              ) : company.enrichmentStatus === "failed" ? (
+                <span className="text-[10px] font-black border border-red-600 text-red-600 px-1.5 py-0.5">FAILED</span>
+              ) : (
+                <span className="text-[10px] font-black border border-current px-1.5 py-0.5 opacity-40">PENDING</span>
+              )}
+              {company.briefData && (
+                <span className="text-[10px] font-black border border-blue-600 text-blue-600 px-1.5 py-0.5">RESEARCHED</span>
+              )}
+              {company.salesApproachData && (
+                <span className="text-[10px] font-black border border-green-600 text-green-600 px-1.5 py-0.5">SALES READY</span>
+              )}
+            </div>
+            <h4 className="text-xl md:text-2xl font-black leading-tight truncate">{company.name}</h4>
+            {company.websiteUrl && (
+              <a href={company.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-muted-foreground underline truncate block mt-0.5">
+                {company.websiteUrl.replace(/^https?:\/\//, "")}
+              </a>
             )}
           </div>
-          <h4 className="text-2xl md:text-3xl font-black mb-2">{company.name}</h4>
-          {company.websiteUrl && (
-            <a href={company.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-lg font-bold underline break-all">
-              {company.websiteUrl}
-            </a>
+        </div>
+      </div>
+
+      {/* Data Grid — Compact */}
+      <div className="px-4 pb-3">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-sm border-t border-gray-200 pt-3">
+          <div>
+            <div className="text-[10px] font-black text-muted-foreground">LOCATION</div>
+            <div className="font-bold text-sm truncate">{location}</div>
+          </div>
+          {company.revenue && (
+            <div>
+              <div className="text-[10px] font-black text-muted-foreground">REVENUE</div>
+              <div className="font-bold text-sm">{formatRevenue(company.revenue)}</div>
+            </div>
+          )}
+          {company.employeeCount && (
+            <div>
+              <div className="text-[10px] font-black text-muted-foreground">EMPLOYEES</div>
+              <div className="font-bold text-sm">{formatEmployees(company.employeeCount)}</div>
+            </div>
+          )}
+          {company.phone && (
+            <div>
+              <div className="text-[10px] font-black text-muted-foreground">PHONE</div>
+              <div className="font-bold text-sm">{company.phone}</div>
+            </div>
+          )}
+          {company.foundedYear && (
+            <div>
+              <div className="text-[10px] font-black text-muted-foreground">FOUNDED</div>
+              <div className="font-bold text-sm">{company.foundedYear}</div>
+            </div>
+          )}
+          {company.linkedinUrl && (
+            <div className="col-span-2">
+              <div className="text-[10px] font-black text-muted-foreground">LINKEDIN</div>
+              <a href={company.linkedinUrl} target="_blank" rel="noopener noreferrer" className="font-bold text-sm underline truncate block">
+                {company.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}
+              </a>
+            </div>
           )}
         </div>
-      </div>
 
-      <div className="grid md:grid-cols-3 gap-4 text-sm">
-        {company.enrichmentStatus === "enriched" && (company.city || company.state || company.country) && (
-          <div className="md:col-span-3 border-t-2 border-current pt-4 mt-2">
-            <div className="font-black mb-1">LOCATION</div>
-            <div className="font-bold">{[company.city, company.state, company.country].filter(Boolean).join(", ")}</div>
-            {company.streetAddress && <div className="font-bold text-xs mt-1">{company.streetAddress}</div>}
-          </div>
-        )}
-        {company.searchLocation && (
-          <div className={company.enrichmentStatus !== "enriched" ? "md:col-span-3" : ""}>
-            <div className="font-black mb-1">SEARCH LOCATION</div>
-            <div className="font-bold">{company.searchLocation}</div>
-          </div>
-        )}
-        {company.phone && (
-          <div>
-            <div className="font-black mb-1">PHONE</div>
-            <div className="font-bold">{company.phone}</div>
-          </div>
-        )}
-        {company.foundedYear && (
-          <div>
-            <div className="font-black mb-1">FOUNDED</div>
-            <div className="font-bold">{company.foundedYear}</div>
-          </div>
-        )}
-        {company.revenue && (
-          <div>
-            <div className="font-black mb-1">REVENUE</div>
-            <div className="font-bold">{company.revenue}</div>
-          </div>
-        )}
-        {company.headcountGrowth && (
-          <div>
-            <div className="font-black mb-1">GROWTH</div>
-            <div className="font-bold">{company.headcountGrowth}</div>
-          </div>
-        )}
-        {company.linkedinUrl && (
-          <div className="md:col-span-2">
-            <div className="font-black mb-1">LINKEDIN</div>
-            <a href={company.linkedinUrl} target="_blank" rel="noopener noreferrer" className="font-bold underline break-all">
-              {company.linkedinUrl}
-            </a>
-          </div>
-        )}
-        <CompanyCodeDisplay sicCodes={company.sicCodes} naicsCodes={company.naicsCodes} />
-      </div>
-
-      {/* Decision Buttons */}
-      <div className="mt-4 pt-4 border-t-2 border-current">
-        <CompanyDecisionButtons
-          companyId={company.id}
-          searchId={searchId}
-          companyName={company.name}
-          hasSicCodes={hasSicCodes}
-          hasNaicsCodes={hasNaicsCodes}
-        />
-      </div>
-
-      {/* Enrich Button */}
-      {company.enrichmentStatus === "pending" && (
-        <div className="mt-3">
-          <EnrichButton companyId={company.id} companyName={company.name} />
+        {/* SIC/NAICS Codes — Inline */}
+        <div className="mt-2">
+          <CompanyCodeDisplay sicCodes={company.sicCodes} naicsCodes={company.naicsCodes} />
         </div>
-      )}
+      </div>
 
-      {/* Deep Research + Sales Approach + Contact */}
-      {company.enrichmentStatus === "enriched" && (
-        <div className="mt-3 flex flex-col gap-2">
-          <DeepResearchButton companyId={company.id} companyName={company.name} />
-          {company.briefData && (
-            <CreateSalesApproachButton companyId={company.id} companyName={company.name} />
-          )}
-          <FindContactButton companyId={company.id} companyName={company.name} />
+      {/* Decision + Action Buttons — Compact Footer */}
+      <div className="px-4 py-3 bg-gray-50 border-t-2 border-black">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          {/* Left: Decision Buttons */}
+          <CompanyDecisionButtons
+            companyId={company.id}
+            searchId={searchId}
+            companyName={company.name}
+            hasSicCodes={hasSicCodes}
+            hasNaicsCodes={hasNaicsCodes}
+          />
+
+          {/* Right: Action Buttons — Compact Row */}
+          <div className="flex items-center gap-2 flex-wrap">
+            {company.enrichmentStatus === "pending" && (
+              <EnrichButton companyId={company.id} companyName={company.name} />
+            )}
+            {company.enrichmentStatus === "enriched" && (
+              <>
+                <DeepResearchButton companyId={company.id} companyName={company.name} hasResearch={!!company.briefData} />
+                {company.briefData && (
+                  <CreateSalesApproachButton companyId={company.id} companyName={company.name} hasSalesApproach={!!company.salesApproachData} />
+                )}
+                <FindContactButton companyId={company.id} companyName={company.name} />
+                <FindAllCSuiteButton companyId={company.id} companyName={company.name} />
+              </>
+            )}
+          </div>
         </div>
-      )}
+      </div>
     </div>
   );
 }
 
-// Enrich button
+// ============================================================================
+// Enrich Button — Compact
+// ============================================================================
 function EnrichButton({ companyId, companyName }: { companyId: number; companyName: string }) {
   const utils = trpc.useUtils();
   const enrichMutation = trpc.companyFinder.enrichSingle.useMutation({
@@ -546,15 +565,19 @@ function EnrichButton({ companyId, companyName }: { companyId: number; companyNa
     <Button
       onClick={(e) => { e.stopPropagation(); enrichMutation.mutate({ companyId }); }}
       disabled={enrichMutation.isPending}
-      className="w-full text-sm px-4 py-3 font-black border-2 border-black bg-gray-100 text-black cursor-pointer"
+      size="sm"
+      variant="outline"
+      className="text-xs font-black border-2 border-black h-8 px-3 cursor-pointer"
     >
-      {enrichMutation.isPending ? "[ENRICHING...]" : "[ENRICH]"}
+      {enrichMutation.isPending ? "..." : "ENRICH"}
     </Button>
   );
 }
 
-// Deep Research button with modal
-function DeepResearchButton({ companyId, companyName }: { companyId: number; companyName: string }) {
+// ============================================================================
+// Deep Research Button — Compact with Modal
+// ============================================================================
+function DeepResearchButton({ companyId, companyName, hasResearch }: { companyId: number; companyName: string; hasResearch: boolean }) {
   const [briefData, setBriefData] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showBrief, setShowBrief] = useState(false);
@@ -583,10 +606,13 @@ function DeepResearchButton({ companyId, companyName }: { companyId: number; com
       <Button
         onClick={(e) => { e.stopPropagation(); setIsGenerating(true); generateBriefMutation.mutate({ companyId }); }}
         disabled={isGenerating}
+        size="sm"
         variant="outline"
-        className="font-black border-2 border-blue-600 text-blue-600 bg-blue-50 w-full cursor-pointer"
+        className={`text-xs font-black border-2 h-8 px-3 cursor-pointer ${
+          hasResearch ? "border-blue-600 text-blue-600 bg-blue-50" : "border-blue-600 text-blue-600"
+        }`}
       >
-        {isGenerating ? "[RESEARCHING...]" : "[DEEP RESEARCH]"}
+        {isGenerating ? "..." : hasResearch ? "VIEW RESEARCH" : "RESEARCH"}
       </Button>
 
       {showBrief && briefData && (
@@ -594,7 +620,7 @@ function DeepResearchButton({ companyId, companyName }: { companyId: number; com
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-4">
               <h2 className="text-2xl font-black">{companyName} - Deep Research</h2>
-              <button onClick={() => setShowBrief(false)} className="text-2xl font-black">×</button>
+              <button onClick={() => setShowBrief(false)} className="text-2xl font-black hover:opacity-60">×</button>
             </div>
 
             {/* Urgency Score */}
@@ -753,8 +779,10 @@ function DeepResearchButton({ companyId, companyName }: { companyId: number; com
   );
 }
 
-// Sales Approach button with modal
-function CreateSalesApproachButton({ companyId, companyName }: { companyId: number; companyName: string }) {
+// ============================================================================
+// Sales Approach Button — Compact with Modal
+// ============================================================================
+function CreateSalesApproachButton({ companyId, companyName, hasSalesApproach }: { companyId: number; companyName: string; hasSalesApproach: boolean }) {
   const [salesApproach, setSalesApproach] = useState<any>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [showApproach, setShowApproach] = useState(false);
@@ -782,10 +810,13 @@ function CreateSalesApproachButton({ companyId, companyName }: { companyId: numb
       <Button
         onClick={(e) => { e.stopPropagation(); setIsGenerating(true); generateApproachMutation.mutate({ companyId }); }}
         disabled={isGenerating}
+        size="sm"
         variant="outline"
-        className="font-black border-2 border-green-600 text-green-600 bg-green-50 w-full cursor-pointer"
+        className={`text-xs font-black border-2 h-8 px-3 cursor-pointer ${
+          hasSalesApproach ? "border-green-600 text-green-600 bg-green-50" : "border-green-600 text-green-600"
+        }`}
       >
-        {isGenerating ? "[CREATING APPROACH...]" : "[CREATE SALES APPROACH]"}
+        {isGenerating ? "..." : hasSalesApproach ? "VIEW APPROACH" : "SALES APPROACH"}
       </Button>
 
       {showApproach && salesApproach && (
@@ -793,7 +824,7 @@ function CreateSalesApproachButton({ companyId, companyName }: { companyId: numb
           <div className="bg-white rounded-lg max-w-4xl w-full max-h-[90vh] overflow-y-auto p-6" onClick={(e) => e.stopPropagation()}>
             <div className="flex justify-between items-start mb-4">
               <h2 className="text-2xl font-black">{companyName} - Sales Approach</h2>
-              <button onClick={() => setShowApproach(false)} className="text-2xl font-black">×</button>
+              <button onClick={() => setShowApproach(false)} className="text-2xl font-black hover:opacity-60">×</button>
             </div>
 
             {/* Conversation Starters */}
@@ -869,7 +900,9 @@ function CreateSalesApproachButton({ companyId, companyName }: { companyId: numb
   );
 }
 
-// Find Contact button
+// ============================================================================
+// Find Contact Button — Compact with Inline Expand
+// ============================================================================
 function FindContactButton({ companyId, companyName }: { companyId: number; companyName: string }) {
   const [jobTitle, setJobTitle] = useState("");
   const [showInput, setShowInput] = useState(false);
@@ -900,21 +933,17 @@ function FindContactButton({ companyId, companyName }: { companyId: number; comp
     findContactMutation.mutate({ companyId, jobTitle: jobTitle.trim(), includePhone });
   };
 
-  const copyToClipboard = (text: string, label: string) => {
-    navigator.clipboard.writeText(text);
-    toast.success(`${label} copied to clipboard`);
-  };
-
   if (existingContact?.contact) {
     const c = existingContact.contact;
     return (
       <>
         <Button
           onClick={(e) => { e.stopPropagation(); setContactData(c); setShowContact(true); }}
+          size="sm"
           variant="outline"
-          className="font-black border-2 border-orange-600 text-orange-600 bg-orange-50 w-full cursor-pointer"
+          className="text-xs font-black border-2 border-orange-600 text-orange-600 bg-orange-50 h-8 px-3 cursor-pointer"
         >
-          [VIEW CONTACT: {c.fullName || `${c.firstName} ${c.lastName}`}]
+          {c.fullName || `${c.firstName} ${c.lastName}`}
         </Button>
         {showContact && contactData && (
           <ContactModal contact={contactData} companyName={companyName} onClose={() => setShowContact(false)} />
@@ -928,37 +957,35 @@ function FindContactButton({ companyId, companyName }: { companyId: number; comp
       {!showInput ? (
         <Button
           onClick={(e) => { e.stopPropagation(); setShowInput(true); }}
+          size="sm"
           variant="outline"
-          className="font-black border-2 border-orange-600 text-orange-600 bg-orange-50 w-full cursor-pointer"
+          className="text-xs font-black border-2 border-orange-600 text-orange-600 h-8 px-3 cursor-pointer"
         >
-          [FIND CONTACT]
+          FIND CONTACT
         </Button>
       ) : (
-        <div onClick={(e) => e.stopPropagation()}>
-          <div className="flex gap-2 items-center">
-            <input
-              type="text"
-              value={jobTitle}
-              onChange={(e) => setJobTitle(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-              placeholder="Job title (e.g. VP Operations)"
-              className="flex-1 px-3 py-2 border-2 border-orange-600 font-bold text-sm bg-white text-black"
-              autoFocus
-            />
-            <Button onClick={handleSearch} disabled={findContactMutation.isPending} className="font-black border-2 border-orange-600 bg-orange-600 text-white px-4 cursor-pointer">
-              {findContactMutation.isPending ? "..." : "GO"}
-            </Button>
-            <Button onClick={() => setShowInput(false)} variant="outline" className="font-black border-2 border-black px-3 cursor-pointer">×</Button>
-          </div>
-          <label className="flex items-center gap-2 mt-1 cursor-pointer">
+        <div onClick={(e) => e.stopPropagation()} className="flex items-center gap-2">
+          <input
+            type="text"
+            value={jobTitle}
+            onChange={(e) => setJobTitle(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+            placeholder="Job title (e.g. CEO)"
+            className="px-2 py-1 border-2 border-orange-600 font-bold text-xs bg-white text-black w-40"
+            autoFocus
+          />
+          <Button onClick={handleSearch} disabled={findContactMutation.isPending} size="sm" className="font-black border-2 border-orange-600 bg-orange-600 text-white h-8 px-3 cursor-pointer">
+            {findContactMutation.isPending ? "..." : "GO"}
+          </Button>
+          <Button onClick={() => setShowInput(false)} variant="outline" size="sm" className="font-black border-2 border-black h-8 px-2 cursor-pointer">×</Button>
+          <label className="flex items-center gap-1 cursor-pointer">
             <input
               type="checkbox"
               checked={includePhone}
               onChange={(e) => setIncludePhone(e.target.checked)}
-              className="accent-orange-600 w-4 h-4"
+              className="accent-orange-600 w-3 h-3"
             />
-            <span className="text-xs font-bold text-black">Include phone number</span>
-            <span className="text-xs font-bold text-red-600">⚠ +8 credits</span>
+            <span className="text-[10px] font-bold text-red-600">+8cr ☎</span>
           </label>
         </div>
       )}
@@ -969,7 +996,9 @@ function FindContactButton({ companyId, companyName }: { companyId: number; comp
   );
 }
 
-// Contact modal
+// ============================================================================
+// Contact Modal — Clean Overlay
+// ============================================================================
 function ContactModal({ contact, companyName, onClose }: { contact: any; companyName: string; onClose: () => void }) {
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
@@ -978,42 +1007,287 @@ function ContactModal({ contact, companyName, onClose }: { contact: any; company
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="bg-white max-w-lg w-full p-6 border-4 border-orange-600" onClick={(e) => e.stopPropagation()}>
-        <div className="flex justify-between items-start mb-4">
-          <h2 className="text-2xl font-black text-black">Contact at {companyName}</h2>
-          <button onClick={onClose} className="text-2xl font-black text-black">×</button>
+      <div className="bg-white max-w-md w-full rounded-lg shadow-2xl border-2 border-orange-600 overflow-hidden" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="bg-orange-600 text-white px-5 py-3 flex justify-between items-center">
+          <h2 className="text-lg font-black">Contact at {companyName}</h2>
+          <button onClick={onClose} className="text-white text-xl font-black hover:opacity-60">×</button>
         </div>
-        <div className="space-y-4">
+
+        {/* Body */}
+        <div className="p-5 space-y-4">
           <div>
-            <div className="text-xs font-black text-orange-600 mb-1">NAME</div>
-            <div className="text-xl font-black text-black">{contact.fullName || `${contact.firstName} ${contact.lastName}`}</div>
+            <div className="text-[10px] font-black text-orange-600 uppercase">Name</div>
+            <div className="text-xl font-black">{contact.fullName || `${contact.firstName} ${contact.lastName}`}</div>
           </div>
+
           {contact.title && (
-            <div><div className="text-xs font-black text-orange-600 mb-1">TITLE</div><div className="font-bold text-black">{contact.title}</div></div>
+            <div>
+              <div className="text-[10px] font-black text-orange-600 uppercase">Title</div>
+              <div className="font-bold">{contact.title}</div>
+            </div>
           )}
+
           {contact.email && (
-            <div className="flex items-center justify-between">
-              <div><div className="text-xs font-black text-orange-600 mb-1">EMAIL</div><div className="font-bold text-black">{contact.email}</div></div>
-              <Button onClick={() => copyToClipboard(contact.email, "Email")} variant="outline" size="sm" className="font-black border-2 border-black text-black cursor-pointer">COPY</Button>
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-black text-orange-600 uppercase">Email</div>
+                <div className="font-bold truncate">{contact.email}</div>
+              </div>
+              <Button onClick={() => copyToClipboard(contact.email, "Email")} variant="outline" size="sm" className="font-black border-2 border-black h-7 px-2 text-xs shrink-0 cursor-pointer">COPY</Button>
             </div>
           )}
+
           {contact.phone && (
-            <div className="flex items-center justify-between">
-              <div><div className="text-xs font-black text-orange-600 mb-1">PHONE</div><div className="font-bold text-black">{contact.phone}</div></div>
-              <Button onClick={() => copyToClipboard(contact.phone, "Phone")} variant="outline" size="sm" className="font-black border-2 border-black text-black cursor-pointer">COPY</Button>
+            <div className="flex items-center justify-between gap-2">
+              <div className="min-w-0 flex-1">
+                <div className="text-[10px] font-black text-orange-600 uppercase">Phone</div>
+                <div className="font-bold">{contact.phone}</div>
+              </div>
+              <Button onClick={() => copyToClipboard(contact.phone, "Phone")} variant="outline" size="sm" className="font-black border-2 border-black h-7 px-2 text-xs shrink-0 cursor-pointer">COPY</Button>
             </div>
           )}
+
           {contact.linkedinUrl && (
             <div>
-              <div className="text-xs font-black text-orange-600 mb-1">LINKEDIN</div>
-              <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer" className="font-bold underline text-black break-all">{contact.linkedinUrl}</a>
+              <div className="text-[10px] font-black text-orange-600 uppercase">LinkedIn</div>
+              <a href={contact.linkedinUrl} target="_blank" rel="noopener noreferrer" className="font-bold underline text-sm break-all">{contact.linkedinUrl}</a>
             </div>
           )}
+
           {contact.searchedTitle && (
-            <div><div className="text-xs font-black text-orange-600 mb-1">SEARCHED FOR</div><div className="font-bold text-black opacity-60">{contact.searchedTitle}</div></div>
+            <div>
+              <div className="text-[10px] font-black text-orange-600 uppercase">Searched For</div>
+              <div className="font-bold opacity-60">{contact.searchedTitle}</div>
+            </div>
           )}
         </div>
-        <Button onClick={onClose} className="w-full mt-6 font-black bg-black text-white cursor-pointer">CLOSE</Button>
+
+        {/* Footer */}
+        <div className="px-5 pb-5">
+          <Button onClick={onClose} className="w-full font-black bg-black text-white cursor-pointer">CLOSE</Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+// ============================================================================
+// Find All C-Suite Button — Bulk Contact Search
+// ============================================================================
+function FindAllCSuiteButton({ companyId, companyName }: { companyId: number; companyName: string }) {
+  const [showModal, setShowModal] = useState(false);
+  const [results, setResults] = useState<any>(null);
+
+  const { data: existingContacts } = trpc.companyFinder.getCompanyContacts.useQuery({ companyId });
+
+  const findCSuiteMutation = trpc.companyFinder.findAllCSuite.useMutation({
+    onSuccess: (data) => {
+      setResults(data);
+      setShowModal(true);
+      toast.success(`Found ${data.totalFound}/${data.totalSearched} C-Suite contacts at ${companyName}`);
+    },
+    onError: (error) => {
+      toast.error(`C-Suite search failed: ${error.message}`);
+    },
+  });
+
+  const handleSearch = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    findCSuiteMutation.mutate({ companyId });
+  };
+
+  const contactCount = existingContacts?.contacts?.length || 0;
+
+  return (
+    <>
+      <Button
+        onClick={(e) => {
+          e.stopPropagation();
+          if (contactCount > 1) {
+            // Show existing contacts
+            setResults({ allContacts: existingContacts?.contacts, totalFound: contactCount, totalSearched: 0, results: [] });
+            setShowModal(true);
+          } else {
+            handleSearch(e);
+          }
+        }}
+        disabled={findCSuiteMutation.isPending}
+        size="sm"
+        variant="outline"
+        className={`text-xs font-black border-2 h-8 px-3 cursor-pointer ${
+          contactCount > 1
+            ? "border-purple-600 text-purple-600 bg-purple-50"
+            : "border-purple-600 text-purple-600"
+        }`}
+      >
+        {findCSuiteMutation.isPending
+          ? "SEARCHING..."
+          : contactCount > 1
+            ? `${contactCount} CONTACTS`
+            : "C-SUITE"}
+      </Button>
+      {showModal && (
+        <CSuiteContactsModal
+          companyName={companyName}
+          companyId={companyId}
+          results={results}
+          isPending={findCSuiteMutation.isPending}
+          onRefresh={() => findCSuiteMutation.mutate({ companyId })}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// ============================================================================
+// C-Suite Contacts Modal — Shows All Found Contacts
+// ============================================================================
+function CSuiteContactsModal({
+  companyName,
+  companyId,
+  results,
+  isPending,
+  onRefresh,
+  onClose,
+}: {
+  companyName: string;
+  companyId: number;
+  results: any;
+  isPending: boolean;
+  onRefresh: () => void;
+  onClose: () => void;
+}) {
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
+  };
+
+  const contacts = results?.allContacts || [];
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white max-w-2xl w-full rounded-lg shadow-2xl border-2 border-purple-600 overflow-hidden max-h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="bg-purple-600 text-white px-5 py-3 flex justify-between items-center shrink-0">
+          <div>
+            <h2 className="text-lg font-black">C-Suite at {companyName}</h2>
+            <div className="text-xs opacity-80">
+              {results?.totalFound || contacts.length} contacts found
+              {results?.totalSearched ? ` / ${results.totalSearched} titles searched` : ""}
+            </div>
+          </div>
+          <button onClick={onClose} className="text-white text-xl font-black hover:opacity-60">×</button>
+        </div>
+
+        {/* Contact List */}
+        <div className="overflow-y-auto flex-1 p-4 space-y-3">
+          {contacts.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground font-bold">
+              No contacts found yet. Click "Refresh" to search.
+            </div>
+          ) : (
+            contacts.map((contact: any, idx: number) => (
+              <div key={contact.id || idx} className="border-2 border-gray-200 p-3 hover:border-purple-300 transition-colors">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-black text-base">
+                      {contact.fullName || `${contact.firstName} ${contact.lastName}`}
+                    </div>
+                    {contact.title && (
+                      <div className="text-sm font-bold text-muted-foreground">{contact.title}</div>
+                    )}
+                  </div>
+                  {contact.searchedTitle && (
+                    <span className="text-[10px] font-black border border-purple-300 text-purple-600 px-2 py-0.5 shrink-0">
+                      {contact.searchedTitle}
+                    </span>
+                  )}
+                </div>
+
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {contact.email && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold truncate flex-1">{contact.email}</span>
+                      <Button
+                        onClick={() => copyToClipboard(contact.email, "Email")}
+                        variant="outline"
+                        size="sm"
+                        className="font-black border border-black h-6 px-2 text-[10px] shrink-0 cursor-pointer"
+                      >
+                        COPY
+                      </Button>
+                    </div>
+                  )}
+                  {contact.phone && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold">{contact.phone}</span>
+                      <Button
+                        onClick={() => copyToClipboard(contact.phone, "Phone")}
+                        variant="outline"
+                        size="sm"
+                        className="font-black border border-black h-6 px-2 text-[10px] shrink-0 cursor-pointer"
+                      >
+                        COPY
+                      </Button>
+                    </div>
+                  )}
+                  {contact.linkedinUrl && (
+                    <a
+                      href={contact.linkedinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-bold underline text-blue-600 truncate"
+                    >
+                      LinkedIn Profile
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+
+          {/* Search Results Summary */}
+          {results?.results?.length > 0 && (
+            <div className="border-t-2 border-gray-200 pt-3 mt-3">
+              <div className="text-xs font-black text-muted-foreground mb-2">SEARCH RESULTS BY TITLE</div>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                {results.results.map((r: any, idx: number) => (
+                  <div
+                    key={idx}
+                    className={`text-[10px] font-black px-2 py-1 border ${
+                      r.found
+                        ? "border-green-300 bg-green-50 text-green-700"
+                        : "border-gray-200 bg-gray-50 text-gray-400"
+                    }`}
+                  >
+                    {r.found ? "✓" : "✕"} {r.title}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t-2 border-gray-200 flex gap-3 shrink-0">
+          <Button
+            onClick={onRefresh}
+            disabled={isPending}
+            variant="outline"
+            className="font-black border-2 border-purple-600 text-purple-600 cursor-pointer flex-1"
+          >
+            {isPending ? "SEARCHING..." : "REFRESH C-SUITE"}
+          </Button>
+          <Button onClick={onClose} className="font-black bg-black text-white cursor-pointer flex-1">
+            CLOSE
+          </Button>
+        </div>
       </div>
     </div>
   );

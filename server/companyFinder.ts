@@ -24,7 +24,16 @@ import {
   getContactByCompanyId,
   getCallTodayCompanies,
 } from "./db";
-import { searchApolloContacts } from "./apolloPeopleSearch";
+// Brain and contacts-by-company imports are above with brainResearchService
+import { searchApolloContacts, searchApolloContacts as searchApolloContactsSingle } from "./apolloPeopleSearch";
+import { researchOfferingBrain } from "./brainResearchService";
+import {
+  createOfferingBrain,
+  getActiveBrain,
+  updateOfferingBrain,
+  getBrainHistory,
+  getContactsByCompanyId,
+} from "./db";
 import { extractOffering } from "./offeringExtractor";
 import { searchApolloCompanies, enrichCompanyDetails } from "./apolloSearch";
 import { normalizeWebsiteUrl } from "../shared/urlUtils";
@@ -362,7 +371,7 @@ export const companyFinderRouter = router({
             if (!company.briefData) {
               console.log(`[submitDecision] Auto-triggering Deep Research for company ${input.companyId}`);
               const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
-              const brief = await generateSalesIntelligenceBrief(input.companyId);
+              const brief = await generateSalesIntelligenceBrief(input.companyId, ctx.user.id);
               await updateCompany(input.companyId, {
                 urgencyScore: brief.urgencyScore,
                 briefData: JSON.stringify(brief),
@@ -377,7 +386,7 @@ export const companyFinderRouter = router({
             if (!company.salesApproachData) {
               console.log(`[submitDecision] Auto-triggering Sales Approach for company ${input.companyId}`);
               const { generateSalesApproach } = await import("./salesApproachGenerator");
-              const salesApproach = await generateSalesApproach(input.companyId);
+              const salesApproach = await generateSalesApproach(input.companyId, ctx.user.id);
               await updateCompany(input.companyId, {
                 salesApproachData: JSON.stringify(salesApproach),
                 salesApproachGeneratedAt: new Date(),
@@ -508,8 +517,8 @@ export const companyFinderRouter = router({
       const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
 
       try {
-        // Generate the brief (this calls Python script with Grok)
-        const brief = await generateSalesIntelligenceBrief(input.companyId);
+        // Generate the brief with Brain context if available
+        const brief = await generateSalesIntelligenceBrief(input.companyId, ctx.user.id);
 
         // Update company with brief data
         await updateCompany(input.companyId, {
@@ -572,8 +581,8 @@ export const companyFinderRouter = router({
       const { generateSalesApproach } = await import("./salesApproachGenerator");
 
       try {
-        // Generate personalized sales approach
-        const salesApproach = await generateSalesApproach(input.companyId);
+        // Generate personalized sales approach with Brain context
+        const salesApproach = await generateSalesApproach(input.companyId, ctx.user.id);
 
         // Update company with sales approach data
         await updateCompany(input.companyId, {
@@ -983,6 +992,239 @@ export const companyFinderRouter = router({
         searchId,
         companiesImported: companies.length,
         campaignName: input.campaignName,
+      };
+    }),
+
+  // ============================================================================
+  // Brain: Deep Offering Intelligence
+  // ============================================================================
+
+  // Get the active brain for the current user
+  getActiveBrain: protectedProcedure
+    .query(async ({ ctx }) => {
+      const brain = await getActiveBrain(ctx.user.id);
+      return { brain };
+    }),
+
+  // Get brain history for the current user
+  getBrainHistory: protectedProcedure
+    .query(async ({ ctx }) => {
+      const history = await getBrainHistory(ctx.user.id);
+      return { history };
+    }),
+
+  // Research a company offering to create/update the Brain
+  researchBrain: protectedProcedure
+    .input(z.object({
+      companyWebsite: z.string().min(1),
+      companyName: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const normalizedUrl = normalizeWebsiteUrl(input.companyWebsite);
+      const displayName = input.companyName || normalizedUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+
+      console.log(`[Brain] Starting research for ${displayName} (${normalizedUrl})`);
+
+      // Create a brain record with "researching" status
+      const brainId = await createOfferingBrain({
+        userId: ctx.user.id,
+        companyName: displayName,
+        companyWebsite: normalizedUrl,
+        status: "researching",
+      });
+
+      try {
+        // Run the deep research
+        const result = await researchOfferingBrain(normalizedUrl, displayName);
+
+        // Store structured intelligence
+        await updateOfferingBrain(brainId, {
+          companyName: result.companyName,
+          offeringSummary: result.offeringSummary,
+          coreCapabilities: JSON.stringify(result.coreCapabilities),
+          valuePropositions: JSON.stringify(result.valuePropositions),
+          competitiveAdvantages: result.competitiveAdvantages,
+          icpIndustries: JSON.stringify(result.icpIndustries),
+          icpCompanySize: result.icpCompanySize,
+          icpGeography: result.icpGeography,
+          icpPainPoints: JSON.stringify(result.icpPainPoints),
+          icpBuyingSignals: JSON.stringify(result.icpBuyingSignals),
+          fitCriteria: JSON.stringify(result.fitCriteria),
+          urgencyTriggers: JSON.stringify(result.urgencyTriggers),
+          rawResearchData: JSON.stringify(result),
+          status: "completed",
+        });
+
+        console.log(`[Brain] ✓ Research completed for ${displayName}`);
+
+        // Fetch the updated brain
+        const brain = await getActiveBrain(ctx.user.id);
+        return { brain, isNew: true };
+      } catch (error: any) {
+        console.error(`[Brain] Research failed:`, error);
+        await updateOfferingBrain(brainId, {
+          status: "failed",
+          rawResearchData: JSON.stringify({ error: error.message }),
+        });
+        throw new Error(`Brain research failed: ${error.message}`);
+      }
+    }),
+
+  // Update brain fields (HITL editing)
+  updateBrain: protectedProcedure
+    .input(z.object({
+      brainId: z.number(),
+      updates: z.object({
+        offeringSummary: z.string().optional(),
+        coreCapabilities: z.string().optional(), // JSON string
+        valuePropositions: z.string().optional(), // JSON string
+        competitiveAdvantages: z.string().optional(),
+        icpIndustries: z.string().optional(), // JSON string
+        icpCompanySize: z.string().optional(),
+        icpGeography: z.string().optional(),
+        icpPainPoints: z.string().optional(), // JSON string
+        icpBuyingSignals: z.string().optional(), // JSON string
+        fitCriteria: z.string().optional(), // JSON string
+        urgencyTriggers: z.string().optional(), // JSON string
+      }),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify the brain belongs to this user
+      const brain = await getActiveBrain(ctx.user.id);
+      if (!brain || brain.id !== input.brainId) {
+        throw new Error("Brain not found or access denied");
+      }
+
+      await updateOfferingBrain(input.brainId, input.updates);
+      const updated = await getActiveBrain(ctx.user.id);
+      return { brain: updated };
+    }),
+
+  // ============================================================================
+  // Find All C-Suite: Bulk Contact Search
+  // ============================================================================
+
+  // Get all contacts for a company
+  getCompanyContacts: protectedProcedure
+    .input(z.object({
+      companyId: z.number(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const contacts = await getContactsByCompanyId(input.companyId);
+      return { contacts };
+    }),
+
+  // Find all C-Suite contacts at a company
+  findAllCSuite: protectedProcedure
+    .input(z.object({
+      companyId: z.number(),
+      titles: z.array(z.string()).optional(), // Custom titles, defaults to C-Suite
+      includePhone: z.boolean().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const company = await getCompanyById(input.companyId);
+      if (!company) throw new Error("Company not found");
+
+      const domain = company.websiteUrl
+        ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
+        : null;
+      if (!domain) throw new Error("Company has no website URL for contact search");
+
+      const titles = input.titles || [
+        "CEO",
+        "CFO",
+        "CTO",
+        "COO",
+        "VP Operations",
+        "VP Supply Chain",
+        "VP Engineering",
+        "Director Procurement",
+      ];
+
+      console.log(`[C-Suite] Searching ${titles.length} titles at ${company.name} (${domain})`);
+
+      // Check existing contacts to avoid duplicates
+      const existingContacts = await getContactsByCompanyId(input.companyId);
+      const existingEmails = new Set(existingContacts.map(c => c.email?.toLowerCase()).filter(Boolean));
+      const existingNames = new Set(existingContacts.map(c => (c.fullName || `${c.firstName} ${c.lastName}`).toLowerCase()));
+
+      const results: Array<{ title: string; found: boolean; contact?: any; error?: string }> = [];
+      const foundContacts: any[] = [...existingContacts];
+
+      for (const title of titles) {
+        try {
+          // Check if we already have someone with this searched title
+          const alreadySearched = existingContacts.some(
+            c => c.searchedTitle?.toLowerCase() === title.toLowerCase()
+          );
+          if (alreadySearched) {
+            const existing = existingContacts.find(
+              c => c.searchedTitle?.toLowerCase() === title.toLowerCase()
+            );
+            results.push({ title, found: true, contact: existing });
+            continue;
+          }
+
+          const contact = await searchApolloContactsSingle({
+            companyDomain: domain,
+            companyName: company.name,
+            jobTitle: title,
+            limit: 1,
+            includePhone: input.includePhone || false,
+          });
+
+          if (!contact) {
+            results.push({ title, found: false });
+            continue;
+          }
+
+          // Check for duplicates by email or name
+          const contactEmail = contact.email?.toLowerCase();
+          const contactName = contact.name?.toLowerCase();
+
+          if ((contactEmail && existingEmails.has(contactEmail)) ||
+              (contactName && existingNames.has(contactName))) {
+            results.push({ title, found: true, contact: { ...contact, duplicate: true } });
+            continue;
+          }
+
+          // Save to database
+          const savedContact = await createContact({
+            companyId: input.companyId,
+            apolloPersonId: contact.id,
+            firstName: contact.firstName,
+            lastName: contact.lastName,
+            fullName: contact.name,
+            title: contact.title,
+            email: contact.email || null,
+            phone: contact.phone || null,
+            linkedinUrl: contact.linkedinUrl || null,
+            searchedTitle: title,
+          });
+
+          if (contactEmail) existingEmails.add(contactEmail);
+          if (contactName) existingNames.add(contactName);
+          foundContacts.push(savedContact);
+          results.push({ title, found: true, contact: savedContact });
+
+          console.log(`[C-Suite] ✓ Found ${contact.name} for "${title}"`);
+        } catch (error: any) {
+          console.error(`[C-Suite] Error searching "${title}":`, error.message);
+          results.push({ title, found: false, error: error.message });
+        }
+
+        // Small delay between API calls to avoid rate limiting
+        await new Promise(resolve => setTimeout(resolve, 500));
+      }
+
+      const totalFound = results.filter(r => r.found).length;
+      console.log(`[C-Suite] Completed: ${totalFound}/${titles.length} titles found at ${company.name}`);
+
+      return {
+        results,
+        totalFound,
+        totalSearched: titles.length,
+        allContacts: foundContacts,
       };
     }),
 });

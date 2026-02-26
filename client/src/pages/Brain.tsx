@@ -211,7 +211,7 @@ export default function Brain() {
                 variant="outline"
                 className="flex-1 font-black border-4 border-black text-lg py-6 hover:bg-black hover:text-white"
               >
-                ✏️ EDIT ACTIVE BRAIN
+                ✏️ VIEW / EDIT BRAIN
               </Button>
             )}
             <Button

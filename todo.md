@@ -945,4 +945,8 @@
 ## UX Enhancement: Campaign Request Instructions
 - [x] Add instruction line to Import Campaign page
 - [x] Display email (l.vanbolderick@connectgroup.com) for campaign requests
+- [x] Save checkpoint
+
+## UX Enhancement: Button Label Update
+- [x] Change "EDIT ACTIVE BRAIN" button label to "VIEW / EDIT BRAIN"
 - [ ] Save checkpoint

@@ -856,4 +856,11 @@
 - [x] Remove "Focused Offering" link from DashboardLayout sidebar navigation
 - [x] Remove "Search Scenario" link from DashboardLayout sidebar navigation
 - [x] Keep the pages intact (only remove navigation links)
+- [x] Save checkpoint
+
+
+## UX Fix: Import Campaign Success Behavior
+- [x] Update ImportCampaign page to stay on same page after CSV import
+- [x] Remove automatic redirect to search results page
+- [x] Show success message with campaign details
 - [ ] Save checkpoint

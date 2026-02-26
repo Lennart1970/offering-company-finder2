@@ -14,8 +14,11 @@ export default function ImportCampaign() {
 
   const importMutation = trpc.companyFinder.importCampaignFromCSV.useMutation({
     onSuccess: (data) => {
-      toast.success(`Campaign "${data.campaignName}" created with ${data.companiesImported} companies!`);
-      setLocation(`/?searchId=${data.searchId}`);
+      toast.success(`Campaign "${data.campaignName}" created with ${data.companiesImported} companies! Go to Search Results to view.`);
+      // Reset form
+      setCampaignName("");
+      setCsvFile(null);
+      setIsUploading(false);
     },
     onError: (error) => {
       toast.error(`Import failed: ${error.message}`);

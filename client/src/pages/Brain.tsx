@@ -141,58 +141,6 @@ export default function Brain() {
         </p>
       </div>
 
-      {/* Research Trigger */}
-      <div className="border-4 border-black p-6 mb-8">
-        <div className="text-lg font-black mb-4">RESEARCH YOUR OFFERING</div>
-        <div className="grid md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="text-xs font-black block mb-1">COMPANY NAME</label>
-            <input
-              type="text"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="ConnectGroup"
-              className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-black block mb-1">WEBSITE URL</label>
-            <input
-              type="text"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              placeholder="https://www.connectgroup.com"
-              className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
-            />
-          </div>
-        </div>
-        <div className="mb-4">
-          <label className="text-xs font-black block mb-1">BRAIN NAME</label>
-          <input
-            type="text"
-            value={brainName}
-            onChange={(e) => setBrainName(e.target.value)}
-            placeholder="ConnectGroup EMS Brain"
-            className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
-          />
-          <div className="text-xs font-bold text-muted-foreground mt-1">
-            Give this brain a memorable name (e.g., "ConnectGroup EMS Brain", "Acme Manufacturing Brain")
-          </div>
-        </div>
-        <Button
-          onClick={handleStartResearch}
-          disabled={researchMutation.isPending}
-          className="text-lg px-8 py-6 font-black border-4 border-black bg-black text-white w-full"
-        >
-          {researchMutation.isPending ? "[RESEARCHING... THIS TAKES ~30 SECONDS]" : "[RESEARCH & SAVE BRAIN →]"}
-        </Button>
-        {researchMutation.isPending && (
-          <div className="mt-4 text-sm font-bold text-muted-foreground animate-pulse">
-            Grok is analyzing the website, searching for capabilities, ICP, competitive positioning...
-          </div>
-        )}
-      </div>
-
       {/* My Saved Brains */}
       {brainHistory.length > 0 && (
         <div className="border-4 border-black p-6 mb-8">
@@ -258,6 +206,58 @@ export default function Brain() {
         </div>
       )}
 
+      {/* Research Trigger */}
+      <div className="border-4 border-black p-6 mb-8">
+        <div className="text-lg font-black mb-4">CREATE NEW BRAIN</div>
+        <div className="grid md:grid-cols-2 gap-4 mb-4">
+          <div>
+            <label className="text-xs font-black block mb-1">COMPANY NAME</label>
+            <input
+              type="text"
+              value={companyName}
+              onChange={(e) => setCompanyName(e.target.value)}
+              placeholder="ConnectGroup"
+              className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
+            />
+          </div>
+          <div>
+            <label className="text-xs font-black block mb-1">WEBSITE URL</label>
+            <input
+              type="text"
+              value={website}
+              onChange={(e) => setWebsite(e.target.value)}
+              placeholder="https://www.connectgroup.com"
+              className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
+            />
+          </div>
+        </div>
+        <div className="mb-4">
+          <label className="text-xs font-black block mb-1">BRAIN NAME</label>
+          <input
+            type="text"
+            value={brainName}
+            onChange={(e) => setBrainName(e.target.value)}
+            placeholder="ConnectGroup EMS Brain"
+            className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
+          />
+          <div className="text-xs font-bold text-muted-foreground mt-1">
+            Give this brain a memorable name (e.g., "ConnectGroup EMS Brain", "Acme Manufacturing Brain")
+          </div>
+        </div>
+        <Button
+          onClick={handleStartResearch}
+          disabled={researchMutation.isPending}
+          className="text-lg px-8 py-6 font-black border-4 border-black bg-black text-white w-full"
+        >
+          {researchMutation.isPending ? "[RESEARCHING... THIS TAKES ~30 SECONDS]" : "[RESEARCH & SAVE BRAIN →]"}
+        </Button>
+        {researchMutation.isPending && (
+          <div className="mt-4 text-sm font-bold text-muted-foreground animate-pulse">
+            Grok is analyzing the website, searching for capabilities, ICP, competitive positioning...
+          </div>
+        )}
+      </div>
+
       {/* Loading State */}
       {isLoading && (
         <div className="border-4 border-black p-12 animate-pulse text-center">
@@ -271,8 +271,8 @@ export default function Brain() {
           <div className="text-3xl font-black mb-4">NO ACTIVE BRAIN</div>
           <div className="text-lg font-bold text-muted-foreground">
             {brainHistory.length > 0
-              ? "Select a brain from the list above to activate it, or create a new one."
-              : "Enter your company details above and click \"Research & Save Brain\" to build your intelligence layer."}
+              ? "Select a brain from the list above to activate it, or create a new one below."
+              : "Enter your company details below and click \"Research & Save Brain\" to build your intelligence layer."}
           </div>
         </div>
       )}

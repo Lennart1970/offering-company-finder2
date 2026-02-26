@@ -890,4 +890,11 @@
 ## UX Fix: Remove Active Brain Card from Import Campaign
 - [x] Remove Active Brain info card from ImportCampaign page
 - [x] Brain context is only used during enrichment, not during CSV upload
+- [x] Save checkpoint
+
+
+## UX Enhancement: Reorder Brain Page Layout
+- [x] Move "My Saved Brains" section to the top of the page
+- [x] Move research form below the saved brains list
+- [x] Prioritize brain management over brain creation
 - [ ] Save checkpoint

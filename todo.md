@@ -871,4 +871,11 @@
 - [x] Implement trickle-down logic: C-Suite → VP → Director → Manager → any contact
 - [x] Update UI to show seniority level found and trickle-down status
 - [x] Write vitest tests for trickle-down logic
+- [x] Save checkpoint
+
+
+## UI Cleanup: Remove Deprecated FIND CONTACT Button
+- [x] Remove FIND CONTACT button from SearchResults company cards
+- [x] Remove FindContactButton component and related code
+- [x] Keep FIND CONTACTS (trickle-down) as the primary contact search feature
 - [ ] Save checkpoint

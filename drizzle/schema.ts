@@ -188,6 +188,7 @@ export type InsertContact = typeof contacts.$inferInsert;
 export const offeringBrain = mysqlTable("offering_brain", {
   id: int("id").autoincrement().primaryKey(),
   userId: int("userId").notNull().references(() => users.id),
+  brainName: varchar("brainName", { length: 255 }).notNull(),
   companyName: varchar("companyName", { length: 256 }).notNull(),
   companyWebsite: varchar("companyWebsite", { length: 512 }).notNull(),
   // Core offering intelligence

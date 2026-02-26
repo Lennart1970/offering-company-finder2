@@ -833,3 +833,21 @@
 ## Bug Fix: Contact Details Display
 - [x] Fix messy/broken contact details display when contacts are found
 - [x] Ensure clean, organized layout for contact information
+
+
+## Feature: Single Active Brain Strategy
+- [x] Update database schema: add brainName and isActive columns to offering_brain table
+- [x] Create and execute migration SQL
+- [x] Add database helper functions (getActiveOfferingBrain, deactivateAllBrains, setOfferingBrainActive)
+- [x] Build brain.save procedure with brainName input
+- [x] Build brain.setActive procedure
+- [x] Build brain.getActive procedure
+- [x] Build brain.list procedure
+- [x] Build brain.delete procedure with active brain validation
+- [x] Update Brain UI page: add save functionality and brain name input
+- [x] Update Brain UI page: add "My Saved Brains" list with active brain selection
+- [x] Update Import Campaign page: show active brain name
+- [x] Update enrichment logic to use getActiveOfferingBrain
+- [x] Add validation: prevent deletion of active brain
+- [x] Write vitest tests for brain management
+- [ ] Save checkpoint

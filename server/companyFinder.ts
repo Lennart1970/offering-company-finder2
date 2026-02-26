@@ -33,6 +33,9 @@ import {
   updateOfferingBrain,
   getBrainHistory,
   getContactsByCompanyId,
+  setOfferingBrainActive,
+  deleteOfferingBrain,
+  getOfferingBrainById,
 } from "./db";
 import { extractOffering } from "./offeringExtractor";
 import { searchApolloCompanies, enrichCompanyDetails } from "./apolloSearch";
@@ -1018,6 +1021,7 @@ export const companyFinderRouter = router({
     .input(z.object({
       companyWebsite: z.string().min(1),
       companyName: z.string().optional(),
+      brainName: z.string().min(1), // Required: user-provided brain name
     }))
     .mutation(async ({ ctx, input }) => {
       const normalizedUrl = normalizeWebsiteUrl(input.companyWebsite);
@@ -1028,6 +1032,7 @@ export const companyFinderRouter = router({
       // Create a brain record with "researching" status
       const brainId = await createOfferingBrain({
         userId: ctx.user.id,
+        brainName: input.brainName,
         companyName: displayName,
         companyWebsite: normalizedUrl,
         status: "researching",
@@ -1075,6 +1080,7 @@ export const companyFinderRouter = router({
     .input(z.object({
       brainId: z.number(),
       updates: z.object({
+        brainName: z.string().optional(),
         offeringSummary: z.string().optional(),
         coreCapabilities: z.string().optional(), // JSON string
         valuePropositions: z.string().optional(), // JSON string
@@ -1098,6 +1104,40 @@ export const companyFinderRouter = router({
       await updateOfferingBrain(input.brainId, input.updates);
       const updated = await getActiveBrain(ctx.user.id);
       return { brain: updated };
+    }),
+
+  // Set a brain as active
+  setActiveBrain: protectedProcedure
+    .input(z.object({
+      brainId: z.number(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await setOfferingBrainActive(input.brainId, ctx.user.id);
+      const brain = await getActiveBrain(ctx.user.id);
+      return { brain };
+    }),
+
+  // Delete a brain
+  deleteBrain: protectedProcedure
+    .input(z.object({
+      brainId: z.number(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await deleteOfferingBrain(input.brainId, ctx.user.id);
+      return { success: true };
+    }),
+
+  // Get a specific brain by ID
+  getBrainById: protectedProcedure
+    .input(z.object({
+      brainId: z.number(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const brain = await getOfferingBrainById(input.brainId, ctx.user.id);
+      if (!brain) {
+        throw new Error("Brain not found or access denied");
+      }
+      return { brain };
     }),
 
   // ============================================================================

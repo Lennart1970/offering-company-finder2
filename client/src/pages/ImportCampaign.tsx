@@ -10,6 +10,8 @@ export default function ImportCampaign() {
   const [isUploading, setIsUploading] = useState(false);
   const [, setLocation] = useLocation();
 
+  const { data: brainData } = trpc.companyFinder.getActiveBrain.useQuery();
+
   const importMutation = trpc.companyFinder.importCampaignFromCSV.useMutation({
     onSuccess: (data) => {
       toast.success(`Campaign "${data.campaignName}" created with ${data.companiesImported} companies!`);
@@ -71,6 +73,36 @@ export default function ImportCampaign() {
       </div>
 
       <div className="bg-white border-4 border-black p-8 space-y-6">
+        {/* Active Brain Display */}
+        <div className="bg-blue-50 border-2 border-blue-600 p-4 rounded">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex-1">
+              <div className="text-xs font-black text-blue-600 mb-1">🧠 ACTIVE BRAIN</div>
+              {brainData?.brain ? (
+                <>
+                  <div className="font-black text-lg">{brainData.brain.brainName}</div>
+                  <div className="text-sm opacity-70 mt-1">
+                    {brainData.brain.companyName} • {brainData.brain.companyWebsite}
+                  </div>
+                  <div className="text-xs opacity-60 mt-2">
+                    All companies in this campaign will be enriched using this brain's context.
+                  </div>
+                </>
+              ) : (
+                <div className="text-sm font-bold text-red-600">
+                  ⚠️ No active brain found. Please create and activate a brain first.
+                </div>
+              )}
+            </div>
+            <a
+              href="/brain"
+              className="text-xs font-black underline text-blue-600 hover:text-blue-800"
+            >
+              CHANGE BRAIN →
+            </a>
+          </div>
+        </div>
+
         <div>
           <label className="block text-sm font-black mb-2">CAMPAIGN NAME</label>
           <input

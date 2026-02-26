@@ -393,6 +393,72 @@ export async function getBrainHistory(userId: number): Promise<OfferingBrain[]> 
     .orderBy(desc(offeringBrain.createdAt));
 }
 
+export async function setOfferingBrainActive(brainId: number, userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  // Verify brain belongs to user
+  const [brain] = await db.select().from(offeringBrain)
+    .where(and(
+      eq(offeringBrain.id, brainId),
+      eq(offeringBrain.userId, userId)
+    ))
+    .limit(1);
+  
+  if (!brain) {
+    throw new Error("Brain not found or does not belong to user");
+  }
+  
+  // Deactivate all brains for this user
+  await db.update(offeringBrain)
+    .set({ isActive: 0 })
+    .where(eq(offeringBrain.userId, userId));
+  
+  // Activate selected brain
+  await db.update(offeringBrain)
+    .set({ isActive: 1 })
+    .where(eq(offeringBrain.id, brainId));
+}
+
+export async function deleteOfferingBrain(brainId: number, userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  // Verify brain belongs to user
+  const [brain] = await db.select().from(offeringBrain)
+    .where(and(
+      eq(offeringBrain.id, brainId),
+      eq(offeringBrain.userId, userId)
+    ))
+    .limit(1);
+  
+  if (!brain) {
+    throw new Error("Brain not found or does not belong to user");
+  }
+  
+  // Prevent deletion of active brain
+  if (brain.isActive === 1) {
+    throw new Error("Cannot delete active brain. Please activate another brain first.");
+  }
+  
+  // Delete brain
+  await db.delete(offeringBrain).where(eq(offeringBrain.id, brainId));
+}
+
+export async function getOfferingBrainById(brainId: number, userId: number): Promise<OfferingBrain | null> {
+  const db = await getDb();
+  if (!db) return null;
+  
+  const [brain] = await db.select().from(offeringBrain)
+    .where(and(
+      eq(offeringBrain.id, brainId),
+      eq(offeringBrain.userId, userId)
+    ))
+    .limit(1);
+  
+  return brain || null;
+}
+
 export async function getContactsByCompanyId(companyId: number): Promise<Contact[]> {
   const db = await getDb();
   if (!db) return [];

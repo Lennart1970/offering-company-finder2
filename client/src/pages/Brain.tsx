@@ -16,16 +16,23 @@ function parseJson<T>(value: string | null | undefined, fallback: T): T {
 export default function Brain() {
   const [website, setWebsite] = useState("https://www.connectgroup.com");
   const [companyName, setCompanyName] = useState("ConnectGroup");
+  const [brainName, setBrainName] = useState("");
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
 
   const { data: brainData, isLoading } = trpc.companyFinder.getActiveBrain.useQuery();
+  const { data: historyData } = trpc.companyFinder.getBrainHistory.useQuery();
   const utils = trpc.useUtils();
 
   const researchMutation = trpc.companyFinder.researchBrain.useMutation({
     onSuccess: (data) => {
       toast.success(`Brain research completed for ${data.brain?.companyName}`);
       utils.companyFinder.getActiveBrain.invalidate();
+      utils.companyFinder.getBrainHistory.invalidate();
+      // Reset form
+      setWebsite("https://www.connectgroup.com");
+      setCompanyName("ConnectGroup");
+      setBrainName("");
     },
     onError: (error) => {
       toast.error(`Research failed: ${error.message}`);
@@ -36,6 +43,7 @@ export default function Brain() {
     onSuccess: () => {
       toast.success("Brain updated");
       utils.companyFinder.getActiveBrain.invalidate();
+      utils.companyFinder.getBrainHistory.invalidate();
       setEditingField(null);
     },
     onError: (error) => {
@@ -43,7 +51,29 @@ export default function Brain() {
     },
   });
 
+  const setActiveMutation = trpc.companyFinder.setActiveBrain.useMutation({
+    onSuccess: () => {
+      toast.success("Brain activated");
+      utils.companyFinder.getActiveBrain.invalidate();
+      utils.companyFinder.getBrainHistory.invalidate();
+    },
+    onError: (error) => {
+      toast.error(`Activation failed: ${error.message}`);
+    },
+  });
+
+  const deleteMutation = trpc.companyFinder.deleteBrain.useMutation({
+    onSuccess: () => {
+      toast.success("Brain deleted");
+      utils.companyFinder.getBrainHistory.invalidate();
+    },
+    onError: (error) => {
+      toast.error(`Deletion failed: ${error.message}`);
+    },
+  });
+
   const brain = brainData?.brain;
+  const brainHistory = historyData?.history || [];
 
   // Parse structured fields
   const capabilities = useMemo(() => parseJson<string[]>(brain?.coreCapabilities, []), [brain?.coreCapabilities]);
@@ -77,10 +107,25 @@ export default function Brain() {
       toast.error("Please enter a website URL");
       return;
     }
+    if (!brainName.trim()) {
+      toast.error("Please enter a brain name");
+      return;
+    }
     researchMutation.mutate({
       companyWebsite: website.trim(),
       companyName: companyName.trim() || undefined,
+      brainName: brainName.trim(),
     });
+  };
+
+  const handleSetActive = (brainId: number) => {
+    setActiveMutation.mutate({ brainId });
+  };
+
+  const handleDelete = (brainId: number) => {
+    if (confirm("Are you sure you want to delete this brain?")) {
+      deleteMutation.mutate({ brainId });
+    }
   };
 
   return (
@@ -121,12 +166,25 @@ export default function Brain() {
             />
           </div>
         </div>
+        <div className="mb-4">
+          <label className="text-xs font-black block mb-1">BRAIN NAME</label>
+          <input
+            type="text"
+            value={brainName}
+            onChange={(e) => setBrainName(e.target.value)}
+            placeholder="ConnectGroup EMS Brain"
+            className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
+          />
+          <div className="text-xs font-bold text-muted-foreground mt-1">
+            Give this brain a memorable name (e.g., "ConnectGroup EMS Brain", "Acme Manufacturing Brain")
+          </div>
+        </div>
         <Button
           onClick={handleStartResearch}
           disabled={researchMutation.isPending}
           className="text-lg px-8 py-6 font-black border-4 border-black bg-black text-white w-full"
         >
-          {researchMutation.isPending ? "[RESEARCHING... THIS TAKES ~30 SECONDS]" : "[RESEARCH OFFERING →]"}
+          {researchMutation.isPending ? "[RESEARCHING... THIS TAKES ~30 SECONDS]" : "[RESEARCH & SAVE BRAIN →]"}
         </Button>
         {researchMutation.isPending && (
           <div className="mt-4 text-sm font-bold text-muted-foreground animate-pulse">
@@ -134,6 +192,71 @@ export default function Brain() {
           </div>
         )}
       </div>
+
+      {/* My Saved Brains */}
+      {brainHistory.length > 0 && (
+        <div className="border-4 border-black p-6 mb-8">
+          <div className="text-lg font-black mb-4">📚 MY SAVED BRAINS</div>
+          <div className="space-y-3">
+            {brainHistory.map((b) => (
+              <div
+                key={b.id}
+                className={`border-4 p-4 ${b.isActive === 1 ? "border-green-600 bg-green-50" : "border-gray-300"}`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1">
+                    <div className="flex items-center gap-3 mb-1">
+                      <button
+                        onClick={() => b.isActive !== 1 && handleSetActive(b.id)}
+                        className={`w-5 h-5 rounded-full border-4 flex items-center justify-center ${
+                          b.isActive === 1 ? "border-green-600 bg-green-600" : "border-gray-400 hover:border-black cursor-pointer"
+                        }`}
+                        disabled={b.isActive === 1}
+                      >
+                        {b.isActive === 1 && <div className="w-2 h-2 rounded-full bg-white" />}
+                      </button>
+                      <div className="font-black text-lg">{b.brainName}</div>
+                      {b.isActive === 1 && (
+                        <span className="text-xs font-black bg-green-600 text-white px-2 py-1">ACTIVE</span>
+                      )}
+                    </div>
+                    <div className="text-sm font-bold text-muted-foreground ml-8">
+                      {b.companyName} • {b.companyWebsite}
+                    </div>
+                    <div className="text-xs font-bold text-muted-foreground ml-8 mt-1">
+                      Created: {new Date(b.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {b.isActive !== 1 && (
+                      <>
+                        <Button
+                          onClick={() => handleSetActive(b.id)}
+                          variant="outline"
+                          size="sm"
+                          className="text-xs font-black border-2 border-black"
+                          disabled={setActiveMutation.isPending}
+                        >
+                          SET ACTIVE
+                        </Button>
+                        <Button
+                          onClick={() => handleDelete(b.id)}
+                          variant="outline"
+                          size="sm"
+                          className="text-xs font-black border-2 border-red-600 text-red-600 hover:bg-red-600 hover:text-white"
+                          disabled={deleteMutation.isPending}
+                        >
+                          DELETE
+                        </Button>
+                      </>
+                    )}
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Loading State */}
       {isLoading && (
@@ -145,9 +268,11 @@ export default function Brain() {
       {/* No Brain Yet */}
       {!isLoading && !brain && (
         <div className="border-4 border-black p-12 text-center">
-          <div className="text-3xl font-black mb-4">NO BRAIN CONFIGURED</div>
+          <div className="text-3xl font-black mb-4">NO ACTIVE BRAIN</div>
           <div className="text-lg font-bold text-muted-foreground">
-            Enter your company details above and click "Research Offering" to build your intelligence layer.
+            {brainHistory.length > 0
+              ? "Select a brain from the list above to activate it, or create a new one."
+              : "Enter your company details above and click \"Research & Save Brain\" to build your intelligence layer."}
           </div>
         </div>
       )}
@@ -158,13 +283,29 @@ export default function Brain() {
           {/* Status Bar */}
           <div className="flex items-center justify-between bg-black text-white px-6 py-3">
             <div className="flex items-center gap-4">
-              <span className="text-sm font-black">BRAIN ACTIVE</span>
+              <span className="text-sm font-black">ACTIVE BRAIN: {brain.brainName}</span>
               <span className="text-sm font-bold opacity-70">{brain.companyName}</span>
             </div>
             <div className="text-xs font-bold opacity-50">
               Updated: {new Date(brain.updatedAt).toLocaleDateString()}
             </div>
           </div>
+
+          {/* Brain Name (Editable) */}
+          <EditableSection
+            title="BRAIN NAME"
+            field="brainName"
+            value={brain.brainName || ""}
+            editingField={editingField}
+            editValue={editValue}
+            onStartEdit={handleStartEdit}
+            onSave={handleSaveEdit}
+            onCancel={handleCancelEdit}
+            onEditValueChange={setEditValue}
+            isPending={updateMutation.isPending}
+          >
+            <div className="text-2xl font-black">{brain.brainName}</div>
+          </EditableSection>
 
           {/* Offering Summary */}
           <EditableSection
@@ -248,160 +389,156 @@ export default function Brain() {
           <div className="border-4 border-blue-600 p-6">
             <div className="text-xl font-black text-blue-600 mb-4">IDEAL CUSTOMER PROFILE (ICP)</div>
 
-            <div className="grid md:grid-cols-2 gap-6">
-              {/* Industries */}
-              <EditableSection
-                title="TARGET INDUSTRIES"
-                field="icpIndustries"
-                value={brain.icpIndustries || "[]"}
-                editingField={editingField}
-                editValue={editValue}
-                onStartEdit={handleStartEdit}
-                onSave={handleSaveEdit}
-                onCancel={handleCancelEdit}
-                onEditValueChange={setEditValue}
-                isPending={updateMutation.isPending}
-                compact
-              >
-                <div className="flex flex-wrap gap-2">
-                  {industries.map((ind, i) => (
-                    <span key={i} className="text-xs font-black border-2 border-blue-600 text-blue-600 px-2 py-1">{ind}</span>
-                  ))}
-                </div>
-              </EditableSection>
+            <EditableSection
+              title="TARGET INDUSTRIES"
+              field="icpIndustries"
+              value={brain.icpIndustries || "[]"}
+              editingField={editingField}
+              editValue={editValue}
+              onStartEdit={handleStartEdit}
+              onSave={handleSaveEdit}
+              onCancel={handleCancelEdit}
+              onEditValueChange={setEditValue}
+              isPending={updateMutation.isPending}
+              compact
+            >
+              <div className="flex flex-wrap gap-2">
+                {industries.map((ind, i) => (
+                  <span key={i} className="px-3 py-1 bg-blue-100 text-blue-900 text-xs font-black">
+                    {ind}
+                  </span>
+                ))}
+              </div>
+            </EditableSection>
 
-              {/* Company Size */}
-              <EditableSection
-                title="COMPANY SIZE"
-                field="icpCompanySize"
-                value={brain.icpCompanySize || ""}
-                editingField={editingField}
-                editValue={editValue}
-                onStartEdit={handleStartEdit}
-                onSave={handleSaveEdit}
-                onCancel={handleCancelEdit}
-                onEditValueChange={setEditValue}
-                isPending={updateMutation.isPending}
-                compact
-              >
-                <div className="text-sm font-bold">{brain.icpCompanySize}</div>
-              </EditableSection>
+            <EditableSection
+              title="COMPANY SIZE"
+              field="icpCompanySize"
+              value={brain.icpCompanySize || ""}
+              editingField={editingField}
+              editValue={editValue}
+              onStartEdit={handleStartEdit}
+              onSave={handleSaveEdit}
+              onCancel={handleCancelEdit}
+              onEditValueChange={setEditValue}
+              isPending={updateMutation.isPending}
+              compact
+            >
+              <div className="text-sm font-bold">{brain.icpCompanySize}</div>
+            </EditableSection>
 
-              {/* Geography */}
-              <EditableSection
-                title="GEOGRAPHY"
-                field="icpGeography"
-                value={brain.icpGeography || ""}
-                editingField={editingField}
-                editValue={editValue}
-                onStartEdit={handleStartEdit}
-                onSave={handleSaveEdit}
-                onCancel={handleCancelEdit}
-                onEditValueChange={setEditValue}
-                isPending={updateMutation.isPending}
-                compact
-              >
-                <div className="text-sm font-bold">{brain.icpGeography}</div>
-              </EditableSection>
+            <EditableSection
+              title="GEOGRAPHY"
+              field="icpGeography"
+              value={brain.icpGeography || ""}
+              editingField={editingField}
+              editValue={editValue}
+              onStartEdit={handleStartEdit}
+              onSave={handleSaveEdit}
+              onCancel={handleCancelEdit}
+              onEditValueChange={setEditValue}
+              isPending={updateMutation.isPending}
+              compact
+            >
+              <div className="text-sm font-bold">{brain.icpGeography}</div>
+            </EditableSection>
 
-              {/* Pain Points */}
-              <EditableSection
-                title="PAIN POINTS SOLVED"
-                field="icpPainPoints"
-                value={brain.icpPainPoints || "[]"}
-                editingField={editingField}
-                editValue={editValue}
-                onStartEdit={handleStartEdit}
-                onSave={handleSaveEdit}
-                onCancel={handleCancelEdit}
-                onEditValueChange={setEditValue}
-                isPending={updateMutation.isPending}
-                compact
-              >
-                <ul className="space-y-1">
-                  {painPoints.map((pp, i) => (
-                    <li key={i} className="text-sm font-bold flex items-start gap-2">
-                      <span className="text-blue-600 shrink-0">→</span>
-                      <span>{pp}</span>
-                    </li>
-                  ))}
-                </ul>
-              </EditableSection>
-            </div>
+            <EditableSection
+              title="PAIN POINTS WE SOLVE"
+              field="icpPainPoints"
+              value={brain.icpPainPoints || "[]"}
+              editingField={editingField}
+              editValue={editValue}
+              onStartEdit={handleStartEdit}
+              onSave={handleSaveEdit}
+              onCancel={handleCancelEdit}
+              onEditValueChange={setEditValue}
+              isPending={updateMutation.isPending}
+              compact
+            >
+              <ul className="space-y-1">
+                {painPoints.map((pain, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-blue-600 font-black">•</span>
+                    <span className="text-sm font-bold">{pain}</span>
+                  </li>
+                ))}
+              </ul>
+            </EditableSection>
+
+            <EditableSection
+              title="BUYING SIGNALS"
+              field="icpBuyingSignals"
+              value={brain.icpBuyingSignals || "[]"}
+              editingField={editingField}
+              editValue={editValue}
+              onStartEdit={handleStartEdit}
+              onSave={handleSaveEdit}
+              onCancel={handleCancelEdit}
+              onEditValueChange={setEditValue}
+              isPending={updateMutation.isPending}
+              compact
+            >
+              <ul className="space-y-1">
+                {buyingSignals.map((signal, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-green-600 font-black">✓</span>
+                    <span className="text-sm font-bold">{signal}</span>
+                  </li>
+                ))}
+              </ul>
+            </EditableSection>
           </div>
 
-          {/* Buying Signals */}
-          <EditableSection
-            title="BUYING SIGNALS"
-            field="icpBuyingSignals"
-            value={brain.icpBuyingSignals || "[]"}
-            editingField={editingField}
-            editValue={editValue}
-            onStartEdit={handleStartEdit}
-            onSave={handleSaveEdit}
-            onCancel={handleCancelEdit}
-            onEditValueChange={setEditValue}
-            isPending={updateMutation.isPending}
-          >
-            <div className="grid md:grid-cols-2 gap-2">
-              {buyingSignals.map((signal, i) => (
-                <div key={i} className="p-3 bg-green-50 border border-green-300 text-sm font-bold">
-                  <span className="text-green-600 mr-2">⚡</span>{signal}
-                </div>
-              ))}
-            </div>
-          </EditableSection>
-
           {/* Fit Criteria */}
-          <div className="border-4 border-black p-6">
-            <div className="text-xl font-black mb-4">FIT CRITERIA</div>
-            <div className="grid md:grid-cols-3 gap-6">
-              <EditableSection
-                title="MUST HAVE"
-                field="fitCriteria"
-                value={brain.fitCriteria || "{}"}
-                editingField={editingField}
-                editValue={editValue}
-                onStartEdit={handleStartEdit}
-                onSave={handleSaveEdit}
-                onCancel={handleCancelEdit}
-                onEditValueChange={setEditValue}
-                isPending={updateMutation.isPending}
-                compact
-              >
-                <ul className="space-y-1">
-                  {fitCriteria.mustHave.map((item, i) => (
-                    <li key={i} className="text-sm font-bold flex items-start gap-2">
-                      <span className="text-green-600 shrink-0">✓</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </EditableSection>
+          <div className="border-4 border-purple-600 p-6">
+            <div className="text-xl font-black text-purple-600 mb-4">FIT SCORING CRITERIA</div>
 
-              <div>
-                <div className="text-xs font-black mb-2">NICE TO HAVE</div>
-                <ul className="space-y-1">
-                  {fitCriteria.niceToHave.map((item, i) => (
-                    <li key={i} className="text-sm font-bold flex items-start gap-2">
-                      <span className="text-yellow-600 shrink-0">○</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            <EditableSection
+              title="MUST-HAVE CRITERIA"
+              field="fitCriteria"
+              value={brain.fitCriteria || "{}"}
+              editingField={editingField}
+              editValue={editValue}
+              onStartEdit={handleStartEdit}
+              onSave={handleSaveEdit}
+              onCancel={handleCancelEdit}
+              onEditValueChange={setEditValue}
+              isPending={updateMutation.isPending}
+              compact
+            >
+              <ul className="space-y-1">
+                {fitCriteria.mustHave.map((item, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-red-600 font-black">★</span>
+                    <span className="text-sm font-bold">{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </EditableSection>
 
-              <div>
-                <div className="text-xs font-black mb-2">DISQUALIFIERS</div>
-                <ul className="space-y-1">
-                  {fitCriteria.disqualifiers.map((item, i) => (
-                    <li key={i} className="text-sm font-bold flex items-start gap-2">
-                      <span className="text-red-600 shrink-0">✕</span>
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
+            <div className="mb-4">
+              <div className="text-xs font-black mb-2">NICE-TO-HAVE</div>
+              <ul className="space-y-1">
+                {fitCriteria.niceToHave.map((item, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-purple-600 font-black">○</span>
+                    <span className="text-sm font-bold">{item}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <div className="text-xs font-black mb-2">DISQUALIFIERS</div>
+              <ul className="space-y-1">
+                {fitCriteria.disqualifiers.map((item, i) => (
+                  <li key={i} className="flex items-start gap-2">
+                    <span className="text-red-600 font-black">✗</span>
+                    <span className="text-sm font-bold">{item}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
           </div>
 
@@ -418,33 +555,34 @@ export default function Brain() {
             onEditValueChange={setEditValue}
             isPending={updateMutation.isPending}
           >
-            <div className="space-y-2">
+            <ul className="space-y-2">
               {urgencyTriggers.map((trigger, i) => (
-                <div key={i} className="p-3 bg-yellow-50 border border-yellow-300 text-sm font-bold">
-                  <span className="text-yellow-700 mr-2">⏰</span>{trigger}
-                </div>
+                <li key={i} className="flex items-start gap-2 p-2 bg-orange-50 border-l-4 border-orange-600">
+                  <span className="text-orange-600 font-black">⚡</span>
+                  <span className="text-sm font-bold">{trigger}</span>
+                </li>
               ))}
-            </div>
+            </ul>
           </EditableSection>
         </div>
       )}
 
-      {/* Brain Researching */}
-      {brain && brain.status === "researching" && (
-        <div className="border-4 border-blue-600 p-12 text-center animate-pulse">
-          <div className="text-3xl font-black text-blue-600 mb-4">RESEARCHING...</div>
+      {/* Brain Failed State */}
+      {brain && brain.status === "failed" && (
+        <div className="border-4 border-red-600 p-12 text-center">
+          <div className="text-3xl font-black text-red-600 mb-4">RESEARCH FAILED</div>
           <div className="text-lg font-bold text-muted-foreground">
-            Grok is analyzing {brain.companyName}'s website and building intelligence...
+            The brain research encountered an error. Please try again with a different website or check the URL.
           </div>
         </div>
       )}
 
-      {/* Brain Failed */}
-      {brain && brain.status === "failed" && (
-        <div className="border-4 border-red-600 p-8">
-          <div className="text-xl font-black text-red-600 mb-2">RESEARCH FAILED</div>
-          <div className="text-sm font-bold text-muted-foreground">
-            The research for {brain.companyName} failed. Try again with a different URL or check the website is accessible.
+      {/* Brain Researching State */}
+      {brain && brain.status === "researching" && (
+        <div className="border-4 border-yellow-600 p-12 text-center animate-pulse">
+          <div className="text-3xl font-black text-yellow-600 mb-4">RESEARCH IN PROGRESS...</div>
+          <div className="text-lg font-bold text-muted-foreground">
+            Grok is analyzing the website. This typically takes 20-30 seconds.
           </div>
         </div>
       )}

@@ -1,0 +1,1 @@
+ALTER TABLE `offering_brain` ADD `brainName` varchar(255) NOT NULL;

@@ -71,6 +71,9 @@ export default function ImportCampaign() {
         <p className="text-lg opacity-70">
           Upload an Apollo company export CSV to create a new campaign
         </p>
+        <p className="text-sm text-muted-foreground mt-3">
+          Need a new campaign? Send email to <a href="mailto:l.vanbolderick@connectgroup.com" className="font-bold underline hover:opacity-70">l.vanbolderick@connectgroup.com</a> to request one.
+        </p>
       </div>
 
       <div className="bg-white border-4 border-black p-8 space-y-6">

@@ -940,4 +940,9 @@
 - [x] Add state for EDIT ACTIVE BRAIN section visibility
 - [x] Update navigation buttons to toggle section visibility
 - [x] Hide sections by default, show only when button clicked
+- [x] Save checkpoint
+
+## UX Enhancement: Campaign Request Instructions
+- [x] Add instruction line to Import Campaign page
+- [x] Display email (l.vanbolderick@connectgroup.com) for campaign requests
 - [ ] Save checkpoint

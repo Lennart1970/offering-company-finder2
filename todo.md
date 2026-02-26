@@ -884,4 +884,10 @@
 ## UI Enhancement: Rename FIND CONTACTS to FIND DECISION-MAKERS
 - [x] Update button label from "FIND CONTACTS" to "FIND DECISION-MAKERS"
 - [x] Update toast messages and modal titles to reflect new terminology
+- [x] Save checkpoint
+
+
+## UX Fix: Remove Active Brain Card from Import Campaign
+- [x] Remove Active Brain info card from ImportCampaign page
+- [x] Brain context is only used during enrichment, not during CSV upload
 - [ ] Save checkpoint

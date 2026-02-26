@@ -878,4 +878,10 @@
 - [x] Remove FIND CONTACT button from SearchResults company cards
 - [x] Remove FindContactButton component and related code
 - [x] Keep FIND CONTACTS (trickle-down) as the primary contact search feature
+- [x] Save checkpoint
+
+
+## UI Enhancement: Rename FIND CONTACTS to FIND DECISION-MAKERS
+- [x] Update button label from "FIND CONTACTS" to "FIND DECISION-MAKERS"
+- [x] Update toast messages and modal titles to reflect new terminology
 - [ ] Save checkpoint

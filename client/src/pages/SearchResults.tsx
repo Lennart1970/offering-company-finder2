@@ -901,7 +901,7 @@ function CreateSalesApproachButton({ companyId, companyName, hasSalesApproach }:
 
 
 // ============================================================================
-// Find Contacts Button — Trickle-Down Seniority Search
+// Find Decision-Makers Button — Trickle-Down Seniority Search
 // ============================================================================
 function FindAllCSuiteButton({ companyId, companyName }: { companyId: number; companyName: string }) {
   const [showModal, setShowModal] = useState(false);
@@ -914,15 +914,15 @@ function FindAllCSuiteButton({ companyId, companyName }: { companyId: number; co
       setResults(data);
       setShowModal(true);
       if (data.cached) {
-        toast.success(`${data.contacts.length} cached contacts at ${companyName}`);
+        toast.success(`${data.contacts.length} cached decision-makers at ${companyName}`);
       } else if (data.contacts.length > 0) {
-        toast.success(`Found ${data.contacts.length} contacts at ${companyName} (${data.tierLabel})`);
+        toast.success(`Found ${data.contacts.length} decision-makers at ${companyName} (${data.tierLabel})`);
       } else {
-        toast.error(`No contacts found at ${companyName} across all seniority tiers`);
+        toast.error(`No decision-makers found at ${companyName} across all seniority tiers`);
       }
     },
     onError: (error) => {
-      toast.error(`Contact search failed: ${error.message}`);
+      toast.error(`Decision-maker search failed: ${error.message}`);
     },
   });
 
@@ -958,7 +958,7 @@ function FindAllCSuiteButton({ companyId, companyName }: { companyId: number; co
           ? "SEARCHING..."
           : contactCount > 0
             ? `${contactCount} CONTACTS`
-            : "FIND CONTACTS"}
+            : "FIND DECISION-MAKERS"}
       </Button>
       {showModal && (
         <CSuiteContactsModal
@@ -975,7 +975,7 @@ function FindAllCSuiteButton({ companyId, companyName }: { companyId: number; co
 }
 
 // ============================================================================
-// Contacts Modal — Shows Trickle-Down Search Results
+// Decision-Makers Modal — Shows Trickle-Down Search Results
 // ============================================================================
 function CSuiteContactsModal({
   companyName,
@@ -1021,7 +1021,7 @@ function CSuiteContactsModal({
         {/* Header */}
         <div className="bg-purple-600 text-white px-5 py-3 flex justify-between items-center shrink-0">
           <div>
-            <h2 className="text-lg font-black">Contacts at {companyName}</h2>
+            <h2 className="text-lg font-black">Decision-Makers at {companyName}</h2>
             <div className="text-xs opacity-80 flex items-center gap-2">
               {contacts.length} contact{contacts.length !== 1 ? "s" : ""} found
               {tierFound > 0 && !isCached && (

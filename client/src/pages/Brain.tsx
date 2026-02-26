@@ -173,6 +173,20 @@ export default function Brain() {
                     <div className="text-xs font-bold text-muted-foreground ml-8 mt-1">
                       Created: {new Date(b.createdAt).toLocaleDateString()}
                     </div>
+                    {(b.sicCodes || b.naceCodes) && (
+                      <div className="ml-8 mt-3 space-y-2">
+                        {b.sicCodes && (
+                          <div className="text-xs">
+                            <span className="font-black">SIC:</span> {b.sicCodes}
+                          </div>
+                        )}
+                        {b.naceCodes && (
+                          <div className="text-xs">
+                            <span className="font-black">NACE:</span> {b.naceCodes}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
                   <div className="flex gap-2">
                     {b.isActive !== 1 && (

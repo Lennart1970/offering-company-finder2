@@ -949,4 +949,11 @@
 
 ## UX Enhancement: Button Label Update
 - [x] Change "EDIT ACTIVE BRAIN" button label to "VIEW / EDIT BRAIN"
+- [x] Save checkpoint
+
+## UX Enhancement: Display Industry Codes on Brain Cards
+- [x] Add SIC and NACE code fields to database schema
+- [x] Apply migration to offering_brain table
+- [x] Add SIC codes and NACE codes display to brain cards
+- [x] Show code explanations alongside the codes
 - [ ] Save checkpoint

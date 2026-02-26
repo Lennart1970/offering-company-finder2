@@ -134,6 +134,13 @@
       "when": 1772099195558,
       "tag": "0018_sad_marten_broadcloak",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "5",
+      "when": 1772108247254,
+      "tag": "0019_abandoned_supernaut",
+      "breakpoints": true
     }
   ]
 }

@@ -205,6 +205,9 @@ export const offeringBrain = mysqlTable("offering_brain", {
   // Fit & Urgency Scoring Criteria
   fitCriteria: text("fitCriteria"), // JSON: structured criteria for scoring prospect fit
   urgencyTriggers: text("urgencyTriggers"), // JSON: events/signals that indicate urgency
+  // Industry Classification
+  sicCodes: text("sicCodes"), // JSON array of SIC codes with explanations
+  naceCodes: text("naceCodes"), // JSON array of NACE codes with explanations
   // Metadata
   rawResearchData: text("rawResearchData"), // Full LLM research output for reference
   status: mysqlEnum("status", ["researching", "completed", "failed"]).default("researching").notNull(),

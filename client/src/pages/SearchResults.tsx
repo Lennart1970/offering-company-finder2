@@ -1074,7 +1074,7 @@ function ContactModal({ contact, companyName, onClose }: { contact: any; company
 
 
 // ============================================================================
-// Find All C-Suite Button — Bulk Contact Search
+// Find Contacts Button — Trickle-Down Seniority Search
 // ============================================================================
 function FindAllCSuiteButton({ companyId, companyName }: { companyId: number; companyName: string }) {
   const [showModal, setShowModal] = useState(false);
@@ -1086,10 +1086,16 @@ function FindAllCSuiteButton({ companyId, companyName }: { companyId: number; co
     onSuccess: (data) => {
       setResults(data);
       setShowModal(true);
-      toast.success(`Found ${data.totalFound}/${data.totalSearched} C-Suite contacts at ${companyName}`);
+      if (data.cached) {
+        toast.success(`${data.contacts.length} cached contacts at ${companyName}`);
+      } else if (data.contacts.length > 0) {
+        toast.success(`Found ${data.contacts.length} contacts at ${companyName} (${data.tierLabel})`);
+      } else {
+        toast.error(`No contacts found at ${companyName} across all seniority tiers`);
+      }
     },
     onError: (error) => {
-      toast.error(`C-Suite search failed: ${error.message}`);
+      toast.error(`Contact search failed: ${error.message}`);
     },
   });
 
@@ -1105,9 +1111,8 @@ function FindAllCSuiteButton({ companyId, companyName }: { companyId: number; co
       <Button
         onClick={(e) => {
           e.stopPropagation();
-          if (contactCount > 1) {
-            // Show existing contacts
-            setResults({ allContacts: existingContacts?.contacts, totalFound: contactCount, totalSearched: 0, results: [] });
+          if (contactCount > 0) {
+            setResults({ contacts: existingContacts?.contacts, tierFound: 0, tierLabel: "Cached", tiersSearched: [], cached: true });
             setShowModal(true);
           } else {
             handleSearch(e);
@@ -1117,16 +1122,16 @@ function FindAllCSuiteButton({ companyId, companyName }: { companyId: number; co
         size="sm"
         variant="outline"
         className={`text-xs font-black border-2 h-8 px-3 cursor-pointer ${
-          contactCount > 1
+          contactCount > 0
             ? "border-purple-600 text-purple-600 bg-purple-50"
             : "border-purple-600 text-purple-600"
         }`}
       >
         {findCSuiteMutation.isPending
           ? "SEARCHING..."
-          : contactCount > 1
+          : contactCount > 0
             ? `${contactCount} CONTACTS`
-            : "C-SUITE"}
+            : "FIND CONTACTS"}
       </Button>
       {showModal && (
         <CSuiteContactsModal
@@ -1143,7 +1148,7 @@ function FindAllCSuiteButton({ companyId, companyName }: { companyId: number; co
 }
 
 // ============================================================================
-// C-Suite Contacts Modal — Shows All Found Contacts
+// Contacts Modal — Shows Trickle-Down Search Results
 // ============================================================================
 function CSuiteContactsModal({
   companyName,
@@ -1165,7 +1170,20 @@ function CSuiteContactsModal({
     toast.success(`${label} copied to clipboard`);
   };
 
-  const contacts = results?.allContacts || [];
+  const contacts = results?.contacts || [];
+  const tierFound = results?.tierFound || 0;
+  const tierLabel = results?.tierLabel || "";
+  const tiersSearched = results?.tiersSearched || [];
+  const isCached = results?.cached || false;
+
+  // Tier color mapping
+  const tierColors: Record<number, string> = {
+    1: "bg-red-600",
+    2: "bg-orange-500",
+    3: "bg-yellow-500",
+    4: "bg-blue-500",
+    5: "bg-gray-500",
+  };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
@@ -1176,20 +1194,60 @@ function CSuiteContactsModal({
         {/* Header */}
         <div className="bg-purple-600 text-white px-5 py-3 flex justify-between items-center shrink-0">
           <div>
-            <h2 className="text-lg font-black">C-Suite at {companyName}</h2>
-            <div className="text-xs opacity-80">
-              {results?.totalFound || contacts.length} contacts found
-              {results?.totalSearched ? ` / ${results.totalSearched} titles searched` : ""}
+            <h2 className="text-lg font-black">Contacts at {companyName}</h2>
+            <div className="text-xs opacity-80 flex items-center gap-2">
+              {contacts.length} contact{contacts.length !== 1 ? "s" : ""} found
+              {tierFound > 0 && !isCached && (
+                <span className={`inline-block px-2 py-0.5 rounded text-white text-[10px] font-black ${tierColors[tierFound] || "bg-gray-500"}`}>
+                  {tierLabel}
+                </span>
+              )}
             </div>
           </div>
           <button onClick={onClose} className="text-white text-xl font-black hover:opacity-60">×</button>
         </div>
 
+        {/* Trickle-Down Tier Progress */}
+        {tiersSearched.length > 0 && !isCached && (
+          <div className="px-5 py-2 bg-gray-50 border-b border-gray-200 shrink-0">
+            <div className="text-[10px] font-black text-muted-foreground mb-1.5">SENIORITY TIERS SEARCHED</div>
+            <div className="flex gap-1">
+              {[
+                { level: 1, label: "C-Suite" },
+                { level: 2, label: "VP/Head" },
+                { level: 3, label: "Director" },
+                { level: 4, label: "Manager" },
+                { level: 5, label: "Senior/Entry" },
+              ].map((tier) => {
+                const searched = tiersSearched.find((t: any) => t.level === tier.level);
+                const isFoundTier = tier.level === tierFound;
+                const wasSearched = !!searched;
+                const count = searched?.count || 0;
+
+                return (
+                  <div
+                    key={tier.level}
+                    className={`flex-1 text-center py-1 text-[9px] font-black border ${
+                      isFoundTier
+                        ? "border-green-500 bg-green-50 text-green-700"
+                        : wasSearched
+                          ? "border-red-300 bg-red-50 text-red-400"
+                          : "border-gray-200 bg-white text-gray-300"
+                    }`}
+                  >
+                    {isFoundTier ? `✓ ${tier.label} (${count})` : wasSearched ? `✕ ${tier.label}` : tier.label}
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Contact List */}
         <div className="overflow-y-auto flex-1 p-4 space-y-3">
           {contacts.length === 0 ? (
             <div className="text-center py-8 text-muted-foreground font-bold">
-              No contacts found yet. Click "Refresh" to search.
+              No contacts found across all seniority tiers.
             </div>
           ) : (
             contacts.map((contact: any, idx: number) => (
@@ -1251,27 +1309,6 @@ function CSuiteContactsModal({
               </div>
             ))
           )}
-
-          {/* Search Results Summary */}
-          {results?.results?.length > 0 && (
-            <div className="border-t-2 border-gray-200 pt-3 mt-3">
-              <div className="text-xs font-black text-muted-foreground mb-2">SEARCH RESULTS BY TITLE</div>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                {results.results.map((r: any, idx: number) => (
-                  <div
-                    key={idx}
-                    className={`text-[10px] font-black px-2 py-1 border ${
-                      r.found
-                        ? "border-green-300 bg-green-50 text-green-700"
-                        : "border-gray-200 bg-gray-50 text-gray-400"
-                    }`}
-                  >
-                    {r.found ? "✓" : "✕"} {r.title}
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer */}
@@ -1282,7 +1319,7 @@ function CSuiteContactsModal({
             variant="outline"
             className="font-black border-2 border-purple-600 text-purple-600 cursor-pointer flex-1"
           >
-            {isPending ? "SEARCHING..." : "REFRESH C-SUITE"}
+            {isPending ? "SEARCHING..." : "SEARCH AGAIN"}
           </Button>
           <Button onClick={onClose} className="font-black bg-black text-white cursor-pointer flex-1">
             CLOSE

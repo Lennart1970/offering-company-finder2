@@ -863,4 +863,12 @@
 - [x] Update ImportCampaign page to stay on same page after CSV import
 - [x] Remove automatic redirect to search results page
 - [x] Show success message with campaign details
+- [x] Save checkpoint
+
+
+## Feature: Trickle-Down Contact Search
+- [x] Research Apollo People Search API seniority filtering options
+- [x] Implement trickle-down logic: C-Suite → VP → Director → Manager → any contact
+- [x] Update UI to show seniority level found and trickle-down status
+- [x] Write vitest tests for trickle-down logic
 - [ ] Save checkpoint

@@ -219,6 +219,191 @@ export async function enrichPerson(
  * 
  * Returns the first matching contact with enriched data.
  */
+// Seniority tiers for trickle-down search (highest to lowest)
+export const SENIORITY_TIERS = [
+  { level: 1, label: "C-Suite / Owner", seniorities: ["owner", "founder", "c_suite", "partner"] },
+  { level: 2, label: "VP / Head", seniorities: ["vp", "head"] },
+  { level: 3, label: "Director", seniorities: ["director"] },
+  { level: 4, label: "Manager", seniorities: ["manager"] },
+  { level: 5, label: "Senior / Entry", seniorities: ["senior", "entry"] },
+] as const;
+
+export type SeniorityTier = typeof SENIORITY_TIERS[number];
+
+/**
+ * Search for people at a company by seniority level
+ * Uses /mixed_people/search with person_seniorities[] parameter
+ * Returns full names (1 credit per page)
+ */
+async function searchPeopleBySeniority(
+  apiKey: string,
+  companyDomain: string,
+  seniorities: readonly string[],
+  limit: number = 5
+): Promise<Array<{
+  id: string;
+  firstName: string;
+  lastName: string;
+  name: string;
+  title: string;
+  seniority?: string;
+  linkedinUrl?: string;
+  organizationName?: string;
+}>> {
+  const cleanDomain = companyDomain
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/.*$/, "")
+    .toLowerCase()
+    .trim();
+
+  console.log(`[Apollo Seniority Search] Searching seniorities [${seniorities.join(", ")}] at domain "${cleanDomain}"`);
+
+  const requestBody = {
+    page: 1,
+    per_page: limit,
+    q_organization_domains_list: [cleanDomain],
+    person_seniorities: [...seniorities],
+  };
+
+  const response = await axios.post(
+    "https://api.apollo.io/api/v1/mixed_people/search",
+    requestBody,
+    {
+      headers: {
+        "X-Api-Key": apiKey,
+        "Content-Type": "application/json",
+      },
+      timeout: 15000,
+    }
+  );
+
+  const people = response.data.people || [];
+  const totalEntries = response.data.total_entries || 0;
+
+  console.log(`[Apollo Seniority Search] Found ${people.length} people (total_entries: ${totalEntries})`);
+
+  return people.map((person: any) => ({
+    id: person.id || "",
+    firstName: person.first_name || "",
+    lastName: person.last_name || "",
+    name: person.name || `${person.first_name || ""} ${person.last_name || ""}`.trim(),
+    title: person.title || "",
+    seniority: person.seniority || undefined,
+    linkedinUrl: person.linkedin_url || undefined,
+    organizationName: person.organization?.name || undefined,
+  }));
+}
+
+/**
+ * Trickle-Down Contact Search
+ * 
+ * Searches for contacts starting from highest seniority tier (C-Suite/Owner)
+ * and works down to lower tiers until contacts are found.
+ * 
+ * Returns all contacts found at the first tier that has results,
+ * plus the tier level where contacts were found.
+ */
+export async function trickleDownSearch(
+  companyDomain: string,
+  companyName: string,
+  maxContactsPerTier: number = 5,
+  includePhone: boolean = false,
+  startTier: number = 1,
+): Promise<{
+  contacts: ApolloContact[];
+  tierFound: number;
+  tierLabel: string;
+  tiersSearched: Array<{ level: number; label: string; count: number }>;
+}> {
+  const apiKey = process.env.APOLLO_API_KEY;
+  if (!apiKey) {
+    throw new Error("APOLLO_API_KEY environment variable not set");
+  }
+
+  const tiersSearched: Array<{ level: number; label: string; count: number }> = [];
+
+  for (const tier of SENIORITY_TIERS) {
+    if (tier.level < startTier) continue;
+
+    try {
+      const searchResults = await searchPeopleBySeniority(
+        apiKey,
+        companyDomain,
+        tier.seniorities,
+        maxContactsPerTier
+      );
+
+      tiersSearched.push({ level: tier.level, label: tier.label, count: searchResults.length });
+
+      if (searchResults.length > 0) {
+        console.log(`[Trickle-Down] ✓ Found ${searchResults.length} contacts at Tier ${tier.level} (${tier.label})`);
+
+        // Enrich each contact with email/phone
+        const enrichedContacts: ApolloContact[] = [];
+        for (const person of searchResults) {
+          const contact: ApolloContact = {
+            id: person.id,
+            firstName: person.firstName,
+            lastName: person.lastName,
+            name: person.name,
+            title: person.title,
+            linkedinUrl: person.linkedinUrl,
+            companyName: person.organizationName,
+          };
+
+          // Enrich to unlock email
+          if (contact.firstName && contact.lastName) {
+            try {
+              const enriched = await enrichPerson(
+                contact.firstName,
+                contact.lastName,
+                companyDomain,
+                includePhone
+              );
+              if (enriched.email) contact.email = enriched.email;
+              if (enriched.phone) contact.phone = enriched.phone;
+              if (enriched.linkedinUrl && !contact.linkedinUrl) {
+                contact.linkedinUrl = enriched.linkedinUrl;
+              }
+            } catch (enrichError: any) {
+              console.error(`[Trickle-Down] Enrichment failed for ${contact.name}:`, enrichError.message);
+            }
+          }
+
+          enrichedContacts.push(contact);
+
+          // Small delay between enrichment calls
+          await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
+        return {
+          contacts: enrichedContacts,
+          tierFound: tier.level,
+          tierLabel: tier.label,
+          tiersSearched,
+        };
+      }
+
+      console.log(`[Trickle-Down] ✗ No contacts at Tier ${tier.level} (${tier.label}), trying next tier...`);
+
+      // Small delay between tier searches
+      await new Promise(resolve => setTimeout(resolve, 300));
+    } catch (error: any) {
+      console.error(`[Trickle-Down] Error at Tier ${tier.level}:`, error.message);
+      tiersSearched.push({ level: tier.level, label: tier.label, count: 0 });
+    }
+  }
+
+  // No contacts found at any tier
+  return {
+    contacts: [],
+    tierFound: 0,
+    tierLabel: "None",
+    tiersSearched,
+  };
+}
+
 export async function searchApolloContacts(
   params: PeopleSearchParams
 ): Promise<ApolloContact | null> {

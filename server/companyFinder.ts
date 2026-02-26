@@ -25,7 +25,7 @@ import {
   getCallTodayCompanies,
 } from "./db";
 // Brain and contacts-by-company imports are above with brainResearchService
-import { searchApolloContacts, searchApolloContacts as searchApolloContactsSingle } from "./apolloPeopleSearch";
+import { searchApolloContacts, searchApolloContacts as searchApolloContactsSingle, trickleDownSearch, SENIORITY_TIERS } from "./apolloPeopleSearch";
 import { researchOfferingBrain } from "./brainResearchService";
 import {
   createOfferingBrain,
@@ -1154,12 +1154,12 @@ export const companyFinderRouter = router({
       return { contacts };
     }),
 
-  // Find all C-Suite contacts at a company
+  // Find all C-Suite contacts at a company (trickle-down approach)
   findAllCSuite: protectedProcedure
     .input(z.object({
       companyId: z.number(),
-      titles: z.array(z.string()).optional(), // Custom titles, defaults to C-Suite
       includePhone: z.boolean().optional(),
+      maxContacts: z.number().optional(), // Max contacts to return per tier
     }))
     .mutation(async ({ ctx, input }) => {
       const company = await getCompanyById(input.companyId);
@@ -1170,65 +1170,45 @@ export const companyFinderRouter = router({
         : null;
       if (!domain) throw new Error("Company has no website URL for contact search");
 
-      const titles = input.titles || [
-        "CEO",
-        "CFO",
-        "CTO",
-        "COO",
-        "VP Operations",
-        "VP Supply Chain",
-        "VP Engineering",
-        "Director Procurement",
-      ];
-
-      console.log(`[C-Suite] Searching ${titles.length} titles at ${company.name} (${domain})`);
+      console.log(`[Trickle-Down] Starting trickle-down search at ${company.name} (${domain})`);
 
       // Check existing contacts to avoid duplicates
       const existingContacts = await getContactsByCompanyId(input.companyId);
-      const existingEmails = new Set(existingContacts.map(c => c.email?.toLowerCase()).filter(Boolean));
-      const existingNames = new Set(existingContacts.map(c => (c.fullName || `${c.firstName} ${c.lastName}`).toLowerCase()));
+      if (existingContacts.length > 0) {
+        console.log(`[Trickle-Down] Found ${existingContacts.length} existing contacts, returning cached`);
+        return {
+          contacts: existingContacts,
+          tierFound: 0,
+          tierLabel: "Cached",
+          tiersSearched: [],
+          cached: true,
+        };
+      }
 
-      const results: Array<{ title: string; found: boolean; contact?: any; error?: string }> = [];
-      const foundContacts: any[] = [...existingContacts];
+      // Run trickle-down search
+      const result = await trickleDownSearch(
+        domain,
+        company.name,
+        input.maxContacts || 5,
+        input.includePhone || false,
+      );
 
-      for (const title of titles) {
+      // Save found contacts to database (deduplicated)
+      const savedContacts: any[] = [];
+      const seenEmails = new Set<string>();
+      const seenNames = new Set<string>();
+
+      for (const contact of result.contacts) {
+        const contactEmail = contact.email?.toLowerCase();
+        const contactName = contact.name?.toLowerCase();
+
+        // Skip duplicates
+        if ((contactEmail && seenEmails.has(contactEmail)) ||
+            (contactName && seenNames.has(contactName))) {
+          continue;
+        }
+
         try {
-          // Check if we already have someone with this searched title
-          const alreadySearched = existingContacts.some(
-            c => c.searchedTitle?.toLowerCase() === title.toLowerCase()
-          );
-          if (alreadySearched) {
-            const existing = existingContacts.find(
-              c => c.searchedTitle?.toLowerCase() === title.toLowerCase()
-            );
-            results.push({ title, found: true, contact: existing });
-            continue;
-          }
-
-          const contact = await searchApolloContactsSingle({
-            companyDomain: domain,
-            companyName: company.name,
-            jobTitle: title,
-            limit: 1,
-            includePhone: input.includePhone || false,
-          });
-
-          if (!contact) {
-            results.push({ title, found: false });
-            continue;
-          }
-
-          // Check for duplicates by email or name
-          const contactEmail = contact.email?.toLowerCase();
-          const contactName = contact.name?.toLowerCase();
-
-          if ((contactEmail && existingEmails.has(contactEmail)) ||
-              (contactName && existingNames.has(contactName))) {
-            results.push({ title, found: true, contact: { ...contact, duplicate: true } });
-            continue;
-          }
-
-          // Save to database
           const savedContact = await createContact({
             companyId: input.companyId,
             apolloPersonId: contact.id,
@@ -1239,32 +1219,24 @@ export const companyFinderRouter = router({
             email: contact.email || null,
             phone: contact.phone || null,
             linkedinUrl: contact.linkedinUrl || null,
-            searchedTitle: title,
+            searchedTitle: `Tier ${result.tierFound}: ${result.tierLabel}`,
           });
-
-          if (contactEmail) existingEmails.add(contactEmail);
-          if (contactName) existingNames.add(contactName);
-          foundContacts.push(savedContact);
-          results.push({ title, found: true, contact: savedContact });
-
-          console.log(`[C-Suite] ✓ Found ${contact.name} for "${title}"`);
-        } catch (error: any) {
-          console.error(`[C-Suite] Error searching "${title}":`, error.message);
-          results.push({ title, found: false, error: error.message });
+          savedContacts.push(savedContact);
+          if (contactEmail) seenEmails.add(contactEmail);
+          if (contactName) seenNames.add(contactName);
+        } catch (err: any) {
+          console.error(`[Trickle-Down] Failed to save contact ${contact.name}:`, err.message);
         }
-
-        // Small delay between API calls to avoid rate limiting
-        await new Promise(resolve => setTimeout(resolve, 500));
       }
 
-      const totalFound = results.filter(r => r.found).length;
-      console.log(`[C-Suite] Completed: ${totalFound}/${titles.length} titles found at ${company.name}`);
+      console.log(`[Trickle-Down] Completed: ${savedContacts.length} contacts saved from Tier ${result.tierFound} (${result.tierLabel})`);
 
       return {
-        results,
-        totalFound,
-        totalSearched: titles.length,
-        allContacts: foundContacts,
+        contacts: savedContacts,
+        tierFound: result.tierFound,
+        tierLabel: result.tierLabel,
+        tiersSearched: result.tiersSearched,
+        cached: false,
       };
     }),
 });

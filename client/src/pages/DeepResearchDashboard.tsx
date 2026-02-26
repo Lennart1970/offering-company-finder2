@@ -82,6 +82,54 @@ export default function DeepResearchDashboard() {
     navigator.clipboard.writeText(text);
     toast.success(`${label} copied to clipboard`);
   };
+  const handleDownloadJSON = () => {
+    if (sortedCompanies.length === 0) {
+      toast.error("No companies to export");
+      return;
+    }
+
+    const exportData = {
+      exportDate: new Date().toISOString(),
+      viewFilter,
+      totalCompanies: sortedCompanies.length,
+      companies: sortedCompanies.map((company: any) => ({
+        id: company.id,
+        name: company.name,
+        websiteUrl: company.websiteUrl,
+        city: company.city,
+        state: company.state,
+        country: company.country,
+        revenue: company.revenue,
+        foundedYear: company.foundedYear,
+        linkedinUrl: company.linkedinUrl,
+        urgencyScore: company.urgencyScore,
+        briefData: company.briefData ? JSON.parse(company.briefData) : null,
+        salesApproachData: company.salesApproachData ? JSON.parse(company.salesApproachData) : null,
+        briefGeneratedAt: company.briefGeneratedAt,
+        salesApproachGeneratedAt: company.salesApproachGeneratedAt,
+        decisionMakers: Array.isArray(company.contacts) ? company.contacts.map((contact: any) => ({
+          id: contact.id,
+          fullName: contact.fullName,
+          title: contact.title,
+          email: contact.email,
+          phone: contact.phone,
+          linkedinUrl: contact.linkedinUrl,
+        })) : [],
+      })),
+    };
+
+    const jsonString = JSON.stringify(exportData, null, 2);
+    const blob = new Blob([jsonString], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `deep-research-export-${new Date().toISOString().split("T")[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${sortedCompanies.length} companies`);
+  };
 
   return (
     <div className="max-w-6xl">

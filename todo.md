@@ -956,4 +956,11 @@
 - [x] Apply migration to offering_brain table
 - [x] Add SIC codes and NACE codes display to brain cards
 - [x] Show code explanations alongside the codes
-- [ ] Save checkpoint
+- [x] Save checkpoint
+
+## Feature: Deep Research JSON Export
+- [x] Add download button to Deep Research page
+- [x] Create JSON export of all deep researched companies
+- [x] Include all company data and research briefs in export
+- [x] Include decision makers/contacts in export
+- [x] Save checkpoint

@@ -850,4 +850,10 @@
 - [x] Update enrichment logic to use getActiveOfferingBrain
 - [x] Add validation: prevent deletion of active brain
 - [x] Write vitest tests for brain management
+- [x] Save checkpoint
+
+## UI Cleanup: Remove Deprecated Sidebar Links
+- [x] Remove "Focused Offering" link from DashboardLayout sidebar navigation
+- [x] Remove "Search Scenario" link from DashboardLayout sidebar navigation
+- [x] Keep the pages intact (only remove navigation links)
 - [ ] Save checkpoint

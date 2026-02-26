@@ -933,4 +933,11 @@
 ## Routing Update: Brain as Home Page
 - [x] Update App.tsx to route "/" to Brain page instead of Home
 - [x] Sidebar navigation already has Offering Brain as first item
+- [x] Save checkpoint
+
+## UX Enhancement: Collapsible Sections
+- [x] Add state for CREATE NEW BRAIN section visibility
+- [x] Add state for EDIT ACTIVE BRAIN section visibility
+- [x] Update navigation buttons to toggle section visibility
+- [x] Hide sections by default, show only when button clicked
 - [ ] Save checkpoint

@@ -19,6 +19,8 @@ export default function Brain() {
   const [brainName, setBrainName] = useState("");
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
+  const [showCreateSection, setShowCreateSection] = useState(false);
+  const [showEditSection, setShowEditSection] = useState(false);
 
   const { data: brainData, isLoading } = trpc.companyFinder.getActiveBrain.useQuery();
   const { data: historyData } = trpc.companyFinder.getBrainHistory.useQuery();
@@ -205,10 +207,7 @@ export default function Brain() {
           <div className="flex gap-3 mt-6 pt-6 border-t-4 border-black">
             {brain && (
               <Button
-                onClick={() => {
-                  const editSection = document.querySelector('[data-section="edit-brain"]');
-                  editSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                }}
+                onClick={() => setShowEditSection(!showEditSection)}
                 variant="outline"
                 className="flex-1 font-black border-4 border-black text-lg py-6 hover:bg-black hover:text-white"
               >
@@ -216,10 +215,7 @@ export default function Brain() {
               </Button>
             )}
             <Button
-              onClick={() => {
-                const createSection = document.querySelector('[data-section="create-brain"]');
-                createSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-              }}
+              onClick={() => setShowCreateSection(!showCreateSection)}
               variant="outline"
               className="flex-1 font-black border-4 border-black text-lg py-6 hover:bg-black hover:text-white"
             >
@@ -230,6 +226,7 @@ export default function Brain() {
       )}
 
       {/* Research Trigger */}
+      {showCreateSection && (
       <div data-section="create-brain" className="border-4 border-black p-6 mb-8">
         <div className="text-lg font-black mb-4">CREATE NEW BRAIN</div>
         <div className="grid md:grid-cols-2 gap-4 mb-4">
@@ -280,6 +277,7 @@ export default function Brain() {
           </div>
         )}
       </div>
+      )}
 
       {/* Loading State */}
       {isLoading && (
@@ -301,7 +299,7 @@ export default function Brain() {
       )}
 
       {/* Brain Display */}
-      {brain && brain.status === "completed" && (
+      {brain && brain.status === "completed" && showEditSection && (
         <div className="space-y-6">
           {/* Status Bar */}
           <div data-section="edit-brain" className="flex items-center justify-between bg-black text-white px-6 py-3">

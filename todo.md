@@ -898,3 +898,10 @@
 - [x] Move research form below the saved brains list
 - [x] Prioritize brain management over brain creation
 - [ ] Save checkpoint
+
+
+## UX Fix: Improve Brain Editing Interface
+- [x] Replace JSON textarea edit mode with individual item inputs for array fields
+- [x] Add/remove buttons for each item in arrays (capabilities, industries, pain points, etc.)
+- [x] Prevent JSON corruption when editing structured fields
+- [ ] Save checkpoint

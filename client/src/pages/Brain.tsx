@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -621,6 +621,43 @@ function EditableSection({
   children: React.ReactNode;
 }) {
   const isEditing = editingField === field;
+  const [arrayItems, setArrayItems] = useState<string[]>([]);
+
+  // Detect if this is an array field
+  const isArrayField = value.trim().startsWith('[');
+
+  // Initialize array items when entering edit mode
+  useEffect(() => {
+    if (isEditing && isArrayField) {
+      try {
+        const parsed = JSON.parse(editValue);
+        if (Array.isArray(parsed)) {
+          setArrayItems(parsed.map(item => typeof item === 'string' ? item : JSON.stringify(item)));
+        }
+      } catch {
+        setArrayItems([]);
+      }
+    }
+  }, [isEditing, isArrayField, editValue]);
+
+  const handleArrayItemChange = (index: number, newValue: string) => {
+    const updated = [...arrayItems];
+    updated[index] = newValue;
+    setArrayItems(updated);
+    onEditValueChange(JSON.stringify(updated));
+  };
+
+  const handleAddArrayItem = () => {
+    const updated = [...arrayItems, ''];
+    setArrayItems(updated);
+    onEditValueChange(JSON.stringify(updated));
+  };
+
+  const handleRemoveArrayItem = (index: number) => {
+    const updated = arrayItems.filter((_, i) => i !== index);
+    setArrayItems(updated);
+    onEditValueChange(JSON.stringify(updated));
+  };
 
   if (isEditing) {
     return (
@@ -636,15 +673,47 @@ function EditableSection({
             </Button>
           </div>
         </div>
-        <textarea
-          value={editValue}
-          onChange={(e) => onEditValueChange(e.target.value)}
-          className="w-full px-3 py-2 border-2 border-yellow-500 font-mono text-sm min-h-[120px] bg-yellow-50"
-          placeholder="Edit value (JSON for arrays/objects, plain text for strings)"
-        />
-        <div className="text-[10px] font-bold text-muted-foreground mt-1">
-          For arrays: use JSON format like ["item1", "item2"]. For text: just type normally.
-        </div>
+        
+        {isArrayField ? (
+          <div className="space-y-2">
+            {arrayItems.map((item, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  type="text"
+                  value={item}
+                  onChange={(e) => handleArrayItemChange(index, e.target.value)}
+                  className="flex-1 px-3 py-2 border-2 border-yellow-500 font-bold text-sm bg-yellow-50"
+                  placeholder={`Item ${index + 1}`}
+                />
+                <Button
+                  onClick={() => handleRemoveArrayItem(index)}
+                  variant="outline"
+                  size="sm"
+                  className="text-xs font-black border-2 border-red-600 text-red-600 hover:bg-red-600 hover:text-white h-auto px-3"
+                >
+                  ✕
+                </Button>
+              </div>
+            ))}
+            <Button
+              onClick={handleAddArrayItem}
+              variant="outline"
+              size="sm"
+              className="text-xs font-black border-2 border-black w-full"
+            >
+              + ADD ITEM
+            </Button>
+          </div>
+        ) : (
+          <>
+            <textarea
+              value={editValue}
+              onChange={(e) => onEditValueChange(e.target.value)}
+              className="w-full px-3 py-2 border-2 border-yellow-500 font-bold text-sm min-h-[120px] bg-yellow-50"
+              placeholder="Edit value"
+            />
+          </>
+        )}
       </div>
     );
   }

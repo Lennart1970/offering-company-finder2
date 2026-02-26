@@ -133,12 +133,9 @@ export default function Brain() {
       {/* Header */}
       <div className="mb-8">
         <div className="text-xs font-black text-muted-foreground mb-2">[00] COCKPIT</div>
-        <h1 className="text-5xl md:text-7xl font-black leading-none mb-4">
-          OFFERING<br />BRAIN
+        <h1 className="text-6xl font-black tracking-tight">
+          OFFERING BRAIN
         </h1>
-        <p className="text-lg font-bold text-muted-foreground max-w-2xl">
-          Deep intelligence about your company's offering. This context informs all prospect evaluation — fit scoring, urgency detection, and sales approach generation.
-        </p>
       </div>
 
       {/* My Saved Brains */}

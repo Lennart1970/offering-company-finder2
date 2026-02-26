@@ -912,3 +912,14 @@
 - [x] Apply array-aware editing interface to Nice-to-Have field
 - [x] Apply array-aware editing interface to Disqualifiers field
 - [ ] Save checkpoint
+
+## UX Enhancement: Array-Aware Editing for Fit Scoring Criteria (Completed)
+- [x] Apply array-aware editing interface to Must-Have Criteria field
+- [x] Apply array-aware editing interface to Nice-to-Have field
+- [x] Apply array-aware editing interface to Disqualifiers field
+- [x] Save checkpoint
+
+## UI Cleanup: Simplify Offering Brain Header
+- [x] Remove explanatory text below "OFFERING BRAIN" title
+- [x] Keep only the title on one line
+- [ ] Save checkpoint

@@ -904,4 +904,11 @@
 - [x] Replace JSON textarea edit mode with individual item inputs for array fields
 - [x] Add/remove buttons for each item in arrays (capabilities, industries, pain points, etc.)
 - [x] Prevent JSON corruption when editing structured fields
+- [x] Save checkpoint
+
+
+## UX Enhancement: Array-Aware Editing for Fit Scoring Criteria
+- [x] Apply array-aware editing interface to Must-Have Criteria field
+- [x] Apply array-aware editing interface to Nice-to-Have field
+- [x] Apply array-aware editing interface to Disqualifiers field
 - [ ] Save checkpoint

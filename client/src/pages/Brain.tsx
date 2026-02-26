@@ -496,12 +496,27 @@ export default function Brain() {
 
             <EditableSection
               title="MUST-HAVE CRITERIA"
-              field="fitCriteria"
-              value={brain.fitCriteria || "{}"}
+              field="fitCriteria.mustHave"
+              value={JSON.stringify(fitCriteria.mustHave)}
               editingField={editingField}
               editValue={editValue}
-              onStartEdit={handleStartEdit}
-              onSave={handleSaveEdit}
+              onStartEdit={(field, value) => {
+                setEditingField(field);
+                setEditValue(value);
+              }}
+              onSave={(field) => {
+                if (!brain) return;
+                try {
+                  const updatedMustHave = JSON.parse(editValue);
+                  const updatedFitCriteria = { ...fitCriteria, mustHave: updatedMustHave };
+                  updateMutation.mutate({
+                    brainId: brain.id,
+                    updates: { fitCriteria: JSON.stringify(updatedFitCriteria) },
+                  });
+                } catch (e) {
+                  toast.error("Invalid JSON format");
+                }
+              }}
               onCancel={handleCancelEdit}
               onEditValueChange={setEditValue}
               isPending={updateMutation.isPending}
@@ -517,8 +532,34 @@ export default function Brain() {
               </ul>
             </EditableSection>
 
-            <div className="mb-4">
-              <div className="text-xs font-black mb-2">NICE-TO-HAVE</div>
+            <EditableSection
+              title="NICE-TO-HAVE"
+              field="fitCriteria.niceToHave"
+              value={JSON.stringify(fitCriteria.niceToHave)}
+              editingField={editingField}
+              editValue={editValue}
+              onStartEdit={(field, value) => {
+                setEditingField(field);
+                setEditValue(value);
+              }}
+              onSave={(field) => {
+                if (!brain) return;
+                try {
+                  const updatedNiceToHave = JSON.parse(editValue);
+                  const updatedFitCriteria = { ...fitCriteria, niceToHave: updatedNiceToHave };
+                  updateMutation.mutate({
+                    brainId: brain.id,
+                    updates: { fitCriteria: JSON.stringify(updatedFitCriteria) },
+                  });
+                } catch (e) {
+                  toast.error("Invalid JSON format");
+                }
+              }}
+              onCancel={handleCancelEdit}
+              onEditValueChange={setEditValue}
+              isPending={updateMutation.isPending}
+              compact
+            >
               <ul className="space-y-1">
                 {fitCriteria.niceToHave.map((item, i) => (
                   <li key={i} className="flex items-start gap-2">
@@ -527,10 +568,36 @@ export default function Brain() {
                   </li>
                 ))}
               </ul>
-            </div>
+            </EditableSection>
 
-            <div>
-              <div className="text-xs font-black mb-2">DISQUALIFIERS</div>
+            <EditableSection
+              title="DISQUALIFIERS"
+              field="fitCriteria.disqualifiers"
+              value={JSON.stringify(fitCriteria.disqualifiers)}
+              editingField={editingField}
+              editValue={editValue}
+              onStartEdit={(field, value) => {
+                setEditingField(field);
+                setEditValue(value);
+              }}
+              onSave={(field) => {
+                if (!brain) return;
+                try {
+                  const updatedDisqualifiers = JSON.parse(editValue);
+                  const updatedFitCriteria = { ...fitCriteria, disqualifiers: updatedDisqualifiers };
+                  updateMutation.mutate({
+                    brainId: brain.id,
+                    updates: { fitCriteria: JSON.stringify(updatedFitCriteria) },
+                  });
+                } catch (e) {
+                  toast.error("Invalid JSON format");
+                }
+              }}
+              onCancel={handleCancelEdit}
+              onEditValueChange={setEditValue}
+              isPending={updateMutation.isPending}
+              compact
+            >
               <ul className="space-y-1">
                 {fitCriteria.disqualifiers.map((item, i) => (
                   <li key={i} className="flex items-start gap-2">
@@ -539,7 +606,7 @@ export default function Brain() {
                   </li>
                 ))}
               </ul>
-            </div>
+            </EditableSection>
           </div>
 
           {/* Urgency Triggers */}

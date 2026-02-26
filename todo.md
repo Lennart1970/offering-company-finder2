@@ -928,4 +928,9 @@
 - [x] Add navigation buttons below saved brains list
 - [x] "Edit Active Brain" button (scrolls to edit area, only shown when active brain exists)
 - [x] "Create New Brain" button (scrolls to create form)
+- [x] Save checkpoint
+
+## Routing Update: Brain as Home Page
+- [x] Update App.tsx to route "/" to Brain page instead of Home
+- [x] Sidebar navigation already has Offering Brain as first item
 - [ ] Save checkpoint

@@ -18,7 +18,7 @@ function Router() {
   return (
     <DashboardLayout>
       <Switch>
-        <Route path={"/"} component={FocusedOffering} />
+        <Route path={"/"} component={Brain} />
         <Route path={"/search-scenario"} component={SearchScenario} />
         <Route path={"/search-results/:searchId"} component={SearchResults} />
         <Route path={"/deep-research"} component={DeepResearchDashboard} />

@@ -134,14 +134,24 @@ export default function DeepResearchDashboard() {
   return (
     <div className="max-w-6xl">
       {/* Page Header */}
-      <div className="mb-12">
-        <div className="text-xs font-black text-muted-foreground mb-2">[04] COCKPIT</div>
-        <h1 className="text-5xl md:text-7xl font-black leading-none mb-4">
-          DEEP RESEARCH<br />DASHBOARD
-        </h1>
-        <p className="text-lg font-bold text-muted-foreground max-w-2xl">
-          Aggregated view of all deep-researched companies. Filter by search run or view companies marked for immediate outreach.
-        </p>
+      <div className="mb-12 flex justify-between items-start gap-6">
+        <div>
+          <div className="text-xs font-black text-muted-foreground mb-2">[04] COCKPIT</div>
+          <h1 className="text-5xl md:text-7xl font-black leading-none mb-4">
+            DEEP RESEARCH<br />DASHBOARD
+          </h1>
+          <p className="text-lg font-bold text-muted-foreground max-w-2xl">
+            Aggregated view of all deep-researched companies. Filter by search run or view companies marked for immediate outreach.
+          </p>
+        </div>
+        {sortedCompanies.length > 0 && (
+          <Button
+            onClick={handleDownloadJSON}
+            className="border-4 border-black bg-black text-white hover:bg-gray-900 font-black px-6 py-3 h-fit whitespace-nowrap"
+          >
+            ⬇️ DOWNLOAD JSON
+          </Button>
+        )}
       </div>
 
       {/* View Filter Tabs */}

@@ -964,3 +964,8 @@
 - [x] Include all company data and research briefs in export
 - [x] Include decision makers/contacts in export
 - [x] Save checkpoint
+
+## UX Adjustment: Download Button Position
+- [x] Move JSON export button from sort controls to top of page
+- [x] Place button near page header for better visibility
+- [ ] Save checkpoint

@@ -922,4 +922,10 @@
 ## UI Cleanup: Simplify Offering Brain Header
 - [x] Remove explanatory text below "OFFERING BRAIN" title
 - [x] Keep only the title on one line
+- [x] Save checkpoint
+
+## Navigation Enhancement: Quick Jump Buttons
+- [x] Add navigation buttons below saved brains list
+- [x] "Edit Active Brain" button (scrolls to edit area, only shown when active brain exists)
+- [x] "Create New Brain" button (scrolls to create form)
 - [ ] Save checkpoint

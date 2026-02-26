@@ -200,11 +200,37 @@ export default function Brain() {
               </div>
             ))}
           </div>
+          
+          {/* Navigation Buttons */}
+          <div className="flex gap-3 mt-6 pt-6 border-t-4 border-black">
+            {brain && (
+              <Button
+                onClick={() => {
+                  const editSection = document.querySelector('[data-section="edit-brain"]');
+                  editSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }}
+                variant="outline"
+                className="flex-1 font-black border-4 border-black text-lg py-6 hover:bg-black hover:text-white"
+              >
+                ✏️ EDIT ACTIVE BRAIN
+              </Button>
+            )}
+            <Button
+              onClick={() => {
+                const createSection = document.querySelector('[data-section="create-brain"]');
+                createSection?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+              }}
+              variant="outline"
+              className="flex-1 font-black border-4 border-black text-lg py-6 hover:bg-black hover:text-white"
+            >
+              ➕ CREATE NEW BRAIN
+            </Button>
+          </div>
         </div>
       )}
 
       {/* Research Trigger */}
-      <div className="border-4 border-black p-6 mb-8">
+      <div data-section="create-brain" className="border-4 border-black p-6 mb-8">
         <div className="text-lg font-black mb-4">CREATE NEW BRAIN</div>
         <div className="grid md:grid-cols-2 gap-4 mb-4">
           <div>
@@ -278,7 +304,7 @@ export default function Brain() {
       {brain && brain.status === "completed" && (
         <div className="space-y-6">
           {/* Status Bar */}
-          <div className="flex items-center justify-between bg-black text-white px-6 py-3">
+          <div data-section="edit-brain" className="flex items-center justify-between bg-black text-white px-6 py-3">
             <div className="flex items-center gap-4">
               <span className="text-sm font-black">ACTIVE BRAIN: {brain.brainName}</span>
               <span className="text-sm font-bold opacity-70">{brain.companyName}</span>

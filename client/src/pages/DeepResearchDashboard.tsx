@@ -11,6 +11,7 @@ import { useLocation } from "wouter";
 function GetAllPersonnelButtonDeep({ companyId, companyName }: { companyId: number; companyName: string }) {
   const [showModal, setShowModal] = useState(false);
   const [results, setResults] = useState<any>(null);
+  const [fetchLimit, setFetchLimit] = useState(500);
 
   const getAllPersonnelMutation = trpc.companyFinder.getAllPersonnel.useMutation({
     onSuccess: (data) => {
@@ -25,7 +26,7 @@ function GetAllPersonnelButtonDeep({ companyId, companyName }: { companyId: numb
 
   const handleSearch = (e: React.MouseEvent) => {
     e.stopPropagation();
-    getAllPersonnelMutation.mutate({ companyId, limit: 500 });
+    getAllPersonnelMutation.mutate({ companyId, limit: fetchLimit });
   };
 
   return (
@@ -45,8 +46,10 @@ function GetAllPersonnelButtonDeep({ companyId, companyName }: { companyId: numb
           companyId={companyId}
           results={results}
           isPending={getAllPersonnelMutation.isPending}
-          onRefresh={() => getAllPersonnelMutation.mutate({ companyId, limit: 500 })}
+          onRefresh={() => getAllPersonnelMutation.mutate({ companyId, limit: fetchLimit })}
           onClose={() => setShowModal(false)}
+          fetchLimit={fetchLimit}
+          onFetchLimitChange={setFetchLimit}
         />
       )}
     </>
@@ -63,6 +66,8 @@ function PersonnelModal({
   isPending,
   onRefresh,
   onClose,
+  fetchLimit,
+  onFetchLimitChange,
 }: {
   companyName: string;
   companyId: number;
@@ -70,6 +75,8 @@ function PersonnelModal({
   isPending: boolean;
   onRefresh: () => void;
   onClose: () => void;
+  fetchLimit?: number;
+  onFetchLimitChange?: (limit: number) => void;
 }) {
   const [enrichingContactId, setEnrichingContactId] = useState<number | null>(null);
 
@@ -193,18 +200,36 @@ function PersonnelModal({
         </div>
 
         {/* Footer */}
-        <div className="px-5 py-3 border-t-2 border-gray-200 flex gap-3 shrink-0">
-          <Button
-            onClick={onRefresh}
-            disabled={isPending}
-            variant="outline"
-            className="font-black border-2 border-blue-600 text-blue-600 cursor-pointer flex-1"
-          >
-            {isPending ? "SEARCHING..." : "SEARCH AGAIN"}
-          </Button>
-          <Button onClick={onClose} className="font-black bg-black text-white cursor-pointer flex-1">
-            CLOSE
-          </Button>
+        <div className="px-5 py-3 border-t-2 border-gray-200 shrink-0">
+          {/* Fetch Limit Selector */}
+          {fetchLimit !== undefined && onFetchLimitChange && (
+            <div className="mb-3 flex items-center gap-2">
+              <label className="text-sm font-bold">Fetch Limit:</label>
+              <select
+                value={fetchLimit}
+                onChange={(e) => onFetchLimitChange(Number(e.target.value))}
+                className="border-2 border-gray-300 rounded px-2 py-1 text-sm font-bold cursor-pointer"
+              >
+                <option value={100}>100</option>
+                <option value={500}>500</option>
+                <option value={1000}>1000</option>
+              </select>
+              <span className="text-xs text-muted-foreground">Maximum employees to fetch</span>
+            </div>
+          )}
+          <div className="flex gap-3">
+            <Button
+              onClick={onRefresh}
+              disabled={isPending}
+              variant="outline"
+              className="font-black border-2 border-blue-600 text-blue-600 cursor-pointer flex-1"
+            >
+              {isPending ? "SEARCHING..." : "SEARCH AGAIN"}
+            </Button>
+            <Button onClick={onClose} className="font-black bg-black text-white cursor-pointer flex-1">
+              CLOSE
+            </Button>
+          </div>
         </div>
       </div>
     </div>

@@ -981,4 +981,10 @@
 - [x] Investigate Apollo API pagination parameters
 - [x] Implement multi-page fetching to get all employees (default 500, paginated)
 - [x] Update frontend to handle larger result sets
+- [x] Save checkpoint
+
+## Feature: Configurable Personnel Fetch Limit
+- [x] Add dropdown UI in Search Results personnel modal (100, 500, 1000)
+- [x] Add dropdown UI in Deep Research personnel modal (100, 500, 1000)
+- [x] Wire dropdown selection to getAllPersonnel backend calls
 - [ ] Save checkpoint

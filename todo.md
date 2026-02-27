@@ -987,4 +987,11 @@
 - [x] Add dropdown UI in Search Results personnel modal (100, 500, 1000)
 - [x] Add dropdown UI in Deep Research personnel modal (100, 500, 1000)
 - [x] Wire dropdown selection to getAllPersonnel backend calls
+- [x] Save checkpoint
+
+## UX Redesign: Personnel Search Flow
+- [x] Update Search Results: Show selection modal with dropdown BEFORE fetching
+- [x] Update Deep Research: Show selection modal with dropdown BEFORE fetching
+- [x] Modal should have dropdown (100, 500, 1000) and "FETCH" button
+- [x] Only start API call after user confirms fetch limit
 - [ ] Save checkpoint

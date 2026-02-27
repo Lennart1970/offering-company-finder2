@@ -9,45 +9,95 @@ import { useLocation } from "wouter";
 // Get All Personnel Button for Deep Research
 // ============================================================================
 function GetAllPersonnelButtonDeep({ companyId, companyName }: { companyId: number; companyName: string }) {
-  const [showModal, setShowModal] = useState(false);
+  const [showSelectionModal, setShowSelectionModal] = useState(false);
+  const [showResultsModal, setShowResultsModal] = useState(false);
   const [results, setResults] = useState<any>(null);
   const [fetchLimit, setFetchLimit] = useState(500);
 
   const getAllPersonnelMutation = trpc.companyFinder.getAllPersonnel.useMutation({
     onSuccess: (data) => {
       setResults({ contacts: data.contacts, totalFound: data.totalFound });
-      setShowModal(true);
+      setShowSelectionModal(false);
+      setShowResultsModal(true);
       toast.success(`Found ${data.contacts.length} personnel at ${companyName}`);
     },
     onError: (error) => {
       toast.error(`Personnel search failed: ${error.message}`);
+      setShowSelectionModal(false);
     },
   });
 
-  const handleSearch = (e: React.MouseEvent) => {
+  const handleButtonClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+    setShowSelectionModal(true);
+  };
+
+  const handleFetch = () => {
     getAllPersonnelMutation.mutate({ companyId, limit: fetchLimit });
   };
 
   return (
     <>
       <Button
-        onClick={handleSearch}
+        onClick={handleButtonClick}
         disabled={getAllPersonnelMutation.isPending}
         size="sm"
         variant="outline"
         className="text-xs font-black border-2 border-blue-600 text-blue-600 h-8 px-3 cursor-pointer"
       >
-        {getAllPersonnelMutation.isPending ? "SEARCHING..." : "GET ALL PERSONNEL"}
+        GET ALL PERSONNEL
       </Button>
-      {showModal && (
+      
+      {/* Selection Modal */}
+      {showSelectionModal && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowSelectionModal(false)}>
+          <div className="bg-white rounded-lg shadow-xl w-full max-w-md" onClick={(e) => e.stopPropagation()}>
+            <div className="px-6 py-4 border-b-2 border-gray-200">
+              <h3 className="text-xl font-black">FETCH PERSONNEL</h3>
+              <p className="text-sm text-muted-foreground mt-1">{companyName}</p>
+            </div>
+            <div className="px-6 py-6">
+              <label className="block text-sm font-bold mb-2">How many employees to fetch?</label>
+              <select
+                value={fetchLimit}
+                onChange={(e) => setFetchLimit(Number(e.target.value))}
+                className="w-full border-2 border-gray-300 rounded px-3 py-2 text-base font-bold cursor-pointer"
+              >
+                <option value={100}>100 employees</option>
+                <option value={500}>500 employees</option>
+                <option value={1000}>1000 employees</option>
+              </select>
+              <p className="text-xs text-muted-foreground mt-2">Cost: 1 credit total (no email enrichment)</p>
+            </div>
+            <div className="px-6 py-4 border-t-2 border-gray-200 flex gap-3">
+              <Button
+                onClick={() => setShowSelectionModal(false)}
+                variant="outline"
+                className="font-black border-2 cursor-pointer flex-1"
+              >
+                CANCEL
+              </Button>
+              <Button
+                onClick={handleFetch}
+                disabled={getAllPersonnelMutation.isPending}
+                className="font-black bg-blue-600 text-white cursor-pointer flex-1"
+              >
+                {getAllPersonnelMutation.isPending ? "FETCHING..." : "FETCH"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Results Modal */}
+      {showResultsModal && (
         <PersonnelModal
           companyName={companyName}
           companyId={companyId}
           results={results}
           isPending={getAllPersonnelMutation.isPending}
           onRefresh={() => getAllPersonnelMutation.mutate({ companyId, limit: fetchLimit })}
-          onClose={() => setShowModal(false)}
+          onClose={() => setShowResultsModal(false)}
           fetchLimit={fetchLimit}
           onFetchLimitChange={setFetchLimit}
         />

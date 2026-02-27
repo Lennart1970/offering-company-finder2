@@ -25,7 +25,7 @@ import {
   getCallTodayCompanies,
 } from "./db";
 // Brain and contacts-by-company imports are above with brainResearchService
-import { searchApolloContacts, searchApolloContacts as searchApolloContactsSingle, trickleDownSearch, SENIORITY_TIERS } from "./apolloPeopleSearch";
+import { searchApolloContacts, searchApolloContacts as searchApolloContactsSingle, trickleDownSearch, getAllPersonnel, enrichPerson, SENIORITY_TIERS } from "./apolloPeopleSearch";
 import { researchOfferingBrain } from "./brainResearchService";
 import {
   createOfferingBrain,
@@ -1237,6 +1237,131 @@ export const companyFinderRouter = router({
         tierLabel: result.tierLabel,
         tiersSearched: result.tiersSearched,
         cached: false,
+      };
+    }),
+
+  // Get all personnel at a company (no seniority filtering)
+  getAllPersonnel: protectedProcedure
+    .input(z.object({
+      companyId: z.number(),
+      includePhone: z.boolean().optional(),
+      limit: z.number().optional(), // Max contacts to return (default 25)
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const company = await getCompanyById(input.companyId);
+      if (!company) throw new Error("Company not found");
+
+      const domain = company.websiteUrl
+        ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
+        : null;
+      if (!domain) throw new Error("Company has no website URL for contact search");
+
+      console.log(`[Get All Personnel] Starting search at ${company.name} (${domain})`);
+
+      // Run get all personnel search (basic data only, no enrichment)
+      const result = await getAllPersonnel(
+        domain,
+        company.name,
+        input.limit || 25
+      );
+
+      // Save found contacts to database (deduplicated)
+      const savedContacts: any[] = [];
+      const seenEmails = new Set<string>();
+      const seenNames = new Set<string>();
+
+      for (const contact of result.contacts) {
+        const contactEmail = contact.email?.toLowerCase();
+        const contactName = contact.name?.toLowerCase();
+
+        // Skip duplicates
+        if ((contactEmail && seenEmails.has(contactEmail)) ||
+            (contactName && seenNames.has(contactName))) {
+          continue;
+        }
+
+        try {
+          const savedContact = await createContact({
+            companyId: input.companyId,
+            apolloPersonId: contact.id,
+            firstName: contact.firstName,
+            lastName: contact.lastName,
+            fullName: contact.name,
+            title: contact.title,
+            email: contact.email || null,
+            phone: contact.phone || null,
+            linkedinUrl: contact.linkedinUrl || null,
+            searchedTitle: "All Personnel",
+          });
+          savedContacts.push(savedContact);
+          if (contactEmail) seenEmails.add(contactEmail);
+          if (contactName) seenNames.add(contactName);
+        } catch (err: any) {
+          console.error(`[Get All Personnel] Failed to save contact ${contact.name}:`, err.message);
+        }
+      }
+
+      console.log(`[Get All Personnel] Completed: ${savedContacts.length} contacts saved (total found: ${result.totalFound})`);
+
+      return {
+        contacts: savedContacts,
+        totalFound: result.totalFound,
+      };
+    }),
+
+  // Enrich a specific contact with email/phone (selective enrichment)
+  enrichContact: protectedProcedure
+    .input(z.object({
+      contactId: z.number(),
+      includePhone: z.boolean().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Get contact from database
+      const contacts = await getContactsByCompanyId(0); // We need to add getContactById to db.ts
+      const contact = contacts.find((c: any) => c.id === input.contactId);
+      if (!contact) throw new Error("Contact not found");
+
+      // Get company to get domain
+      const company = await getCompanyById(contact.companyId);
+      if (!company) throw new Error("Company not found");
+
+      const domain = company.websiteUrl
+        ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
+        : null;
+      if (!domain) throw new Error("Company has no website URL for enrichment");
+
+      console.log(`[Enrich Contact] Enriching ${contact.fullName} at ${company.name}`);
+
+      // Enrich with Apollo
+      if (!contact.firstName || !contact.lastName) {
+        throw new Error("Contact must have first name and last name for enrichment");
+      }
+
+      const enriched = await enrichPerson(
+        contact.firstName,
+        contact.lastName,
+        domain,
+        input.includePhone || false
+      );
+
+      // Update contact in database
+      const updatedContact = await createContact({
+        companyId: contact.companyId,
+        apolloPersonId: contact.apolloPersonId,
+        firstName: contact.firstName,
+        lastName: contact.lastName,
+        fullName: contact.fullName,
+        title: contact.title,
+        email: enriched.email || contact.email || null,
+        phone: enriched.phone || contact.phone || null,
+        linkedinUrl: enriched.linkedinUrl || contact.linkedinUrl || null,
+        searchedTitle: contact.searchedTitle,
+      });
+
+      console.log(`[Enrich Contact] Completed: ${updatedContact.fullName} enriched`);
+
+      return {
+        contact: updatedContact,
       };
     }),
 });

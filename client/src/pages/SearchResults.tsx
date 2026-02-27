@@ -536,6 +536,7 @@ function CompanyCard({ company, index, searchId }: { company: any; index: number
                   <CreateSalesApproachButton companyId={company.id} companyName={company.name} hasSalesApproach={!!company.salesApproachData} />
                 )}
                 <FindAllCSuiteButton companyId={company.id} companyName={company.name} />
+                <GetAllPersonnelButton companyId={company.id} companyName={company.name} />
               </>
             )}
           </div>
@@ -903,6 +904,57 @@ function CreateSalesApproachButton({ companyId, companyName, hasSalesApproach }:
 // ============================================================================
 // Find Decision-Makers Button — Trickle-Down Seniority Search
 // ============================================================================
+function GetAllPersonnelButton({ companyId, companyName }: { companyId: number; companyName: string }) {
+  const [showModal, setShowModal] = useState(false);
+  const [results, setResults] = useState<any>(null);
+
+  const { data: existingContacts } = trpc.companyFinder.getCompanyContacts.useQuery({ companyId });
+
+  const getAllPersonnelMutation = trpc.companyFinder.getAllPersonnel.useMutation({
+    onSuccess: (data) => {
+      setResults({ contacts: data.contacts, totalFound: data.totalFound });
+      setShowModal(true);
+      toast.success(`Found ${data.contacts.length} personnel at ${companyName} (${data.totalFound} total in database)`);
+    },
+    onError: (error) => {
+      toast.error(`Personnel search failed: ${error.message}`);
+    },
+  });
+
+  const handleSearch = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    getAllPersonnelMutation.mutate({ companyId, limit: 25 });
+  };
+
+  const contactCount = existingContacts?.contacts?.length || 0;
+
+  return (
+    <>
+      <Button
+        onClick={handleSearch}
+        disabled={getAllPersonnelMutation.isPending}
+        size="sm"
+        variant="outline"
+        className="text-xs font-black border-2 border-blue-600 text-blue-600 h-8 px-3 cursor-pointer"
+      >
+        {getAllPersonnelMutation.isPending
+          ? "SEARCHING..."
+          : "GET ALL PERSONNEL"}
+      </Button>
+      {showModal && (
+        <CSuiteContactsModal
+          companyName={companyName}
+          companyId={companyId}
+          results={results}
+          isPending={getAllPersonnelMutation.isPending}
+          onRefresh={() => getAllPersonnelMutation.mutate({ companyId, limit: 25 })}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+    </>
+  );
+}
+
 function FindAllCSuiteButton({ companyId, companyName }: { companyId: number; companyName: string }) {
   const [showModal, setShowModal] = useState(false);
   const [results, setResults] = useState<any>(null);
@@ -992,6 +1044,26 @@ function CSuiteContactsModal({
   onRefresh: () => void;
   onClose: () => void;
 }) {
+  const [enrichingContactId, setEnrichingContactId] = useState<number | null>(null);
+
+  const enrichContactMutation = trpc.companyFinder.enrichContact.useMutation({
+    onSuccess: (data, variables) => {
+      toast.success(`Contact enriched successfully!`);
+      setEnrichingContactId(null);
+      // Refresh the contact list
+      onRefresh();
+    },
+    onError: (error) => {
+      toast.error(`Enrichment failed: ${error.message}`);
+      setEnrichingContactId(null);
+    },
+  });
+
+  const handleEnrich = (contactId: number) => {
+    setEnrichingContactId(contactId);
+    enrichContactMutation.mutate({ contactId, includePhone: false });
+  };
+
   const copyToClipboard = (text: string, label: string) => {
     navigator.clipboard.writeText(text);
     toast.success(`${label} copied to clipboard`);
@@ -1096,6 +1168,20 @@ function CSuiteContactsModal({
                 </div>
 
                 <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {!contact.email && (
+                    <div className="flex items-center gap-2 col-span-full">
+                      <span className="text-xs font-bold text-muted-foreground">No email yet</span>
+                      <Button
+                        onClick={() => handleEnrich(contact.id)}
+                        disabled={enrichingContactId === contact.id}
+                        variant="outline"
+                        size="sm"
+                        className="font-black border-2 border-green-600 text-green-600 h-6 px-2 text-[10px] shrink-0 cursor-pointer"
+                      >
+                        {enrichingContactId === contact.id ? "ENRICHING..." : "ENRICH EMAIL (1 credit)"}
+                      </Button>
+                    </div>
+                  )}
                   {contact.email && (
                     <div className="flex items-center gap-2">
                       <span className="text-xs font-bold truncate flex-1">{contact.email}</span>

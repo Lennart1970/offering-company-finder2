@@ -296,6 +296,77 @@ async function searchPeopleBySeniority(
 }
 
 /**
+ * Get All Personnel at a Company
+ * 
+ * Searches for ALL people at a company without seniority filtering.
+ * Returns up to the specified limit of contacts with enriched email/phone data.
+ * 
+ * Cost: 1 credit for search + 1 credit per email + 8 credits per phone (if enabled)
+ */
+export async function getAllPersonnel(
+  companyDomain: string,
+  companyName: string,
+  limit: number = 25
+): Promise<{
+  contacts: ApolloContact[];
+  totalFound: number;
+}> {
+  const apiKey = process.env.APOLLO_API_KEY;
+  if (!apiKey) {
+    throw new Error("APOLLO_API_KEY environment variable not set");
+  }
+
+  const cleanDomain = companyDomain
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/\/.*$/, "")
+    .toLowerCase()
+    .trim();
+
+  console.log(`[Apollo All Personnel] Searching for all people at domain "${cleanDomain}" (limit: ${limit})`);
+
+  const requestBody = {
+    page: 1,
+    per_page: limit,
+    q_organization_domains_list: [cleanDomain],
+  };
+
+  const response = await axios.post(
+    "https://api.apollo.io/api/v1/mixed_people/search",
+    requestBody,
+    {
+      headers: {
+        "X-Api-Key": apiKey,
+        "Content-Type": "application/json",
+      },
+      timeout: 15000,
+    }
+  );
+
+  const people = response.data.people || [];
+  const totalEntries = response.data.total_entries || 0;
+
+  console.log(`[Apollo All Personnel] Found ${people.length} people (total_entries: ${totalEntries})`);
+
+  // Return basic contact data without enrichment (cost: 1 credit for search only)
+  const basicContacts: ApolloContact[] = people.map((person: any) => ({
+    id: person.id || "",
+    firstName: person.first_name || "",
+    lastName: person.last_name || "",
+    name: person.name || `${person.first_name || ""} ${person.last_name || ""}`.trim(),
+    title: person.title || "",
+    linkedinUrl: person.linkedin_url || undefined,
+    companyName: person.organization?.name || companyName,
+    // email and phone are undefined - will be enriched separately if needed
+  }));
+
+  return {
+    contacts: basicContacts,
+    totalFound: totalEntries,
+  };
+}
+
+/**
  * Trickle-Down Contact Search
  * 
  * Searches for contacts starting from highest seniority tier (C-Suite/Owner)

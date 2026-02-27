@@ -5,6 +5,212 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 
+// ============================================================================
+// Get All Personnel Button for Deep Research
+// ============================================================================
+function GetAllPersonnelButtonDeep({ companyId, companyName }: { companyId: number; companyName: string }) {
+  const [showModal, setShowModal] = useState(false);
+  const [results, setResults] = useState<any>(null);
+
+  const getAllPersonnelMutation = trpc.companyFinder.getAllPersonnel.useMutation({
+    onSuccess: (data) => {
+      setResults({ contacts: data.contacts, totalFound: data.totalFound });
+      setShowModal(true);
+      toast.success(`Found ${data.contacts.length} personnel at ${companyName}`);
+    },
+    onError: (error) => {
+      toast.error(`Personnel search failed: ${error.message}`);
+    },
+  });
+
+  const handleSearch = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    getAllPersonnelMutation.mutate({ companyId, limit: 50 });
+  };
+
+  return (
+    <>
+      <Button
+        onClick={handleSearch}
+        disabled={getAllPersonnelMutation.isPending}
+        size="sm"
+        variant="outline"
+        className="text-xs font-black border-2 border-blue-600 text-blue-600 h-8 px-3 cursor-pointer"
+      >
+        {getAllPersonnelMutation.isPending ? "SEARCHING..." : "GET ALL PERSONNEL"}
+      </Button>
+      {showModal && (
+        <PersonnelModal
+          companyName={companyName}
+          companyId={companyId}
+          results={results}
+          isPending={getAllPersonnelMutation.isPending}
+          onRefresh={() => getAllPersonnelMutation.mutate({ companyId, limit: 50 })}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// ============================================================================
+// Personnel Modal — Shows All Personnel with Enrich Option
+// ============================================================================
+function PersonnelModal({
+  companyName,
+  companyId,
+  results,
+  isPending,
+  onRefresh,
+  onClose,
+}: {
+  companyName: string;
+  companyId: number;
+  results: any;
+  isPending: boolean;
+  onRefresh: () => void;
+  onClose: () => void;
+}) {
+  const [enrichingContactId, setEnrichingContactId] = useState<number | null>(null);
+
+  const enrichContactMutation = trpc.companyFinder.enrichContact.useMutation({
+    onSuccess: (data, variables) => {
+      toast.success(`Contact enriched successfully!`);
+      setEnrichingContactId(null);
+      onRefresh();
+    },
+    onError: (error) => {
+      toast.error(`Enrichment failed: ${error.message}`);
+      setEnrichingContactId(null);
+    },
+  });
+
+  const handleEnrich = (contactId: number) => {
+    setEnrichingContactId(contactId);
+    enrichContactMutation.mutate({ contactId, includePhone: false });
+  };
+
+  const copyToClipboard = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
+  };
+
+  const contacts = results?.contacts || [];
+  const totalFound = results?.totalFound || 0;
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white max-w-3xl w-full rounded-lg shadow-2xl border-2 border-blue-600 overflow-hidden max-h-[85vh] flex flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="bg-blue-600 text-white px-5 py-3 flex justify-between items-center shrink-0">
+          <div>
+            <h2 className="text-lg font-black">All Personnel at {companyName}</h2>
+            <div className="text-xs opacity-80">
+              {contacts.length} contact{contacts.length !== 1 ? "s" : ""} found (Total: {totalFound})
+            </div>
+          </div>
+          <button onClick={onClose} className="text-white text-xl font-black hover:opacity-60">×</button>
+        </div>
+
+        {/* Contact List */}
+        <div className="overflow-y-auto flex-1 p-4 space-y-3">
+          {contacts.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground font-bold">
+              No personnel found.
+            </div>
+          ) : (
+            contacts.map((contact: any, idx: number) => (
+              <div key={contact.id || idx} className="border-2 border-gray-200 p-3 hover:border-blue-300 transition-colors">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0 flex-1">
+                    <div className="font-black text-base">
+                      {contact.fullName || `${contact.firstName} ${contact.lastName}`}
+                    </div>
+                    {contact.title && (
+                      <div className="text-sm font-bold text-muted-foreground">{contact.title}</div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {!contact.email && (
+                    <div className="flex items-center gap-2 col-span-full">
+                      <span className="text-xs font-bold text-muted-foreground">No email yet</span>
+                      <Button
+                        onClick={() => handleEnrich(contact.id)}
+                        disabled={enrichingContactId === contact.id}
+                        variant="outline"
+                        size="sm"
+                        className="font-black border-2 border-green-600 text-green-600 h-6 px-2 text-[10px] shrink-0 cursor-pointer"
+                      >
+                        {enrichingContactId === contact.id ? "ENRICHING..." : "ENRICH EMAIL (1 credit)"}
+                      </Button>
+                    </div>
+                  )}
+                  {contact.email && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold truncate flex-1">{contact.email}</span>
+                      <Button
+                        onClick={() => copyToClipboard(contact.email, "Email")}
+                        variant="outline"
+                        size="sm"
+                        className="font-black border border-black h-6 px-2 text-[10px] shrink-0 cursor-pointer"
+                      >
+                        COPY
+                      </Button>
+                    </div>
+                  )}
+                  {contact.phone && (
+                    <div className="flex items-center gap-2">
+                      <span className="text-xs font-bold">{contact.phone}</span>
+                      <Button
+                        onClick={() => copyToClipboard(contact.phone, "Phone")}
+                        variant="outline"
+                        size="sm"
+                        className="font-black border border-black h-6 px-2 text-[10px] shrink-0 cursor-pointer"
+                      >
+                        COPY
+                      </Button>
+                    </div>
+                  )}
+                  {contact.linkedinUrl && (
+                    <a
+                      href={contact.linkedinUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs font-bold underline text-blue-600 truncate"
+                    >
+                      LinkedIn Profile
+                    </a>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t-2 border-gray-200 flex gap-3 shrink-0">
+          <Button
+            onClick={onRefresh}
+            disabled={isPending}
+            variant="outline"
+            className="font-black border-2 border-blue-600 text-blue-600 cursor-pointer flex-1"
+          >
+            {isPending ? "SEARCHING..." : "SEARCH AGAIN"}
+          </Button>
+          <Button onClick={onClose} className="font-black bg-black text-white cursor-pointer flex-1">
+            CLOSE
+          </Button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function DeepResearchDashboard() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
@@ -328,6 +534,11 @@ export default function DeepResearchDashboard() {
                     </div>
 
                     <span className="text-2xl font-black ml-4">{isExpanded ? "▲" : "▼"}</span>
+                  </div>
+
+                  {/* Action Buttons */}
+                  <div className="mt-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                    <GetAllPersonnelButtonDeep companyId={company.id} companyName={company.name} />
                   </div>
                 </div>
 

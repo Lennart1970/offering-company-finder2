@@ -968,4 +968,11 @@
 ## UX Adjustment: Download Button Position
 - [x] Move JSON export button from sort controls to top of page
 - [x] Place button near page header for better visibility
+- [x] Save checkpoint
+
+## Feature: Two-Stage Personnel Search (Cost Reduction)
+- [x] Modify getAllPersonnel backend to skip enrichment (basic data only)
+- [x] Add enrichContact procedure for selective email/phone enrichment
+- [x] Update Search Results button UI to show basic contacts with enrich option
+- [x] Add GET ALL PERSONNEL button to Deep Research Dashboard
 - [ ] Save checkpoint

@@ -306,7 +306,7 @@ async function searchPeopleBySeniority(
 export async function getAllPersonnel(
   companyDomain: string,
   companyName: string,
-  limit: number = 25
+  maxResults: number = 500 // Default to 500, can be increased if needed
 ): Promise<{
   contacts: ApolloContact[];
   totalFound: number;
@@ -323,33 +323,61 @@ export async function getAllPersonnel(
     .toLowerCase()
     .trim();
 
-  console.log(`[Apollo All Personnel] Searching for all people at domain "${cleanDomain}" (limit: ${limit})`);
+  console.log(`[Apollo All Personnel] Searching for all people at domain "${cleanDomain}" (max: ${maxResults})`);
 
-  const requestBody = {
-    page: 1,
-    per_page: limit,
-    q_organization_domains_list: [cleanDomain],
-  };
+  const allPeople: any[] = [];
+  let currentPage = 1;
+  const perPage = 100; // Apollo max per page
+  let totalEntries = 0;
 
-  const response = await axios.post(
-    "https://api.apollo.io/api/v1/mixed_people/search",
-    requestBody,
-    {
-      headers: {
-        "X-Api-Key": apiKey,
-        "Content-Type": "application/json",
-      },
-      timeout: 15000,
+  // Paginate through all results
+  while (allPeople.length < maxResults) {
+    const requestBody = {
+      page: currentPage,
+      per_page: perPage,
+      q_organization_domains_list: [cleanDomain],
+    };
+
+    console.log(`[Apollo All Personnel] Fetching page ${currentPage}...`);
+
+    const response = await axios.post(
+      "https://api.apollo.io/api/v1/mixed_people/search",
+      requestBody,
+      {
+        headers: {
+          "X-Api-Key": apiKey,
+          "Content-Type": "application/json",
+        },
+        timeout: 15000,
+      }
+    );
+
+    const people = response.data.people || [];
+    totalEntries = response.data.total_entries || 0;
+
+    if (people.length === 0) {
+      console.log(`[Apollo All Personnel] No more results on page ${currentPage}`);
+      break;
     }
-  );
 
-  const people = response.data.people || [];
-  const totalEntries = response.data.total_entries || 0;
+    allPeople.push(...people);
+    console.log(`[Apollo All Personnel] Page ${currentPage}: ${people.length} people (total so far: ${allPeople.length}/${totalEntries})`);
 
-  console.log(`[Apollo All Personnel] Found ${people.length} people (total_entries: ${totalEntries})`);
+    // Stop if we've fetched all available people or reached maxResults
+    if (allPeople.length >= totalEntries || allPeople.length >= maxResults) {
+      break;
+    }
 
-  // Return basic contact data without enrichment (cost: 1 credit for search only)
-  const basicContacts: ApolloContact[] = people.map((person: any) => ({
+    currentPage++;
+
+    // Small delay between pages to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 200));
+  }
+
+  console.log(`[Apollo All Personnel] Completed: ${allPeople.length} people fetched (total available: ${totalEntries})`);
+
+  // Return basic contact data without enrichment (cost: 1 credit per page)
+  const basicContacts: ApolloContact[] = allPeople.slice(0, maxResults).map((person: any) => ({
     id: person.id || "",
     firstName: person.first_name || "",
     lastName: person.last_name || "",

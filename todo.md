@@ -975,4 +975,10 @@
 - [x] Add enrichContact procedure for selective email/phone enrichment
 - [x] Update Search Results button UI to show basic contacts with enrich option
 - [x] Add GET ALL PERSONNEL button to Deep Research Dashboard
+- [x] Save checkpoint
+
+## Enhancement: Increase getAllPersonnel Limit
+- [x] Investigate Apollo API pagination parameters
+- [x] Implement multi-page fetching to get all employees (default 500, paginated)
+- [x] Update frontend to handle larger result sets
 - [ ] Save checkpoint

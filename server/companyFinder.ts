@@ -1259,10 +1259,11 @@ export const companyFinderRouter = router({
       console.log(`[Get All Personnel] Starting search at ${company.name} (${domain})`);
 
       // Run get all personnel search (basic data only, no enrichment)
+      // Default to 500, can fetch more if needed
       const result = await getAllPersonnel(
         domain,
         company.name,
-        input.limit || 25
+        input.limit || 500
       );
 
       // Save found contacts to database (deduplicated)

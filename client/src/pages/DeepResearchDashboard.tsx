@@ -25,7 +25,7 @@ function GetAllPersonnelButtonDeep({ companyId, companyName }: { companyId: numb
 
   const handleSearch = (e: React.MouseEvent) => {
     e.stopPropagation();
-    getAllPersonnelMutation.mutate({ companyId, limit: 50 });
+    getAllPersonnelMutation.mutate({ companyId, limit: 500 });
   };
 
   return (
@@ -45,7 +45,7 @@ function GetAllPersonnelButtonDeep({ companyId, companyName }: { companyId: numb
           companyId={companyId}
           results={results}
           isPending={getAllPersonnelMutation.isPending}
-          onRefresh={() => getAllPersonnelMutation.mutate({ companyId, limit: 50 })}
+          onRefresh={() => getAllPersonnelMutation.mutate({ companyId, limit: 500 })}
           onClose={() => setShowModal(false)}
         />
       )}

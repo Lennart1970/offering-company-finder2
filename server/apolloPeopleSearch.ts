@@ -361,10 +361,18 @@ export async function getAllPersonnel(
     }
 
     allPeople.push(...people);
-    console.log(`[Apollo All Personnel] Page ${currentPage}: ${people.length} people (total so far: ${allPeople.length}/${totalEntries})`);
+    console.log(`[Apollo All Personnel] Page ${currentPage}: ${people.length} people (total so far: ${allPeople.length})`);
 
-    // Stop if we've fetched all available people or reached maxResults
-    if (allPeople.length >= totalEntries || allPeople.length >= maxResults) {
+    // Stop if we've reached maxResults
+    if (allPeople.length >= maxResults) {
+      console.log(`[Apollo All Personnel] Reached maxResults limit of ${maxResults}`);
+      break;
+    }
+
+    // Continue to next page if we got a full page (100 results)
+    // This means there might be more results available
+    if (people.length < perPage) {
+      console.log(`[Apollo All Personnel] Received partial page (${people.length}/${perPage}), no more results available`);
       break;
     }
 

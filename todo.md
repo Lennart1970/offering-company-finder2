@@ -994,4 +994,11 @@
 - [x] Update Deep Research: Show selection modal with dropdown BEFORE fetching
 - [x] Modal should have dropdown (100, 500, 1000) and "FETCH" button
 - [x] Only start API call after user confirms fetch limit
+- [x] Save checkpoint
+
+## Bug Fix: 100-Employee Limit in getAllPersonnel
+- [x] Debug backend pagination logic in apolloPeopleSearch.ts
+- [x] Identified issue: Apollo API returns total_entries=0, causing early loop exit
+- [x] Fix pagination loop to continue until no results (ignore total_entries)
+- [x] Pagination now continues until partial page or maxResults reached
 - [ ] Save checkpoint

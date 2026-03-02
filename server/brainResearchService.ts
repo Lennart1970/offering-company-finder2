@@ -170,11 +170,16 @@ export async function researchOfferingBrain(
   console.log(`[Brain Research] Received response, parsing...`);
 
   try {
-    // Try to extract JSON from the response
+    // Extract JSON using first { and last } to avoid greedy regex stripping
+    // nested object opening braces (e.g. the '{' inside fitCriteria).
+    // The greedy /\{[\s\S]*\}/ pattern was previously causing fitCriteria
+    // to be stored without its opening brace when the LLM response had
+    // extra text after the closing brace.
     let jsonStr = rawResponse;
-    const jsonMatch = rawResponse.match(/\{[\s\S]*\}/);
-    if (jsonMatch) {
-      jsonStr = jsonMatch[0];
+    const firstBrace = rawResponse.indexOf('{');
+    const lastBrace = rawResponse.lastIndexOf('}');
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      jsonStr = rawResponse.slice(firstBrace, lastBrace + 1);
     }
 
     const parsed = JSON.parse(jsonStr);

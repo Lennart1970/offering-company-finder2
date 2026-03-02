@@ -1,0 +1,9 @@
+{
+  "query": "\nUPDATE offering_brain\nSET fitCriteria = CONCAT('{', fitCriteria)\nWHERE isActive = 1\nAND LEFT(fitCriteria, 1) != '{';\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nUPDATE offering_brain\nSET fitCriteria = CONCAT('{', fitCriteria)\nWHERE isActive = 1\nAND LEFT(fitCriteria, 1) != '{';\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 380
+}

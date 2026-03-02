@@ -1,0 +1,21 @@
+{
+  "query": "\nSELECT \n  id,\n  companyName,\n  SUBSTRING(coreCapabilities, 1, 100) as cap,\n  SUBSTRING(valuePropositions, 1, 100) as vp,\n  SUBSTRING(icpIndustries, 1, 100) as industries,\n  SUBSTRING(icpPainPoints, 1, 100) as pain,\n  SUBSTRING(icpBuyingSignals, 1, 100) as signals,\n  SUBSTRING(fitCriteria, 1, 100) as fit,\n  SUBSTRING(urgencyTriggers, 1, 100) as urgency\nFROM offering_brain\nWHERE isActive = 1\nLIMIT 1;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  id,\n  companyName,\n  SUBSTRING(coreCapabilities, 1, 100) as cap,\n  SUBSTRING(valuePropositions, 1, 100) as vp,\n  SUBSTRING(icpIndustries, 1, 100) as industries,\n  SUBSTRING(icpPainPoints, 1, 100) as pain,\n  SUBSTRING(icpBuyingSignals, 1, 100) as signals,\n  SUBSTRING(fitCriteria, 1, 100) as fit,\n  SUBSTRING(urgencyTriggers, 1, 100) as urgency\nFROM offering_brain\nWHERE isActive = 1\nLIMIT 1;\n",
+  "rows": [
+    {
+      "id": "60001",
+      "companyName": "ConnectGroup",
+      "cap": "[\"Cable Assembly: From single cables to complex wiring harnesses, with competence center in Belgium\"",
+      "vp": "[{\"proposition\":\"Global network for local manufacturing close to customer markets, enabling proximit",
+      "industries": "[\"Aerospace & Space\",\"Defense\",\"Medical Devices\",\"Railway & Transportation\",\"Industrial Automation\",",
+      "pain": "[\"Complex integration of cables, PCBs, and modules for reliable electronics\",\"Long prototyping and t",
+      "signals": "[\"Announcing new electronic product launches or R&D initiatives\",\"Participating in industry events l",
+      "fit": "\"mustHave\":[\"OEM in high-reliability/regulated industries requiring PCB, cable, or module assembly\",",
+      "urgency": "[\"Current supplier capacity shortages or disruptions\",\"Impending product launches or commercializati"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tcompanyName\tcap\tvp\tindustries\tpain\tsignals\tfit\turgency\n60001\tConnectGroup\t[\"Cable Assembly: From single cables to complex wiring harnesses, with competence center in Belgium\"\t[{\"proposition\":\"Global network for local manufacturing close to customer markets, enabling proximit\t[\"Aerospace & Space\",\"Defense\",\"Medical Devices\",\"Railway & Transportation\",\"Industrial Automation\",\t[\"Complex integration of cables, PCBs, and modules for reliable electronics\",\"Long prototyping and t\t[\"Announcing new electronic product launches or R&D initiatives\",\"Participating in industry events l\t\"mustHave\":[\"OEM in high-reliability/regulated industries requiring PCB, cable, or module assembly\",\t[\"Current supplier capacity shortages or disruptions\",\"Impending product launches or commercializati\n",
+  "stderr": "",
+  "execution_time_ms": 365
+}

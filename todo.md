@@ -1023,3 +1023,9 @@
 - [x] Stream NDJSON progress: started, progress per company, done
 - [x] Use owner userId=1 for Brain context injection
 - [x] Test on VanderLandeUSA_02_03_2026 (searchId=750001) with limit=3 — 3/3 succeeded (urgency: 52, 60)
+
+## Fix: Brain Context JSON Parse Error
+- [x] Diagnose which brain field(s) are malformed — fitCriteria missing opening '{'
+- [x] Fix malformed fitCriteria in active brain DB record via SQL CONCAT
+- [x] Fix root cause: replace greedy regex /\{[\s\S]*\}/ with firstBrace/lastBrace slice in brainResearchService.ts
+- [x] Verify brain context is injected correctly — confirmed '[Brain context loaded]' in logs at 10:28:27

@@ -1008,3 +1008,10 @@
 - [x] Bypass browser JS stack limit by streaming file directly to server
 - [x] Import the 21k-row Apollo CSV from sandbox
 - [x] Verify all rows imported correctly
+
+## Feature: Backend Enrich Campaign Endpoint
+- [x] Add POST /api/v1/enrich-campaign endpoint (API key auth, no browser needed)
+- [x] Accept searchId, optional batchSize and concurrency params
+- [x] Run same enrichCompanyDetails logic as enrichAll tRPC procedure
+- [x] Stream progress via chunked response so caller can monitor batches
+- [x] Test on VanderLandeUSA_02_03_2026 campaign (searchId=750001) — 93 remaining enriched, 0 failed

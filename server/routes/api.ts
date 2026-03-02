@@ -1,9 +1,10 @@
 import { Router } from "express";
 import multer from "multer";
-import { getDb, createSearch, createCompanies } from "../db";
+import { getDb, createSearch, createCompanies, getPendingCompaniesBySearchId, updateCompany, getSearchById } from "../db";
 import { companies, searches, users } from "../../drizzle/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { parseApolloCSV, mapApolloRowToCompany } from "../apolloCSVParser";
+import { enrichCompanyDetails } from "../apolloSearch";
 
 const router = Router();
 
@@ -385,6 +386,95 @@ router.post("/import-csv", upload.single("file"), async (req: any, res: any) => 
     console.error("[CSV Import API] Error:", error.message);
     res.status(500).json({ error: "Internal Server Error", message: error.message });
   }
+});
+
+/**
+ * POST /api/v1/enrich-campaign
+ * Enrich all pending companies in a campaign with Apollo firmographic data.
+ * Runs the same logic as the "ENRICH ALL" button but from the server side.
+ *
+ * Body (JSON):
+ *   { "searchId": 750001, "batchSize": 5 }
+ *
+ * Streams newline-delimited JSON progress lines, then a final summary.
+ * Example (curl):
+ *   curl -X POST http://localhost:3000/api/v1/enrich-campaign \
+ *     -H "Authorization: Bearer YOUR_API_KEY" \
+ *     -H "Content-Type: application/json" \
+ *     -d '{"searchId": 750001}'
+ */
+router.post("/enrich-campaign", async (req: any, res: any) => {
+  const { searchId, batchSize = 5 } = req.body || {};
+
+  if (!searchId || isNaN(parseInt(searchId))) {
+    return res.status(400).json({ error: "Bad Request", message: "searchId is required." });
+  }
+
+  const sid = parseInt(searchId);
+  const bs = Math.min(20, Math.max(1, parseInt(batchSize) || 5));
+
+  // Use chunked transfer so the caller can watch progress in real time
+  res.setHeader("Content-Type", "application/x-ndjson");
+  res.setHeader("Transfer-Encoding", "chunked");
+  res.flushHeaders();
+
+  const send = (obj: object) => res.write(JSON.stringify(obj) + "\n");
+
+  try {
+    const search = await getSearchById(sid);
+    if (!search) {
+      send({ error: `Search ${sid} not found.` });
+      return res.end();
+    }
+
+    const pending = await getPendingCompaniesBySearchId(sid);
+    send({ status: "started", searchId: sid, pending: pending.length, batchSize: bs });
+
+    if (pending.length === 0) {
+      send({ status: "done", enriched: 0, failed: 0, message: "All companies already enriched." });
+      return res.end();
+    }
+
+    let enriched = 0;
+    let failed = 0;
+
+    for (let i = 0; i < pending.length; i += bs) {
+      const batch = pending.slice(i, i + bs);
+      await Promise.all(
+        batch.map(async (company) => {
+          if (!company.apolloId) {
+            await updateCompany(company.id, { enrichmentStatus: "failed" });
+            failed++;
+            return;
+          }
+          try {
+            const details = await enrichCompanyDetails(company.apolloId);
+            await updateCompany(company.id, {
+              city: details.city || null,
+              state: details.state || null,
+              country: details.country || null,
+              streetAddress: details.street_address || null,
+              rawAddress: details.raw_address || null,
+              enrichmentStatus: "enriched",
+            });
+            enriched++;
+          } catch (err) {
+            await updateCompany(company.id, { enrichmentStatus: "failed" });
+            failed++;
+          }
+        })
+      );
+
+      const done = Math.min(i + bs, pending.length);
+      send({ status: "progress", done, total: pending.length, enriched, failed });
+    }
+
+    send({ status: "done", enriched, failed, message: `Enriched ${enriched} companies, ${failed} failed.` });
+  } catch (err: any) {
+    send({ error: err.message });
+  }
+
+  res.end();
 });
 
 export default router;

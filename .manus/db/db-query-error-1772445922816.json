@@ -1,0 +1,8 @@
+{
+  "query": "\n-- Fix status for companies that were enriched (have city) but marked as failed\nUPDATE companies\nSET enrichment_status = 'enriched'\nWHERE search_id = 750001\n  AND enrichment_status = 'failed'\n  AND city IS NOT NULL\n  AND city != '';\n\n-- Reset companies with no city back to pending so they can be retried\nUPDATE companies\nSET enrichment_status = 'pending'\nWHERE search_id = 750001\n  AND enrichment_status = 'failed'\n  AND (city IS NULL OR city = '');\n\n-- Show the resulting breakdown\nSELECT enrichment_status, COUNT(*) as count\nFROM companies\nWHERE search_id = 750001\nGROUP BY enrichment_status;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \n-- Fix status for companies that were enriched (have city) but marked as failed\nUPDATE companies\nSET enrichment_status = 'enriched'\nWHERE search_id = 750001\n  AND enrichment_status = 'failed'\n  AND city IS NOT NULL\n  AND city != '';\n\n-- Reset companies with no city back to pending so they can be retried\nUPDATE companies\nSET enrichment_status = 'pending'\nWHERE search_id = 750001\n  AND enrichment_status = 'failed'\n  AND (city IS NULL OR city = '');\n\n-- Show the resulting breakdown\nSELECT enrichment_status, COUNT(*) as count\nFROM companies\nWHERE search_id = 750001\nGROUP BY enrichment_status;\n",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 3: Unknown column 'search_id' in 'where clause'"
+  ]
+}

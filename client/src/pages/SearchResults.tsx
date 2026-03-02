@@ -54,6 +54,7 @@ export default function SearchResults() {
   const [excludedSectors, setExcludedSectors] = useState<string[]>([]);
   const [showCallTodayOnly, setShowCallTodayOnly] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
+  const [sortBy, setSortBy] = useState<"default" | "urgency" | "fit_urgency">("urgency");
 
   useEffect(() => {
     if (searchData?.search.excludedSectors) {
@@ -158,7 +159,23 @@ export default function SearchResults() {
     return { filteredCompanies: filtered, excludedCompanies: excluded, callTodayCompanies: callToday };
   }, [searchData?.companies, searchData?.decisions, excludedSicSet, excludedNaicsSet, excludedSectorsSet]);
 
-  const displayedCompanies = showCallTodayOnly ? callTodayCompanies : filteredCompanies;
+  const baseDisplayed = showCallTodayOnly ? callTodayCompanies : filteredCompanies;
+
+  const displayedCompanies = useMemo(() => {
+    const sorted = [...baseDisplayed];
+    if (sortBy === "urgency") {
+      sorted.sort((a: any, b: any) => (b.urgencyScore || 0) - (a.urgencyScore || 0));
+    } else if (sortBy === "fit_urgency") {
+      // Combined score: urgency * fitScore (fitScore defaults to urgency if not set)
+      sorted.sort((a: any, b: any) => {
+        const scoreA = (a.urgencyScore || 0) * (a.fitScore || a.urgencyScore || 0);
+        const scoreB = (b.urgencyScore || 0) * (b.fitScore || b.urgencyScore || 0);
+        return scoreB - scoreA;
+      });
+    }
+    // "default" = import order (no sort)
+    return sorted;
+  }, [baseDisplayed, sortBy]);
 
   // Search selector mode
   if (isSelectMode) {
@@ -391,6 +408,28 @@ export default function SearchResults() {
             </Button>
           </div>
 
+          {/* Sort Controls */}
+          <div className="mb-4 flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-black text-muted-foreground">SORT:</span>
+            {([
+              { value: "default", label: "IMPORT ORDER" },
+              { value: "urgency", label: "URGENCY ▼" },
+              { value: "fit_urgency", label: "FIT × URGENCY ▼" },
+            ] as const).map((opt) => (
+              <button
+                key={opt.value}
+                onClick={() => setSortBy(opt.value)}
+                className={`border-2 px-3 py-1 text-xs font-black transition-colors ${
+                  sortBy === opt.value
+                    ? "border-black bg-black text-white"
+                    : "border-gray-300 hover:border-black"
+                }`}
+              >
+                {opt.label}
+              </button>
+            ))}
+          </div>
+
           {/* Company Cards */}
           <div className="space-y-4">
             {displayedCompanies?.map((company, index) => (
@@ -450,6 +489,15 @@ function CompanyCard({ company, index, searchId }: { company: any; index: number
               )}
               {company.briefData && (
                 <span className="text-[10px] font-black border border-blue-600 text-blue-600 px-1.5 py-0.5">RESEARCHED</span>
+              )}
+              {company.urgencyScore > 0 && (
+                <span className={`text-[10px] font-black px-1.5 py-0.5 ${
+                  company.urgencyScore >= 70 ? "bg-red-600 text-white" :
+                  company.urgencyScore >= 50 ? "bg-yellow-500 text-white" :
+                  "bg-gray-200 text-gray-700"
+                }`}>
+                  ⚡ {company.urgencyScore}
+                </span>
               )}
               {company.salesApproachData && (
                 <span className="text-[10px] font-black border border-green-600 text-green-600 px-1.5 py-0.5">SALES READY</span>

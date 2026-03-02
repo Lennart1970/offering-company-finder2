@@ -293,6 +293,20 @@ export default function DeepResearchDashboard() {
   const [expandedCompanyId, setExpandedCompanyId] = useState<number | null>(null);
   const [sortBy, setSortBy] = useState<"urgency" | "name" | "date">("urgency");
   const [viewFilter, setViewFilter] = useState<"all" | "call_today">("all");
+  const [reResearchingId, setReResearchingId] = useState<number | null>(null);
+
+  const utils = trpc.useUtils();
+  const reResearchMutation = trpc.companyFinder.reResearchCompany.useMutation({
+    onSuccess: (data, variables) => {
+      toast.success(`Re-research complete — urgency: ${data.brief.urgencyScore}`);
+      setReResearchingId(null);
+      utils.companyFinder.getSearch.invalidate({ searchId: selectedSearchId! });
+    },
+    onError: (err) => {
+      toast.error(`Re-research failed: ${err.message}`);
+      setReResearchingId(null);
+    },
+  });
 
   // Fetch all search history
   const { data: searchHistory } = trpc.companyFinder.getSearchHistory.useQuery();
@@ -612,8 +626,22 @@ export default function DeepResearchDashboard() {
                   </div>
 
                   {/* Action Buttons */}
-                  <div className="mt-4 flex gap-2" onClick={(e) => e.stopPropagation()}>
+                  <div className="mt-4 flex gap-2 flex-wrap" onClick={(e) => e.stopPropagation()}>
                     <GetAllPersonnelButtonDeep companyId={company.id} companyName={company.name} />
+                    <button
+                      onClick={() => {
+                        setReResearchingId(company.id);
+                        reResearchMutation.mutate({ companyId: company.id });
+                      }}
+                      disabled={reResearchingId === company.id}
+                      className={`border-2 px-4 py-2 text-xs font-black transition-colors ${
+                        reResearchingId === company.id
+                          ? "border-gray-300 text-gray-400 cursor-not-allowed"
+                          : "border-orange-500 text-orange-600 hover:bg-orange-50"
+                      }`}
+                    >
+                      {reResearchingId === company.id ? "⏳ RE-RESEARCHING..." : "🔄 RE-RESEARCH"}
+                    </button>
                   </div>
                 </div>
 

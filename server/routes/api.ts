@@ -600,4 +600,80 @@ router.post("/research-campaign", async (req: any, res: any) => {
   res.end();
 });
 
+// POST /api/v1/re-research-campaign
+// Force re-research all (or a limited batch of) companies in a campaign, ignoring the 7-day cache.
+// Accepts: { searchId: number, limit?: number } (default limit: 50)
+router.post("/re-research-campaign", async (req: any, res: any) => {
+  const { searchId, limit = 50 } = req.body as { searchId: number; limit?: number };
+  if (!searchId) {
+    res.status(400).json({ error: "searchId is required" });
+    return;
+  }
+
+  res.setHeader("Content-Type", "application/x-ndjson");
+  res.setHeader("Transfer-Encoding", "chunked");
+  res.setHeader("Cache-Control", "no-cache");
+  res.flushHeaders();
+
+  const send = (obj: object) => res.write(JSON.stringify(obj) + "\n");
+
+  try {
+    const companies = await getCompaniesBySearchId(searchId);
+    const toResearch = companies
+      .filter((c) => c.enrichmentStatus === "enriched")
+      .slice(0, limit);
+
+    send({ status: "started", total: toResearch.length, searchId });
+
+    let researched = 0;
+    let failed = 0;
+
+    for (let i = 0; i < toResearch.length; i++) {
+      const company = toResearch[i];
+      try {
+        // Clear cache first so brief is always regenerated fresh
+        await updateCompany(company.id, { briefData: null, briefGeneratedAt: null });
+
+        const brief = await generateSalesIntelligenceBrief(company.id, 1);
+        await updateCompany(company.id, {
+          urgencyScore: brief.urgencyScore,
+          briefData: JSON.stringify(brief),
+          briefGeneratedAt: new Date(),
+        });
+        researched++;
+        send({
+          status: "progress",
+          done: i + 1,
+          total: toResearch.length,
+          researched,
+          failed,
+          company: company.name,
+          urgencyScore: brief.urgencyScore,
+        });
+      } catch (err: any) {
+        failed++;
+        console.warn(`[Re-Research Campaign] Failed for ${company.name}:`, err.message);
+        send({
+          status: "progress",
+          done: i + 1,
+          total: toResearch.length,
+          researched,
+          failed,
+          company: company.name,
+          error: err.message,
+        });
+      }
+    }
+    send({
+      status: "done",
+      researched,
+      failed,
+      message: `Re-researched ${researched} companies, ${failed} failed.`,
+    });
+  } catch (err: any) {
+    send({ error: err.message });
+  }
+  res.end();
+});
+
 export default router;

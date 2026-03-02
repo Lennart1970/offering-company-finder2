@@ -1365,6 +1365,39 @@ export const companyFinderRouter = router({
         contact: updatedContact,
       };
     }),
+
+  // Force re-research a company — clears cache and regenerates brief fresh
+  reResearchCompany: protectedProcedure
+    .input(z.object({
+      companyId: z.number(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const company = await getCompanyById(input.companyId);
+      if (!company) throw new Error("Company not found");
+
+      console.log(`[reResearch] Clearing cache and regenerating brief for ${company.name}`);
+
+      // Clear cached brief so generator runs fresh
+      await updateCompany(input.companyId, {
+        briefData: null,
+        briefGeneratedAt: null,
+      });
+
+      const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
+      try {
+        const brief = await generateSalesIntelligenceBrief(input.companyId, ctx.user.id);
+        await updateCompany(input.companyId, {
+          urgencyScore: brief.urgencyScore,
+          briefData: JSON.stringify(brief),
+          briefGeneratedAt: new Date(),
+        });
+        console.log(`[reResearch] ✓ Brief regenerated for ${company.name} — urgency: ${brief.urgencyScore}`);
+        return { success: true, brief };
+      } catch (error: any) {
+        console.error(`[reResearch] Error:`, error);
+        throw new Error(`Failed to re-research: ${error.message}`);
+      }
+    }),
 });
 
 // Background search function for hardcoded ConnectGroup offering (skip extraction)

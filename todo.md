@@ -1036,3 +1036,13 @@
 - [x] Library contains: Sources list (renamed from Verified Sources) + Raw Grok Output (collapsible)
 - [x] Raw Grok output shown as preformatted JSON in a collapsible block
 - [x] briefGenerator.ts stores rawGrokUrgency and rawGrokIntelligence in briefData for new briefs
+
+## Feature: Re-Research Button & Backend Endpoint
+- [x] Add "RE-RESEARCH" button to each Deep Research card (clears cached brief and triggers fresh Grok run)
+- [x] Add tRPC mutation reResearchCompany that clears briefData/briefGeneratedAt and calls generateSalesIntelligenceBrief
+- [x] Add POST /api/v1/re-research-campaign backend endpoint (API key auth, re-researches all companies in a campaign regardless of cache)
+
+## Feature: Fit Score Sorting on Search Results Page
+- [x] Add sort controls to Search Results page: IMPORT ORDER / URGENCY ▼ / FIT×URGENCY ▼ (default: urgency)
+- [x] Show ⚡ urgency score badge on each company card (red ≥70, yellow ≥50, gray <50)
+- [x] Sort displayedCompanies by urgencyScore or urgency×fitScore via useMemo

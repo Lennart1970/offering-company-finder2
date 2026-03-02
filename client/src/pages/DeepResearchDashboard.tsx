@@ -709,21 +709,6 @@ export default function DeepResearchDashboard() {
                       </div>
                     )}
 
-                    {/* Verified Sources */}
-                    {briefData.sources?.length > 0 && (
-                      <div className="mb-6">
-                        <h4 className="text-lg font-black mb-2">Verified Sources ({briefData.sources.length})</h4>
-                        <div className="space-y-1">
-                          {briefData.sources.map((source: any, i: number) => (
-                            <div key={i} className="text-sm">
-                              <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-bold">{source.title || source.url}</a>
-                              {source.snippet && <span className="text-xs text-gray-500 ml-2">{source.snippet}</span>}
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    )}
-
                     {/* Sales Approach Summary */}
                     {salesApproach && (
                       <div className="border-t-2 border-black pt-4 mt-4">
@@ -765,11 +750,93 @@ export default function DeepResearchDashboard() {
                         )}
                       </div>
                     )}
+
+                    {/* ── LIBRARY ── */}
+                    <LibrarySection briefData={briefData} />
+
                   </div>
                 )}
               </div>
             );
           })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Library Section — Sources + Raw Grok Output
+// ============================================================================
+function LibrarySection({ briefData }: { briefData: any }) {
+  const [showUrgencyRaw, setShowUrgencyRaw] = useState(false);
+  const [showIntelRaw, setShowIntelRaw] = useState(false);
+
+  const hasSources = briefData.sources?.length > 0;
+  const hasUrgencyRaw = !!briefData.rawGrokUrgency;
+  const hasIntelRaw = !!briefData.rawGrokIntelligence;
+
+  if (!hasSources && !hasUrgencyRaw && !hasIntelRaw) return null;
+
+  return (
+    <div className="mt-6 border-t-2 border-gray-300 pt-4">
+      <h4 className="text-lg font-black mb-3 text-gray-500 uppercase tracking-widest">Library</h4>
+
+      {/* Sources list */}
+      {hasSources && (
+        <div className="mb-4">
+          <div className="text-xs font-black uppercase tracking-widest text-gray-400 mb-2">Sources ({briefData.sources.length})</div>
+          <div className="space-y-1">
+            {briefData.sources.map((source: any, i: number) => (
+              <div key={i} className="text-sm">
+                <a
+                  href={source.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 underline font-bold"
+                >
+                  {source.title || source.url}
+                </a>
+                {source.snippet && (
+                  <span className="text-xs text-gray-400 ml-2">{source.snippet}</span>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* Raw Grok — Urgency Phase */}
+      {hasUrgencyRaw && (
+        <div className="mb-3">
+          <button
+            onClick={() => setShowUrgencyRaw(!showUrgencyRaw)}
+            className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-1"
+          >
+            <span>{showUrgencyRaw ? '▾' : '▸'}</span> Raw Grok Output — Urgency Phase
+          </button>
+          {showUrgencyRaw && (
+            <pre className="mt-2 text-xs bg-gray-50 border border-gray-200 p-3 overflow-x-auto whitespace-pre-wrap break-words max-h-96 overflow-y-auto">
+              {briefData.rawGrokUrgency}
+            </pre>
+          )}
+        </div>
+      )}
+
+      {/* Raw Grok — Intelligence Phase */}
+      {hasIntelRaw && (
+        <div className="mb-3">
+          <button
+            onClick={() => setShowIntelRaw(!showIntelRaw)}
+            className="text-xs font-black uppercase tracking-widest text-gray-400 flex items-center gap-1"
+          >
+            <span>{showIntelRaw ? '▾' : '▸'}</span> Raw Grok Output — Intelligence Phase
+          </button>
+          {showIntelRaw && (
+            <pre className="mt-2 text-xs bg-gray-50 border border-gray-200 p-3 overflow-x-auto whitespace-pre-wrap break-words max-h-96 overflow-y-auto">
+              {briefData.rawGrokIntelligence}
+            </pre>
+          )}
         </div>
       )}
     </div>

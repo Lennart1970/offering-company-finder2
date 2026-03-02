@@ -113,6 +113,8 @@ export interface SalesIntelligenceBrief {
     detectedAt: string;
   }>;
   sources: VerifiedSource[];
+  rawGrokUrgency?: string;
+  rawGrokIntelligence?: string;
 }
 
 /**
@@ -379,6 +381,8 @@ ${brainContext ? `${brainContext}
     naicsCodes: naicsCodes,
     urgencySignals: normalizedSignals,
     sources: allSources,
+    rawGrokUrgency: urgencyRaw,
+    rawGrokIntelligence: intelligenceRaw,
   };
 
   console.log(`[Brief Generator] Brief complete for ${company.name}`);

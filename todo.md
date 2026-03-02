@@ -1029,3 +1029,10 @@
 - [x] Fix malformed fitCriteria in active brain DB record via SQL CONCAT
 - [x] Fix root cause: replace greedy regex /\{[\s\S]*\}/ with firstBrace/lastBrace slice in brainResearchService.ts
 - [x] Verify brain context is injected correctly — confirmed '[Brain context loaded]' in logs at 10:28:27
+
+## Feature: Library Section in Deep Research
+- [x] Remove Sources from its current position in the brief
+- [x] Add "Library" section at the very bottom of each research card
+- [x] Library contains: Sources list (renamed from Verified Sources) + Raw Grok Output (collapsible)
+- [x] Raw Grok output shown as preformatted JSON in a collapsible block
+- [x] briefGenerator.ts stores rawGrokUrgency and rawGrokIntelligence in briefData for new briefs

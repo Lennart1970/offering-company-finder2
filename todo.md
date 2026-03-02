@@ -1046,3 +1046,12 @@
 - [x] Add sort controls to Search Results page: IMPORT ORDER / URGENCY ▼ / FIT×URGENCY ▼ (default: urgency)
 - [x] Show ⚡ urgency score badge on each company card (red ≥70, yellow ≥50, gray <50)
 - [x] Sort displayedCompanies by urgencyScore or urgency×fitScore via useMemo
+
+## Feature: Grok-Powered Fit Scoring (fitScore column)
+- [x] Add fitScore (int) and fitScoreData (text JSON) columns to companies schema
+- [x] Run Drizzle migration: ALTER TABLE companies ADD fitScore int, ADD fitScoreData text
+- [x] Add FitScoreResult interface and scoreCompanyFit() function to briefGenerator.ts
+- [x] Scoring uses Brain ICP criteria: industryFit(30) + sizeFit(20) + mustHavesFit(30) + buyingSignalsFit(20), capped at 25 if disqualifier triggered
+- [x] Add scoreCompanyFit tRPC mutation to companyFinderRouter
+- [x] Add POST /api/v1/score-campaign backend endpoint (streams NDJSON, skips already-scored companies)
+- [x] Tested: World Distribution Services → fitScore 20 (correctly low — logistics, not EMS)

@@ -676,4 +676,84 @@ router.post("/re-research-campaign", async (req: any, res: any) => {
   res.end();
 });
 
+// ============================================================================
+// POST /api/v1/score-campaign
+// Grok-powered ICP fit scoring for all unscored companies in a campaign.
+// Streams NDJSON progress. No browser required.
+// Body: { searchId: number, limit?: number }
+// ============================================================================
+router.post("/score-campaign", async (req: any, res: any) => {
+  const { searchId, limit = 100 } = req.body as { searchId: number; limit?: number };
+  if (!searchId) {
+    res.status(400).json({ error: "searchId is required" });
+    return;
+  }
+
+  res.setHeader("Content-Type", "application/x-ndjson");
+  res.setHeader("Transfer-Encoding", "chunked");
+  res.setHeader("Cache-Control", "no-cache");
+  res.flushHeaders();
+
+  const send = (obj: object) => res.write(JSON.stringify(obj) + "\n");
+
+  try {
+    const { scoreCompanyFit } = await import("../briefGenerator");
+
+    const allCompanies = await getCompaniesBySearchId(searchId);
+    // Only score companies that haven't been scored yet
+    const toScore = allCompanies
+      .filter((c: any) => c.fitScore === null || c.fitScore === undefined)
+      .slice(0, limit);
+
+    send({ status: "started", total: toScore.length, searchId, limit });
+    console.log(`[Score Campaign] Starting fit scoring for ${toScore.length} companies in search ${searchId}`);
+
+    let scored = 0;
+    let failed = 0;
+    const OWNER_USER_ID = 1;
+
+    for (let i = 0; i < toScore.length; i++) {
+      const company = toScore[i];
+      try {
+        const result = await scoreCompanyFit(company.id, OWNER_USER_ID);
+        await updateCompany(company.id, {
+          fitScore: result.fitScore,
+          fitScoreData: JSON.stringify(result),
+        });
+        scored++;
+        send({
+          status: "progress",
+          done: i + 1,
+          total: toScore.length,
+          scored,
+          failed,
+          company: company.name,
+          fitScore: result.fitScore,
+        });
+      } catch (err: any) {
+        failed++;
+        console.warn(`[Score Campaign] Failed for ${company.name}:`, err.message);
+        send({
+          status: "progress",
+          done: i + 1,
+          total: toScore.length,
+          scored,
+          failed,
+          company: company.name,
+          error: err.message,
+        });
+      }
+    }
+    send({
+      status: "done",
+      scored,
+      failed,
+      message: `Scored ${scored} companies, ${failed} failed.`,
+    });
+  } catch (err: any) {
+    send({ error: err.message });
+  }
+  res.end();
+});
+
 export default router;

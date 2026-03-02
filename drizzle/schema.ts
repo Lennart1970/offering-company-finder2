@@ -85,6 +85,8 @@ export const companies = mysqlTable("companies", {
   naicsCodes: text("naicsCodes"), // JSON array of NAICS codes
   sliceMetadata: text("sliceMetadata"), // JSON object: { employeeBand, industry, keywordSet, matchedKeywords }
   urgencyScore: int("urgencyScore"), // 0-100 urgency score from Grok analysis
+  fitScore: int("fitScore"), // 0-100 fit score from Grok ICP analysis
+  fitScoreData: text("fitScoreData"), // JSON-stringified FitScoreResult (breakdown + rationale)
   briefData: text("briefData"), // JSON-stringified SalesIntelligenceBrief (Deep Research)
   briefGeneratedAt: timestamp("briefGeneratedAt"), // When the brief was generated
   salesApproachData: text("salesApproachData"), // JSON-stringified SalesApproach (email, LinkedIn, call script)

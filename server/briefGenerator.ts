@@ -427,3 +427,148 @@ function inferIndustryFromNAICS(naicsCodes: string[]): string {
 
   return sectorMap[sector] || "Unknown";
 }
+
+
+// ============================================================================
+// FIT SCORING — Grok-powered ICP match analysis
+// ============================================================================
+
+export interface FitScoreResult {
+  fitScore: number; // 0-100
+  scoredAt: string;
+  companyName: string;
+  brainName: string;
+  breakdown: {
+    industryFit: { score: number; max: number; rationale: string };
+    sizeFit: { score: number; max: number; rationale: string };
+    mustHavesFit: { score: number; max: number; rationale: string; matched: string[]; missing: string[] };
+    disqualifiers: { triggered: boolean; reasons: string[] };
+    buyingSignalsFit: { score: number; max: number; rationale: string };
+  };
+  overallRationale: string;
+  rawGrokFit?: string;
+}
+
+/**
+ * Score a company's fit against the active Brain's ICP criteria.
+ * Returns a 0-100 fit score with full breakdown for transparency.
+ * Does NOT require a web search — uses only stored company data + Brain context.
+ */
+export async function scoreCompanyFit(
+  companyId: number,
+  userId?: number
+): Promise<FitScoreResult> {
+  const company = await getCompanyById(companyId);
+  if (!company) throw new Error(`Company ${companyId} not found`);
+
+  const brain = userId ? await getActiveBrain(userId) : null;
+  if (!brain || brain.status !== "completed") {
+    throw new Error("No active Brain found — cannot score fit without ICP criteria");
+  }
+
+  const brainContext = await getBrainContext(userId!);
+
+  // Parse brain fields for structured scoring
+  const fitCriteria = brain.fitCriteria ? JSON.parse(brain.fitCriteria) : { mustHave: [], niceToHave: [], disqualifiers: [] };
+  const icpIndustries = brain.icpIndustries ? JSON.parse(brain.icpIndustries) : [];
+  const buyingSignals = brain.icpBuyingSignals ? JSON.parse(brain.icpBuyingSignals) : [];
+
+  const companyProfile = `
+Company: ${company.name}
+Website: ${company.websiteUrl || "unknown"}
+Location: ${[company.city, company.state, company.country].filter(Boolean).join(", ") || "unknown"}
+Revenue: ${company.revenue || "unknown"}
+Industry (NAICS): ${company.naicsCodes ? JSON.parse(company.naicsCodes).slice(0, 5).join(", ") : "unknown"}
+Industry (SIC): ${company.sicCodes ? JSON.parse(company.sicCodes).slice(0, 5).join(", ") : "unknown"}
+Short description: ${(company as any).shortDescription || "not available"}
+`;
+
+  const prompt = `You are a B2B sales qualification analyst. Score the prospect company's fit against the seller's Ideal Customer Profile (ICP).
+
+${brainContext}
+
+**PROSPECT COMPANY:**
+${companyProfile}
+
+**SCORING TASK:**
+Evaluate the prospect against the Brain's ICP criteria and return a JSON object with this exact structure:
+
+{
+  "fitScore": <integer 0-100>,
+  "breakdown": {
+    "industryFit": {
+      "score": <0-30>,
+      "max": 30,
+      "rationale": "<1-2 sentences explaining the industry match>"
+    },
+    "sizeFit": {
+      "score": <0-20>,
+      "max": 20,
+      "rationale": "<1-2 sentences explaining the size/revenue match>"
+    },
+    "mustHavesFit": {
+      "score": <0-30>,
+      "max": 30,
+      "rationale": "<1-2 sentences>",
+      "matched": ["<must-have criteria that appear to be met>"],
+      "missing": ["<must-have criteria that appear to be missing>"]
+    },
+    "disqualifiers": {
+      "triggered": <true|false>,
+      "reasons": ["<any disqualifier criteria that appear to apply>"]
+    },
+    "buyingSignalsFit": {
+      "score": <0-20>,
+      "max": 20,
+      "rationale": "<1-2 sentences on buying signal alignment>"
+    }
+  },
+  "overallRationale": "<3-4 sentence executive summary of why this company is or isn't a strong fit>"
+}
+
+Scoring rules:
+- industryFit (0-30): Does the company operate in the Brain's ICP industries? Full score = perfect match, 0 = complete mismatch
+- sizeFit (0-20): Does the company's revenue/headcount match the Brain's ICP company size?
+- mustHavesFit (0-30): How many of the Brain's must-have criteria does this company appear to meet?
+- disqualifiers: If ANY disqualifier is triggered, cap fitScore at 25 regardless of other scores
+- buyingSignalsFit (0-20): Does the company profile suggest any of the Brain's buying signals are present?
+- fitScore = industryFit.score + sizeFit.score + mustHavesFit.score + buyingSignalsFit.score (capped at 25 if disqualifier triggered)
+
+ICP Industries to match against: ${icpIndustries.join(", ")}
+Must-haves: ${fitCriteria.mustHave?.join("; ") || "none specified"}
+Disqualifiers: ${fitCriteria.disqualifiers?.join("; ") || "none specified"}
+Buying signals: ${buyingSignals.join("; ")}
+ICP company size: ${brain.icpCompanySize || "not specified"}
+
+Return ONLY the JSON object, no markdown, no explanation outside the JSON.`;
+
+  console.log(`[Fit Scorer] Scoring fit for ${company.name}...`);
+  const rawGrokFit = await callGrokWithWebSearch(prompt);
+
+  // Parse the JSON response
+  const firstBrace = rawGrokFit.indexOf("{");
+  const lastBrace = rawGrokFit.lastIndexOf("}");
+  if (firstBrace === -1 || lastBrace === -1) {
+    throw new Error("Grok fit scoring returned no valid JSON");
+  }
+  const parsed = JSON.parse(rawGrokFit.slice(firstBrace, lastBrace + 1));
+
+  // Apply disqualifier cap
+  let finalScore = parsed.fitScore ?? 0;
+  if (parsed.breakdown?.disqualifiers?.triggered) {
+    finalScore = Math.min(finalScore, 25);
+  }
+  finalScore = Math.max(0, Math.min(100, finalScore));
+
+  console.log(`[Fit Scorer] ${company.name} → fitScore: ${finalScore}`);
+
+  return {
+    fitScore: finalScore,
+    scoredAt: new Date().toISOString(),
+    companyName: company.name,
+    brainName: brain.brainName,
+    breakdown: parsed.breakdown,
+    overallRationale: parsed.overallRationale,
+    rawGrokFit,
+  };
+}

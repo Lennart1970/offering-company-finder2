@@ -141,6 +141,13 @@
       "when": 1772108247254,
       "tag": "0019_abandoned_supernaut",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1772453996068,
+      "tag": "0020_legal_goliath",
+      "breakpoints": true
     }
   ]
 }

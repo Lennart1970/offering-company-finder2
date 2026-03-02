@@ -1,4 +1,5 @@
 import { protectedProcedure, router } from "./_core/trpc";
+import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import {
   createSearch,
@@ -1396,6 +1397,30 @@ export const companyFinderRouter = router({
       } catch (error: any) {
         console.error(`[reResearch] Error:`, error);
         throw new Error(`Failed to re-research: ${error.message}`);
+      }
+    }),
+
+  // ---------------------------------------------------------------------------
+  // scoreCompanyFit — Grok-powered ICP fit scoring (0-100) with full breakdown
+  // ---------------------------------------------------------------------------
+  scoreCompanyFit: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const company = await getCompanyById(input.companyId);
+      if (!company) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+
+      const { scoreCompanyFit } = await import("./briefGenerator");
+      try {
+        const result = await scoreCompanyFit(input.companyId, ctx.user.id);
+        await updateCompany(input.companyId, {
+          fitScore: result.fitScore,
+          fitScoreData: JSON.stringify(result),
+        });
+        console.log(`[Fit Score] ✓ ${company.name} → ${result.fitScore}`);
+        return { success: true, result };
+      } catch (error: any) {
+        console.error(`[Fit Score] Error:`, error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
       }
     }),
 });

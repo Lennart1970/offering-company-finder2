@@ -1,7 +1,9 @@
 import { Router } from "express";
-import { getDb } from "../db";
+import multer from "multer";
+import { getDb, createSearch, createCompanies } from "../db";
 import { companies, searches, users } from "../../drizzle/schema";
 import { eq, desc, and } from "drizzle-orm";
+import { parseApolloCSV, mapApolloRowToCompany } from "../apolloCSVParser";
 
 const router = Router();
 
@@ -296,6 +298,92 @@ router.get("/searches/:id/companies", async (req, res) => {
       error: "Internal Server Error", 
       message: error.message 
     });
+  }
+});
+
+/**
+ * POST /api/v1/import-csv
+ * Import an Apollo CSV export as a new campaign.
+ * Accepts multipart/form-data with fields:
+ *   - file: the CSV file
+ *   - campaignName: string
+ *   - location: string (optional)
+ *   - userId: number (optional, defaults to 1)
+ *
+ * Use this endpoint when the CSV is too large for the browser JS engine.
+ * Example (curl):
+ *   curl -X POST http://localhost:3000/api/v1/import-csv \
+ *     -H "Authorization: Bearer YOUR_API_KEY" \
+ *     -F "file=@/path/to/apollo-export.csv" \
+ *     -F "campaignName=My Campaign" \
+ *     -F "location=United States"
+ */
+const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 100 * 1024 * 1024 } });
+
+router.post("/import-csv", upload.single("file"), async (req: any, res: any) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ error: "Bad Request", message: "No file uploaded. Use field name \"file\"." });
+    }
+
+    const campaignName = (req.body.campaignName || "").trim();
+    if (!campaignName) {
+      return res.status(400).json({ error: "Bad Request", message: "campaignName is required." });
+    }
+
+    const location = (req.body.location || "CSV Import").trim();
+    const userId = parseInt(req.body.userId || "1");
+
+    const csvContent = req.file.buffer.toString("utf-8");
+    console.log(`[CSV Import API] Parsing CSV (${(req.file.size / 1024 / 1024).toFixed(1)} MB)...`);
+
+    const rows = parseApolloCSV(csvContent);
+    console.log(`[CSV Import API] Parsed ${rows.length} rows for campaign: ${campaignName}`);
+
+    if (rows.length === 0) {
+      return res.status(400).json({ error: "Bad Request", message: "CSV file is empty or could not be parsed." });
+    }
+
+    const searchId = await createSearch({
+      userId,
+      companyWebsite: "N/A",
+      location,
+      offeringName: campaignName,
+      offeringDescription: `Campaign imported from Apollo CSV with ${rows.length} companies`,
+      targetMarket: null,
+      valueProposition: null,
+      keywords: null,
+      crossBorderIndicators: null,
+      keywordTagsUsed: null,
+      selectedSicCodes: null,
+      selectedNaicsCodes: null,
+      codeSelectionReasoning: null,
+      excludedSectors: null,
+      codesSearched: rows.length,
+      codesTotal: rows.length,
+      status: "completed",
+    });
+
+    const companyRows = rows.map((row) => mapApolloRowToCompany(row, searchId));
+
+    // Insert in batches of 500 to avoid memory pressure
+    const BATCH = 500;
+    for (let i = 0; i < companyRows.length; i += BATCH) {
+      await createCompanies(companyRows.slice(i, i + BATCH));
+      console.log(`[CSV Import API] Inserted batch ${Math.floor(i / BATCH) + 1}/${Math.ceil(companyRows.length / BATCH)}`);
+    }
+
+    console.log(`[CSV Import API] ✓ Done — ${companyRows.length} companies imported, searchId=${searchId}`);
+
+    res.json({
+      success: true,
+      searchId,
+      companiesImported: companyRows.length,
+      campaignName,
+    });
+  } catch (error: any) {
+    console.error("[CSV Import API] Error:", error.message);
+    res.status(500).json({ error: "Internal Server Error", message: error.message });
   }
 });
 

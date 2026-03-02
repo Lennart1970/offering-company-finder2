@@ -1001,4 +1001,10 @@
 - [x] Identified issue: Apollo API returns total_entries=0, causing early loop exit
 - [x] Fix pagination loop to continue until no results (ignore total_entries)
 - [x] Pagination now continues until partial page or maxResults reached
-- [ ] Save checkpoint
+- [x] Save checkpoint
+
+## Fix: Large CSV Import (21k rows / 13MB)
+- [x] Add server-side REST endpoint POST /api/import-csv to accept multipart file upload
+- [x] Bypass browser JS stack limit by streaming file directly to server
+- [x] Import the 21k-row Apollo CSV from sandbox
+- [x] Verify all rows imported correctly

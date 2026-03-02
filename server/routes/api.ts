@@ -1,10 +1,11 @@
 import { Router } from "express";
 import multer from "multer";
-import { getDb, createSearch, createCompanies, getPendingCompaniesBySearchId, updateCompany, getSearchById } from "../db";
+import { getDb, createSearch, createCompanies, getPendingCompaniesBySearchId, getCompaniesBySearchId, updateCompany, getSearchById } from "../db";
 import { companies, searches, users } from "../../drizzle/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { parseApolloCSV, mapApolloRowToCompany } from "../apolloCSVParser";
 import { enrichCompanyDetails } from "../apolloSearch";
+import { generateSalesIntelligenceBrief } from "../briefGenerator";
 
 const router = Router();
 
@@ -470,6 +471,128 @@ router.post("/enrich-campaign", async (req: any, res: any) => {
     }
 
     send({ status: "done", enriched, failed, message: `Enriched ${enriched} companies, ${failed} failed.` });
+  } catch (err: any) {
+    send({ error: err.message });
+  }
+
+  res.end();
+});
+
+/**
+ * POST /api/v1/research-campaign
+ * Generate Grok-powered sales intelligence briefs for all unresearched companies
+ * in a campaign, processing them sequentially (one at a time) to avoid rate limits.
+ *
+ * Body (JSON):
+ *   { "searchId": 750001, "limit": 50, "userId": 1 }
+ *
+ * - limit: max number of companies to research in this run (default: 50)
+ * - userId: owner user ID for Brain context injection (default: 1)
+ * - Skips companies that already have a brief < 7 days old
+ * - Streams newline-delimited JSON progress lines
+ *
+ * Example (curl):
+ *   curl -X POST http://localhost:3000/api/v1/research-campaign \
+ *     -H "Authorization: Bearer YOUR_API_KEY" \
+ *     -H "Content-Type: application/json" \
+ *     -d '{"searchId": 750001, "limit": 50}'
+ */
+router.post("/research-campaign", async (req: any, res: any) => {
+  const { searchId, limit = 50, userId = 1 } = req.body || {};
+
+  if (!searchId || isNaN(parseInt(searchId))) {
+    return res.status(400).json({ error: "Bad Request", message: "searchId is required." });
+  }
+
+  const sid = parseInt(searchId);
+  const maxLimit = Math.min(500, Math.max(1, parseInt(limit) || 50));
+  const uid = parseInt(userId) || 1;
+
+  res.setHeader("Content-Type", "application/x-ndjson");
+  res.setHeader("Transfer-Encoding", "chunked");
+  res.flushHeaders();
+
+  const send = (obj: object) => res.write(JSON.stringify(obj) + "\n");
+
+  try {
+    const search = await getSearchById(sid);
+    if (!search) {
+      send({ error: `Search ${sid} not found.` });
+      return res.end();
+    }
+
+    // Get all companies for this search
+    const allCompanies = await getCompaniesBySearchId(sid);
+
+    // Filter: skip companies that already have a fresh brief (< 7 days old)
+    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+    const toResearch = allCompanies
+      .filter((c) => {
+        if (!c.briefData || !c.briefGeneratedAt) return true; // no brief yet
+        const age = Date.now() - new Date(c.briefGeneratedAt).getTime();
+        return age >= sevenDaysMs; // brief is stale
+      })
+      .slice(0, maxLimit);
+
+    send({
+      status: "started",
+      searchId: sid,
+      total: allCompanies.length,
+      toResearch: toResearch.length,
+      alreadyResearched: allCompanies.length - toResearch.length,
+      limit: maxLimit,
+    });
+
+    if (toResearch.length === 0) {
+      send({ status: "done", researched: 0, failed: 0, message: "All companies already have fresh research briefs." });
+      return res.end();
+    }
+
+    let researched = 0;
+    let failed = 0;
+
+    // Process ONE AT A TIME — Grok calls are expensive and slow (~30-60s each)
+    for (let i = 0; i < toResearch.length; i++) {
+      const company = toResearch[i];
+      try {
+        console.log(`[Research Campaign] ${i + 1}/${toResearch.length} — ${company.name}`);
+        const brief = await generateSalesIntelligenceBrief(company.id, uid);
+        await updateCompany(company.id, {
+          urgencyScore: brief.urgencyScore,
+          briefData: JSON.stringify(brief),
+          briefGeneratedAt: new Date(),
+        });
+        researched++;
+        send({
+          status: "progress",
+          done: i + 1,
+          total: toResearch.length,
+          researched,
+          failed,
+          company: company.name,
+          urgencyScore: brief.urgencyScore,
+        });
+      } catch (err: any) {
+        failed++;
+        console.warn(`[Research Campaign] Failed for ${company.name}:`, err.message);
+        send({
+          status: "progress",
+          done: i + 1,
+          total: toResearch.length,
+          researched,
+          failed,
+          company: company.name,
+          error: err.message,
+        });
+      }
+    }
+
+    send({
+      status: "done",
+      researched,
+      failed,
+      message: `Researched ${researched} companies, ${failed} failed.`,
+    });
   } catch (err: any) {
     send({ error: err.message });
   }

@@ -1,0 +1,35 @@
+{
+  "query": "\nSELECT name, urgencyScore, briefGeneratedAt\nFROM companies\nWHERE searchId = 750001 AND briefData IS NOT NULL\nORDER BY briefGeneratedAt DESC\nLIMIT 5;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT name, urgencyScore, briefGeneratedAt\nFROM companies\nWHERE searchId = 750001 AND briefData IS NOT NULL\nORDER BY briefGeneratedAt DESC\nLIMIT 5;\n",
+  "rows": [
+    {
+      "name": "Vertical Systems",
+      "urgencyScore": "60",
+      "briefGeneratedAt": "2026-03-02 10:24:00"
+    },
+    {
+      "name": "Comprehensive Logistics",
+      "urgencyScore": "52",
+      "briefGeneratedAt": "2026-03-02 10:22:07"
+    },
+    {
+      "name": "ProcessOne Solutions",
+      "urgencyScore": "57",
+      "briefGeneratedAt": "2026-03-02 10:20:48"
+    },
+    {
+      "name": "ES3",
+      "urgencyScore": "28",
+      "briefGeneratedAt": "2026-03-02 10:16:14"
+    },
+    {
+      "name": "Production-Components, Inc",
+      "urgencyScore": "35",
+      "briefGeneratedAt": "2026-03-02 10:15:57"
+    }
+  ],
+  "messages": [],
+  "stdout": "name\turgencyScore\tbriefGeneratedAt\nVertical Systems\t60\t2026-03-02 10:24:00\nComprehensive Logistics\t52\t2026-03-02 10:22:07\nProcessOne Solutions\t57\t2026-03-02 10:20:48\nES3\t28\t2026-03-02 10:16:14\nProduction-Components, Inc\t35\t2026-03-02 10:15:57\n",
+  "stderr": "",
+  "execution_time_ms": 379
+}

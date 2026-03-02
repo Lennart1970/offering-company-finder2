@@ -1015,3 +1015,11 @@
 - [x] Run same enrichCompanyDetails logic as enrichAll tRPC procedure
 - [x] Stream progress via chunked response so caller can monitor batches
 - [x] Test on VanderLandeUSA_02_03_2026 campaign (searchId=750001) — 93 remaining enriched, 0 failed
+
+## Feature: Backend Batch Research Endpoint
+- [x] Add POST /api/v1/research-campaign endpoint (API key auth, no browser needed)
+- [x] Accept searchId, limit (max companies to research), concurrency (default 1 — sequential to avoid Grok rate limits)
+- [x] Skip companies that already have briefData (cached, < 7 days old)
+- [x] Stream NDJSON progress: started, progress per company, done
+- [x] Use owner userId=1 for Brain context injection
+- [x] Test on VanderLandeUSA_02_03_2026 (searchId=750001) with limit=3 — 3/3 succeeded (urgency: 52, 60)

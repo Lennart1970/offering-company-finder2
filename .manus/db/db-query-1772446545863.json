@@ -1,0 +1,16 @@
+{
+  "query": "\nSELECT \n  COUNT(*) as total,\n  SUM(CASE WHEN briefData IS NOT NULL THEN 1 ELSE 0 END) as has_brief,\n  SUM(CASE WHEN urgencyScore IS NOT NULL THEN 1 ELSE 0 END) as has_urgency_score,\n  MAX(briefGeneratedAt) as last_brief_generated\nFROM companies\nWHERE searchId = 750001;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  COUNT(*) as total,\n  SUM(CASE WHEN briefData IS NOT NULL THEN 1 ELSE 0 END) as has_brief,\n  SUM(CASE WHEN urgencyScore IS NOT NULL THEN 1 ELSE 0 END) as has_urgency_score,\n  MAX(briefGeneratedAt) as last_brief_generated\nFROM companies\nWHERE searchId = 750001;\n",
+  "rows": [
+    {
+      "total": "4959",
+      "has_brief": "19",
+      "has_urgency_score": "19",
+      "last_brief_generated": "2026-03-02 10:15:39"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\thas_brief\thas_urgency_score\tlast_brief_generated\n4959\t19\t19\t2026-03-02 10:15:39\n",
+  "stderr": "",
+  "execution_time_ms": 400
+}

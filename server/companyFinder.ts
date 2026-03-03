@@ -132,7 +132,7 @@ export const companyFinderRouter = router({
     .input(z.object({ searchId: z.number() }))
     .query(async ({ ctx, input }) => {
       const search = await getSearchById(input.searchId);
-      if (!search || search.userId !== ctx.user.id) {
+      if (!search || (search.userId !== ctx.user.id && !search.sharedWithTeam)) {
         throw new Error("Search not found");
       }
 

@@ -1063,3 +1063,6 @@
 - [x] Add toggleShareSearch tRPC mutation (owner-only, flips sharedWithTeam)
 - [x] Add SHARE toggle UI to campaign card in Search Results (shows SHARED badge when active)
 - [x] Share VanderLande campaign by default so Jeroen can see it immediately
+
+## Fix: Shared Campaign "SEARCH NOT FOUND" for Non-Owners
+- [x] Fix getSearch procedure to allow access when sharedWithTeam=true (not just owner)

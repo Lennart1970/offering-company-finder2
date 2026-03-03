@@ -1,0 +1,31 @@
+{
+  "query": "SELECT id, name, email, role, createdAt FROM users ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, name, email, role, createdAt FROM users ORDER BY id;",
+  "rows": [
+    {
+      "id": "1",
+      "name": "Lennart van Bolderick",
+      "email": "lbolderick@gmail.com",
+      "role": "admin",
+      "createdAt": "2026-02-17 16:17:33"
+    },
+    {
+      "id": "30005",
+      "name": "Lennart van Bolderick",
+      "email": "lbolderick@gmail.com",
+      "role": "user",
+      "createdAt": "2026-02-17 16:45:47"
+    },
+    {
+      "id": "600001",
+      "name": "Jeroen Beijer",
+      "email": "jeroenbeijer2021@gmail.com",
+      "role": "user",
+      "createdAt": "2026-02-20 14:26:24"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\temail\trole\tcreatedAt\n1\tLennart van Bolderick\tlbolderick@gmail.com\tadmin\t2026-02-17 16:17:33\n30005\tLennart van Bolderick\tlbolderick@gmail.com\tuser\t2026-02-17 16:45:47\n600001\tJeroen Beijer\tjeroenbeijer2021@gmail.com\tuser\t2026-02-20 14:26:24\n",
+  "stderr": "",
+  "execution_time_ms": 357
+}

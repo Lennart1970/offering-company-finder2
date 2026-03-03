@@ -1055,3 +1055,11 @@
 - [x] Add scoreCompanyFit tRPC mutation to companyFinderRouter
 - [x] Add POST /api/v1/score-campaign backend endpoint (streams NDJSON, skips already-scored companies)
 - [x] Tested: World Distribution Services → fitScore 20 (correctly low — logistics, not EMS)
+
+## Feature: Team Sharing for Campaigns
+- [x] Add sharedWithTeam boolean column to searches schema (default false)
+- [x] Run Drizzle migration to apply the column
+- [x] Update getUserSearches query to return own searches + all shared searches
+- [x] Add toggleShareSearch tRPC mutation (owner-only, flips sharedWithTeam)
+- [x] Add SHARE toggle UI to campaign card in Search Results (shows SHARED badge when active)
+- [x] Share VanderLande campaign by default so Jeroen can see it immediately

@@ -6,6 +6,7 @@ import {
   updateSearch,
   getSearchById,
   getUserSearches,
+  toggleShareSearch,
   getPreviousOffering,
   createCompanies,
   getCompaniesBySearchId,
@@ -1398,6 +1399,20 @@ export const companyFinderRouter = router({
         console.error(`[reResearch] Error:`, error);
         throw new Error(`Failed to re-research: ${error.message}`);
       }
+    }),
+
+  // ---------------------------------------------------------------------------
+  // toggleShareSearch — share/unshare a campaign with all team members
+  // ---------------------------------------------------------------------------
+  toggleShareSearch: protectedProcedure
+    .input(z.object({ searchId: z.number(), shared: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const search = await getSearchById(input.searchId);
+      if (!search || search.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only the campaign owner can change sharing settings" });
+      }
+      await toggleShareSearch(input.searchId, ctx.user.id, input.shared);
+      return { success: true, shared: input.shared };
     }),
 
   // ---------------------------------------------------------------------------

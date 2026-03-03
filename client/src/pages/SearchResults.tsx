@@ -29,6 +29,14 @@ function formatEmployees(count: number | string | null): string {
 
 export default function SearchResults() {
   const { user } = useAuth();
+  const utils = trpc.useUtils();
+  const toggleShare = trpc.companyFinder.toggleShareSearch.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.shared ? "Campaign shared with team" : "Campaign is now private");
+      utils.companyFinder.getSearchHistory.invalidate();
+    },
+    onError: (err) => toast.error(err.message),
+  });
   const [, navigate] = useLocation();
   const params = useParams<{ searchId: string }>();
   const searchIdParam = params.searchId;
@@ -49,7 +57,6 @@ export default function SearchResults() {
 
   const { data: searchHistory } = trpc.companyFinder.getSearchHistory.useQuery();
   const { data: excludedCodes } = trpc.companyFinder.getExcludedCodes.useQuery();
-  const utils = trpc.useUtils();
 
   const [excludedSectors, setExcludedSectors] = useState<string[]>([]);
   const [showCallTodayOnly, setShowCallTodayOnly] = useState(false);
@@ -198,23 +205,50 @@ export default function SearchResults() {
               .map((search: any) => (
                 <div
                   key={search.id}
-                  onClick={() => navigate(`/search-results/${search.id}`)}
-                  className="border-4 border-black p-6 cursor-pointer hover:bg-gray-50 transition-colors"
+                  className="border-4 border-black p-6 hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center justify-between">
-                    <div>
+                    <div
+                      className="flex-1 cursor-pointer"
+                      onClick={() => navigate(`/search-results/${search.id}`)}
+                    >
                       <div className="text-lg font-black">{search.offeringName || "Untitled"}</div>
                       <div className="text-sm font-bold text-muted-foreground mt-1">
                         {search.location} — {new Date(search.createdAt).toLocaleDateString()} — Run #{search.id}
                       </div>
                     </div>
-                    <span className={`text-xs font-black border-2 px-3 py-1 ${
-                      search.status === "completed" ? "border-green-600 text-green-600" :
-                      search.status === "searching" ? "border-blue-600 text-blue-600" :
-                      "border-black"
-                    }`}>
-                      {search.status?.toUpperCase()}
-                    </span>
+                    <div className="flex items-center gap-3">
+                      {/* Share toggle — only owner sees it */}
+                      {search.userId === user?.id && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            toggleShare.mutate({ searchId: search.id, shared: !search.sharedWithTeam });
+                          }}
+                          className={`text-xs font-black border-2 px-3 py-1 transition-colors ${
+                            search.sharedWithTeam
+                              ? "border-blue-600 text-blue-600 bg-blue-50"
+                              : "border-gray-400 text-gray-400 hover:border-blue-400 hover:text-blue-400"
+                          }`}
+                          title={search.sharedWithTeam ? "Shared with team — click to make private" : "Private — click to share with team"}
+                        >
+                          {search.sharedWithTeam ? "SHARED" : "PRIVATE"}
+                        </button>
+                      )}
+                      {/* Shared badge for non-owners viewing a shared campaign */}
+                      {search.userId !== user?.id && search.sharedWithTeam && (
+                        <span className="text-xs font-black border-2 px-3 py-1 border-blue-600 text-blue-600">
+                          SHARED
+                        </span>
+                      )}
+                      <span className={`text-xs font-black border-2 px-3 py-1 ${
+                        search.status === "completed" ? "border-green-600 text-green-600" :
+                        search.status === "searching" ? "border-blue-600 text-blue-600" :
+                        "border-black"
+                      }`}>
+                        {search.status?.toUpperCase()}
+                      </span>
+                    </div>
                   </div>
                 </div>
               ))}

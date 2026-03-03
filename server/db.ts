@@ -1,4 +1,4 @@
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -119,7 +119,20 @@ export async function getUserSearches(userId: number) {
   const db = await getDb();
   if (!db) return [];
   
-  return db.select().from(searches).where(eq(searches.userId, userId)).orderBy(desc(searches.createdAt));
+  return db.select().from(searches)
+    .where(or(
+      eq(searches.userId, userId),
+      eq(searches.sharedWithTeam, 1)
+    ))
+    .orderBy(desc(searches.createdAt));
+}
+
+export async function toggleShareSearch(searchId: number, ownerId: number, shared: boolean) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(searches)
+    .set({ sharedWithTeam: shared ? 1 : 0 })
+    .where(and(eq(searches.id, searchId), eq(searches.userId, ownerId)));
 }
 
 export async function getPreviousOffering(userId: number, websiteUrl: string) {

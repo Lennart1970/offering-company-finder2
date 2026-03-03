@@ -46,6 +46,35 @@ import { normalizeWebsiteUrl } from "../shared/urlUtils";
 import { selectIndustryCodes } from "./codeSelectionService";
 import { naicsMatchesHierarchically, sicMatchesHierarchically } from "../shared/naicsHierarchy";
 
+// Helper: check if user can access a search (owns it OR it's shared)
+async function assertSearchAccess(searchId: number, userId: number) {
+  const search = await getSearchById(searchId);
+  if (!search || (search.userId !== userId && !search.sharedWithTeam)) {
+    throw new TRPCError({ code: "NOT_FOUND", message: "Search not found" });
+  }
+  return search;
+}
+
+// Helper: check if user OWNS the search (for write/destructive operations)
+async function assertSearchOwner(searchId: number, userId: number) {
+  const search = await getSearchById(searchId);
+  if (!search || search.userId !== userId) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Only the campaign owner can perform this action" });
+  }
+  return search;
+}
+
+// Helper: check if user can access a company (owns the search OR search is shared)
+async function assertCompanyAccess(companyId: number, userId: number) {
+  const company = await getCompanyById(companyId);
+  if (!company) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+  const search = await getSearchById(company.searchId);
+  if (!search || (search.userId !== userId && !search.sharedWithTeam)) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+  }
+  return company;
+}
+
 export const companyFinderRouter = router({
   // Create a new search with hardcoded ConnectGroup offering (skip extraction)
   startSearch: protectedProcedure
@@ -131,10 +160,7 @@ export const companyFinderRouter = router({
   getSearch: protectedProcedure
     .input(z.object({ searchId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const search = await getSearchById(input.searchId);
-      if (!search || (search.userId !== ctx.user.id && !search.sharedWithTeam)) {
-        throw new Error("Search not found");
-      }
+      const search = await assertSearchAccess(input.searchId, ctx.user.id);
 
       const companiesList = await getCompaniesBySearchId(input.searchId);
       const decisions = await getDecisionsBySearch(input.searchId);
@@ -164,10 +190,7 @@ export const companyFinderRouter = router({
   enrichAll: protectedProcedure
     .input(z.object({ searchId: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const search = await getSearchById(input.searchId);
-      if (!search || search.userId !== ctx.user.id) {
-        throw new Error("Search not found");
-      }
+      const search = await assertSearchOwner(input.searchId, ctx.user.id);
 
       const pendingCompanies = await getPendingCompaniesBySearchId(input.searchId);
 
@@ -224,15 +247,7 @@ export const companyFinderRouter = router({
   enrichSingle: protectedProcedure
     .input(z.object({ companyId: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const company = await getCompanyById(input.companyId);
-      if (!company) {
-        throw new Error("Company not found");
-      }
-
-      const search = await getSearchById(company.searchId);
-      if (!search || search.userId !== ctx.user.id) {
-        throw new Error("Unauthorized");
-      }
+      const company = await assertCompanyAccess(input.companyId, ctx.user.id);
 
       if (!company.apolloId) {
         await updateCompany(company.id, { enrichmentStatus: "failed" });
@@ -262,10 +277,7 @@ export const companyFinderRouter = router({
   exportCsv: protectedProcedure
     .input(z.object({ searchId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const search = await getSearchById(input.searchId);
-      if (!search || search.userId !== ctx.user.id) {
-        throw new Error("Search not found");
-      }
+      const search = await assertSearchAccess(input.searchId, ctx.user.id);
 
       const companiesList = await getCompaniesBySearchId(input.searchId);
 
@@ -328,10 +340,7 @@ export const companyFinderRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const company = await getCompanyById(input.companyId);
-      if (!company) {
-        throw new Error("Company not found");
-      }
+      const company = await assertCompanyAccess(input.companyId, ctx.user.id);
 
       // Store decision
       const decisionId = await createCompanyDecision({
@@ -413,6 +422,7 @@ export const companyFinderRouter = router({
   getDecision: protectedProcedure
     .input(z.object({ companyId: z.number() }))
     .query(async ({ ctx, input }) => {
+      await assertCompanyAccess(input.companyId, ctx.user.id);
       const decision = await getCompanyDecision(input.companyId, ctx.user.id);
       return decision ?? null;
     }),
@@ -420,7 +430,8 @@ export const companyFinderRouter = router({
   // HITL: Get all decisions for a search
   getSearchDecisions: protectedProcedure
     .input(z.object({ searchId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      await assertSearchAccess(input.searchId, ctx.user.id);
       return await getDecisionsBySearch(input.searchId);
     }),
 
@@ -444,10 +455,7 @@ export const companyFinderRouter = router({
       excludedSectors: z.array(z.string()),
     }))
     .mutation(async ({ ctx, input }) => {
-      const search = await getSearchById(input.searchId);
-      if (!search || search.userId !== ctx.user.id) {
-        throw new Error("Search not found");
-      }
+      await assertSearchOwner(input.searchId, ctx.user.id);
       await updateSearch(input.searchId, {
         excludedSectors: JSON.stringify(input.excludedSectors),
       });
@@ -460,10 +468,7 @@ export const companyFinderRouter = router({
       searchId: z.number(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const search = await getSearchById(input.searchId);
-      if (!search || search.userId !== ctx.user.id) {
-        throw new Error("Search not found");
-      }
+      const search = await assertSearchOwner(input.searchId, ctx.user.id);
       if (search.status !== "searching") {
         throw new Error("Search must be in searching status");
       }
@@ -492,10 +497,7 @@ export const companyFinderRouter = router({
       companyId: z.number(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const company = await getCompanyById(input.companyId);
-      if (!company) {
-        throw new Error("Company not found");
-      }
+      const company = await assertCompanyAccess(input.companyId, ctx.user.id);
 
       console.log(`[generateBrief] Starting brief generation for company ${input.companyId}`);
 
@@ -551,10 +553,7 @@ export const companyFinderRouter = router({
       companyId: z.number(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const company = await getCompanyById(input.companyId);
-      if (!company) {
-        throw new Error("Company not found");
-      }
+      const company = await assertCompanyAccess(input.companyId, ctx.user.id);
 
       // Check if deep research exists
       if (!company.briefData) {
@@ -615,8 +614,7 @@ export const companyFinderRouter = router({
       includePhone: z.boolean().optional(), // Optional: 8 credits per net-new phone
     }))
     .mutation(async ({ ctx, input }) => {
-      const company = await getCompanyById(input.companyId);
-      if (!company) throw new Error("Company not found");
+      const company = await assertCompanyAccess(input.companyId, ctx.user.id);
 
       // Check if we already have a contact for this company
       const existingContact = await getContactByCompanyId(input.companyId);
@@ -683,6 +681,7 @@ export const companyFinderRouter = router({
       companyId: z.number(),
     }))
     .query(async ({ ctx, input }) => {
+      await assertCompanyAccess(input.companyId, ctx.user.id);
       const contact = await getContactByCompanyId(input.companyId);
       return { contact };
     }),
@@ -835,8 +834,7 @@ export const companyFinderRouter = router({
       searchId: z.number(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const search = await getSearchById(input.searchId);
-      if (!search) throw new Error("Search not found");
+      const search = await assertSearchOwner(input.searchId, ctx.user.id);
 
       try {
         // Run LLM code selection
@@ -1152,6 +1150,7 @@ export const companyFinderRouter = router({
       companyId: z.number(),
     }))
     .query(async ({ ctx, input }) => {
+      await assertCompanyAccess(input.companyId, ctx.user.id);
       const contacts = await getContactsByCompanyId(input.companyId);
       return { contacts };
     }),
@@ -1164,8 +1163,7 @@ export const companyFinderRouter = router({
       maxContacts: z.number().optional(), // Max contacts to return per tier
     }))
     .mutation(async ({ ctx, input }) => {
-      const company = await getCompanyById(input.companyId);
-      if (!company) throw new Error("Company not found");
+      const company = await assertCompanyAccess(input.companyId, ctx.user.id);
 
       const domain = company.websiteUrl
         ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
@@ -1250,8 +1248,7 @@ export const companyFinderRouter = router({
       limit: z.number().optional(), // Max contacts to return (default 25)
     }))
     .mutation(async ({ ctx, input }) => {
-      const company = await getCompanyById(input.companyId);
-      if (!company) throw new Error("Company not found");
+      const company = await assertCompanyAccess(input.companyId, ctx.user.id);
 
       const domain = company.websiteUrl
         ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
@@ -1324,9 +1321,8 @@ export const companyFinderRouter = router({
       const contact = contacts.find((c: any) => c.id === input.contactId);
       if (!contact) throw new Error("Contact not found");
 
-      // Get company to get domain
-      const company = await getCompanyById(contact.companyId);
-      if (!company) throw new Error("Company not found");
+      // Get company to get domain (also checks access)
+      const company = await assertCompanyAccess(contact.companyId, ctx.user.id);
 
       const domain = company.websiteUrl
         ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
@@ -1374,8 +1370,7 @@ export const companyFinderRouter = router({
       companyId: z.number(),
     }))
     .mutation(async ({ ctx, input }) => {
-      const company = await getCompanyById(input.companyId);
-      if (!company) throw new Error("Company not found");
+      const company = await assertCompanyAccess(input.companyId, ctx.user.id);
 
       console.log(`[reResearch] Clearing cache and regenerating brief for ${company.name}`);
 
@@ -1407,10 +1402,7 @@ export const companyFinderRouter = router({
   toggleShareSearch: protectedProcedure
     .input(z.object({ searchId: z.number(), shared: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
-      const search = await getSearchById(input.searchId);
-      if (!search || search.userId !== ctx.user.id) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Only the campaign owner can change sharing settings" });
-      }
+      await assertSearchOwner(input.searchId, ctx.user.id);
       await toggleShareSearch(input.searchId, ctx.user.id, input.shared);
       return { success: true, shared: input.shared };
     }),
@@ -1421,8 +1413,7 @@ export const companyFinderRouter = router({
   scoreCompanyFit: protectedProcedure
     .input(z.object({ companyId: z.number() }))
     .mutation(async ({ input, ctx }) => {
-      const company = await getCompanyById(input.companyId);
-      if (!company) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+      const company = await assertCompanyAccess(input.companyId, ctx.user.id);
 
       const { scoreCompanyFit } = await import("./briefGenerator");
       try {

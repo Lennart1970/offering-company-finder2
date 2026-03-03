@@ -1066,3 +1066,29 @@
 
 ## Fix: Shared Campaign "SEARCH NOT FOUND" for Non-Owners
 - [x] Fix getSearch procedure to allow access when sharedWithTeam=true (not just owner)
+
+## Fix: Full Shared Campaign Access for Non-Owners
+- [x] Created assertSearchAccess(searchId, userId) helper — allows owner OR sharedWithTeam
+- [x] Created assertSearchOwner(searchId, userId) helper — owner-only for write operations
+- [x] Created assertCompanyAccess(companyId, userId) helper — checks company's search ownership/sharing
+- [x] getSearch — uses assertSearchAccess (read)
+- [x] enrichAll — uses assertSearchOwner (write)
+- [x] enrichSingle — uses assertCompanyAccess (write via company)
+- [x] exportCsv — uses assertSearchAccess (read)
+- [x] getSearchDecisions — uses assertSearchAccess (read)
+- [x] updateExcludedSectors — uses assertSearchOwner (write)
+- [x] confirmAndSearch — uses assertSearchOwner (write)
+- [x] runCodeTargeting — uses assertSearchOwner (write)
+- [x] toggleShareSearch — uses assertSearchOwner (owner-only)
+- [x] generateBrief — uses assertCompanyAccess (read)
+- [x] generateSalesApproach — uses assertCompanyAccess (read)
+- [x] findContact — uses assertCompanyAccess (read)
+- [x] getContact — uses assertCompanyAccess (read)
+- [x] submitDecision — uses assertCompanyAccess (read)
+- [x] getDecision — uses assertCompanyAccess (read)
+- [x] getCompanyContacts — uses assertCompanyAccess (read)
+- [x] findAllCSuite — uses assertCompanyAccess (read)
+- [x] getAllPersonnel — uses assertCompanyAccess (read)
+- [x] reResearchCompany — uses assertCompanyAccess (read)
+- [x] scoreCompanyFit — uses assertCompanyAccess (read)
+- [x] enrichContact — uses assertCompanyAccess (read)

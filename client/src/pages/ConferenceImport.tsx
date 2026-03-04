@@ -20,6 +20,11 @@ interface ProgressEvent {
   strategy?: string;
   pageTitle?: string;
   searchId?: number;
+  // Multi-page scraping
+  page?: number;
+  totalPages?: number | null;
+  found?: number;
+  pagesScraped?: number;
 }
 
 const EXAMPLE_URLS = [
@@ -118,14 +123,22 @@ export default function ConferenceImport() {
   const getEventText = (ev: ProgressEvent): string => {
     if (ev.error) return `Error: ${ev.error}`;
     if (ev.status === "scraping") return ev.message || "Fetching page...";
-    if (ev.status === "scraped") return `Found ${ev.total} exhibitors on "${ev.pageTitle}" (${ev.strategy} method)`;
+    if (ev.status === "scraping_page") {
+      const pageLabel = ev.totalPages ? `page ${ev.page} of ${ev.totalPages}` : `page ${ev.page}`;
+      return `Scraping ${pageLabel}... (${ev.found} exhibitors found so far)`;
+    }
+    if (ev.status === "scraped") {
+      const pages = ev.pagesScraped && ev.pagesScraped > 1 ? ` across ${ev.pagesScraped} pages` : "";
+      return `Found ${ev.total} exhibitors${pages} on "${ev.pageTitle}" (${ev.strategy} method)`;
+    }
     if (ev.status === "campaign_created") return `Campaign created (ID: ${ev.searchId})`;
     if (ev.status === "progress") {
       const found = ev.apolloFound ? "✓ Apollo match" : "○ Not in Apollo";
       return `[${ev.done}/${ev.total}] ${ev.company} — ${found}`;
     }
     if (ev.status === "done") {
-      return `Done! ${ev.enriched} enriched via Apollo, ${ev.notFound} not found, ${ev.failed} failed`;
+      const pages = ev.pagesScraped && ev.pagesScraped > 1 ? ` (${ev.pagesScraped} pages scraped)` : "";
+      return `Done${pages}! ${ev.enriched} enriched via Apollo, ${ev.notFound} not found, ${ev.failed} failed`;
     }
     return ev.message || JSON.stringify(ev);
   };
@@ -133,6 +146,11 @@ export default function ConferenceImport() {
   const progressEvent = [...events].reverse().find(e => e.status === "progress" && e.done && e.total);
   const progressPct = progressEvent ? Math.round((progressEvent.done! / progressEvent.total!) * 100) : 0;
   const scrapedEvent = events.find(e => e.status === "scraped");
+  // Latest scraping_page event for the scraping phase progress bar
+  const scrapingPageEvent = [...events].reverse().find(e => e.status === "scraping_page");
+  const scrapingPct = scrapingPageEvent && scrapingPageEvent.totalPages
+    ? Math.round(((scrapingPageEvent.page ?? 1) / scrapingPageEvent.totalPages) * 100)
+    : null;
   const doneEvent = events.find(e => e.status === "done");
 
   return (
@@ -230,6 +248,11 @@ export default function ConferenceImport() {
         <div className="mt-6 bg-white border-4 border-black">
           <div className="border-b-4 border-black px-6 py-3 flex items-center justify-between">
             <span className="font-black uppercase tracking-wider text-sm">Import Progress</span>
+            {!scrapedEvent && scrapingPageEvent && (
+              <span className="text-sm font-mono text-blue-600">
+                Scraping page {scrapingPageEvent.page}{scrapingPageEvent.totalPages ? ` of ${scrapingPageEvent.totalPages}` : ""}
+              </span>
+            )}
             {scrapedEvent && !doneEvent && (
               <span className="text-sm font-mono">
                 {progressPct}% — {progressEvent?.done ?? 0}/{scrapedEvent.total} companies
@@ -240,7 +263,16 @@ export default function ConferenceImport() {
             )}
           </div>
 
-          {/* Progress bar */}
+          {/* Progress bar — scraping phase */}
+          {!scrapedEvent && scrapingPct !== null && (
+            <div className="h-2 bg-gray-100 border-b-2 border-black">
+              <div
+                className="h-full bg-blue-500 transition-all duration-300"
+                style={{ width: `${scrapingPct}%` }}
+              />
+            </div>
+          )}
+          {/* Progress bar — Apollo enrichment phase */}
           {scrapedEvent && (
             <div className="h-2 bg-gray-100 border-b-2 border-black">
               <div

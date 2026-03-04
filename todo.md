@@ -1103,3 +1103,13 @@
 - [x] Fix hitl.test.ts: add getSearchById mocks to all tests using assertCompanyAccess/assertSearchAccess
 - [x] Fix confirmAndSearch.test.ts: update expected call count from 3 to 63 (multi-slice architecture)
 - [x] All 206 tests passing (18 test files)
+
+## Feature: Multi-Page Exhibitor Directory Support
+- [x] Detect pagination links (next page, numbered pages, load-more) in scraped HTML
+- [x] Crawl all detected pages up to a configurable max (default 20 pages)
+- [x] Stream page-by-page progress to frontend ("Scraping page 3 of 8...")
+- [x] Deduplicate companies across all pages before Apollo enrichment
+- [x] Handle common pagination patterns: ?page=N, /page/N, rel=next, Next anchor, › chevron
+- [x] Loop protection: never revisit the same URL
+- [x] Stop early when a page returns 0 companies (past the end)
+- [x] 11 new pagination tests (detection + multi-page crawl) — 217 total passing (18 test files)

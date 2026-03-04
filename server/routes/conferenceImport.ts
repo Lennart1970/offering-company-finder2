@@ -48,18 +48,32 @@ router.post("/", async (req: any, res: any) => {
   try {
     const { scrapeConferenceExhibitors, apolloEnrichByDomain } = await import("../conferenceScraper");
 
-    // Step 1: Scrape the exhibitor page
+    // Step 1: Scrape the exhibitor page (multi-page)
     send({ status: "scraping", message: "Fetching exhibitor page..." });
 
     let exhibitors: any[];
     let strategy: string;
     let pageTitle: string;
+    let pagesScraped: number;
 
     try {
-      const result = await scrapeConferenceExhibitors(url.trim());
+      const result = await scrapeConferenceExhibitors(
+        url.trim(),
+        // Stream page-by-page progress to the client
+        (progress) => {
+          send({
+            status: "scraping_page",
+            page: progress.page,
+            totalPages: progress.totalPages,
+            found: progress.found,
+            message: progress.message,
+          });
+        }
+      );
       exhibitors = result.exhibitors;
       strategy = result.strategy;
       pageTitle = result.pageTitle;
+      pagesScraped = result.pagesScraped;
     } catch (err: any) {
       send({ error: `Failed to fetch page: ${err.message}. Check that the URL is publicly accessible.` });
       res.end();
@@ -75,9 +89,10 @@ router.post("/", async (req: any, res: any) => {
     send({
       status: "scraped",
       total: exhibitors.length,
+      pagesScraped,
       strategy,
       pageTitle,
-      message: `Found ${exhibitors.length} exhibitors via ${strategy} strategy`,
+      message: `Found ${exhibitors.length} exhibitors across ${pagesScraped} page(s) via ${strategy} strategy`,
     });
 
     // Step 2: Create the search/campaign record
@@ -86,7 +101,7 @@ router.post("/", async (req: any, res: any) => {
       companyWebsite: url.trim(),
       location: "Conference Import",
       offeringName: campaignName.trim(),
-      offeringDescription: `Exhibitors from ${pageTitle} (${url.trim()}) — ${exhibitors.length} companies scraped via ${strategy}`,
+      offeringDescription: `Exhibitors from ${pageTitle} (${url.trim()}) — ${exhibitors.length} companies scraped across ${pagesScraped} page(s) via ${strategy}`,
       targetMarket: null,
       valueProposition: null,
       keywords: null,
@@ -219,7 +234,7 @@ router.post("/", async (req: any, res: any) => {
       enriched,
       notFound,
       failed,
-      message: `Import complete. ${enriched} enriched via Apollo, ${notFound} not found (basic info saved), ${failed} failed.`,
+      message: `Import complete. Scraped ${pagesScraped} page(s), found ${exhibitors.length} exhibitors. ${enriched} enriched via Apollo, ${notFound} not found (basic info saved), ${failed} failed.`,
     });
   } catch (err: any) {
     console.error("[Conference Import] Fatal error:", err.message);

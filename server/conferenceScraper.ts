@@ -1,13 +1,22 @@
 /**
  * Conference Exhibitor Scraper
  *
- * Fetches an exhibitor list page and extracts company names + website URLs.
- * Uses a multi-strategy approach:
+ * Fetches an exhibitor list page (and all subsequent pages) and extracts
+ * company names + website URLs.
+ *
+ * Extraction strategies per page:
  *   1. Logo-link pattern: <a href="..."><img alt="Company Name"/></a>
  *   2. Text-link pattern: <a href="https://...">Company Name</a>
  *   3. Grok fallback: send raw HTML to Grok and ask it to extract the list
  *
- * Returns an array of { name, websiteUrl } objects.
+ * Pagination detection:
+ *   A. Query-param pages  (?page=N, ?p=N, ?pg=N, ?pagenum=N, ?start=N)
+ *   B. Path-segment pages (/page/N, /p/N, /exhibitors/N)
+ *   C. "Next" anchor links (<a>Next</a>, <a>›</a>, <a>>></a>, rel="next")
+ *   D. Numbered page links (same-host anchors containing /page/2, ?page=2, etc.)
+ *   E. Grok AI fallback to detect non-standard pagination
+ *
+ * Returns an array of { name, websiteUrl } objects deduplicated across all pages.
  */
 
 import axios from "axios";
@@ -16,6 +25,27 @@ export interface ScrapedExhibitor {
   name: string;
   websiteUrl: string | null;
 }
+
+export interface ScrapeResult {
+  exhibitors: ScrapedExhibitor[];
+  strategy: string;
+  pageTitle: string;
+  pagesScraped: number;
+}
+
+/** Progress callback so the route can stream page-by-page updates. */
+export type ScrapeProgressCallback = (msg: {
+  page: number;
+  totalPages: number | null;
+  found: number;
+  message: string;
+}) => void;
+
+const MAX_PAGES = 20;
+
+// ---------------------------------------------------------------------------
+// URL utilities
+// ---------------------------------------------------------------------------
 
 /**
  * Clean a URL: strip tracking params, normalise to https, remove trailing slashes.
@@ -41,10 +71,16 @@ function isCompanyWebsite(url: string): boolean {
     "google.com", "maps.google", "goo.gl",
     "linkedin.com", "twitter.com", "x.com", "facebook.com", "instagram.com", "youtube.com",
     "policies.google.com", "recaptcha", "captcha",
+    // Known conference organiser domains — add more as needed
     "conexpoconagg.com", "bauma.de", "ifat.de", "intermat.fr", "cemat.de",
+    "hannovermesse.de", "messe-muenchen.de", "messe-frankfurt.de",
   ];
   return !excluded.some(d => lower.includes(d));
 }
+
+// ---------------------------------------------------------------------------
+// Extraction strategies (single page)
+// ---------------------------------------------------------------------------
 
 /**
  * Strategy 1: Logo-link pattern.
@@ -170,9 +206,205 @@ ${truncated}`;
   }
 }
 
+// ---------------------------------------------------------------------------
+// Pagination detection
+// ---------------------------------------------------------------------------
+
 /**
- * Deduplicate exhibitors by name (case-insensitive).
+ * Detect the "next page" URL from an HTML page.
+ *
+ * Strategies (in priority order):
+ *   A. rel="next" link element
+ *   B. Anchor with text Next / › / >> / → / »
+ *   C. Numbered page links: same-host href containing ?page=N or /page/N
+ *      where N > currentPage
+ *   D. Query-param increment: if current URL has ?page=N, try ?page=N+1
+ *   E. Path-segment increment: if current URL has /page/N, try /page/N+1
  */
+export function detectNextPageUrl(
+  html: string,
+  currentUrl: string,
+  currentPage: number
+): string | null {
+  const base = new URL(currentUrl);
+  const baseHost = base.hostname;
+
+  // A. rel="next"
+  const relNextMatch = html.match(/<link[^>]+rel=["']next["'][^>]+href=["']([^"']+)["']/i)
+    || html.match(/<link[^>]+href=["']([^"']+)["'][^>]+rel=["']next["']/i);
+  if (relNextMatch) {
+    try {
+      return new URL(relNextMatch[1], currentUrl).toString();
+    } catch {}
+  }
+
+  // B. "Next" anchor text
+  const nextTextPatterns = [
+    /href=["']([^"']+)["'][^>]*>\s*(?:next|›|»|>>|→|&rsaquo;|&raquo;|&#8250;|&#187;)\s*</i,
+    />\s*(?:next|›|»|>>|→|&rsaquo;|&raquo;|&#8250;|&#187;)\s*<\/a[^>]*>.*?href=["']([^"']+)["']/i,
+  ];
+  for (const pat of nextTextPatterns) {
+    const m = html.match(pat);
+    if (m) {
+      const href = m[1] || m[2];
+      if (href) {
+        try {
+          const resolved = new URL(href, currentUrl);
+          if (resolved.hostname === baseHost) return resolved.toString();
+        } catch {}
+      }
+    }
+  }
+
+  // Also check <a ...>Next</a> in a more robust way
+  const anchorRegex = /<a[^>]+href=["']([^"'#][^"']*)["'][^>]*>([\s\S]{0,200}?)<\/a>/gi;
+  let m: RegExpExecArray | null;
+  while ((m = anchorRegex.exec(html)) !== null) {
+    const href = m[1];
+    const inner = m[2].replace(/<[^>]+>/g, "").trim();
+    if (/^(next|›|»|>>|→|next page)$/i.test(inner)) {
+      try {
+        const resolved = new URL(href, currentUrl);
+        if (resolved.hostname === baseHost) return resolved.toString();
+      } catch {}
+    }
+  }
+
+  // C. Numbered page links — find the smallest page number > currentPage
+  const pageUrlCandidates: { page: number; url: string }[] = [];
+
+  // Pattern: href contains ?page=N or &page=N
+  const queryPageRegex = /href=["']([^"']+[?&](?:page|p|pg|pagenum)=(\d+)[^"']*)["']/gi;
+  while ((m = queryPageRegex.exec(html)) !== null) {
+    const n = parseInt(m[2], 10);
+    if (n > currentPage) {
+      try {
+        pageUrlCandidates.push({ page: n, url: new URL(m[1], currentUrl).toString() });
+      } catch {}
+    }
+  }
+
+  // Pattern: href contains /page/N or /p/N
+  const pathPageRegex = /href=["']([^"']*\/(?:page|p)\/(\d+)[^"']*)["']/gi;
+  while ((m = pathPageRegex.exec(html)) !== null) {
+    const n = parseInt(m[2], 10);
+    if (n > currentPage) {
+      try {
+        pageUrlCandidates.push({ page: n, url: new URL(m[1], currentUrl).toString() });
+      } catch {}
+    }
+  }
+
+  if (pageUrlCandidates.length > 0) {
+    pageUrlCandidates.sort((a, b) => a.page - b.page);
+    const next = pageUrlCandidates.find(c => c.page === currentPage + 1) || pageUrlCandidates[0];
+    return next.url;
+  }
+
+  // D. Query-param increment: ?page=N → ?page=N+1
+  const pageParam = base.searchParams.get("page") || base.searchParams.get("p") ||
+    base.searchParams.get("pg") || base.searchParams.get("pagenum");
+  if (pageParam) {
+    const n = parseInt(pageParam, 10);
+    if (!isNaN(n)) {
+      const next = new URL(currentUrl);
+      const paramName = base.searchParams.has("page") ? "page"
+        : base.searchParams.has("p") ? "p"
+        : base.searchParams.has("pg") ? "pg"
+        : "pagenum";
+      next.searchParams.set(paramName, String(n + 1));
+      return next.toString();
+    }
+  }
+
+  // E. Path-segment increment: /page/N → /page/N+1
+  const pathPageMatch = base.pathname.match(/^(.*\/(?:page|p)\/)(\d+)(\/.*)?$/);
+  if (pathPageMatch) {
+    const n = parseInt(pathPageMatch[2], 10);
+    if (!isNaN(n)) {
+      const next = new URL(currentUrl);
+      next.pathname = `${pathPageMatch[1]}${n + 1}${pathPageMatch[3] || ""}`;
+      return next.toString();
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Count total pages from HTML (best-effort).
+ * Looks for the highest page number in pagination links.
+ */
+export function detectTotalPages(html: string, currentUrl: string): number | null {
+  const base = new URL(currentUrl);
+  const baseHost = base.hostname;
+
+  let maxPage = 1;
+
+  // Query-param page numbers
+  const queryPageRegex = /href=["'][^"']*[?&](?:page|p|pg|pagenum)=(\d+)[^"']*["']/gi;
+  let m: RegExpExecArray | null;
+  while ((m = queryPageRegex.exec(html)) !== null) {
+    const n = parseInt(m[1], 10);
+    if (n > maxPage) maxPage = n;
+  }
+
+  // Path-segment page numbers
+  const pathPageRegex = /href=["'][^"']*\/(?:page|p)\/(\d+)[^"']*["']/gi;
+  while ((m = pathPageRegex.exec(html)) !== null) {
+    const n = parseInt(m[1], 10);
+    if (n > maxPage) maxPage = n;
+  }
+
+  // Explicit "of N pages" text
+  const ofPagesMatch = html.match(/(?:of|\/)\s*(\d+)\s*(?:pages?|pg)/i);
+  if (ofPagesMatch) {
+    const n = parseInt(ofPagesMatch[1], 10);
+    if (n > maxPage) maxPage = n;
+  }
+
+  return maxPage > 1 ? maxPage : null;
+}
+
+// ---------------------------------------------------------------------------
+// Single-page extraction (tries all 3 strategies)
+// ---------------------------------------------------------------------------
+
+async function extractFromPage(html: string, pageUrl: string): Promise<{
+  exhibitors: ScrapedExhibitor[];
+  strategy: string;
+}> {
+  const pageHost = new URL(pageUrl).hostname;
+
+  // Strategy 1: Logo-link
+  let exhibitors = extractLogoLinks(html);
+  let strategy = "logo-link";
+
+  // Strategy 2: Text-link (if strategy 1 found fewer than 5)
+  if (exhibitors.length < 5) {
+    const textLinks = extractTextLinks(html, pageHost);
+    if (textLinks.length > exhibitors.length) {
+      exhibitors = textLinks;
+      strategy = "text-link";
+    }
+  }
+
+  // Strategy 3: Grok fallback (if both found fewer than 5)
+  if (exhibitors.length < 5) {
+    const grokResults = await extractWithGrok(html, pageUrl);
+    if (grokResults.length > exhibitors.length) {
+      exhibitors = grokResults;
+      strategy = "grok";
+    }
+  }
+
+  return { exhibitors, strategy };
+}
+
+// ---------------------------------------------------------------------------
+// Deduplication
+// ---------------------------------------------------------------------------
+
 function deduplicateByName(exhibitors: ScrapedExhibitor[]): ScrapedExhibitor[] {
   const seen = new Set<string>();
   return exhibitors.filter(e => {
@@ -183,16 +415,11 @@ function deduplicateByName(exhibitors: ScrapedExhibitor[]): ScrapedExhibitor[] {
   });
 }
 
-/**
- * Main entry point: scrape exhibitors from a conference URL.
- */
-export async function scrapeConferenceExhibitors(url: string): Promise<{
-  exhibitors: ScrapedExhibitor[];
-  strategy: string;
-  pageTitle: string;
-}> {
-  console.log(`[Conference Scraper] Fetching: ${url}`);
+// ---------------------------------------------------------------------------
+// HTTP fetch helper
+// ---------------------------------------------------------------------------
 
+async function fetchPage(url: string): Promise<string> {
   const response = await axios.get(url, {
     headers: {
       "User-Agent": "Mozilla/5.0 (compatible; SalesIntelligenceBot/1.0)",
@@ -202,46 +429,118 @@ export async function scrapeConferenceExhibitors(url: string): Promise<{
     timeout: 30000,
     maxRedirects: 5,
   });
-
-  const html: string = response.data;
-
-  const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-  const pageTitle = titleMatch ? titleMatch[1].trim() : url;
-  const pageHost = new URL(url).hostname;
-
-  console.log(`[Conference Scraper] Page fetched (${(html.length / 1024).toFixed(0)} KB). Trying strategies...`);
-
-  // Strategy 1: Logo-link pattern
-  let exhibitors = extractLogoLinks(html);
-  let strategy = "logo-link";
-  console.log(`[Conference Scraper] Strategy 1 (logo-link): ${exhibitors.length} companies`);
-
-  // Strategy 2: Text-link pattern (if strategy 1 found fewer than 5)
-  if (exhibitors.length < 5) {
-    const textLinks = extractTextLinks(html, pageHost);
-    console.log(`[Conference Scraper] Strategy 2 (text-link): ${textLinks.length} companies`);
-    if (textLinks.length > exhibitors.length) {
-      exhibitors = textLinks;
-      strategy = "text-link";
-    }
-  }
-
-  // Strategy 3: Grok fallback (if both strategies found fewer than 5)
-  if (exhibitors.length < 5) {
-    console.log(`[Conference Scraper] Strategy 3 (Grok): invoking AI extraction...`);
-    const grokResults = await extractWithGrok(html, url);
-    console.log(`[Conference Scraper] Strategy 3 (Grok): ${grokResults.length} companies`);
-    if (grokResults.length > exhibitors.length) {
-      exhibitors = grokResults;
-      strategy = "grok";
-    }
-  }
-
-  exhibitors = deduplicateByName(exhibitors);
-  console.log(`[Conference Scraper] Final: ${exhibitors.length} unique companies (strategy: ${strategy})`);
-
-  return { exhibitors, strategy, pageTitle };
+  return response.data as string;
 }
+
+// ---------------------------------------------------------------------------
+// Main entry point
+// ---------------------------------------------------------------------------
+
+/**
+ * Scrape exhibitors from a conference URL, following pagination automatically.
+ *
+ * @param url         Starting URL (exhibitor list page)
+ * @param onProgress  Optional callback called after each page is scraped
+ * @param maxPages    Maximum pages to crawl (default: 20)
+ */
+export async function scrapeConferenceExhibitors(
+  url: string,
+  onProgress?: ScrapeProgressCallback,
+  maxPages = MAX_PAGES
+): Promise<ScrapeResult> {
+  console.log(`[Conference Scraper] Starting multi-page scrape: ${url}`);
+
+  const allExhibitors: ScrapedExhibitor[] = [];
+  const visitedUrls = new Set<string>();
+  let currentUrl: string | null = url;
+  let pageNum = 1;
+  let pagesWithContent = 0; // pages that actually returned ≥1 company
+  let dominantStrategy = "logo-link";
+  let pageTitle = url;
+  let totalPages: number | null = null;
+
+  while (currentUrl && pageNum <= maxPages) {
+    // Normalise URL to avoid revisiting the same page with trailing slash differences
+    const normUrl = currentUrl.replace(/\/$/, "");
+    if (visitedUrls.has(normUrl)) {
+      console.log(`[Conference Scraper] Already visited ${normUrl}, stopping pagination`);
+      break;
+    }
+    visitedUrls.add(normUrl);
+
+    console.log(`[Conference Scraper] Fetching page ${pageNum}: ${currentUrl}`);
+
+    let html: string;
+    try {
+      html = await fetchPage(currentUrl);
+    } catch (err: any) {
+      console.warn(`[Conference Scraper] Failed to fetch page ${pageNum}: ${err.message}`);
+      break;
+    }
+
+    // Extract page title from first page only
+    if (pageNum === 1) {
+      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+      pageTitle = titleMatch ? titleMatch[1].trim() : url;
+    }
+
+    // Detect total pages from first page
+    if (pageNum === 1) {
+      totalPages = detectTotalPages(html, currentUrl);
+      if (totalPages) {
+        console.log(`[Conference Scraper] Detected ${totalPages} total pages`);
+      }
+    }
+
+    const { exhibitors, strategy } = await extractFromPage(html, currentUrl);
+    console.log(`[Conference Scraper] Page ${pageNum}: ${exhibitors.length} companies (strategy: ${strategy})`);
+
+    if (pageNum === 1) dominantStrategy = strategy;
+
+    // If this page found 0 companies and it's not the first page, stop — likely past the end
+    if (exhibitors.length === 0 && pageNum > 1) {
+      console.log(`[Conference Scraper] Page ${pageNum} returned 0 companies, stopping pagination`);
+      break;
+    }
+
+    pagesWithContent++;
+    allExhibitors.push(...exhibitors);
+
+    onProgress?.({
+      page: pagesWithContent,
+      totalPages,
+      found: allExhibitors.length,
+      message: `Page ${pagesWithContent}${totalPages ? ` of ${totalPages}` : ""}: found ${exhibitors.length} exhibitors (${allExhibitors.length} total so far)`,
+    });
+
+    // Detect next page
+    const nextUrl = detectNextPageUrl(html, currentUrl, pageNum);
+    if (!nextUrl || nextUrl === currentUrl) {
+      console.log(`[Conference Scraper] No next page detected after page ${pageNum}`);
+      break;
+    }
+
+    currentUrl = nextUrl;
+    pageNum++;
+
+    // Polite delay between pages
+    await new Promise(r => setTimeout(r, 500));
+  }
+
+  const unique = deduplicateByName(allExhibitors);
+  console.log(`[Conference Scraper] Done: ${unique.length} unique companies across ${pagesWithContent} page(s)`);
+
+  return {
+    exhibitors: unique,
+    strategy: dominantStrategy,
+    pageTitle,
+    pagesScraped: pagesWithContent,
+  };
+}
+
+// ---------------------------------------------------------------------------
+// Apollo enrichment
+// ---------------------------------------------------------------------------
 
 /**
  * Look up a company in Apollo by domain to get Apollo ID + firmographic data.

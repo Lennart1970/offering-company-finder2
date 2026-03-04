@@ -1092,3 +1092,14 @@
 - [x] reResearchCompany — uses assertCompanyAccess (read)
 - [x] scoreCompanyFit — uses assertCompanyAccess (read)
 - [x] enrichContact — uses assertCompanyAccess (read)
+
+## Feature: Conference Exhibitor Import
+- [x] Build conferenceScraper.ts service with 3 strategies: logo-link, text-link, Grok AI fallback
+- [x] Apollo enrichment via organizations/enrich endpoint (domain lookup)
+- [x] Session-authenticated streaming endpoint at /api/conference-import
+- [x] Frontend ConferenceImport page with live progress log and progress bar
+- [x] "Conference Import" entry added to sidebar navigation
+- [x] Unit tests for scraper service (8 tests: extraction strategies, dedup, social filter, URL cleaning, Apollo enrich)
+- [x] Fix hitl.test.ts: add getSearchById mocks to all tests using assertCompanyAccess/assertSearchAccess
+- [x] Fix confirmAndSearch.test.ts: update expected call count from 3 to 63 (multi-slice architecture)
+- [x] All 206 tests passing (18 test files)

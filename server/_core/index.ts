@@ -7,6 +7,7 @@ import { registerOAuthRoutes } from "./oauth";
 import { appRouter } from "../routers";
 import { createContext } from "./context";
 import apiRouter from "../routes/api";
+import conferenceImportRouter from "../routes/conferenceImport";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -38,6 +39,8 @@ async function startServer() {
   registerOAuthRoutes(app);
   // REST API for external integrations (e.g., Dataverse) - mounted at /api/v1 to avoid conflict with tRPC
   app.use("/api/v1", apiRouter);
+  // Conference import endpoint (session-authenticated, streams NDJSON)
+  app.use("/api/conference-import", conferenceImportRouter);
   // tRPC API
   app.use(
     "/api/trpc",

@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, Microscope, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit } from "lucide-react";
+import { List, Microscope, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2 } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -30,6 +30,7 @@ import { Button } from "./ui/button";
 const menuItems = [
   { icon: BrainCircuit, label: "Offering Brain", path: "/brain" },
   { icon: Upload, label: "Import Campaign", path: "/import-campaign" },
+  { icon: Building2, label: "Conference Import", path: "/conference-import" },
   { icon: List, label: "Search Results", path: "/search-results" },
   { icon: Microscope, label: "Deep Research", path: "/deep-research" },
   { icon: ShieldBan, label: "Exclusions", path: "/exclusions" },

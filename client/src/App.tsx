@@ -12,6 +12,7 @@ import DeepResearchDashboard from "./pages/DeepResearchDashboard";
 import Exclusions from "./pages/Exclusions";
 import ImportCampaign from "./pages/ImportCampaign";
 import Brain from "./pages/Brain";
+import ConferenceImport from "./pages/ConferenceImport";
 
 
 function Router() {
@@ -24,6 +25,7 @@ function Router() {
         <Route path={"/deep-research"} component={DeepResearchDashboard} />
         <Route path={"/exclusions"} component={Exclusions} />
         <Route path={"/import-campaign"} component={ImportCampaign} />
+        <Route path={"/conference-import"} component={ConferenceImport} />
         <Route path={"/brain"} component={Brain} />
 
         <Route path={"/404"} component={NotFound} />

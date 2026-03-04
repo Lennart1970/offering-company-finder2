@@ -1,4 +1,4 @@
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { appRouter } from "./routers";
 import type { TrpcContext } from "./_core/context";
 import * as db from "./db";
@@ -30,37 +30,76 @@ function createAuthContext(userId = 1): TrpcContext {
   };
 }
 
+/** Shared mock search owned by userId=1 with searchId=10 */
+function createMockSearch(overrides: Partial<Record<string, any>> = {}) {
+  return {
+    id: 10,
+    userId: 1,
+    companyWebsite: "https://connectgroup.com",
+    location: "Georgia, USA",
+    offeringName: "Test Offering",
+    offeringDescription: null,
+    targetMarket: null,
+    valueProposition: null,
+    keywords: null,
+    crossBorderIndicators: null,
+    keywordTagsUsed: null,
+    selectedSicCodes: null,
+    selectedNaicsCodes: null,
+    codeSelectionReasoning: null,
+    excludedSectors: null,
+    codesSearched: 0,
+    codesTotal: 0,
+    status: "completed" as const,
+    sharedWithTeam: 0,
+    createdAt: new Date(),
+    ...overrides,
+  };
+}
+
+/** Shared mock company belonging to searchId=10 */
+function createMockCompany(id: number, overrides: Partial<Record<string, any>> = {}) {
+  return {
+    id,
+    searchId: 10,
+    apolloId: `apollo-${id}`,
+    name: `Company ${id}`,
+    websiteUrl: `https://company${id}.com`,
+    primaryDomain: `company${id}.com`,
+    linkedinUrl: null,
+    phone: null,
+    foundedYear: null,
+    revenue: null,
+    headcountGrowth: null,
+    searchLocation: "Georgia, USA",
+    city: null,
+    state: null,
+    country: null,
+    streetAddress: null,
+    rawAddress: null,
+    sicCodes: null,
+    naicsCodes: null,
+    enrichmentStatus: "pending" as const,
+    createdAt: new Date(),
+    ...overrides,
+  };
+}
+
 describe("HITL Decision Capture", () => {
   describe("submitDecision", () => {
     it("submits a 'call_today' decision", async () => {
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
-      const mockCompany = {
-        id: 1,
-        searchId: 10,
-        apolloId: "apollo-1",
-        name: "Good Company",
-        websiteUrl: "https://good.com",
-        primaryDomain: "good.com",
-        linkedinUrl: null,
-        phone: null,
-        foundedYear: null,
-        revenue: null,
-        headcountGrowth: null,
-        searchLocation: "Georgia, USA",
-        city: "Atlanta",
-        state: "Georgia",
-        country: "US",
-        streetAddress: null,
-        rawAddress: null,
+      const mockCompany = createMockCompany(1, {
+        city: "Atlanta", state: "Georgia", country: "US",
         sicCodes: JSON.stringify(["3672"]),
         naicsCodes: JSON.stringify(["334412"]),
         enrichmentStatus: "enriched" as const,
-        createdAt: new Date(),
-      };
+      });
 
       const mockGetCompanyById = vi.spyOn(db, "getCompanyById").mockResolvedValue(mockCompany);
+      const mockGetSearchById = vi.spyOn(db, "getSearchById").mockResolvedValue(createMockSearch());
       const mockCreateDecision = vi.spyOn(db, "createCompanyDecision").mockResolvedValue(1);
 
       const result = await caller.companyFinder.submitDecision({
@@ -82,6 +121,7 @@ describe("HITL Decision Capture", () => {
       );
 
       mockGetCompanyById.mockRestore();
+      mockGetSearchById.mockRestore();
       mockCreateDecision.mockRestore();
     });
 
@@ -89,31 +129,8 @@ describe("HITL Decision Capture", () => {
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
-      const mockCompany = {
-        id: 2,
-        searchId: 10,
-        apolloId: "apollo-2",
-        name: "Maybe Company",
-        websiteUrl: "https://maybe.com",
-        primaryDomain: "maybe.com",
-        linkedinUrl: null,
-        phone: null,
-        foundedYear: null,
-        revenue: null,
-        headcountGrowth: null,
-        searchLocation: "Georgia, USA",
-        city: null,
-        state: null,
-        country: null,
-        streetAddress: null,
-        rawAddress: null,
-        sicCodes: null,
-        naicsCodes: null,
-        enrichmentStatus: "pending" as const,
-        createdAt: new Date(),
-      };
-
-      const mockGetCompanyById = vi.spyOn(db, "getCompanyById").mockResolvedValue(mockCompany);
+      const mockGetCompanyById = vi.spyOn(db, "getCompanyById").mockResolvedValue(createMockCompany(2));
+      const mockGetSearchById = vi.spyOn(db, "getSearchById").mockResolvedValue(createMockSearch());
       const mockCreateDecision = vi.spyOn(db, "createCompanyDecision").mockResolvedValue(2);
 
       const result = await caller.companyFinder.submitDecision({
@@ -125,6 +142,7 @@ describe("HITL Decision Capture", () => {
       expect(result).toEqual({ decisionId: 2, success: true });
 
       mockGetCompanyById.mockRestore();
+      mockGetSearchById.mockRestore();
       mockCreateDecision.mockRestore();
     });
 
@@ -132,31 +150,15 @@ describe("HITL Decision Capture", () => {
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
-      const mockCompany = {
-        id: 3,
-        searchId: 10,
-        apolloId: "apollo-3",
-        name: "Bad Industry Company",
-        websiteUrl: "https://bad.com",
-        primaryDomain: "bad.com",
-        linkedinUrl: null,
-        phone: null,
-        foundedYear: null,
-        revenue: null,
-        headcountGrowth: null,
-        searchLocation: "Georgia, USA",
-        city: "Savannah",
-        state: "Georgia",
-        country: "US",
-        streetAddress: null,
-        rawAddress: null,
+      const mockCompany = createMockCompany(3, {
+        city: "Savannah", state: "Georgia", country: "US",
         sicCodes: JSON.stringify(["5812", "5813"]),
         naicsCodes: JSON.stringify(["722511"]),
         enrichmentStatus: "enriched" as const,
-        createdAt: new Date(),
-      };
+      });
 
       const mockGetCompanyById = vi.spyOn(db, "getCompanyById").mockResolvedValue(mockCompany);
+      const mockGetSearchById = vi.spyOn(db, "getSearchById").mockResolvedValue(createMockSearch());
       const mockCreateDecision = vi.spyOn(db, "createCompanyDecision").mockResolvedValue(3);
       const mockAddExcludedCode = vi.spyOn(db, "addExcludedCode").mockResolvedValue(1);
 
@@ -172,28 +174,17 @@ describe("HITL Decision Capture", () => {
       // Should add 2 SIC codes + 1 NAICS code = 3 calls
       expect(mockAddExcludedCode).toHaveBeenCalledTimes(3);
       expect(mockAddExcludedCode).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userId: 1,
-          codeType: "sic",
-          code: "5812",
-        })
+        expect.objectContaining({ userId: 1, codeType: "sic", code: "5812" })
       );
       expect(mockAddExcludedCode).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userId: 1,
-          codeType: "sic",
-          code: "5813",
-        })
+        expect.objectContaining({ userId: 1, codeType: "sic", code: "5813" })
       );
       expect(mockAddExcludedCode).toHaveBeenCalledWith(
-        expect.objectContaining({
-          userId: 1,
-          codeType: "naics",
-          code: "722511",
-        })
+        expect.objectContaining({ userId: 1, codeType: "naics", code: "722511" })
       );
 
       mockGetCompanyById.mockRestore();
+      mockGetSearchById.mockRestore();
       mockCreateDecision.mockRestore();
       mockAddExcludedCode.mockRestore();
     });
@@ -202,31 +193,14 @@ describe("HITL Decision Capture", () => {
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
-      const mockCompany = {
-        id: 4,
-        searchId: 10,
-        apolloId: "apollo-4",
-        name: "Small Company",
-        websiteUrl: "https://small.com",
-        primaryDomain: "small.com",
-        linkedinUrl: null,
-        phone: null,
-        foundedYear: null,
-        revenue: null,
-        headcountGrowth: null,
-        searchLocation: "Georgia, USA",
-        city: null,
-        state: null,
-        country: null,
-        streetAddress: null,
-        rawAddress: null,
+      const mockCompany = createMockCompany(4, {
         sicCodes: JSON.stringify(["3672"]),
         naicsCodes: JSON.stringify(["334412"]),
         enrichmentStatus: "enriched" as const,
-        createdAt: new Date(),
-      };
+      });
 
       const mockGetCompanyById = vi.spyOn(db, "getCompanyById").mockResolvedValue(mockCompany);
+      const mockGetSearchById = vi.spyOn(db, "getSearchById").mockResolvedValue(createMockSearch());
       const mockCreateDecision = vi.spyOn(db, "createCompanyDecision").mockResolvedValue(4);
       const mockAddExcludedCode = vi.spyOn(db, "addExcludedCode").mockResolvedValue(1);
 
@@ -241,6 +215,7 @@ describe("HITL Decision Capture", () => {
       expect(mockAddExcludedCode).not.toHaveBeenCalled();
 
       mockGetCompanyById.mockRestore();
+      mockGetSearchById.mockRestore();
       mockCreateDecision.mockRestore();
       mockAddExcludedCode.mockRestore();
     });
@@ -292,6 +267,8 @@ describe("HITL Decision Capture", () => {
         decidedAt: new Date(),
       };
 
+      const mockGetCompanyById = vi.spyOn(db, "getCompanyById").mockResolvedValue(createMockCompany(1));
+      const mockGetSearchById = vi.spyOn(db, "getSearchById").mockResolvedValue(createMockSearch());
       const mockGetDecision = vi.spyOn(db, "getCompanyDecision").mockResolvedValue(mockDecision);
 
       const result = await caller.companyFinder.getDecision({ companyId: 1 });
@@ -299,6 +276,8 @@ describe("HITL Decision Capture", () => {
       expect(result).toEqual(mockDecision);
       expect(mockGetDecision).toHaveBeenCalledWith(1, 1);
 
+      mockGetCompanyById.mockRestore();
+      mockGetSearchById.mockRestore();
       mockGetDecision.mockRestore();
     });
 
@@ -306,12 +285,16 @@ describe("HITL Decision Capture", () => {
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
+      const mockGetCompanyById = vi.spyOn(db, "getCompanyById").mockResolvedValue(createMockCompany(999));
+      const mockGetSearchById = vi.spyOn(db, "getSearchById").mockResolvedValue(createMockSearch());
       const mockGetDecision = vi.spyOn(db, "getCompanyDecision").mockResolvedValue(undefined);
 
       const result = await caller.companyFinder.getDecision({ companyId: 999 });
 
       expect(result).toBeNull();
 
+      mockGetCompanyById.mockRestore();
+      mockGetSearchById.mockRestore();
       mockGetDecision.mockRestore();
     });
   });
@@ -344,6 +327,7 @@ describe("HITL Decision Capture", () => {
         },
       ];
 
+      const mockGetSearchById = vi.spyOn(db, "getSearchById").mockResolvedValue(createMockSearch());
       const mockGetDecisions = vi.spyOn(db, "getDecisionsBySearch").mockResolvedValue(mockDecisions);
 
       const result = await caller.companyFinder.getSearchDecisions({ searchId: 10 });
@@ -353,6 +337,7 @@ describe("HITL Decision Capture", () => {
       expect(result[1].decision).toBe("not_relevant");
       expect(result[1].reasonCode).toBe("wrong_industry");
 
+      mockGetSearchById.mockRestore();
       mockGetDecisions.mockRestore();
     });
   });
@@ -433,31 +418,8 @@ describe("HITL Workflow Integration", () => {
     const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
-    const mockCompany = {
-      id: 5,
-      searchId: 10,
-      apolloId: "apollo-5",
-      name: "No Codes Company",
-      websiteUrl: "https://nocodes.com",
-      primaryDomain: "nocodes.com",
-      linkedinUrl: null,
-      phone: null,
-      foundedYear: null,
-      revenue: null,
-      headcountGrowth: null,
-      searchLocation: "Georgia, USA",
-      city: null,
-      state: null,
-      country: null,
-      streetAddress: null,
-      rawAddress: null,
-      sicCodes: null, // No SIC codes
-      naicsCodes: null, // No NAICS codes
-      enrichmentStatus: "pending" as const,
-      createdAt: new Date(),
-    };
-
-    const mockGetCompanyById = vi.spyOn(db, "getCompanyById").mockResolvedValue(mockCompany);
+    const mockGetCompanyById = vi.spyOn(db, "getCompanyById").mockResolvedValue(createMockCompany(5));
+    const mockGetSearchById = vi.spyOn(db, "getSearchById").mockResolvedValue(createMockSearch());
     const mockCreateDecision = vi.spyOn(db, "createCompanyDecision").mockResolvedValue(5);
     const mockAddExcludedCode = vi.spyOn(db, "addExcludedCode").mockResolvedValue(1);
 
@@ -468,10 +430,11 @@ describe("HITL Workflow Integration", () => {
       reasonCode: "wrong_industry",
     });
 
-    // No codes to add
+    // No codes to add (company has null sicCodes/naicsCodes)
     expect(mockAddExcludedCode).not.toHaveBeenCalled();
 
     mockGetCompanyById.mockRestore();
+    mockGetSearchById.mockRestore();
     mockCreateDecision.mockRestore();
     mockAddExcludedCode.mockRestore();
   });
@@ -480,31 +443,8 @@ describe("HITL Workflow Integration", () => {
     const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
-    const mockCompany = {
-      id: 6,
-      searchId: 10,
-      apolloId: "apollo-6",
-      name: "Notes Company",
-      websiteUrl: "https://notes.com",
-      primaryDomain: "notes.com",
-      linkedinUrl: null,
-      phone: null,
-      foundedYear: null,
-      revenue: null,
-      headcountGrowth: null,
-      searchLocation: "Georgia, USA",
-      city: null,
-      state: null,
-      country: null,
-      streetAddress: null,
-      rawAddress: null,
-      sicCodes: null,
-      naicsCodes: null,
-      enrichmentStatus: "pending" as const,
-      createdAt: new Date(),
-    };
-
-    const mockGetCompanyById = vi.spyOn(db, "getCompanyById").mockResolvedValue(mockCompany);
+    const mockGetCompanyById = vi.spyOn(db, "getCompanyById").mockResolvedValue(createMockCompany(6));
+    const mockGetSearchById = vi.spyOn(db, "getSearchById").mockResolvedValue(createMockSearch());
     const mockCreateDecision = vi.spyOn(db, "createCompanyDecision").mockResolvedValue(6);
 
     await caller.companyFinder.submitDecision({
@@ -523,6 +463,7 @@ describe("HITL Workflow Integration", () => {
     );
 
     mockGetCompanyById.mockRestore();
+    mockGetSearchById.mockRestore();
     mockCreateDecision.mockRestore();
   });
 });

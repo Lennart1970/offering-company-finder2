@@ -117,22 +117,23 @@ describe("confirmAndSearch", () => {
 
     await confirmAndSearch({ searchId: 2, location: "Charlotte, NC" });
 
-    // Should have called searchApolloCompanies 3 times (one per keyword tag)
-    expect(apolloSearch.searchApolloCompanies).toHaveBeenCalledTimes(3);
+    // Multi-slice search: 3 employee bands × 7 industries × 3 keyword sets = 63 calls
+    // Each slice combines industry keywords + keyword set keywords
+    const { EMPLOYEE_BANDS, INDUSTRY_SLICES, KEYWORD_SETS } = await import("./searchSlices");
+    const expectedCalls = EMPLOYEE_BANDS.length * INDUSTRY_SLICES.length * KEYWORD_SETS.length;
+    expect(apolloSearch.searchApolloCompanies).toHaveBeenCalledTimes(expectedCalls);
+
+    // Each call should include the location
     expect(apolloSearch.searchApolloCompanies).toHaveBeenCalledWith(
       expect.objectContaining({
-        targetMarketKeywordTags: ["Railway"],
         location: "Charlotte, NC",
       })
     );
+
+    // Each call should include targetMarketKeywordTags (combined industry + keyword set)
     expect(apolloSearch.searchApolloCompanies).toHaveBeenCalledWith(
       expect.objectContaining({
-        targetMarketKeywordTags: ["Healthcare"],
-      })
-    );
-    expect(apolloSearch.searchApolloCompanies).toHaveBeenCalledWith(
-      expect.objectContaining({
-        targetMarketKeywordTags: ["Infrastructure"],
+        targetMarketKeywordTags: expect.arrayContaining([expect.any(String)]),
       })
     );
   });

@@ -1,25 +1,35 @@
 /**
- * Conference Exhibitor Scraper
+ * Conference Exhibitor Scraper — Robust Pipeline
  *
- * Fetches an exhibitor list page (and all subsequent pages) and extracts
- * company names + website URLs.
+ * Fetch layer (per page, in order):
+ *   1. axios fast fetch — works for static/SSR pages (~80% of sites)
+ *   2. Puppeteer headless browser — for JS-rendered SPAs (React/Vue/Angular)
+ *      - waits for networkidle2 so dynamic content is fully loaded
+ *   3. Puppeteer + "Load More" interaction — for infinite-scroll / button-paginated SPAs
+ *      - clicks every visible "Load More" / "Show More" / "Next" button until none remain
  *
- * Extraction strategies per page:
- *   1. Logo-link pattern: <a href="..."><img alt="Company Name"/></a>
- *   2. Text-link pattern: <a href="https://...">Company Name</a>
- *   3. Grok fallback: send raw HTML to Grok and ask it to extract the list
+ * Extraction layer (per fetched HTML, in order):
+ *   1. Logo-link  — <a href="..."><img alt="Company Name"/></a>
+ *   2. Text-link  — <a href="https://external.com">Company Name</a>
+ *   3. Grok AI    — send rendered HTML to Grok, ask it to extract the list
  *
- * Pagination detection:
- *   A. Query-param pages  (?page=N, ?p=N, ?pg=N, ?pagenum=N, ?start=N)
- *   B. Path-segment pages (/page/N, /p/N, /exhibitors/N)
- *   C. "Next" anchor links (<a>Next</a>, <a>›</a>, <a>>></a>, rel="next")
- *   D. Numbered page links (same-host anchors containing /page/2, ?page=2, etc.)
- *   E. Grok AI fallback to detect non-standard pagination
+ * Pagination (multi-page):
+ *   Detects rel=next, "Next" anchors, ›/»/>> chevrons, ?page=N, /page/N
+ *   Crawls up to MAX_PAGES pages, deduplicates across all pages.
  *
- * Returns an array of { name, websiteUrl } objects deduplicated across all pages.
+ * Hardening:
+ *   - 3 retries with exponential backoff on network errors
+ *   - Normalized company name dedup (strips Inc./Ltd./GmbH/B.V. etc.)
+ *   - Domain normalization before Apollo (strips www., paths, query params)
+ *   - Single Puppeteer browser instance reused across all pages
+ *   - Streams fetch-method events to the caller for frontend display
  */
 
 import axios from "axios";
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 
 export interface ScrapedExhibitor {
   name: string;
@@ -29,6 +39,7 @@ export interface ScrapedExhibitor {
 export interface ScrapeResult {
   exhibitors: ScrapedExhibitor[];
   strategy: string;
+  fetchMethod: string;   // "axios" | "puppeteer" | "puppeteer-loadmore"
   pageTitle: string;
   pagesScraped: number;
 }
@@ -39,9 +50,13 @@ export type ScrapeProgressCallback = (msg: {
   totalPages: number | null;
   found: number;
   message: string;
+  fetchMethod?: string;
 }) => void;
 
 const MAX_PAGES = 20;
+const FETCH_TIMEOUT_MS = 30_000;
+const PUPPETEER_TIMEOUT_MS = 45_000;
+const RETRY_ATTEMPTS = 3;
 
 // ---------------------------------------------------------------------------
 // URL utilities
@@ -63,19 +78,57 @@ function cleanUrl(raw: string): string | null {
 }
 
 /**
+ * Extract the root domain from a URL for Apollo enrichment.
+ * e.g. "https://www.caterpillar.com/en/products" → "caterpillar.com"
+ */
+export function extractDomain(url: string): string | null {
+  try {
+    const hostname = new URL(url).hostname.toLowerCase();
+    return hostname.replace(/^www\./, "");
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Is this URL likely a company website (not a social media or map link)?
  */
-function isCompanyWebsite(url: string): boolean {
+function isCompanyWebsite(url: string, pageHost: string): boolean {
   const lower = url.toLowerCase();
   const excluded = [
     "google.com", "maps.google", "goo.gl",
-    "linkedin.com", "twitter.com", "x.com", "facebook.com", "instagram.com", "youtube.com",
+    "linkedin.com", "twitter.com", "x.com", "facebook.com", "instagram.com",
+    "youtube.com", "tiktok.com", "pinterest.com", "xing.com",
     "policies.google.com", "recaptcha", "captcha",
-    // Known conference organiser domains — add more as needed
+    // Known conference organiser domains
     "conexpoconagg.com", "bauma.de", "ifat.de", "intermat.fr", "cemat.de",
     "hannovermesse.de", "messe-muenchen.de", "messe-frankfurt.de",
+    "messe-berlin.de", "koelnmesse.de", "messe-duesseldorf.de",
+    "messe-stuttgart.de", "messe-essen.de", "messe-nuernberg.de",
   ];
-  return !excluded.some(d => lower.includes(d));
+  if (excluded.some(d => lower.includes(d))) return false;
+  // Also exclude same-host links
+  try {
+    const linkHost = new URL(url).hostname.replace(/^www\./, "");
+    const ph = pageHost.replace(/^www\./, "");
+    if (linkHost === ph) return false;
+  } catch { return false; }
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Normalise company name for deduplication
+// ---------------------------------------------------------------------------
+
+const LEGAL_SUFFIX_RE = /[\s,]+(?:inc\.?|llc\.?|ltd\.?|limited|corp\.?|corporation|co\.?|gmbh|b\.v\.|bv|ag|nv|sa|s\.a\.|plc|pty\.?|pvt\.?|srl|s\.r\.l\.|oy|ab|as|a\/s|kg|kgaa|ohg|gbr|se|spa|s\.p\.a\.)\.?$/i;
+
+function normaliseName(name: string): string {
+  return name
+    .toLowerCase()
+    .trim()
+    .replace(LEGAL_SUFFIX_RE, "")
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 }
 
 // ---------------------------------------------------------------------------
@@ -86,7 +139,7 @@ function isCompanyWebsite(url: string): boolean {
  * Strategy 1: Logo-link pattern.
  * Looks for <a href="..."><img alt="Company Name"/></a>
  */
-function extractLogoLinks(html: string): ScrapedExhibitor[] {
+function extractLogoLinks(html: string, pageHost: string): ScrapedExhibitor[] {
   const results: ScrapedExhibitor[] = [];
   const anchorRegex = /<a[^>]+href=["']([^"']+)["'][^>]*>([\s\S]*?)<\/a>/gi;
   const imgAltRegex = /<img[^>]+alt=["']([^"']{2,100})["'][^>]*>/i;
@@ -100,9 +153,9 @@ function extractLogoLinks(html: string): ScrapedExhibitor[] {
 
     const name = imgMatch[1].trim();
     const url = cleanUrl(href);
-    if (!url || !isCompanyWebsite(url)) continue;
+    if (!url || !isCompanyWebsite(url, pageHost)) continue;
     if (name.length < 2 || name.length > 120) continue;
-    if (/^(home|contact|menu|search|register|login|sign in|privacy|cookie|terms)$/i.test(name)) continue;
+    if (/^(home|contact|menu|search|register|login|sign in|privacy|cookie|terms|logo|banner)$/i.test(name)) continue;
 
     results.push({ name, websiteUrl: url });
   }
@@ -123,15 +176,10 @@ function extractTextLinks(html: string, pageHost: string): ScrapedExhibitor[] {
     const href = match[1];
     const text = match[2].trim().replace(/\s+/g, " ");
     const url = cleanUrl(href);
-    if (!url || !isCompanyWebsite(url)) continue;
-
-    try {
-      const linkHost = new URL(url).hostname.replace(/^www\./, "");
-      if (linkHost === pageHost.replace(/^www\./, "")) continue;
-    } catch { continue; }
+    if (!url || !isCompanyWebsite(url, pageHost)) continue;
 
     if (text.length < 2 || text.length > 100) continue;
-    if (/^(home|contact|menu|search|register|login|sign in|privacy|cookie|terms|read more|click here|learn more|visit|website)$/i.test(text)) continue;
+    if (/^(home|contact|menu|search|register|login|sign in|privacy|cookie|terms|read more|click here|learn more|visit|website|more info|details|view|see more)$/i.test(text)) continue;
 
     results.push({ name: text, websiteUrl: url });
   }
@@ -140,7 +188,8 @@ function extractTextLinks(html: string, pageHost: string): ScrapedExhibitor[] {
 }
 
 /**
- * Strategy 3: Grok fallback.
+ * Strategy 3: Grok AI fallback.
+ * Sends the rendered HTML to Grok and asks it to extract company names + websites.
  */
 async function extractWithGrok(html: string, pageUrl: string): Promise<ScrapedExhibitor[]> {
   const apiKey = process.env.XAI_API_KEY;
@@ -149,6 +198,7 @@ async function extractWithGrok(html: string, pageUrl: string): Promise<ScrapedEx
     return [];
   }
 
+  // Truncate to 30k chars to stay within token limits
   const truncated = html.slice(0, 30000);
 
   const prompt = `You are a data extraction assistant. I will give you the HTML of a conference exhibitor list page (${pageUrl}).
@@ -207,6 +257,266 @@ ${truncated}`;
 }
 
 // ---------------------------------------------------------------------------
+// Extraction dispatcher (tries all strategies on a given HTML string)
+// ---------------------------------------------------------------------------
+
+async function extractFromHtml(html: string, pageUrl: string): Promise<{
+  exhibitors: ScrapedExhibitor[];
+  strategy: string;
+}> {
+  const pageHost = new URL(pageUrl).hostname;
+
+  // Strategy 1: Logo-link
+  let exhibitors = extractLogoLinks(html, pageHost);
+  let strategy = "logo-link";
+
+  // Strategy 2: Text-link (if strategy 1 found fewer than 5)
+  if (exhibitors.length < 5) {
+    const textLinks = extractTextLinks(html, pageHost);
+    if (textLinks.length > exhibitors.length) {
+      exhibitors = textLinks;
+      strategy = "text-link";
+    }
+  }
+
+  // Strategy 3: Grok fallback (if both found fewer than 5)
+  if (exhibitors.length < 5) {
+    const grokResults = await extractWithGrok(html, pageUrl);
+    if (grokResults.length > exhibitors.length) {
+      exhibitors = grokResults;
+      strategy = "grok";
+    }
+  }
+
+  return { exhibitors, strategy };
+}
+
+// ---------------------------------------------------------------------------
+// Deduplication (normalised name matching)
+// ---------------------------------------------------------------------------
+
+function deduplicateExhibitors(exhibitors: ScrapedExhibitor[]): ScrapedExhibitor[] {
+  const seen = new Set<string>();
+  return exhibitors.filter(e => {
+    const key = normaliseName(e.name);
+    if (!key || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Fetch layer 1: axios (fast, for static/SSR pages)
+// ---------------------------------------------------------------------------
+
+async function fetchWithAxios(url: string, attempt = 1): Promise<string> {
+  try {
+    const response = await axios.get(url, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "en-US,en;q=0.9",
+        "Accept-Encoding": "gzip, deflate, br",
+        "Cache-Control": "no-cache",
+      },
+      timeout: FETCH_TIMEOUT_MS,
+      maxRedirects: 10,
+    });
+    return response.data as string;
+  } catch (err: any) {
+    if (attempt < RETRY_ATTEMPTS && isRetryableError(err)) {
+      const delay = 1000 * Math.pow(2, attempt - 1);
+      console.warn(`[Conference Scraper] axios fetch attempt ${attempt} failed (${err.message}), retrying in ${delay}ms...`);
+      await sleep(delay);
+      return fetchWithAxios(url, attempt + 1);
+    }
+    throw err;
+  }
+}
+
+function isRetryableError(err: any): boolean {
+  if (!err.response) return true; // network error, timeout
+  const status = err.response.status;
+  return status === 429 || status === 503 || status === 502 || status === 504;
+}
+
+// ---------------------------------------------------------------------------
+// Fetch layer 2: Puppeteer headless browser (for JS-rendered SPAs)
+// ---------------------------------------------------------------------------
+
+let _puppeteerBrowser: any = null;
+
+async function getPuppeteerBrowser(): Promise<any> {
+  if (_puppeteerBrowser) {
+    try {
+      // Check if still alive
+      const pages = await _puppeteerBrowser.pages();
+      if (pages) return _puppeteerBrowser;
+    } catch {
+      _puppeteerBrowser = null;
+    }
+  }
+
+  const puppeteer = await import("puppeteer-core");
+  _puppeteerBrowser = await puppeteer.default.launch({
+    executablePath: "/usr/bin/chromium-browser",
+    headless: true,
+    args: [
+      "--no-sandbox",
+      "--disable-setuid-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-extensions",
+      "--disable-background-networking",
+      "--no-first-run",
+      "--no-default-browser-check",
+    ],
+  });
+  console.log("[Conference Scraper] Puppeteer browser launched");
+  return _puppeteerBrowser;
+}
+
+export async function closePuppeteerBrowser(): Promise<void> {
+  if (_puppeteerBrowser) {
+    try { await _puppeteerBrowser.close(); } catch {}
+    _puppeteerBrowser = null;
+    console.log("[Conference Scraper] Puppeteer browser closed");
+  }
+}
+
+/**
+ * Fetch a page using Puppeteer, waiting for network idle so JS content renders.
+ */
+async function fetchWithPuppeteer(url: string): Promise<{ html: string; title: string }> {
+  const browser = await getPuppeteerBrowser();
+  const page = await browser.newPage();
+
+  try {
+    // Block images, fonts, media to speed up rendering
+    await page.setRequestInterception(true);
+    page.on("request", (req: any) => {
+      const rt = req.resourceType();
+      if (["image", "font", "media", "stylesheet"].includes(rt)) {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
+
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+    );
+
+    await page.goto(url, {
+      waitUntil: "networkidle2",
+      timeout: PUPPETEER_TIMEOUT_MS,
+    });
+
+    // Extra wait for late-rendering SPAs
+    await sleep(2000);
+
+    const html = await page.content();
+    const title = await page.title();
+    return { html, title };
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
+/**
+ * Fetch a page using Puppeteer and click "Load More" / "Show More" buttons
+ * until none remain or no new content appears.
+ * Used for infinite-scroll / button-paginated SPAs.
+ */
+async function fetchWithPuppeteerLoadMore(url: string): Promise<{ html: string; title: string }> {
+  const browser = await getPuppeteerBrowser();
+  const page = await browser.newPage();
+
+  try {
+    await page.setRequestInterception(true);
+    page.on("request", (req: any) => {
+      const rt = req.resourceType();
+      if (["image", "font", "media"].includes(rt)) {
+        req.abort();
+      } else {
+        req.continue();
+      }
+    });
+
+    await page.setUserAgent(
+      "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+    );
+
+    await page.goto(url, {
+      waitUntil: "networkidle2",
+      timeout: PUPPETEER_TIMEOUT_MS,
+    });
+
+    await sleep(2000);
+
+    // Click "Load More" / "Show More" / "Mehr anzeigen" buttons up to 30 times
+    const LOAD_MORE_SELECTORS = [
+      'button:contains("Load More")',
+      'button:contains("Show More")',
+      'button:contains("Mehr anzeigen")',
+      'button:contains("Voir plus")',
+      'a:contains("Load More")',
+      'a:contains("Show More")',
+      '[data-testid*="load-more"]',
+      '[class*="load-more"]',
+      '[class*="loadmore"]',
+      '[class*="show-more"]',
+      '[class*="showmore"]',
+    ];
+
+    let clickCount = 0;
+    const MAX_CLICKS = 30;
+
+    while (clickCount < MAX_CLICKS) {
+      // Try each selector
+      let clicked = false;
+      for (const sel of LOAD_MORE_SELECTORS) {
+        try {
+          // Use evaluate to find and click (avoids selector syntax issues)
+          const found = await page.evaluate((text: string) => {
+            const buttons = Array.from(document.querySelectorAll("button, a"));
+            const btn = buttons.find(b => {
+              const t = b.textContent?.trim().toLowerCase() || "";
+              return t === text.toLowerCase() || t.startsWith(text.toLowerCase());
+            }) as HTMLElement | undefined;
+            if (btn && btn.offsetParent !== null) {
+              btn.click();
+              return true;
+            }
+            return false;
+          }, sel.replace(/.*:contains\("(.+)"\)/, "$1"));
+
+          if (found) {
+            clicked = true;
+            clickCount++;
+            await sleep(1500); // wait for new content to load
+            break;
+          }
+        } catch {}
+      }
+
+      if (!clicked) break;
+    }
+
+    if (clickCount > 0) {
+      console.log(`[Conference Scraper] Clicked "Load More" ${clickCount} time(s)`);
+      await sleep(1000);
+    }
+
+    const html = await page.content();
+    const title = await page.title();
+    return { html, title };
+  } finally {
+    await page.close().catch(() => {});
+  }
+}
+
+// ---------------------------------------------------------------------------
 // Pagination detection
 // ---------------------------------------------------------------------------
 
@@ -238,7 +548,7 @@ export function detectNextPageUrl(
     } catch {}
   }
 
-  // B. "Next" anchor text
+  // B. "Next" anchor text (inline regex)
   const nextTextPatterns = [
     /href=["']([^"']+)["'][^>]*>\s*(?:next|›|»|>>|→|&rsaquo;|&raquo;|&#8250;|&#187;)\s*</i,
     />\s*(?:next|›|»|>>|→|&rsaquo;|&raquo;|&#8250;|&#187;)\s*<\/a[^>]*>.*?href=["']([^"']+)["']/i,
@@ -256,13 +566,13 @@ export function detectNextPageUrl(
     }
   }
 
-  // Also check <a ...>Next</a> in a more robust way
+  // Also check <a ...>Next</a> robustly
   const anchorRegex = /<a[^>]+href=["']([^"'#][^"']*)["'][^>]*>([\s\S]{0,200}?)<\/a>/gi;
   let m: RegExpExecArray | null;
   while ((m = anchorRegex.exec(html)) !== null) {
     const href = m[1];
     const inner = m[2].replace(/<[^>]+>/g, "").trim();
-    if (/^(next|›|»|>>|→|next page)$/i.test(inner)) {
+    if (/^(next|›|»|>>|→|next page|weiter|suivant|siguiente|volgende|nächste)$/i.test(inner)) {
       try {
         const resolved = new URL(href, currentUrl);
         if (resolved.hostname === baseHost) return resolved.toString();
@@ -273,7 +583,6 @@ export function detectNextPageUrl(
   // C. Numbered page links — find the smallest page number > currentPage
   const pageUrlCandidates: { page: number; url: string }[] = [];
 
-  // Pattern: href contains ?page=N or &page=N
   const queryPageRegex = /href=["']([^"']+[?&](?:page|p|pg|pagenum)=(\d+)[^"']*)["']/gi;
   while ((m = queryPageRegex.exec(html)) !== null) {
     const n = parseInt(m[2], 10);
@@ -284,7 +593,6 @@ export function detectNextPageUrl(
     }
   }
 
-  // Pattern: href contains /page/N or /p/N
   const pathPageRegex = /href=["']([^"']*\/(?:page|p)\/(\d+)[^"']*)["']/gi;
   while ((m = pathPageRegex.exec(html)) !== null) {
     const n = parseInt(m[2], 10);
@@ -301,7 +609,7 @@ export function detectNextPageUrl(
     return next.url;
   }
 
-  // D. Query-param increment: ?page=N → ?page=N+1
+  // D. Query-param increment
   const pageParam = base.searchParams.get("page") || base.searchParams.get("p") ||
     base.searchParams.get("pg") || base.searchParams.get("pagenum");
   if (pageParam) {
@@ -317,7 +625,7 @@ export function detectNextPageUrl(
     }
   }
 
-  // E. Path-segment increment: /page/N → /page/N+1
+  // E. Path-segment increment
   const pathPageMatch = base.pathname.match(/^(.*\/(?:page|p)\/)(\d+)(\/.*)?$/);
   if (pathPageMatch) {
     const n = parseInt(pathPageMatch[2], 10);
@@ -333,15 +641,10 @@ export function detectNextPageUrl(
 
 /**
  * Count total pages from HTML (best-effort).
- * Looks for the highest page number in pagination links.
  */
 export function detectTotalPages(html: string, currentUrl: string): number | null {
-  const base = new URL(currentUrl);
-  const baseHost = base.hostname;
-
   let maxPage = 1;
 
-  // Query-param page numbers
   const queryPageRegex = /href=["'][^"']*[?&](?:page|p|pg|pagenum)=(\d+)[^"']*["']/gi;
   let m: RegExpExecArray | null;
   while ((m = queryPageRegex.exec(html)) !== null) {
@@ -349,14 +652,12 @@ export function detectTotalPages(html: string, currentUrl: string): number | nul
     if (n > maxPage) maxPage = n;
   }
 
-  // Path-segment page numbers
   const pathPageRegex = /href=["'][^"']*\/(?:page|p)\/(\d+)[^"']*["']/gi;
   while ((m = pathPageRegex.exec(html)) !== null) {
     const n = parseInt(m[1], 10);
     if (n > maxPage) maxPage = n;
   }
 
-  // Explicit "of N pages" text
   const ofPagesMatch = html.match(/(?:of|\/)\s*(\d+)\s*(?:pages?|pg)/i);
   if (ofPagesMatch) {
     const n = parseInt(ofPagesMatch[1], 10);
@@ -367,69 +668,11 @@ export function detectTotalPages(html: string, currentUrl: string): number | nul
 }
 
 // ---------------------------------------------------------------------------
-// Single-page extraction (tries all 3 strategies)
+// Utilities
 // ---------------------------------------------------------------------------
 
-async function extractFromPage(html: string, pageUrl: string): Promise<{
-  exhibitors: ScrapedExhibitor[];
-  strategy: string;
-}> {
-  const pageHost = new URL(pageUrl).hostname;
-
-  // Strategy 1: Logo-link
-  let exhibitors = extractLogoLinks(html);
-  let strategy = "logo-link";
-
-  // Strategy 2: Text-link (if strategy 1 found fewer than 5)
-  if (exhibitors.length < 5) {
-    const textLinks = extractTextLinks(html, pageHost);
-    if (textLinks.length > exhibitors.length) {
-      exhibitors = textLinks;
-      strategy = "text-link";
-    }
-  }
-
-  // Strategy 3: Grok fallback (if both found fewer than 5)
-  if (exhibitors.length < 5) {
-    const grokResults = await extractWithGrok(html, pageUrl);
-    if (grokResults.length > exhibitors.length) {
-      exhibitors = grokResults;
-      strategy = "grok";
-    }
-  }
-
-  return { exhibitors, strategy };
-}
-
-// ---------------------------------------------------------------------------
-// Deduplication
-// ---------------------------------------------------------------------------
-
-function deduplicateByName(exhibitors: ScrapedExhibitor[]): ScrapedExhibitor[] {
-  const seen = new Set<string>();
-  return exhibitors.filter(e => {
-    const key = e.name.toLowerCase().trim();
-    if (seen.has(key)) return false;
-    seen.add(key);
-    return true;
-  });
-}
-
-// ---------------------------------------------------------------------------
-// HTTP fetch helper
-// ---------------------------------------------------------------------------
-
-async function fetchPage(url: string): Promise<string> {
-  const response = await axios.get(url, {
-    headers: {
-      "User-Agent": "Mozilla/5.0 (compatible; SalesIntelligenceBot/1.0)",
-      "Accept": "text/html,application/xhtml+xml",
-      "Accept-Language": "en-US,en;q=0.9",
-    },
-    timeout: 30000,
-    maxRedirects: 5,
-  });
-  return response.data as string;
+function sleep(ms: number): Promise<void> {
+  return new Promise(r => setTimeout(r, ms));
 }
 
 // ---------------------------------------------------------------------------
@@ -438,6 +681,7 @@ async function fetchPage(url: string): Promise<string> {
 
 /**
  * Scrape exhibitors from a conference URL, following pagination automatically.
+ * Uses a 3-layer fetch pipeline: axios → Puppeteer → Puppeteer+LoadMore
  *
  * @param url         Starting URL (exhibitor list page)
  * @param onProgress  Optional callback called after each page is scraped
@@ -454,16 +698,16 @@ export async function scrapeConferenceExhibitors(
   const visitedUrls = new Set<string>();
   let currentUrl: string | null = url;
   let pageNum = 1;
-  let pagesWithContent = 0; // pages that actually returned ≥1 company
+  let pagesWithContent = 0;
   let dominantStrategy = "logo-link";
+  let dominantFetchMethod = "axios";
   let pageTitle = url;
   let totalPages: number | null = null;
 
   while (currentUrl && pageNum <= maxPages) {
-    // Normalise URL to avoid revisiting the same page with trailing slash differences
     const normUrl = currentUrl.replace(/\/$/, "");
     if (visitedUrls.has(normUrl)) {
-      console.log(`[Conference Scraper] Already visited ${normUrl}, stopping pagination`);
+      console.log(`[Conference Scraper] Already visited ${normUrl}, stopping`);
       break;
     }
     visitedUrls.add(normUrl);
@@ -471,17 +715,100 @@ export async function scrapeConferenceExhibitors(
     console.log(`[Conference Scraper] Fetching page ${pageNum}: ${currentUrl}`);
 
     let html: string;
+    let fetchedTitle: string | null = null;
+    let fetchMethod = "axios";
+
+    // ── Layer 1: axios ──────────────────────────────────────────────────────
+    let axiosHtml: string | null = null;
     try {
-      html = await fetchPage(currentUrl);
+      axiosHtml = await fetchWithAxios(currentUrl);
     } catch (err: any) {
-      console.warn(`[Conference Scraper] Failed to fetch page ${pageNum}: ${err.message}`);
-      break;
+      console.warn(`[Conference Scraper] axios failed: ${err.message}`);
     }
 
-    // Extract page title from first page only
+    if (axiosHtml) {
+      // Quick check: does the axios HTML have enough content to be useful?
+      const { exhibitors: quickCheck } = await extractFromHtml(axiosHtml, currentUrl);
+      if (quickCheck.length >= 5) {
+        html = axiosHtml;
+        fetchMethod = "axios";
+      } else {
+        // ── Layer 2: Puppeteer (networkidle2) ─────────────────────────────
+        console.log(`[Conference Scraper] axios yielded only ${quickCheck.length} companies, trying Puppeteer...`);
+        onProgress?.({
+          page: pagesWithContent + 1,
+          totalPages,
+          found: allExhibitors.length,
+          message: `Page ${pagesWithContent + 1}: using headless browser (JS-rendered page detected)...`,
+          fetchMethod: "puppeteer",
+        });
+
+        try {
+          const result = await fetchWithPuppeteer(currentUrl);
+          html = result.html;
+          fetchedTitle = result.title;
+          fetchMethod = "puppeteer";
+
+          // Check if Puppeteer helped
+          const { exhibitors: puppeteerCheck } = await extractFromHtml(html, currentUrl);
+          if (puppeteerCheck.length < 5) {
+            // ── Layer 3: Puppeteer + Load More ─────────────────────────────
+            console.log(`[Conference Scraper] Puppeteer yielded only ${puppeteerCheck.length}, trying Load More...`);
+            onProgress?.({
+              page: pagesWithContent + 1,
+              totalPages,
+              found: allExhibitors.length,
+              message: `Page ${pagesWithContent + 1}: clicking "Load More" buttons...`,
+              fetchMethod: "puppeteer-loadmore",
+            });
+
+            try {
+              const lmResult = await fetchWithPuppeteerLoadMore(currentUrl);
+              html = lmResult.html;
+              fetchedTitle = lmResult.title;
+              fetchMethod = "puppeteer-loadmore";
+            } catch (lmErr: any) {
+              console.warn(`[Conference Scraper] Load More failed: ${lmErr.message}`);
+              // Keep the Puppeteer result
+            }
+          }
+        } catch (puppeteerErr: any) {
+          console.warn(`[Conference Scraper] Puppeteer failed: ${puppeteerErr.message}`);
+          // Fall back to the axios HTML we already have
+          html = axiosHtml;
+          fetchMethod = "axios";
+        }
+      }
+    } else {
+      // axios completely failed — go straight to Puppeteer
+      console.log(`[Conference Scraper] axios failed entirely, trying Puppeteer...`);
+      onProgress?.({
+        page: pagesWithContent + 1,
+        totalPages,
+        found: allExhibitors.length,
+        message: `Page ${pagesWithContent + 1}: using headless browser (page blocked axios)...`,
+        fetchMethod: "puppeteer",
+      });
+
+      try {
+        const result = await fetchWithPuppeteer(currentUrl);
+        html = result.html;
+        fetchedTitle = result.title;
+        fetchMethod = "puppeteer";
+      } catch (puppeteerErr: any) {
+        console.error(`[Conference Scraper] All fetch methods failed for page ${pageNum}: ${puppeteerErr.message}`);
+        break;
+      }
+    }
+
+    // Extract page title from first page
     if (pageNum === 1) {
-      const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
-      pageTitle = titleMatch ? titleMatch[1].trim() : url;
+      if (fetchedTitle) {
+        pageTitle = fetchedTitle;
+      } else {
+        const titleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+        pageTitle = titleMatch ? titleMatch[1].trim() : url;
+      }
     }
 
     // Detect total pages from first page
@@ -492,14 +819,17 @@ export async function scrapeConferenceExhibitors(
       }
     }
 
-    const { exhibitors, strategy } = await extractFromPage(html, currentUrl);
-    console.log(`[Conference Scraper] Page ${pageNum}: ${exhibitors.length} companies (strategy: ${strategy})`);
+    const { exhibitors, strategy } = await extractFromHtml(html, currentUrl);
+    console.log(`[Conference Scraper] Page ${pageNum}: ${exhibitors.length} companies (strategy: ${strategy}, fetch: ${fetchMethod})`);
 
-    if (pageNum === 1) dominantStrategy = strategy;
+    if (pageNum === 1) {
+      dominantStrategy = strategy;
+      dominantFetchMethod = fetchMethod;
+    }
 
-    // If this page found 0 companies and it's not the first page, stop — likely past the end
+    // Stop if this page found 0 companies (past the end)
     if (exhibitors.length === 0 && pageNum > 1) {
-      console.log(`[Conference Scraper] Page ${pageNum} returned 0 companies, stopping pagination`);
+      console.log(`[Conference Scraper] Page ${pageNum} returned 0 companies, stopping`);
       break;
     }
 
@@ -510,7 +840,8 @@ export async function scrapeConferenceExhibitors(
       page: pagesWithContent,
       totalPages,
       found: allExhibitors.length,
-      message: `Page ${pagesWithContent}${totalPages ? ` of ${totalPages}` : ""}: found ${exhibitors.length} exhibitors (${allExhibitors.length} total so far)`,
+      message: `Page ${pagesWithContent}${totalPages ? ` of ${totalPages}` : ""}: ${exhibitors.length} exhibitors found (${allExhibitors.length} total, via ${fetchMethod})`,
+      fetchMethod,
     });
 
     // Detect next page
@@ -524,15 +855,21 @@ export async function scrapeConferenceExhibitors(
     pageNum++;
 
     // Polite delay between pages
-    await new Promise(r => setTimeout(r, 500));
+    await sleep(fetchMethod === "axios" ? 500 : 1000);
   }
 
-  const unique = deduplicateByName(allExhibitors);
-  console.log(`[Conference Scraper] Done: ${unique.length} unique companies across ${pagesWithContent} page(s)`);
+  // Close Puppeteer browser if it was used (free resources)
+  if (dominantFetchMethod !== "axios") {
+    await closePuppeteerBrowser();
+  }
+
+  const unique = deduplicateExhibitors(allExhibitors);
+  console.log(`[Conference Scraper] Done: ${unique.length} unique companies across ${pagesWithContent} page(s) (fetch: ${dominantFetchMethod})`);
 
   return {
     exhibitors: unique,
     strategy: dominantStrategy,
+    fetchMethod: dominantFetchMethod,
     pageTitle,
     pagesScraped: pagesWithContent,
   };

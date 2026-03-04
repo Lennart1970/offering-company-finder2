@@ -53,6 +53,7 @@ router.post("/", async (req: any, res: any) => {
 
     let exhibitors: any[];
     let strategy: string;
+    let fetchMethod: string;
     let pageTitle: string;
     let pagesScraped: number;
 
@@ -72,6 +73,7 @@ router.post("/", async (req: any, res: any) => {
       );
       exhibitors = result.exhibitors;
       strategy = result.strategy;
+      fetchMethod = result.fetchMethod;
       pageTitle = result.pageTitle;
       pagesScraped = result.pagesScraped;
     } catch (err: any) {
@@ -91,8 +93,9 @@ router.post("/", async (req: any, res: any) => {
       total: exhibitors.length,
       pagesScraped,
       strategy,
+      fetchMethod,
       pageTitle,
-      message: `Found ${exhibitors.length} exhibitors across ${pagesScraped} page(s) via ${strategy} strategy`,
+      message: `Found ${exhibitors.length} exhibitors across ${pagesScraped} page(s) via ${strategy}/${fetchMethod}`,
     });
 
     // Step 2: Create the search/campaign record
@@ -101,7 +104,7 @@ router.post("/", async (req: any, res: any) => {
       companyWebsite: url.trim(),
       location: "Conference Import",
       offeringName: campaignName.trim(),
-      offeringDescription: `Exhibitors from ${pageTitle} (${url.trim()}) — ${exhibitors.length} companies scraped across ${pagesScraped} page(s) via ${strategy}`,
+      offeringDescription: `Exhibitors from ${pageTitle} (${url.trim()}) — ${exhibitors.length} companies scraped across ${pagesScraped} page(s) via ${strategy}/${fetchMethod}`,
       targetMarket: null,
       valueProposition: null,
       keywords: null,

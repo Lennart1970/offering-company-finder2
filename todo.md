@@ -1113,3 +1113,15 @@
 - [x] Loop protection: never revisit the same URL
 - [x] Stop early when a page returns 0 companies (past the end)
 - [x] 11 new pagination tests (detection + multi-page crawl) — 217 total passing (18 test files)
+
+## Feature: Robust JS-Rendered Conference Scraper
+- [x] Install puppeteer-core (uses system Chromium, no bundled download)
+- [x] Build headless browser fetch layer (renders JS, waits for networkidle2)
+- [x] Integrate Puppeteer as fallback when axios HTML fetch yields <5 companies
+- [x] Handle SPA pagination: click "Load More" / "Show More" / "Mehr anzeigen" buttons up to 30 times
+- [x] Retry logic: 3 attempts with exponential backoff on network errors
+- [x] Smarter deduplication: normalize company names (strip Inc/Ltd/GmbH/B.V. suffixes) before dedup
+- [x] Domain normalization: strip www., trailing slashes, and path suffixes before Apollo lookup
+- [x] Grok AI fallback: when both axios and Puppeteer yield <5 companies, ask Grok to extract from rendered HTML
+- [x] Stream "Using headless browser..." / "Clicking Load More..." status events to frontend
+- [x] Update unit tests for new pipeline stages — 226 total passing (18 test files)

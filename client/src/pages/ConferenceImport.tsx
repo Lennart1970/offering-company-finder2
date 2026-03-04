@@ -25,6 +25,7 @@ interface ProgressEvent {
   totalPages?: number | null;
   found?: number;
   pagesScraped?: number;
+  fetchMethod?: string;
 }
 
 const EXAMPLE_URLS = [
@@ -129,7 +130,8 @@ export default function ConferenceImport() {
     }
     if (ev.status === "scraped") {
       const pages = ev.pagesScraped && ev.pagesScraped > 1 ? ` across ${ev.pagesScraped} pages` : "";
-      return `Found ${ev.total} exhibitors${pages} on "${ev.pageTitle}" (${ev.strategy} method)`;
+      const method = ev.fetchMethod && ev.fetchMethod !== "axios" ? ` — headless browser used` : "";
+      return `Found ${ev.total} exhibitors${pages} on "${ev.pageTitle}" (${ev.strategy}${method})`;
     }
     if (ev.status === "campaign_created") return `Campaign created (ID: ${ev.searchId})`;
     if (ev.status === "progress") {

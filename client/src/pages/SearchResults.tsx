@@ -986,11 +986,36 @@ function CreateSalesApproachButton({ companyId, companyName, hasSalesApproach }:
 // ============================================================================
 // Find Decision-Makers Button — Trickle-Down Seniority Search
 // ============================================================================
+// Seniority options — mirrors SENIORITY_OPTIONS in DeepResearchDashboard
+const SR_SENIORITY_OPTIONS = [
+  { label: "C-Suite / Owner", values: ["owner", "founder", "c_suite", "partner"], defaultOn: true },
+  { label: "VP / Head",       values: ["vp", "head"],                             defaultOn: true },
+  { label: "Director",        values: ["director"],                               defaultOn: false },
+  { label: "Manager",         values: ["manager"],                                defaultOn: false },
+  { label: "Senior / Entry",  values: ["senior", "entry"],                        defaultOn: false },
+] as const;
+
+const SR_DEPARTMENT_OPTIONS = [
+  { label: "Any department",         value: "any" },
+  { label: "Engineering",            value: "engineering" },
+  { label: "Operations",             value: "operations" },
+  { label: "Finance",                value: "finance" },
+  { label: "Sales",                  value: "sales" },
+  { label: "Marketing",              value: "marketing" },
+  { label: "Human Resources",        value: "human_resources" },
+  { label: "Information Technology", value: "information_technology" },
+  { label: "Product Management",     value: "product_management" },
+] as const;
+
 function GetAllPersonnelButton({ companyId, companyName }: { companyId: number; companyName: string }) {
   const [showSelectionModal, setShowSelectionModal] = useState(false);
   const [showResultsModal, setShowResultsModal] = useState(false);
   const [results, setResults] = useState<any>(null);
-  const [fetchLimit, setFetchLimit] = useState(500);
+  const [fetchLimit, setFetchLimit] = useState(25);
+  const [checkedSeniorities, setCheckedSeniorities] = useState<boolean[]>(
+    SR_SENIORITY_OPTIONS.map((o) => o.defaultOn)
+  );
+  const [department, setDepartment] = useState("any");
 
   const { data: existingContacts } = trpc.companyFinder.getCompanyContacts.useQuery({ companyId });
 
@@ -1012,10 +1037,23 @@ function GetAllPersonnelButton({ companyId, companyName }: { companyId: number; 
     setShowSelectionModal(true);
   };
 
-  const handleFetch = () => {
-    getAllPersonnelMutation.mutate({ companyId, limit: fetchLimit });
+  const toggleSeniority = (idx: number) => {
+    setCheckedSeniorities((prev) => prev.map((v, i) => (i === idx ? !v : v)));
   };
 
+  const handleFetch = () => {
+    const selectedSeniorities = SR_SENIORITY_OPTIONS
+      .filter((_, i) => checkedSeniorities[i])
+      .flatMap((o) => [...o.values]);
+    getAllPersonnelMutation.mutate({
+      companyId,
+      limit: fetchLimit,
+      seniorities: selectedSeniorities.length > 0 ? selectedSeniorities : undefined,
+      department: department !== "any" ? department : undefined,
+    });
+  };
+
+  const anyChecked = checkedSeniorities.some(Boolean);
   const contactCount = existingContacts?.contacts?.length || 0;
 
   return (
@@ -1029,7 +1067,7 @@ function GetAllPersonnelButton({ companyId, companyName }: { companyId: number; 
       >
         GET ALL PERSONNEL
       </Button>
-      
+
       {/* Selection Modal */}
       {showSelectionModal && (
         <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={() => setShowSelectionModal(false)}>
@@ -1038,19 +1076,62 @@ function GetAllPersonnelButton({ companyId, companyName }: { companyId: number; 
               <h3 className="text-xl font-black">FETCH PERSONNEL</h3>
               <p className="text-sm text-muted-foreground mt-1">{companyName}</p>
             </div>
-            <div className="px-6 py-6">
-              <label className="block text-sm font-bold mb-2">How many employees to fetch?</label>
-              <select
-                value={fetchLimit}
-                onChange={(e) => setFetchLimit(Number(e.target.value))}
-                className="w-full border-2 border-gray-300 rounded px-3 py-2 text-base font-bold cursor-pointer"
-              >
-                <option value={100}>100 employees</option>
-                <option value={500}>500 employees</option>
-                <option value={1000}>1000 employees</option>
-              </select>
-              <p className="text-xs text-muted-foreground mt-2">Cost: 1 credit total (no email enrichment)</p>
+
+            <div className="px-6 py-5 space-y-5">
+              {/* Seniority checkboxes */}
+              <div>
+                <label className="block text-sm font-black mb-2 uppercase tracking-wide">Seniority</label>
+                <div className="space-y-2">
+                  {SR_SENIORITY_OPTIONS.map((opt, idx) => (
+                    <label key={opt.label} className="flex items-center gap-3 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={checkedSeniorities[idx]}
+                        onChange={() => toggleSeniority(idx)}
+                        className="w-4 h-4 accent-blue-600 cursor-pointer"
+                      />
+                      <span className={`text-sm font-bold ${checkedSeniorities[idx] ? "text-gray-900" : "text-gray-400"}`}>
+                        {opt.label}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {!anyChecked && (
+                  <p className="text-xs text-amber-600 font-bold mt-2">⚠ No seniority selected — will fetch all levels</p>
+                )}
+              </div>
+
+              {/* Department dropdown */}
+              <div>
+                <label className="block text-sm font-black mb-2 uppercase tracking-wide">Department</label>
+                <select
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                  className="w-full border-2 border-gray-300 rounded px-3 py-2 text-sm font-bold cursor-pointer focus:border-blue-600 outline-none"
+                >
+                  {SR_DEPARTMENT_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>{opt.label}</option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Max results */}
+              <div>
+                <label className="block text-sm font-black mb-2 uppercase tracking-wide">Max results</label>
+                <select
+                  value={fetchLimit}
+                  onChange={(e) => setFetchLimit(Number(e.target.value))}
+                  className="w-full border-2 border-gray-300 rounded px-3 py-2 text-sm font-bold cursor-pointer focus:border-blue-600 outline-none"
+                >
+                  <option value={10}>10 people</option>
+                  <option value={25}>25 people</option>
+                  <option value={50}>50 people</option>
+                  <option value={100}>100 people</option>
+                </select>
+                <p className="text-xs text-muted-foreground mt-1">Cost: 1 credit total (no email enrichment)</p>
+              </div>
             </div>
+
             <div className="px-6 py-4 border-t-2 border-gray-200 flex gap-3">
               <Button
                 onClick={() => setShowSelectionModal(false)}
@@ -1078,7 +1159,7 @@ function GetAllPersonnelButton({ companyId, companyName }: { companyId: number; 
           companyId={companyId}
           results={results}
           isPending={getAllPersonnelMutation.isPending}
-          onRefresh={() => getAllPersonnelMutation.mutate({ companyId, limit: fetchLimit })}
+          onRefresh={handleFetch}
           onClose={() => setShowResultsModal(false)}
           fetchLimit={fetchLimit}
           onFetchLimitChange={setFetchLimit}

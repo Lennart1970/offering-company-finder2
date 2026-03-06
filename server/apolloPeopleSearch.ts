@@ -306,7 +306,9 @@ async function searchPeopleBySeniority(
 export async function getAllPersonnel(
   companyDomain: string,
   companyName: string,
-  maxResults: number = 500 // Default to 500, can be increased if needed
+  maxResults: number = 500, // Default to 500, can be increased if needed
+  seniorities?: string[], // Optional seniority filter e.g. ["c_suite", "vp"]
+  department?: string,    // Optional department filter e.g. "engineering"
 ): Promise<{
   contacts: ApolloContact[];
   totalFound: number;
@@ -332,10 +334,12 @@ export async function getAllPersonnel(
 
   // Paginate through all results
   while (allPeople.length < maxResults) {
-    const requestBody = {
+    const requestBody: Record<string, unknown> = {
       page: currentPage,
       per_page: perPage,
       q_organization_domains_list: [cleanDomain],
+      ...(seniorities && seniorities.length > 0 ? { person_seniorities: seniorities } : {}),
+      ...(department && department !== "any" ? { person_departments: [department] } : {}),
     };
 
     console.log(`[Apollo All Personnel] Fetching page ${currentPage}...`);

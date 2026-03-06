@@ -1125,3 +1125,20 @@
 - [x] Grok AI fallback: when both axios and Puppeteer yield <5 companies, ask Grok to extract from rendered HTML
 - [x] Stream "Using headless browser..." / "Clicking Load More..." status events to frontend
 - [x] Update unit tests for new pipeline stages — 226 total passing (18 test files)
+
+## Feature: Stage 5 Tracking (PARKED — future sprint)
+- [ ] See full architecture notes in docs/stage5-tracking-architecture.md
+- [ ] Signal Configuration tab on Offering Brain page (offering-scoped)
+- [ ] Scan Run per campaign (campaign-scoped execution)
+- [ ] Signal Hit storage with Grok relevance assessment
+- [ ] 8 signal types: hiring, funding, new leadership, expansion, revenue growth, tech migration, compliance, general news
+- [ ] Urgency decay over time (recent hits weighted higher)
+- [ ] Campaign results view: Fit x Urgency sort + HOT badge
+- [ ] New "Tracking" page: all hot companies across all campaigns
+- [ ] Open decisions to resolve: scan trigger cadence, company scope filter, hiring signal source
+
+## Feature: Pre-Fetch Seniority & Department Filter for Get All Personnel
+- [x] Update getAllPersonnel() in apolloPeopleSearch.ts to accept seniorities[] and department params
+- [x] Update getAllPersonnel tRPC procedure input schema with optional seniorities and department fields
+- [x] Redesign Fetch Personnel modal: seniority checkboxes (C-Suite+VP default), department dropdown, reduced max results (10/25/50/100)
+- [x] 226 tests passing — no regressions

@@ -1245,7 +1245,9 @@ export const companyFinderRouter = router({
     .input(z.object({
       companyId: z.number(),
       includePhone: z.boolean().optional(),
-      limit: z.number().optional(), // Max contacts to return (default 25)
+      limit: z.number().optional(),         // Max contacts to return (default 25)
+      seniorities: z.array(z.string()).optional(), // e.g. ["owner","founder","c_suite","vp","head"]
+      department: z.string().optional(),    // e.g. "engineering", "operations", "any"
     }))
     .mutation(async ({ ctx, input }) => {
       const company = await assertCompanyAccess(input.companyId, ctx.user.id);
@@ -1255,14 +1257,15 @@ export const companyFinderRouter = router({
         : null;
       if (!domain) throw new Error("Company has no website URL for contact search");
 
-      console.log(`[Get All Personnel] Starting search at ${company.name} (${domain})`);
+      console.log(`[Get All Personnel] Starting search at ${company.name} (${domain}), seniorities: ${input.seniorities?.join(",") || "all"}, dept: ${input.department || "any"}`);
 
       // Run get all personnel search (basic data only, no enrichment)
-      // Default to 500, can fetch more if needed
       const result = await getAllPersonnel(
         domain,
         company.name,
-        input.limit || 500
+        input.limit || 25,
+        input.seniorities,
+        input.department
       );
 
       // Save found contacts to database (deduplicated)

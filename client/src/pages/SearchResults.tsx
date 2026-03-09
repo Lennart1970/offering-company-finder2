@@ -353,16 +353,16 @@ export default function SearchResults() {
       if (researchedCount > 0) {
         return (
           <>
-            <strong>{enrichedCount} companies</strong> from <strong>{campaignName}</strong> found in Apollo.
-            {" "}<strong>{researchedCount}</strong> already have a research brief — press{" "}
-            <strong>[RESEARCH &amp; OUTREACH]</strong> to complete the rest.
+            <strong>{enrichedCount} companies</strong> from <strong>{campaignName}</strong> found in Apollo —{" "}
+            <strong>{researchedCount}</strong> already have a research brief.
+            {" "}Press the purple <strong>[RESEARCH &amp; OUTREACH]</strong> button to compile research reports and outreach scripts for the rest.
           </>
         );
       }
       return (
         <>
-          <strong>{enrichedCount} companies</strong> from <strong>{campaignName}</strong> found in Apollo.
-          {" "}Press <strong>[RESEARCH &amp; OUTREACH]</strong> to generate a deep brief and personalized sales approach for each one.
+          <strong>{enrichedCount} companies</strong> from <strong>{campaignName}</strong> found in Apollo and ready to work.
+          {" "}Press the purple <strong>[RESEARCH &amp; OUTREACH]</strong> button to compile a research report and personalized outreach script for each one.
         </>
       );
     }
@@ -379,15 +379,15 @@ export default function SearchResults() {
       return (
         <>
           <strong>{outreachReadyCount} of {totalCount} companies</strong> from <strong>{campaignName}</strong> are ready for outreach.
-          {" "}Press <strong>OUTREACH READY</strong> to go straight to your scripts.
+          {" "}Press <strong>OUTREACH READY</strong> to go straight to your scripts, or press the purple <strong>[RESEARCH &amp; OUTREACH]</strong> button to compile reports for the remaining companies.
         </>
       );
     }
     if (enrichedCount > 0) {
       return (
         <>
-          <strong>{enrichedCount} of {totalCount} companies</strong> from <strong>{campaignName}</strong> ({sourceType}) are enriched and ready for research.
-          {" "}Press <strong>ENRICHED</strong> to see them, then hit <strong>[RESEARCH &amp; OUTREACH]</strong>.
+          <strong>{enrichedCount} of {totalCount} companies</strong> from <strong>{campaignName}</strong> ({sourceType}) are enriched and ready.
+          {" "}Press <strong>ENRICHED</strong> to see them, then hit the purple <strong>[RESEARCH &amp; OUTREACH]</strong> button to compile research reports and outreach scripts.
         </>
       );
     }

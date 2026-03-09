@@ -1220,3 +1220,13 @@
 - [x] Streams NDJSON: start → progress (per company with urgencyScore) → done summary
 - [x] Skips companies with briefs < 7 days old when skipCached=true
 - [x] 264 tests still passing (20 test files)
+
+## Feature: SALES APPROACH ALL Button in Search Results
+- [x] Add batchSalesApproach tRPC mutation: runs generateSalesApproach for all enriched companies in a searchId
+- [x] Only processes enriched companies that also have a brief (sales approach requires deep research)
+- [x] Skips companies with fresh sales approaches (< 7 days old) when skipCached=true
+- [x] Returns skippedNoResearch count for companies without a brief
+- [x] Add teal [SALES APPROACH ALL — N] button to SearchResults toolbar
+- [x] Show teal progress banner while running
+- [x] Toast on completion with completed/failed/skipped counts
+- [x] 264 tests still passing (20 test files)

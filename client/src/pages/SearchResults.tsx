@@ -92,6 +92,19 @@ export default function SearchResults() {
     },
   });
 
+  const batchSalesApproachMutation = trpc.companyFinder.batchSalesApproach.useMutation({
+    onSuccess: (data) => {
+      const msg = `Sales approaches complete: ${data.completed}/${data.total} generated.${
+        data.failed > 0 ? ` ${data.failed} failed.` : ""
+      }${data.skippedNoResearch > 0 ? ` ${data.skippedNoResearch} skipped (no deep research yet).` : ""}`;
+      toast.success(msg);
+      if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
+    },
+    onError: (error) => {
+      toast.error(`Batch sales approach failed: ${error.message}`);
+    },
+  });
+
   const nameEnrichMutation = trpc.companyFinder.nameEnrichCampaign.useMutation({
     onSuccess: (data) => {
       toast.success(`Re-enriched ${data.enriched} companies by name. ${data.failed} not found in Apollo.`);
@@ -441,6 +454,17 @@ export default function SearchResults() {
                     : `[RESEARCH ALL — ${enrichmentStats?.enriched}]`}
                 </Button>
               )}
+              {(enrichmentStats?.enriched ?? 0) > 0 && (
+                <Button
+                  onClick={() => batchSalesApproachMutation.mutate({ searchId: searchId! })}
+                  disabled={batchSalesApproachMutation.isPending}
+                  className="text-lg px-6 py-4 font-black border-4 border-teal-600 bg-teal-600 text-white"
+                >
+                  {batchSalesApproachMutation.isPending
+                    ? "[GENERATING APPROACHES...]"
+                    : `[SALES APPROACH ALL — ${enrichmentStats?.enriched}]`}
+                </Button>
+              )}
               {(enrichmentStats?.nameOnly ?? 0) > 0 && (
                 <Button
                   onClick={() => nameEnrichMutation.mutate({ searchId: searchId!, limit: 500, concurrency: 3 })}
@@ -476,6 +500,14 @@ export default function SearchResults() {
               <div className="text-xl font-black text-purple-700">→ RUNNING DEEP RESEARCH...</div>
               <div className="text-sm font-bold mt-2">
                 Generating sales intelligence briefs for {enrichmentStats?.enriched} enriched companies. Each brief takes ~30s — this will run in the background.
+              </div>
+            </div>
+          )}
+          {batchSalesApproachMutation.isPending && (
+            <div className="border-4 border-teal-600 p-6 mb-6 animate-pulse">
+              <div className="text-xl font-black text-teal-700">→ GENERATING SALES APPROACHES...</div>
+              <div className="text-sm font-bold mt-2">
+                Creating personalized sales approaches for {enrichmentStats?.enriched} enriched companies. Requires deep research to be done first — companies without a brief will be skipped.
               </div>
             </div>
           )}

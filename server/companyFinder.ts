@@ -1485,6 +1485,63 @@ export const companyFinderRouter = router({
     }),
 
   // ---------------------------------------------------------------------------
+  // batchSalesApproach — generate sales approaches for all enriched companies in a search
+  // ---------------------------------------------------------------------------
+  batchSalesApproach: protectedProcedure
+    .input(z.object({
+      searchId: z.number(),
+      skipCached: z.boolean().optional().default(true),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { getCompaniesBySearchId } = await import("./db");
+      const { generateSalesApproach } = await import("./salesApproachGenerator");
+
+      const allCompanies = await getCompaniesBySearchId(input.searchId);
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+      // Only process enriched companies that also have a brief (sales approach needs deep research)
+      const toProcess = allCompanies.filter((c) => {
+        if (c.enrichmentStatus !== "enriched") return false;
+        if (!c.briefData) return false; // needs deep research first
+        if (!input.skipCached) return true;
+        if (!c.salesApproachData || !c.salesApproachGeneratedAt) return true;
+        const age = Date.now() - new Date(c.salesApproachGeneratedAt).getTime();
+        return age >= sevenDaysMs;
+      });
+
+      console.log(`[batchSalesApproach] searchId=${input.searchId} — ${toProcess.length} companies to process`);
+
+      let completed = 0;
+      let failed = 0;
+      const errors: string[] = [];
+
+      for (const company of toProcess) {
+        try {
+          const salesApproach = await generateSalesApproach(company.id, ctx.user.id);
+          await updateCompany(company.id, {
+            salesApproachData: JSON.stringify(salesApproach),
+            salesApproachGeneratedAt: new Date(),
+          });
+          completed++;
+          console.log(`[batchSalesApproach] ✓ ${company.name} (${completed}/${toProcess.length})`);
+        } catch (err: any) {
+          failed++;
+          errors.push(`${company.name}: ${err.message}`);
+          console.error(`[batchSalesApproach] ✗ ${company.name}:`, err.message);
+        }
+      }
+
+      return {
+        success: true,
+        total: toProcess.length,
+        completed,
+        failed,
+        skippedNoResearch: allCompanies.filter((c) => c.enrichmentStatus === "enriched" && !c.briefData).length,
+        errors: errors.slice(0, 10),
+      };
+    }),
+
+  // ---------------------------------------------------------------------------
   // batchGenerateBriefs — run deep research for all enriched companies in a search
   // ---------------------------------------------------------------------------
   batchGenerateBriefs: protectedProcedure

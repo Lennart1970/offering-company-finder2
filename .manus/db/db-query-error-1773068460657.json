@@ -1,0 +1,8 @@
+{
+  "query": "\n-- Check what outreachReady means in the enrichmentStats for both searches\nSELECT \n  s.id as search_id,\n  s.name as search_name,\n  COUNT(c.id) as total,\n  SUM(CASE WHEN c.enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) as enriched,\n  SUM(CASE WHEN c.salesApproachData IS NOT NULL THEN 1 ELSE 0 END) as has_approach,\n  SUM(CASE WHEN c.briefData IS NOT NULL THEN 1 ELSE 0 END) as has_brief,\n  SUM(CASE WHEN c.salesApproachData IS NOT NULL AND c.briefData IS NOT NULL THEN 1 ELSE 0 END) as outreach_ready\nFROM searches s\nJOIN companies c ON c.searchId = s.id\nWHERE s.id IN (900004, 930001)\nGROUP BY s.id, s.name;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \n-- Check what outreachReady means in the enrichmentStats for both searches\nSELECT \n  s.id as search_id,\n  s.name as search_name,\n  COUNT(c.id) as total,\n  SUM(CASE WHEN c.enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) as enriched,\n  SUM(CASE WHEN c.salesApproachData IS NOT NULL THEN 1 ELSE 0 END) as has_approach,\n  SUM(CASE WHEN c.briefData IS NOT NULL THEN 1 ELSE 0 END) as has_brief,\n  SUM(CASE WHEN c.salesApproachData IS NOT NULL AND c.briefData IS NOT NULL THEN 1 ELSE 0 END) as outreach_ready\nFROM searches s\nJOIN companies c ON c.searchId = s.id\nWHERE s.id IN (900004, 930001)\nGROUP BY s.id, s.name;\n",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 3: Unknown column 's.name' in 'group statement'"
+  ]
+}

@@ -1401,3 +1401,16 @@
 - [x] Add getBatchStatus tRPC query to count companies with research but no approach
 - [x] Add completeMissingApproach tRPC mutation to run Phase 2 only for gap companies
 - [x] Add orange [COMPLETE APPROACH — N MISSING] button to toolbar (only shown when gap > 0)
+
+## Niche-Level Dynamic Fit Scoring (Brain-Driven)
+- [x] Add `niches` table to drizzle schema (name, description, companyCount, topKeywords, sampleCompanies, brainId, fitScore, fitReasoning, scoreBreakdown, searchId)
+- [x] Create `server/nicheFitScorer.ts` — dynamic LLM-inferred scoring engine (3-5 dimensions inferred from Offering Brain)
+- [x] Add `niche.scoreNiches` tRPC procedure (batch: score all niches for a search)
+- [x] Add `niche.getNiches` tRPC procedure (list niches with scores for a search)
+- [x] Add `niche.rescoreNiche` tRPC procedure (single niche rescore)
+- [x] Create `/niche-review` page — Herd Mapping view with niches ranked by fit score
+- [x] Render dynamic score component breakdown (variable dimensions, not hardcoded 4)
+- [x] Register `/niche-review` route in App.tsx
+- [x] Write vitest tests for nicheFitScorer (303 passing)
+- [x] Update niche-intelligence SKILL.md with dynamic scoring architecture
+- [x] Add future plan item: explicit scoring criteria defined in Offering Brain

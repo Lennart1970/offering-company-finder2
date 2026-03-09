@@ -841,13 +841,13 @@ export default function CompanyDetail() {
                 <div className="text-center py-16 text-muted-foreground font-bold">No research data available. Run Deep Research first.</div>
               ) : (
                 <>
-                <CacheBanner
-                  cachedAt={company.briefGeneratedAt}
-                  label="Urgency analysis"
-                  onRefresh={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: true }); }}
-                  loading={reResearchLoading}
-                />
-                <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                  <CacheBanner
+                    cachedAt={company.briefGeneratedAt}
+                    label="Urgency analysis"
+                    onRefresh={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: true }); }}
+                    loading={reResearchLoading}
+                  />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Left: Score + breakdown */}
                   <div>
                     <div className="p-5 border-4 border-red-600 mb-5">
@@ -911,7 +911,7 @@ export default function CompanyDetail() {
                       <div className="text-sm text-muted-foreground font-bold">No urgency signals recorded.</div>
                     )}
                   </div>
-                </div>
+                  </div>
                 </>
               )}
             </div>

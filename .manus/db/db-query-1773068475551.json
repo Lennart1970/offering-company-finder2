@@ -1,0 +1,26 @@
+{
+  "query": "\nSELECT \n  c.searchId,\n  COUNT(c.id) as total,\n  SUM(CASE WHEN c.enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) as enriched,\n  SUM(CASE WHEN c.briefData IS NOT NULL THEN 1 ELSE 0 END) as has_brief,\n  SUM(CASE WHEN c.salesApproachData IS NOT NULL THEN 1 ELSE 0 END) as has_approach,\n  SUM(CASE WHEN c.salesApproachData IS NOT NULL AND c.briefData IS NOT NULL AND c.enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) as outreach_ready\nFROM companies c\nWHERE c.searchId IN (900004, 930001)\nGROUP BY c.searchId;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  c.searchId,\n  COUNT(c.id) as total,\n  SUM(CASE WHEN c.enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) as enriched,\n  SUM(CASE WHEN c.briefData IS NOT NULL THEN 1 ELSE 0 END) as has_brief,\n  SUM(CASE WHEN c.salesApproachData IS NOT NULL THEN 1 ELSE 0 END) as has_approach,\n  SUM(CASE WHEN c.salesApproachData IS NOT NULL AND c.briefData IS NOT NULL AND c.enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) as outreach_ready\nFROM companies c\nWHERE c.searchId IN (900004, 930001)\nGROUP BY c.searchId;\n",
+  "rows": [
+    {
+      "searchId": "930001",
+      "total": "25",
+      "enriched": "20",
+      "has_brief": "18",
+      "has_approach": "16",
+      "outreach_ready": "16"
+    },
+    {
+      "searchId": "900004",
+      "total": "25",
+      "enriched": "20",
+      "has_brief": "20",
+      "has_approach": "20",
+      "outreach_ready": "20"
+    }
+  ],
+  "messages": [],
+  "stdout": "searchId\ttotal\tenriched\thas_brief\thas_approach\toutreach_ready\n930001\t25\t20\t18\t16\t16\n900004\t25\t20\t20\t20\t20\n",
+  "stderr": "",
+  "execution_time_ms": 379
+}

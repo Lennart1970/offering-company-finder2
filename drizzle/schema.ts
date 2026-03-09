@@ -240,3 +240,50 @@ export const callOutcomes = mysqlTable("callOutcomes", {
 
 export type CallOutcome = typeof callOutcomes.$inferSelect;
 export type InsertCallOutcome = typeof callOutcomes.$inferInsert;
+
+/**
+ * Niche clusters — groups of companies with similar profiles.
+ * Created during the Scouting import pipeline (k-means clustering on embeddings).
+ * Fit scoring is done at niche level first (pre-scoring gate) before individual company scoring.
+ */
+export const niches = mysqlTable("niches", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id),
+  searchId: int("searchId").references(() => searches.id, { onDelete: "cascade" }),
+  brainId: int("brainId").references(() => offeringBrain.id, { onDelete: "set null" }),
+  // Cluster identity
+  name: varchar("name", { length: 255 }).notNull(), // e.g. "Export + Manufacturing + Trade"
+  description: text("description"), // LLM-generated 2-3 sentence plain-English summary
+  companyCount: int("companyCount").default(0).notNull(),
+  topKeywords: text("topKeywords"), // JSON array of top keywords (max 10)
+  sampleCompanies: text("sampleCompanies"), // JSON array of first 5 company names
+  companyIds: text("companyIds"), // JSON array of company IDs in this cluster
+  centroid: text("centroid"), // JSON array of floats (mean embedding vector)
+  rationale: text("rationale"), // Human-readable grouping rationale
+  // Dynamic fit scoring (Brain-driven, LLM-inferred components)
+  fitScore: int("fitScore"), // 0-100 overall fit score
+  fitReasoning: text("fitReasoning"), // One paragraph overall fit assessment
+  scoreBreakdown: text("scoreBreakdown"), // JSON array of { dimension, score, maxScore, weight, reasoning }
+  scoredAt: timestamp("scoredAt"), // When the fit score was last computed
+  scoredWithBrainId: int("scoredWithBrainId"), // Which brain version was used for scoring
+  // Metadata
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Niche = typeof niches.$inferSelect;
+export type InsertNiche = typeof niches.$inferInsert;
+
+/**
+ * Scoring dimension schema (stored as JSON in niches.scoreBreakdown):
+ * [
+ *   {
+ *     dimension: string,   // LLM-inferred name, e.g. "Industry Alignment"
+ *     score: number,       // 0 to maxScore
+ *     maxScore: number,    // LLM-assigned weight (all maxScores sum to 100)
+ *     weight: number,      // Same as maxScore, kept for UI clarity
+ *     reasoning: string    // 1-2 sentence explanation
+ *   },
+ *   ...
+ * ]
+ */

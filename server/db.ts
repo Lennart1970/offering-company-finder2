@@ -1,6 +1,6 @@
 import { eq, and, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact } from "../drizzle/schema";
+import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -479,4 +479,50 @@ export async function getContactsByCompanyId(companyId: number): Promise<Contact
   return db.select().from(contacts)
     .where(eq(contacts.companyId, companyId))
     .orderBy(desc(contacts.createdAt));
+}
+
+// ============================================================================
+// Niche Helpers
+// ============================================================================
+
+export async function createNiche(niche: InsertNiche): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(niches).values(niche);
+  return result[0].insertId;
+}
+
+export async function getNichesBySearchId(searchId: number): Promise<Niche[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(niches)
+    .where(eq(niches.searchId, searchId))
+    .orderBy(desc(niches.fitScore));
+}
+
+export async function getNichesByUserId(userId: number): Promise<Niche[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(niches)
+    .where(eq(niches.userId, userId))
+    .orderBy(desc(niches.fitScore));
+}
+
+export async function getNicheById(id: number): Promise<Niche | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const [niche] = await db.select().from(niches).where(eq(niches.id, id)).limit(1);
+  return niche || null;
+}
+
+export async function updateNiche(id: number, updates: Partial<InsertNiche>): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(niches).set(updates).where(eq(niches.id, id));
+}
+
+export async function deleteNichesBySearchId(searchId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(niches).where(eq(niches.searchId, searchId));
 }

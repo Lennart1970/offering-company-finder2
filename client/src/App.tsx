@@ -18,6 +18,7 @@ import CallToday from "./pages/CallToday";
 import CompanyDetail from "./pages/CompanyDetail";
 import NurtureList from "./pages/NurtureList";
 import PromptRepository from "./pages/PromptRepository";
+import NicheReview from "./pages/NicheReview";
 
 
 function Router() {
@@ -39,6 +40,7 @@ function Router() {
         <Route path={"/company/:companyId"} component={CompanyDetail} />
         <Route path={"/nurture"} component={NurtureList} />
         <Route path={"/prompts"} component={PromptRepository} />
+        <Route path={"/niche-review"} component={NicheReview} />
 
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />

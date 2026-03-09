@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2, FileSpreadsheet, Phone, BookMarked, ScrollText } from "lucide-react";
+import { List, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2, FileSpreadsheet, Phone, BookMarked, ScrollText, Network } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -36,6 +36,7 @@ const menuItems = [
   { icon: Phone, label: "Call Today", path: "/call-today" },
   { icon: BookMarked, label: "Nurture List", path: "/nurture" },
   { icon: ShieldBan, label: "Exclusions", path: "/exclusions" },
+  { icon: Network, label: "Herd Mapping", path: "/niche-review" },
   { icon: ScrollText, label: "Prompt Repository", path: "/prompts" },
 ];
 

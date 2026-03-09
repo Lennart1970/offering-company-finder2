@@ -82,26 +82,20 @@ export default function SearchResults() {
     },
   });
 
-  const batchResearchMutation = trpc.companyFinder.batchGenerateBriefs.useMutation({
+  const batchResearchAndOutreachMutation = trpc.companyFinder.batchResearchAndOutreach.useMutation({
     onSuccess: (data) => {
-      toast.success(`Deep research complete: ${data.completed}/${data.total} companies researched.${data.failed > 0 ? ` ${data.failed} failed.` : ""}`);
-      if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
-    },
-    onError: (error) => {
-      toast.error(`Batch research failed: ${error.message}`);
-    },
-  });
-
-  const batchSalesApproachMutation = trpc.companyFinder.batchSalesApproach.useMutation({
-    onSuccess: (data) => {
-      const msg = `Sales approaches complete: ${data.completed}/${data.total} generated.${
-        data.failed > 0 ? ` ${data.failed} failed.` : ""
-      }${data.skippedNoResearch > 0 ? ` ${data.skippedNoResearch} skipped (no deep research yet).` : ""}`;
+      const r = data.research;
+      const a = data.approach;
+      const msg = `Research & Outreach complete — Research: ${r.completed}/${r.total}${
+        r.failed > 0 ? ` (${r.failed} failed)` : ""
+      } · Approaches: ${a.completed}/${a.total}${
+        a.failed > 0 ? ` (${a.failed} failed)` : ""
+      }`;
       toast.success(msg);
       if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
     },
     onError: (error) => {
-      toast.error(`Batch sales approach failed: ${error.message}`);
+      toast.error(`Research & Outreach failed: ${error.message}`);
     },
   });
 
@@ -445,24 +439,13 @@ export default function SearchResults() {
               )}
               {(enrichmentStats?.enriched ?? 0) > 0 && (
                 <Button
-                  onClick={() => batchResearchMutation.mutate({ searchId: searchId! })}
-                  disabled={batchResearchMutation.isPending}
+                  onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
+                  disabled={batchResearchAndOutreachMutation.isPending}
                   className="text-lg px-6 py-4 font-black border-4 border-purple-700 bg-purple-700 text-white"
                 >
-                  {batchResearchMutation.isPending
-                    ? "[RESEARCHING...]"
-                    : `[RESEARCH ALL — ${enrichmentStats?.enriched}]`}
-                </Button>
-              )}
-              {(enrichmentStats?.enriched ?? 0) > 0 && (
-                <Button
-                  onClick={() => batchSalesApproachMutation.mutate({ searchId: searchId! })}
-                  disabled={batchSalesApproachMutation.isPending}
-                  className="text-lg px-6 py-4 font-black border-4 border-teal-600 bg-teal-600 text-white"
-                >
-                  {batchSalesApproachMutation.isPending
-                    ? "[GENERATING APPROACHES...]"
-                    : `[SALES APPROACH ALL — ${enrichmentStats?.enriched}]`}
+                  {batchResearchAndOutreachMutation.isPending
+                    ? "[RUNNING...]"
+                    : `[RESEARCH & OUTREACH — ${enrichmentStats?.enriched}]`}
                 </Button>
               )}
               {(enrichmentStats?.nameOnly ?? 0) > 0 && (
@@ -495,19 +478,12 @@ export default function SearchResults() {
               </div>
             </div>
           )}
-          {batchResearchMutation.isPending && (
+          {batchResearchAndOutreachMutation.isPending && (
             <div className="border-4 border-purple-700 p-6 mb-6 animate-pulse">
-              <div className="text-xl font-black text-purple-700">→ RUNNING DEEP RESEARCH...</div>
+              <div className="text-xl font-black text-purple-700">→ RESEARCH & OUTREACH RUNNING...</div>
               <div className="text-sm font-bold mt-2">
-                Generating sales intelligence briefs for {enrichmentStats?.enriched} enriched companies. Each brief takes ~30s — this will run in the background.
-              </div>
-            </div>
-          )}
-          {batchSalesApproachMutation.isPending && (
-            <div className="border-4 border-teal-600 p-6 mb-6 animate-pulse">
-              <div className="text-xl font-black text-teal-700">→ GENERATING SALES APPROACHES...</div>
-              <div className="text-sm font-bold mt-2">
-                Creating personalized sales approaches for {enrichmentStats?.enriched} enriched companies. Requires deep research to be done first — companies without a brief will be skipped.
+                Phase 1: Generating deep research briefs — Phase 2: Creating personalized sales approaches.
+                Each company takes ~30s. This runs in the background for all {enrichmentStats?.enriched} enriched companies.
               </div>
             </div>
           )}

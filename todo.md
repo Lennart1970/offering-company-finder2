@@ -1230,3 +1230,10 @@
 - [x] Show teal progress banner while running
 - [x] Toast on completion with completed/failed/skipped counts
 - [x] 264 tests still passing (20 test files)
+
+## Feature: Merge RESEARCH ALL + SALES APPROACH ALL into RESEARCH & OUTREACH button
+- [x] Add batchResearchAndOutreach tRPC mutation: runs deep research then sales approach sequentially, re-fetches companies between phases so approach sees fresh brief data
+- [x] Replace RESEARCH ALL and SALES APPROACH ALL buttons with single purple [RESEARCH & OUTREACH — N] button
+- [x] Combined progress banner: Phase 1 (research) + Phase 2 (approaches) described in one banner
+- [x] Toast on completion with research completed/failed + approach completed/failed counts
+- [x] 264 tests still passing (20 test files)

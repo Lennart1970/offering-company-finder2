@@ -1542,6 +1542,88 @@ export const companyFinderRouter = router({
     }),
 
   // ---------------------------------------------------------------------------
+  // batchResearchAndOutreach — run deep research THEN sales approach for all enriched companies
+  // ---------------------------------------------------------------------------
+  batchResearchAndOutreach: protectedProcedure
+    .input(z.object({
+      searchId: z.number(),
+      skipCached: z.boolean().optional().default(true),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { getCompaniesBySearchId } = await import("./db");
+      const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
+      const { generateSalesApproach } = await import("./salesApproachGenerator");
+
+      const allCompanies = await getCompaniesBySearchId(input.searchId);
+      const enriched = allCompanies.filter((c) => c.enrichmentStatus === "enriched");
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+      // --- Phase 1: Deep Research ---
+      const toResearch = enriched.filter((c) => {
+        if (!input.skipCached) return true;
+        if (!c.briefData || !c.briefGeneratedAt) return true;
+        return Date.now() - new Date(c.briefGeneratedAt).getTime() >= sevenDaysMs;
+      });
+
+      let researchCompleted = 0;
+      let researchFailed = 0;
+
+      console.log(`[batchResearchAndOutreach] Phase 1: ${toResearch.length} companies to research`);
+      for (const company of toResearch) {
+        try {
+          const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id);
+          await updateCompany(company.id, {
+            urgencyScore: brief.urgencyScore,
+            briefData: JSON.stringify(brief),
+            briefGeneratedAt: new Date(),
+          });
+          researchCompleted++;
+          console.log(`[batchResearchAndOutreach] ✓ Research: ${company.name} (${researchCompleted}/${toResearch.length})`);
+        } catch (err: any) {
+          researchFailed++;
+          console.error(`[batchResearchAndOutreach] ✗ Research: ${company.name}:`, err.message);
+        }
+      }
+
+      // Re-fetch companies so sales approach sees fresh briefData
+      const refreshedCompanies = await getCompaniesBySearchId(input.searchId);
+      const enrichedRefreshed = refreshedCompanies.filter((c) => c.enrichmentStatus === "enriched");
+
+      // --- Phase 2: Sales Approach ---
+      const toApproach = enrichedRefreshed.filter((c) => {
+        if (!c.briefData) return false; // must have research
+        if (!input.skipCached) return true;
+        if (!c.salesApproachData || !c.salesApproachGeneratedAt) return true;
+        return Date.now() - new Date(c.salesApproachGeneratedAt).getTime() >= sevenDaysMs;
+      });
+
+      let approachCompleted = 0;
+      let approachFailed = 0;
+
+      console.log(`[batchResearchAndOutreach] Phase 2: ${toApproach.length} companies for sales approach`);
+      for (const company of toApproach) {
+        try {
+          const salesApproach = await generateSalesApproach(company.id, ctx.user.id);
+          await updateCompany(company.id, {
+            salesApproachData: JSON.stringify(salesApproach),
+            salesApproachGeneratedAt: new Date(),
+          });
+          approachCompleted++;
+          console.log(`[batchResearchAndOutreach] ✓ Approach: ${company.name} (${approachCompleted}/${toApproach.length})`);
+        } catch (err: any) {
+          approachFailed++;
+          console.error(`[batchResearchAndOutreach] ✗ Approach: ${company.name}:`, err.message);
+        }
+      }
+
+      return {
+        success: true,
+        research: { total: toResearch.length, completed: researchCompleted, failed: researchFailed },
+        approach: { total: toApproach.length, completed: approachCompleted, failed: approachFailed },
+      };
+    }),
+
+  // ---------------------------------------------------------------------------
   // batchGenerateBriefs — run deep research for all enriched companies in a search
   // ---------------------------------------------------------------------------
   batchGenerateBriefs: protectedProcedure

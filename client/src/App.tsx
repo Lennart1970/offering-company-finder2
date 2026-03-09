@@ -25,6 +25,7 @@ function Router() {
       <Switch>
         <Route path={"/"} component={Brain} />
         <Route path={"/search-scenario"} component={SearchScenario} />
+        <Route path={"/search-results"} component={SearchResults} />
         <Route path={"/search-results/:searchId"} component={SearchResults} />
         <Route path={"/deep-research"} component={DeepResearchDashboard} />
         <Route path={"/exclusions"} component={Exclusions} />
@@ -32,6 +33,7 @@ function Router() {
         <Route path={"/conference-import"} component={ConferenceImport} />
         <Route path={"/excel-import"} component={ExcelImport} />
         <Route path={"/brain"} component={Brain} />
+        <Route path={"/call-today"} component={CallToday} />
         <Route path={"/call-today/:searchId"} component={CallToday} />
         <Route path={"/company/:companyId"} component={CompanyDetail} />
         <Route path={"/nurture"} component={NurtureList} />

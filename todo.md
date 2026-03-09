@@ -1349,3 +1349,7 @@
 - [x] Search progress bar changed from blue to gray-900
 - [x] All source/link anchors changed from blue-600 to gray-600/gray-900
 - [x] LinkedIn URL in data grid changed from blue to gray-700
+
+## Bug Fix: Sidebar Nav Items Gated to Active Search
+- [x] Remove search-result dependency from Call Today, Nurture List, and other nav items
+- [x] All sidebar items should be navigable without a search result selected

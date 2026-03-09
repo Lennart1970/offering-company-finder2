@@ -173,13 +173,15 @@ function DashboardLayoutContent({
       setLocation("/search-results/select");
       return;
     }
-    // For Call Today, go to select mode if no searchId in current URL
+    // For Call Today, navigate directly (cross-campaign queue, no search required)
     if (path === "/call-today") {
       const match = location.match(/\/search-results\/(\d+)/);
       if (match) {
+        // If already on a search, open the scoped Call Today for that search
         setLocation(`/call-today/${match[1]}`);
       } else {
-        setLocation("/search-results/select");
+        // Otherwise go to the global cross-campaign Call Today queue
+        setLocation("/call-today");
       }
       return;
     }

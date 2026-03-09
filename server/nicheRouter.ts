@@ -24,8 +24,127 @@ import {
   deleteNichesBySearchId,
 } from "./db";
 import { scoreNicheFit, scoreNichesBatch, NicheClusterInput } from "./nicheFitScorer";
+import { generateEmbeddings } from "./embeddingService";
+import { clusterCompanies } from "./clusteringService";
+import { companies } from "../drizzle/schema";
+import { eq } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/mysql2";
+
+async function getDb() {
+  const { default: mysql } = await import("mysql2/promise");
+  const conn = await mysql.createConnection(process.env.DATABASE_URL!);
+  return drizzle(conn);
+}
 
 export const nicheRouter = router({
+  /**
+   * Full pipeline: generate embeddings → k-means clustering → save niches → score against Brain.
+   * Called automatically after CSV import completes.
+   */
+  clusterAndSaveNiches: protectedProcedure
+    .input(
+      z.object({
+        searchId: z.number(),
+        autoScore: z.boolean().default(true), // score niches against active Brain after clustering
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.id;
+
+      // 1. Load all companies for this search
+      const db = await getDb();
+      const allCompanies = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.searchId, input.searchId));
+
+      if (allCompanies.length < 9) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Need at least 9 companies to cluster. This search has ${allCompanies.length}.`,
+        });
+      }
+
+      console.log(`[nicheRouter] Starting clustering for search ${input.searchId}: ${allCompanies.length} companies`);
+
+      // 2. Delete any existing niches for this search (re-clustering)
+      await deleteNichesBySearchId(input.searchId);
+
+      // 3. Generate embeddings
+      console.log(`[nicheRouter] Generating embeddings...`);
+      const embeddings = await generateEmbeddings(allCompanies);
+
+      // 4. Cluster
+      console.log(`[nicheRouter] Running k-means clustering...`);
+      const clusters = await clusterCompanies(embeddings, allCompanies);
+
+      // 5. Persist niches
+      console.log(`[nicheRouter] Saving ${clusters.length} niches...`);
+      const nicheIds: number[] = [];
+      for (const cluster of clusters) {
+        const id = await createNiche({
+          userId,
+          searchId: input.searchId,
+          brainId: null,
+          name: cluster.name,
+          description: cluster.description,
+          companyCount: cluster.companyIds.length,
+          topKeywords: JSON.stringify(cluster.topKeywords),
+          sampleCompanies: JSON.stringify(cluster.sampleCompanies),
+          companyIds: JSON.stringify(cluster.companyIds),
+          centroid: JSON.stringify(cluster.centroid),
+          rationale: null,
+        });
+        nicheIds.push(id);
+      }
+
+      // 6. Auto-score against active Brain (if requested)
+      let scoredCount = 0;
+      if (input.autoScore) {
+        console.log(`[nicheRouter] Auto-scoring ${clusters.length} niches against active Brain...`);
+        const savedNiches = await getNichesBySearchId(input.searchId);
+        for (const niche of savedNiches) {
+          try {
+            const clusterInput: NicheClusterInput = {
+              name: niche.name,
+              description: niche.description,
+              topKeywords: niche.topKeywords ? JSON.parse(niche.topKeywords) : [],
+              sampleCompanies: niche.sampleCompanies ? JSON.parse(niche.sampleCompanies) : [],
+              rationale: niche.rationale,
+              companyCount: niche.companyCount,
+            };
+            const result = await scoreNicheFit(clusterInput, userId);
+            await updateNiche(niche.id, {
+              fitScore: result.fitScore,
+              fitReasoning: result.fitReasoning,
+              scoreBreakdown: JSON.stringify(result.scoreBreakdown),
+              scoredAt: new Date(),
+              scoredWithBrainId: result.brainId,
+              brainId: result.brainId,
+            });
+            scoredCount++;
+          } catch (err: any) {
+            console.error(`[nicheRouter] Failed to score niche ${niche.id}:`, err.message);
+          }
+        }
+      }
+
+      return {
+        searchId: input.searchId,
+        companiesProcessed: allCompanies.length,
+        nichesCreated: clusters.length,
+        nichesScored: scoredCount,
+        nicheIds,
+        clusters: clusters.map((c) => ({
+          name: c.name,
+          description: c.description,
+          companyCount: c.companyIds.length,
+          sampleCompanies: c.sampleCompanies,
+          topKeywords: c.topKeywords,
+        })),
+      };
+    }),
+
   /**
    * Create a niche cluster (manual entry or from import pipeline).
    * Returns the new niche ID.

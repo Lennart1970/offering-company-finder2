@@ -1419,3 +1419,16 @@
 - [x] Guard "Score All Niches" button — show toast "No niches in this search yet. Add niches first." instead of propagating the API error
 - [x] Disable "Score All Niches" when the selected search has 0 niches
 - [x] Improve empty-state message to explain niches come from the import pipeline or can be added manually
+
+## Feature: Auto-persist niches from Import Campaign clustering
+- [ ] After clusterAndScore succeeds in Import Campaign UI, call niche.create for each cluster
+- [ ] Add saveNiches tRPC procedure (batch create niches from clustering result)
+- [ ] Show "View in Herd Mapping" button after Step 4 completes
+- [ ] Redirect to /niche-review with the searchId after niches are saved
+
+## Feature: Auto-persist niches after import (completed 2026-03-09)
+- [x] Create `server/embeddingService.ts` — OpenAI text-embedding-3-small batched embeddings
+- [x] Create `server/clusteringService.ts` — k-means++ with silhouette auto-K, LLM cluster naming
+- [x] Add `niche.clusterAndSaveNiches` tRPC procedure — full pipeline (embed → cluster → save → score)
+- [x] Rewrite ImportCampaign page — 3-step flow: upload → clustering progress → results + redirect to Herd Mapping
+- [x] Validate OpenAI API key for embeddings (304 tests passing)

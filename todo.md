@@ -1197,3 +1197,10 @@
   - [x] Redirect to Search Results on completion
 - [x] Add Excel Import to sidebar navigation
 - [x] 24 unit tests for column detection, website cleaning, domain extraction, and workbook parsing — 264 total passing (20 test files)
+
+## Feature: Enrichment Status Filter in Search Results
+- [x] Add enrichmentFilter state (all | enriched | pending) to SearchResults
+- [x] Filter company list based on enrichmentStatus (pending filter also catches 'failed')
+- [x] ENRICHED badge is now a green toggle button; PENDING badge is orange toggle button
+- [x] MATCHES count shows filtered/total when a filter is active, with ✕ to clear
+- [x] Clicking active filter button toggles back to 'all'

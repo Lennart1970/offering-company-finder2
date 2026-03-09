@@ -62,6 +62,7 @@ export default function SearchResults() {
   const [showCallTodayOnly, setShowCallTodayOnly] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
   const [sortBy, setSortBy] = useState<"default" | "urgency" | "fit_urgency">("urgency");
+  const [enrichmentFilter, setEnrichmentFilter] = useState<"all" | "enriched" | "pending">("all");
 
   useEffect(() => {
     if (searchData?.search.excludedSectors) {
@@ -176,7 +177,13 @@ export default function SearchResults() {
     return { filteredCompanies: filtered, excludedCompanies: excluded, callTodayCompanies: callToday };
   }, [searchData?.companies, searchData?.decisions, excludedSicSet, excludedNaicsSet, excludedSectorsSet]);
 
-  const baseDisplayed = showCallTodayOnly ? callTodayCompanies : filteredCompanies;
+  const enrichmentFiltered = useMemo(() => {
+    if (enrichmentFilter === "enriched") return filteredCompanies.filter(c => c.enrichmentStatus === "enriched");
+    if (enrichmentFilter === "pending") return filteredCompanies.filter(c => c.enrichmentStatus === "pending" || c.enrichmentStatus === "failed");
+    return filteredCompanies;
+  }, [filteredCompanies, enrichmentFilter]);
+
+  const baseDisplayed = showCallTodayOnly ? callTodayCompanies : enrichmentFiltered;
 
   const displayedCompanies = useMemo(() => {
     const sorted = [...baseDisplayed];
@@ -358,14 +365,39 @@ export default function SearchResults() {
           {/* Stats Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-4">
-              <div className="text-3xl font-black">[{filteredCompanies.length} MATCHES]</div>
+              <div className="text-3xl font-black">
+                [{displayedCompanies.length}{enrichmentFilter !== "all" ? ` / ${filteredCompanies.length}` : ""} MATCHES]
+                {enrichmentFilter !== "all" && (
+                  <button
+                    onClick={() => setEnrichmentFilter("all")}
+                    className="ml-2 text-sm font-black text-muted-foreground hover:text-black"
+                    title="Clear filter"
+                  >
+                    ✕
+                  </button>
+                )}
+              </div>
               <div className="flex gap-3">
-                <span className="text-xs font-black border-2 border-black px-3 py-1">
+                <button
+                  onClick={() => setEnrichmentFilter(enrichmentFilter === "enriched" ? "all" : "enriched")}
+                  className={`text-xs font-black border-2 px-3 py-1 cursor-pointer transition-colors ${
+                    enrichmentFilter === "enriched"
+                      ? "border-green-600 bg-green-600 text-white"
+                      : "border-green-600 text-green-700 hover:bg-green-50"
+                  }`}
+                >
                   {enrichmentStats?.enriched || 0} ENRICHED
-                </span>
-                <span className="text-xs font-black border-2 border-black px-3 py-1">
+                </button>
+                <button
+                  onClick={() => setEnrichmentFilter(enrichmentFilter === "pending" ? "all" : "pending")}
+                  className={`text-xs font-black border-2 px-3 py-1 cursor-pointer transition-colors ${
+                    enrichmentFilter === "pending"
+                      ? "border-orange-500 bg-orange-500 text-white"
+                      : "border-orange-500 text-orange-600 hover:bg-orange-50"
+                  }`}
+                >
                   {enrichmentStats?.pending || 0} PENDING
-                </span>
+                </button>
                 {excludedCompanies.length > 0 && (
                   <button
                     onClick={() => setShowExcluded(!showExcluded)}

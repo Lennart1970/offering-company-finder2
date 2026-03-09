@@ -1274,3 +1274,7 @@
 - [x] Clickable underlined text: "add all N to your Call Today list" — triggers submitDecision for each high-urgency company
 - [x] Paragraph disappears once all high-urgency companies are in Call Today list
 - [x] submitDecisionMutation hook added to SearchResults (invalidates getSearch on success)
+
+## Fix: React Hooks Order Crash in SearchResults
+- [x] Moved highUrgencyNotCalled useMemo before the isSelectMode early return — hooks now always called in same order
+- [x] OUTREACH READY text in hero sentence is now clickable (dotted underline, sets enrichmentFilter to 'outreach')

@@ -226,6 +226,28 @@ export default function SearchResults() {
     return sorted;
   }, [baseDisplayed, sortBy]);
 
+  // High-urgency companies not yet in Call Today list
+  const highUrgencyNotCalled = useMemo(() => {
+    if (!searchData?.companies || !searchData?.decisions) return [];
+    const callTodayIds = new Set(
+      searchData.decisions
+        .filter((d: any) => d.decision === "call_today")
+        .map((d: any) => d.companyId)
+    );
+    return searchData.companies
+      .filter((c: any) => (c.urgencyScore || 0) >= 70 && !callTodayIds.has(c.id))
+      .sort((a: any, b: any) => (b.urgencyScore || 0) - (a.urgencyScore || 0));
+  }, [searchData?.companies, searchData?.decisions]);
+
+  const addAllHighUrgencyToCallToday = async () => {
+    if (!searchId || highUrgencyNotCalled.length === 0) return;
+    for (const company of highUrgencyNotCalled) {
+      await utils.companyFinder.getSearch.cancel();
+      submitDecisionMutation.mutate({ companyId: company.id, searchId: searchId!, decision: "call_today" });
+    }
+    toast.success(`${highUrgencyNotCalled.length} high-urgency companies added to Call Today`);
+  };
+
   // Search selector mode
   if (isSelectMode) {
     return (
@@ -347,27 +369,7 @@ export default function SearchResults() {
   const outreachReadyCount = enrichmentStats?.outreachReady ?? 0;
   const researchedCount = searchData.companies.filter((c: any) => !!c.briefData).length;
 
-  // High-urgency companies not yet in Call Today list
-  const highUrgencyNotCalled = useMemo(() => {
-    if (!searchData?.companies || !searchData?.decisions) return [];
-    const callTodayIds = new Set(
-      searchData.decisions
-        .filter((d: any) => d.decision === "call_today")
-        .map((d: any) => d.companyId)
-    );
-    return searchData.companies
-      .filter((c: any) => (c.urgencyScore || 0) >= 70 && !callTodayIds.has(c.id))
-      .sort((a: any, b: any) => (b.urgencyScore || 0) - (a.urgencyScore || 0));
-  }, [searchData?.companies, searchData?.decisions]);
 
-  const addAllHighUrgencyToCallToday = async () => {
-    if (!searchId || highUrgencyNotCalled.length === 0) return;
-    for (const company of highUrgencyNotCalled) {
-      await utils.companyFinder.getSearch.cancel();
-      submitDecisionMutation.mutate({ companyId: company.id, searchId: searchId!, decision: "call_today" });
-    }
-    toast.success(`${highUrgencyNotCalled.length} high-urgency companies added to Call Today`);
-  };
 
   const heroSentence = (() => {
     if (enrichmentFilter === "outreach") {
@@ -418,7 +420,7 @@ export default function SearchResults() {
       return (
         <>
           <strong>{outreachReadyCount} of {totalCount} companies</strong> from <strong>{campaignName}</strong> are ready for outreach.
-          {" "}Press <strong>OUTREACH READY</strong> to go straight to your scripts, or press the purple{" "}
+          {" "}Press <span className="cursor-pointer underline decoration-dotted hover:opacity-70 transition-opacity font-black" onClick={() => setEnrichmentFilter("outreach")}>OUTREACH READY</span> to go straight to your scripts, or press the purple{" "}
             <strong
               className="cursor-pointer underline decoration-dotted hover:text-purple-700 transition-colors"
               onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}

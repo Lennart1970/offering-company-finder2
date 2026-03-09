@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, Microscope, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2, FileSpreadsheet } from "lucide-react";
+import { List, Microscope, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2, FileSpreadsheet, Phone } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -33,6 +33,7 @@ const menuItems = [
   { icon: Building2, label: "Conference Import", path: "/conference-import" },
   { icon: FileSpreadsheet, label: "Excel Import", path: "/excel-import" },
   { icon: List, label: "Search Results", path: "/search-results" },
+  { icon: Phone, label: "Call Today", path: "/call-today" },
   { icon: Microscope, label: "Deep Research", path: "/deep-research" },
   { icon: ShieldBan, label: "Exclusions", path: "/exclusions" },
 ];
@@ -125,6 +126,9 @@ function DashboardLayoutContent({
     if (item.path === "/search-results") {
       return location.startsWith("/search-results");
     }
+    if (item.path === "/call-today") {
+      return location.startsWith("/call-today");
+    }
     return location === item.path;
   });
 
@@ -169,6 +173,16 @@ function DashboardLayoutContent({
       setLocation("/search-results/select");
       return;
     }
+    // For Call Today, go to select mode if no searchId in current URL
+    if (path === "/call-today") {
+      const match = location.match(/\/search-results\/(\d+)/);
+      if (match) {
+        setLocation(`/call-today/${match[1]}`);
+      } else {
+        setLocation("/search-results/select");
+      }
+      return;
+    }
     setLocation(path);
   };
 
@@ -202,6 +216,8 @@ function DashboardLayoutContent({
               {menuItems.map(item => {
                 const isActive = item.path === "/search-results"
                   ? location.startsWith("/search-results")
+                  : item.path === "/call-today"
+                  ? location.startsWith("/call-today")
                   : location === item.path;
                 return (
                   <SidebarMenuItem key={item.path}>

@@ -1288,3 +1288,17 @@
 - [x] Added second red sentence after urgency CTA confirmation: "{N} companies added to your Call Today list — [start your outreach]"
 - [x] Clicking "start your outreach" sets showCallTodayOnly=true to scroll into Call Today view
 - [x] Same font size and red color as the hero/CTA paragraphs (text-2xl md:text-3xl font-black text-red-700)
+
+## Feature: Company Card UI Cleanup + Research/Approach Header Cards
+- [ ] Remove Phone and Founded fields from company card
+- [ ] Add clickable VIEW RESEARCH and VIEW APPROACH header cards in the empty middle space of the card
+- [ ] Cards should open the respective modal/panel directly (same as the footer buttons)
+
+## Feature: Dedicated Call Today Page
+- [ ] Create /call-today/:searchId route and page component
+- [ ] Show only companies with call_today decision in a stripped-down queue
+- [ ] Each company shows name, location, revenue, LinkedIn, SIC/NAICS
+- [ ] Prominent VIEW RESEARCH and VIEW APPROACH clickable cards
+- [ ] Navigation: previous/next company in queue
+- [ ] Add "Call Today" link in sidebar nav
+- [ ] Wire "start your outreach" CTA to navigate to /call-today/:searchId

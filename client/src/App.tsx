@@ -14,6 +14,7 @@ import ImportCampaign from "./pages/ImportCampaign";
 import Brain from "./pages/Brain";
 import ConferenceImport from "./pages/ConferenceImport";
 import ExcelImport from "./pages/ExcelImport";
+import CallToday from "./pages/CallToday";
 
 
 function Router() {
@@ -29,6 +30,7 @@ function Router() {
         <Route path={"/conference-import"} component={ConferenceImport} />
         <Route path={"/excel-import"} component={ExcelImport} />
         <Route path={"/brain"} component={Brain} />
+        <Route path={"/call-today/:searchId"} component={CallToday} />
 
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />

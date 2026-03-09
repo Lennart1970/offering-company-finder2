@@ -1,570 +1,414 @@
-import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
-import { getLoginUrl } from "@/const";
-import { Link } from "wouter";
-import { useState } from "react";
+import { trpc } from "@/lib/trpc";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
+import { useLocation, useParams } from "wouter";
+import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
+
+function formatRevenue(revenue: number | string | null): string {
+  if (!revenue) return "—";
+  const num = typeof revenue === "string" ? parseFloat(revenue) : revenue;
+  if (isNaN(num)) return String(revenue);
+  if (num >= 1_000_000_000) return `$${(num / 1_000_000_000).toFixed(1)}B`;
+  if (num >= 1_000_000) return `$${(num / 1_000_000).toFixed(0)}M`;
+  if (num >= 1_000) return `$${(num / 1_000).toFixed(0)}K`;
+  return `$${num}`;
+}
 
 export default function CallToday() {
-  const { user, loading: authLoading } = useAuth();
-  const callTodayQuery = trpc.companyFinder.getCallToday.useQuery(undefined, {
-    enabled: !!user,
-  });
-  const { data, isLoading } = callTodayQuery;
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+  const params = useParams<{ searchId: string }>();
+  const searchId = parseInt(params.searchId, 10);
 
-  // Sort by urgency score (highest first) by default
-  const companies = data?.companies || [];
-  const sortedCompanies = [...companies].sort((a, b) => {
-    const aScore = a.company.briefData ? JSON.parse(a.company.briefData).urgencyScore : 0;
-    const bScore = b.company.briefData ? JSON.parse(b.company.briefData).urgencyScore : 0;
-    return bScore - aScore;
-  });
+  const { data: searchData, isLoading } = trpc.companyFinder.getSearch.useQuery(
+    { searchId },
+    { enabled: !!searchId && !isNaN(searchId) }
+  );
 
-  if (authLoading || isLoading) {
-    return (
-      <div className="min-h-screen bg-white">
-        {/* Header */}
-        <div className="border-b-4 border-black p-6">
-          <div className="container flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <Link href="/">
-                <div className="text-2xl font-bold cursor-pointer">[CF]</div>
-              </Link>
-              <h1 className="text-2xl font-bold">CALL TODAY</h1>
-            </div>
-          </div>
-        </div>
-        
-        <div className="container p-8">
-          <p>Loading...</p>
-        </div>
-      </div>
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const [viewMode, setViewMode] = useState<"overview" | "research" | "approach">("overview");
+
+  const callTodayCompanies = useMemo(() => {
+    if (!searchData?.companies || !searchData?.decisions) return [];
+    const callTodayIds = new Set(
+      searchData.decisions
+        .filter((d: any) => d.decision === "call_today")
+        .map((d: any) => d.companyId)
     );
-  }
+    return searchData.companies.filter((c: any) => callTodayIds.has(c.id));
+  }, [searchData?.companies, searchData?.decisions]);
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-white">
-        {/* Header */}
-        <div className="border-b-4 border-black p-6">
-          <div className="container flex items-center justify-between">
-            <div className="flex items-center gap-6">
-              <Link href="/">
-                <div className="text-2xl font-bold cursor-pointer">[CF]</div>
-              </Link>
-              <h1 className="text-2xl font-bold">CALL TODAY</h1>
-            </div>
-          </div>
-        </div>
-        
-        <div className="container p-8">
-          <p className="mb-4">Please log in to view your call list.</p>
-          <a
-            href={getLoginUrl()}
-            className="inline-block px-6 py-3 bg-black text-white font-bold"
-          >
-            LOG IN
-          </a>
-        </div>
-      </div>
-    );
-  }
+  const company = callTodayCompanies[currentIndex] ?? null;
 
-  return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <div className="border-b-4 border-black p-6">
-        <div className="container flex items-center justify-between">
-          <div className="flex items-center gap-6">
-            <Link href="/">
-              <div className="text-2xl font-bold cursor-pointer">[CF]</div>
-            </Link>
-            <h1 className="text-2xl font-bold">CALL TODAY</h1>
-          </div>
-          <div className="flex items-center gap-4">
-            <div className="text-sm">
-              {sortedCompanies.length} {sortedCompanies.length === 1 ? "COMPANY" : "COMPANIES"}
-            </div>
-            <Link href="/">
-              <button className="px-4 py-2 border-2 border-black font-bold text-sm">
-                BACK TO SEARCH
-              </button>
-            </Link>
-            <div className="text-sm font-bold">{user.name}</div>
-          </div>
-        </div>
-      </div>
+  const briefData = useMemo(() => {
+    if (!company?.briefData) return null;
+    try {
+      return typeof company.briefData === "string" ? JSON.parse(company.briefData) : company.briefData;
+    } catch { return null; }
+  }, [company?.briefData]);
 
-      <div className="container p-8">
-        {sortedCompanies.length === 0 ? (
-          <div className="border-4 border-black p-8 text-center">
-            <p className="text-xl font-bold mb-2">NO COMPANIES MARKED</p>
-            <p>Mark companies as "CALL TODAY" from your search results to see them here.</p>
-          </div>
-        ) : (
-          <div className="space-y-8">
-            {sortedCompanies.map(({ company, decision, contact }) => {
-              const briefData = company.briefData ? JSON.parse(company.briefData) : null;
-              const salesApproachData = company.salesApproachData
-                ? JSON.parse(company.salesApproachData)
-                : null;
+  const salesApproach = useMemo(() => {
+    if (!company?.salesApproachData) return null;
+    try {
+      return typeof company.salesApproachData === "string" ? JSON.parse(company.salesApproachData) : company.salesApproachData;
+    } catch { return null; }
+  }, [company?.salesApproachData]);
 
-              // Check pipeline readiness
-              const hasDeepResearch = !!briefData;
-              const hasSalesApproach = !!salesApproachData;
-              const hasContact = !!contact;
+  const copyText = (text: string, label: string) => {
+    navigator.clipboard.writeText(text);
+    toast.success(`${label} copied to clipboard`);
+  };
 
-              return (
-                <div key={company.id} className="border-4 border-black">
-                  {/* SECTION 1: HEADER - Who am I calling? */}
-                  <div className="p-6 border-b-4 border-black bg-gray-50">
-                    <div className="flex items-start justify-between mb-4">
-                      <div>
-                        <h2 className="text-3xl font-bold mb-2">{company.name}</h2>
-                        {company.websiteUrl && (
-                          <a
-                            href={company.websiteUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-sm underline"
-                          >
-                            {company.websiteUrl}
-                          </a>
-                        )}
-                      </div>
-                      
-                      {/* Pipeline Readiness Indicators */}
-                      <div className="flex gap-2 text-xs">
-                        <div className={`px-2 py-1 border-2 ${hasDeepResearch ? 'border-black bg-black text-white' : 'border-gray-300 text-gray-400'}`}>
-                          {hasDeepResearch ? '✓' : '○'} DR
-                        </div>
-                        <div className={`px-2 py-1 border-2 ${hasSalesApproach ? 'border-black bg-black text-white' : 'border-gray-300 text-gray-400'}`}>
-                          {hasSalesApproach ? '✓' : '○'} SA
-                        </div>
-                        <div className={`px-2 py-1 border-2 ${hasContact ? 'border-black bg-black text-white' : 'border-gray-300 text-gray-400'}`}>
-                          {hasContact ? '✓' : '○'} CT
-                        </div>
-                      </div>
-                    </div>
+  const location = company && company.enrichmentStatus === "enriched" && (company.city || company.state || company.country)
+    ? [company.city, company.state, company.country].filter(Boolean).join(", ")
+    : company?.searchLocation || "—";
 
-                    {/* Contact Info */}
-                    {contact ? (
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <div className="text-sm font-bold mb-1">CONTACT</div>
-                          <div className="text-xl font-bold">{contact.fullName}</div>
-                          <div className="text-sm text-gray-600">{contact.title}</div>
-                        </div>
-                        <div>
-                          <div className="text-sm font-bold mb-1">REACH</div>
-                          {contact.phone && (
-                            <a href={`tel:${contact.phone}`} className="text-lg font-bold underline block">
-                              {contact.phone}
-                            </a>
-                          )}
-                          {contact.email && (
-                            <a href={`mailto:${contact.email}`} className="text-sm underline block">
-                              {contact.email}
-                            </a>
-                          )}
-                          {contact.linkedinUrl && (
-                            <a
-                              href={contact.linkedinUrl}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="text-sm underline block"
-                            >
-                              LinkedIn →
-                            </a>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="p-4 border-2 border-red-600 bg-red-50">
-                        <p className="text-sm font-bold text-red-600 mb-2">⚠ NO CONTACT FOUND</p>
-                        <Link href={`/?searchId=${company.searchId}&companyId=${company.id}`}>
-                          <button className="px-4 py-2 bg-black text-white font-bold text-sm">
-                            GO TO SEARCH → FIND CONTACT
-                          </button>
-                        </Link>
-                      </div>
-                    )}
-                  </div>
+  if (!user) return null;
 
-                  {/* SECTION 2: BEFORE YOU DIAL - Why am I calling? */}
-                  <div className="p-6 border-b-4 border-black">
-                    <h3 className="text-lg font-bold mb-4">BEFORE YOU DIAL</h3>
-                    
-                    {briefData ? (
-                      <div className="space-y-4">
-                        {/* Urgency Score */}
-                        <div className="p-4 border-2 border-black" style={{
-                          backgroundColor: briefData.urgencyScore >= 80 ? '#fee' : 
-                                         briefData.urgencyScore >= 60 ? '#ffeedd' : 
-                                         briefData.urgencyScore >= 40 ? '#ffffdd' : '#f5f5f5'
-                        }}>
-                          <div className="flex items-baseline gap-3 mb-2">
-                            <div className="text-4xl font-bold">{briefData.urgencyScore}/100</div>
-                            <div className="text-sm font-bold">URGENCY SCORE</div>
-                          </div>
-                          {briefData.urgencyReasoning && (
-                            <p className="text-sm">{briefData.urgencyReasoning}</p>
-                          )}
-                          
-                          {/* Urgency Breakdown */}
-                          {briefData.urgencyBreakdown && (
-                            <div className="mt-3 pt-3 border-t-2 border-black grid grid-cols-3 gap-2 text-xs">
-                              <div>
-                                <div className="font-bold">Context</div>
-                                <div>{briefData.urgencyBreakdown.contextScore || 0}/40</div>
-                              </div>
-                              <div>
-                                <div className="font-bold">Signals</div>
-                                <div>{briefData.urgencyBreakdown.signalsScore || 0}/35</div>
-                              </div>
-                              <div>
-                                <div className="font-bold">Activity</div>
-                                <div>{briefData.urgencyBreakdown.activityScore || 0}/25</div>
-                              </div>
-                            </div>
-                          )}
-                        </div>
+  if (isLoading) return (
+    <div className="max-w-5xl">
+      <div className="text-2xl font-black animate-pulse">Loading call queue...</div>
+    </div>
+  );
 
-                        {/* Conversation Starters */}
-                        {salesApproachData?.conversationStarters && salesApproachData.conversationStarters.length > 0 && (
-                          <div className="p-4 border-2 border-black bg-yellow-50">
-                            <div className="text-sm font-bold mb-2">💡 CONVERSATION STARTERS</div>
-                            <ul className="space-y-2 text-sm">
-                              {salesApproachData.conversationStarters.map((starter: string, idx: number) => (
-                                <li key={idx} className="pl-4 border-l-2 border-black">{starter}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Recent Developments */}
-                        {briefData.recentDevelopments && briefData.recentDevelopments.length > 0 && (
-                          <div className="p-4 border-2 border-black">
-                            <div className="text-sm font-bold mb-2">📰 RECENT DEVELOPMENTS</div>
-                            <ul className="space-y-2 text-sm">
-                              {briefData.recentDevelopments.map((dev: any, idx: number) => (
-                                <li key={idx}>
-                                  • {typeof dev === 'string' ? dev : dev.text}
-                                </li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Urgency Signals */}
-                        {briefData.urgencySignals && briefData.urgencySignals.length > 0 && (
-                          <div className="p-4 border-2 border-black">
-                            <div className="text-sm font-bold mb-2">🔔 URGENCY SIGNALS</div>
-                            <ul className="space-y-2 text-sm">
-                              {briefData.urgencySignals.map((signal: any, idx: number) => {
-                                // Handle both string and object formats
-                                const signalText = typeof signal === 'string' ? signal : (signal.description || signal.signal || '');
-                                const signalCategory = typeof signal === 'object' ? signal.category : null;
-                                
-                                return (
-                                  <li key={idx} className="pl-4 border-l-2 border-black">
-                                    {signalCategory && (
-                                      <div className="text-xs text-gray-600 mb-1">{signalCategory}</div>
-                                    )}
-                                    <div className="font-bold">{signalText}</div>
-                                  </li>
-                                );
-                              })}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Engagement Strategy */}
-                        {salesApproachData?.engagementStrategy && (
-                          <div className="p-4 border-2 border-black bg-blue-50">
-                            <div className="text-sm font-bold mb-2">🎯 ENGAGEMENT STRATEGY</div>
-                            
-                            {salesApproachData.engagementStrategy.whyThisProspectMatters && (
-                              <div className="mb-3">
-                                <div className="text-xs font-bold mb-1">Why This Prospect Matters</div>
-                                <p className="text-sm">{salesApproachData.engagementStrategy.whyThisProspectMatters}</p>
-                              </div>
-                            )}
-                            
-                            {salesApproachData.engagementStrategy.recommendedApproach && (
-                              <div className="mb-3">
-                                <div className="text-xs font-bold mb-1">Recommended Approach</div>
-                                <p className="text-sm">{salesApproachData.engagementStrategy.recommendedApproach}</p>
-                              </div>
-                            )}
-                            
-                            {salesApproachData.engagementStrategy.keyTalkingPoints && salesApproachData.engagementStrategy.keyTalkingPoints.length > 0 && (
-                              <div>
-                                <div className="text-xs font-bold mb-1">Key Talking Points</div>
-                                <ul className="space-y-1 text-sm">
-                                  {salesApproachData.engagementStrategy.keyTalkingPoints.map((point: string, idx: number) => (
-                                    <li key={idx}>• {point}</li>
-                                  ))}
-                                </ul>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="p-4 border-2 border-red-600 bg-red-50">
-                        <p className="text-sm font-bold text-red-600 mb-2">⚠ NO DEEP RESEARCH</p>
-                        <Link href={`/?searchId=${company.searchId}&companyId=${company.id}`}>
-                          <button className="px-4 py-2 bg-black text-white font-bold text-sm">
-                            GO TO SEARCH → RUN DEEP RESEARCH
-                          </button>
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* SECTION 3: DURING THE CALL - What do I say? */}
-                  <div className="p-6 border-b-4 border-black bg-green-50">
-                    <h3 className="text-lg font-bold mb-4">DURING THE CALL</h3>
-                    
-                    {salesApproachData?.callScript ? (
-                      <div className="space-y-4">
-                        {/* Opening */}
-                        <div className="p-4 border-2 border-black bg-white">
-                          <div className="text-xs font-bold mb-2">1. OPENING (30 seconds)</div>
-                          <CopyButton text={salesApproachData.callScript.opening} />
-                          <p className="text-sm whitespace-pre-wrap">{salesApproachData.callScript.opening}</p>
-                        </div>
-
-                        {/* Discovery Questions */}
-                        {salesApproachData.callScript.discoveryQuestions && salesApproachData.callScript.discoveryQuestions.length > 0 && (
-                          <div className="p-4 border-2 border-black bg-white">
-                            <div className="text-xs font-bold mb-2">2. DISCOVERY QUESTIONS</div>
-                            <CopyButton text={salesApproachData.callScript.discoveryQuestions.join('\n\n')} />
-                            <ul className="space-y-2 text-sm">
-                              {salesApproachData.callScript.discoveryQuestions.map((q: string, idx: number) => (
-                                <li key={idx} className="pl-4 border-l-2 border-black">{q}</li>
-                              ))}
-                            </ul>
-                          </div>
-                        )}
-
-                        {/* Value Proposition */}
-                        {salesApproachData.callScript.valueProposition && (
-                          <div className="p-4 border-2 border-black bg-white">
-                            <div className="text-xs font-bold mb-2">3. VALUE PROPOSITION</div>
-                            <CopyButton text={salesApproachData.callScript.valueProposition} />
-                            <p className="text-sm whitespace-pre-wrap">{salesApproachData.callScript.valueProposition}</p>
-                          </div>
-                        )}
-
-                        {/* Call to Action */}
-                        {salesApproachData.callScript.callToAction && (
-                          <div className="p-4 border-2 border-black bg-white">
-                            <div className="text-xs font-bold mb-2">4. CALL TO ACTION</div>
-                            <CopyButton text={salesApproachData.callScript.callToAction} />
-                            <p className="text-sm whitespace-pre-wrap">{salesApproachData.callScript.callToAction}</p>
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="p-4 border-2 border-red-600 bg-red-50">
-                        <p className="text-sm font-bold text-red-600 mb-2">⚠ NO CALL SCRIPT</p>
-                        <Link href={`/?searchId=${company.searchId}&companyId=${company.id}`}>
-                          <button className="px-4 py-2 bg-black text-white font-bold text-sm">
-                            GO TO SEARCH → CREATE SALES APPROACH
-                          </button>
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* SECTION 4: AFTER THE CALL - Follow-up materials */}
-                  <div className="p-6 border-b-4 border-black">
-                    <h3 className="text-lg font-bold mb-4">AFTER THE CALL</h3>
-                    
-                    {salesApproachData ? (
-                      <div className="space-y-4">
-                        {/* Email Draft */}
-                        {salesApproachData.emailDraft && (
-                          <div className="p-4 border-2 border-black">
-                            <div className="flex items-center justify-between mb-2">
-                              <div className="text-xs font-bold">📧 EMAIL DRAFT</div>
-                              <CopyButton text={`Subject: ${salesApproachData.emailDraft.subject}\n\n${salesApproachData.emailDraft.body}`} />
-                            </div>
-                            <div className="text-sm font-bold mb-2">
-                              Subject: {salesApproachData.emailDraft.subject}
-                            </div>
-                            <div className="text-sm whitespace-pre-wrap">
-                              {salesApproachData.emailDraft.body}
-                            </div>
-                          </div>
-                        )}
-
-                        {/* LinkedIn Messages */}
-                        {salesApproachData.linkedinMessage && (
-                          <div className="space-y-3">
-                            {/* Connection Request */}
-                            <div className="p-4 border-2 border-black">
-                              <div className="flex items-center justify-between mb-2">
-                                <div className="text-xs font-bold">💼 LINKEDIN CONNECTION REQUEST</div>
-                                <CopyButton text={salesApproachData.linkedinMessage.connectionRequest} />
-                              </div>
-                              <div className="text-sm whitespace-pre-wrap">
-                                {salesApproachData.linkedinMessage.connectionRequest}
-                              </div>
-                            </div>
-
-                            {/* Follow-up Message */}
-                            {salesApproachData.linkedinMessage.followUp && (
-                              <div className="p-4 border-2 border-black">
-                                <div className="flex items-center justify-between mb-2">
-                                  <div className="text-xs font-bold">💼 LINKEDIN FOLLOW-UP MESSAGE</div>
-                                  <CopyButton text={salesApproachData.linkedinMessage.followUp} />
-                                </div>
-                                <div className="text-sm whitespace-pre-wrap">
-                                  {salesApproachData.linkedinMessage.followUp}
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ) : (
-                      <div className="p-4 border-2 border-red-600 bg-red-50">
-                        <p className="text-sm font-bold text-red-600 mb-2">⚠ NO SALES APPROACH</p>
-                        <Link href={`/?searchId=${company.searchId}&companyId=${company.id}`}>
-                          <button className="px-4 py-2 bg-black text-white font-bold text-sm">
-                            GO TO SEARCH → CREATE SALES APPROACH
-                          </button>
-                        </Link>
-                      </div>
-                    )}
-                  </div>
-
-                  {/* SECTION 5: COMPANY CONTEXT - Reference */}
-                  <div className="p-6">
-                    <h3 className="text-lg font-bold mb-4">COMPANY CONTEXT</h3>
-                    
-                    <div className="space-y-4">
-                      {/* Products & Services */}
-                      {briefData?.productsServices && briefData.productsServices.length > 0 && (
-                        <div>
-                          <div className="text-xs font-bold mb-1">Products & Services</div>
-                          <ul className="text-sm space-y-1">
-                            {briefData.productsServices.map((item: any, idx: number) => {
-                              const itemText = typeof item === 'string' ? item : (item.description || item.category || '');
-                              return <li key={idx}>• {itemText}</li>;
-                            })}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* Key Technologies */}
-                      {briefData?.keyTechnologies && briefData.keyTechnologies.length > 0 && (
-                        <div>
-                          <div className="text-xs font-bold mb-1">Key Technologies</div>
-                          <ul className="text-sm space-y-1">
-                            {briefData.keyTechnologies.map((tech: any, idx: number) => {
-                              const techText = typeof tech === 'string' ? tech : (tech.description || tech.category || '');
-                              return <li key={idx}>• {techText}</li>;
-                            })}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* Target Markets */}
-                      {briefData?.targetMarkets && briefData.targetMarkets.length > 0 && (
-                        <div>
-                          <div className="text-xs font-bold mb-1">Target Markets</div>
-                          <ul className="text-sm space-y-1">
-                            {briefData.targetMarkets.map((market: any, idx: number) => {
-                              const marketText = typeof market === 'string' ? market : (market.description || market.category || '');
-                              return <li key={idx}>• {marketText}</li>;
-                            })}
-                          </ul>
-                        </div>
-                      )}
-
-                      {/* Basic Company Info */}
-                      <div className="grid grid-cols-2 gap-4 text-sm pt-4 border-t-2 border-black">
-                        {company.revenue && (
-                          <div>
-                            <span className="font-bold">Revenue:</span> {company.revenue}
-                          </div>
-                        )}
-                        {company.foundedYear && (
-                          <div>
-                            <span className="font-bold">Founded:</span> {company.foundedYear}
-                          </div>
-                        )}
-                        {company.city && (
-                          <div>
-                            <span className="font-bold">Location:</span> {company.city}
-                            {company.state && `, ${company.state}`}
-                            {company.country && `, ${company.country}`}
-                          </div>
-                        )}
-                        {company.linkedinUrl && (
-                          <div>
-                            <a href={company.linkedinUrl} target="_blank" rel="noopener noreferrer" className="underline">
-                              Company LinkedIn →
-                            </a>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* SIC/NAICS Codes */}
-                      {(company.sicCodes || company.naicsCodes) && (
-                        <div className="text-xs pt-4 border-t-2 border-black">
-                          {company.sicCodes && (
-                            <div className="mb-1">
-                              <span className="font-bold">SIC:</span> {company.sicCodes}
-                            </div>
-                          )}
-                          {company.naicsCodes && (
-                            <div>
-                              <span className="font-bold">NAICS:</span> {company.naicsCodes}
-                            </div>
-                          )}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Footer: Decision Timestamp */}
-                  <div className="px-6 py-3 border-t-4 border-black bg-gray-50 text-xs text-gray-600">
-                    Marked on {new Date(decision.decidedAt).toLocaleDateString()} at{" "}
-                    {new Date(decision.decidedAt).toLocaleTimeString()}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
+  if (!searchData || callTodayCompanies.length === 0) return (
+    <div className="max-w-5xl">
+      <div className="text-xs font-black text-muted-foreground mb-2">[04] CALL TODAY</div>
+      <div className="text-3xl font-black mb-6">CALL TODAY</div>
+      <div className="border-4 border-black p-12 text-center">
+        <div className="text-2xl font-black mb-3">No companies in your Call Today list</div>
+        <div className="text-base font-bold text-muted-foreground mb-6">Go back to Search Results and flag high-urgency companies.</div>
+        <button
+          onClick={() => navigate(`/search-results/${searchId}`)}
+          className="font-black border-2 border-black px-6 py-3 hover:bg-black hover:text-white transition-colors cursor-pointer"
+        >
+          ← BACK TO SEARCH RESULTS
+        </button>
       </div>
     </div>
   );
-}
-
-// Copy to clipboard button component
-function CopyButton({ text }: { text: string }) {
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      toast.success("Copied to clipboard");
-      setTimeout(() => setCopied(false), 2000);
-    });
-  };
 
   return (
-    <button
-      onClick={handleCopy}
-      className="float-right px-2 py-1 text-xs border-2 border-black font-bold"
-    >
-      {copied ? "✓ COPIED" : "COPY"}
-    </button>
+    <div className="max-w-5xl">
+      {/* Page Header */}
+      <div className="mb-6">
+        <div className="text-xs font-black text-muted-foreground mb-1">[04] CALL TODAY</div>
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-black leading-tight">CALL TODAY</h1>
+            <div className="text-sm font-bold text-muted-foreground mt-1">
+              {(searchData.search as any).offeringName || (searchData.search as any).location || "Campaign"} · {callTodayCompanies.length} {callTodayCompanies.length === 1 ? "company" : "companies"} to call
+            </div>
+          </div>
+          <button
+            onClick={() => navigate(`/search-results/${searchId}`)}
+            className="text-xs font-black border-2 border-black px-4 py-2 hover:bg-black hover:text-white transition-colors cursor-pointer"
+          >
+            ← BACK TO RESULTS
+          </button>
+        </div>
+      </div>
+
+      {/* Queue Navigator */}
+      <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
+        {callTodayCompanies.map((c: any, i: number) => (
+          <button
+            key={c.id}
+            onClick={() => { setCurrentIndex(i); setViewMode("overview"); }}
+            className={`shrink-0 text-xs font-black px-3 py-1.5 border-2 cursor-pointer transition-colors ${
+              i === currentIndex
+                ? "bg-black text-white border-black"
+                : "border-gray-300 hover:border-black"
+            }`}
+          >
+            {String(i + 1).padStart(2, "0")} {c.name.split(" ")[0]}
+          </button>
+        ))}
+      </div>
+
+      {/* Main Company Panel */}
+      {company && (
+        <div className="border-4 border-black bg-white">
+          {/* Company Header */}
+          <div className="p-5 border-b-4 border-black">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <span className="text-xs font-black text-muted-foreground">[{String(currentIndex + 1).padStart(2, "0")} / {callTodayCompanies.length}]</span>
+                  {company.enrichmentStatus === "enriched" && (
+                    <span className="text-[10px] font-black border border-black px-1.5 py-0.5 bg-black text-white">ENRICHED</span>
+                  )}
+                  {company.briefData && (
+                    <span className="text-[10px] font-black border border-blue-600 text-blue-600 px-1.5 py-0.5">RESEARCHED</span>
+                  )}
+                  {(company.urgencyScore ?? 0) > 0 && (
+                    <span className={`text-[10px] font-black px-1.5 py-0.5 ${
+                      (company.urgencyScore ?? 0) >= 70 ? "bg-red-600 text-white" :
+                      (company.urgencyScore ?? 0) >= 50 ? "bg-yellow-500 text-white" :
+                      "bg-gray-200 text-gray-700"
+                    }`}>
+                      ⚡ {company.urgencyScore}
+                    </span>
+                  )}
+                  {company.salesApproachData && (
+                    <span className="text-[10px] font-black border border-green-600 text-green-600 px-1.5 py-0.5">SALES READY</span>
+                  )}
+                </div>
+                <h2 className="text-2xl md:text-3xl font-black leading-tight">{company.name}</h2>
+                {company.websiteUrl && (
+                  <a href={company.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-muted-foreground underline mt-0.5 inline-block">
+                    {company.websiteUrl.replace(/^https?:\/\//, "")}
+                  </a>
+                )}
+              </div>
+              {/* Prev / Next */}
+              <div className="flex items-center gap-2 shrink-0">
+                <button
+                  onClick={() => { setCurrentIndex(Math.max(0, currentIndex - 1)); setViewMode("overview"); }}
+                  disabled={currentIndex === 0}
+                  className="text-xs font-black border-2 border-black px-3 py-2 disabled:opacity-30 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:cursor-default"
+                >
+                  ← PREV
+                </button>
+                <button
+                  onClick={() => { setCurrentIndex(Math.min(callTodayCompanies.length - 1, currentIndex + 1)); setViewMode("overview"); }}
+                  disabled={currentIndex === callTodayCompanies.length - 1}
+                  className="text-xs font-black border-2 border-black px-3 py-2 disabled:opacity-30 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:cursor-default"
+                >
+                  NEXT →
+                </button>
+              </div>
+            </div>
+
+            {/* Company Data Row */}
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-x-6 gap-y-2 mt-4 text-sm">
+              <div>
+                <div className="text-[10px] font-black text-muted-foreground">LOCATION</div>
+                <div className="font-bold">{location}</div>
+              </div>
+              {company.revenue && (
+                <div>
+                  <div className="text-[10px] font-black text-muted-foreground">REVENUE</div>
+                  <div className="font-bold">{formatRevenue(company.revenue)}</div>
+                </div>
+              )}
+              {company.headcountGrowth && (
+                <div>
+                  <div className="text-[10px] font-black text-muted-foreground">HEADCOUNT GROWTH</div>
+                  <div className="font-bold">{company.headcountGrowth}</div>
+                </div>
+              )}
+              {company.linkedinUrl && (
+                <div className="col-span-2">
+                  <div className="text-[10px] font-black text-muted-foreground">LINKEDIN</div>
+                  <a href={company.linkedinUrl} target="_blank" rel="noopener noreferrer" className="font-bold underline truncate block">
+                    {company.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}
+                  </a>
+                </div>
+              )}
+            </div>
+            <div className="mt-3">
+              <CompanyCodeDisplay sicCodes={company.sicCodes} naicsCodes={company.naicsCodes} />
+            </div>
+          </div>
+
+          {/* Research / Approach Quick-Access Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 border-b-4 border-black">
+            {company.briefData ? (
+              <button
+                onClick={() => setViewMode(viewMode === "research" ? "overview" : "research")}
+                className={`p-4 text-left cursor-pointer transition-colors border-r-2 border-black ${
+                  viewMode === "research" ? "bg-blue-600 text-white" : "bg-blue-50 hover:bg-blue-100"
+                }`}
+              >
+                <div className={`text-[10px] font-black mb-0.5 ${viewMode === "research" ? "text-blue-200" : "text-blue-600"}`}>DEEP RESEARCH</div>
+                <div className={`text-base font-black ${viewMode === "research" ? "text-white" : "text-blue-800"}`}>
+                  {viewMode === "research" ? "▼ Research Brief" : "▶ View Research Brief"}
+                </div>
+                {briefData?.urgencyScore > 0 && (
+                  <div className={`text-xs font-bold mt-1 ${viewMode === "research" ? "text-blue-200" : "text-blue-600"}`}>
+                    Urgency: {briefData.urgencyScore}/100
+                  </div>
+                )}
+              </button>
+            ) : (
+              <div className="p-4 bg-gray-50 border-r-2 border-black opacity-40">
+                <div className="text-[10px] font-black text-muted-foreground mb-0.5">DEEP RESEARCH</div>
+                <div className="text-base font-black text-gray-400">No research yet</div>
+              </div>
+            )}
+            {company.salesApproachData ? (
+              <button
+                onClick={() => setViewMode(viewMode === "approach" ? "overview" : "approach")}
+                className={`p-4 text-left cursor-pointer transition-colors ${
+                  viewMode === "approach" ? "bg-green-600 text-white" : "bg-green-50 hover:bg-green-100"
+                }`}
+              >
+                <div className={`text-[10px] font-black mb-0.5 ${viewMode === "approach" ? "text-green-200" : "text-green-600"}`}>SALES APPROACH</div>
+                <div className={`text-base font-black ${viewMode === "approach" ? "text-white" : "text-green-800"}`}>
+                  {viewMode === "approach" ? "▼ Sales Approach" : "▶ View Approach"}
+                </div>
+                <div className={`text-xs font-bold mt-1 ${viewMode === "approach" ? "text-green-200" : "text-green-600"}`}>
+                  Email · LinkedIn · Call Script
+                </div>
+              </button>
+            ) : (
+              <div className="p-4 bg-gray-50 opacity-40">
+                <div className="text-[10px] font-black text-muted-foreground mb-0.5">SALES APPROACH</div>
+                <div className="text-base font-black text-gray-400">No approach yet</div>
+              </div>
+            )}
+          </div>
+
+          {/* Expanded Research Panel */}
+          {viewMode === "research" && briefData && (
+            <div className="p-5 border-b-4 border-black bg-blue-50">
+              <div className="mb-5 p-4 bg-white border-2 border-blue-600">
+                <div className="text-3xl font-black text-blue-600 mb-2">Urgency Score: {briefData.urgencyScore}/100</div>
+                {briefData.urgencyBreakdown && (
+                  <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div><div className="font-bold">Company Context</div><div>{briefData.urgencyBreakdown.companyContext}/40</div></div>
+                    <div><div className="font-bold">Market Signals</div><div>{briefData.urgencyBreakdown.marketSignals}/35</div></div>
+                    <div><div className="font-bold">Recent Activity</div><div>{briefData.urgencyBreakdown.recentActivity}/25</div></div>
+                  </div>
+                )}
+              </div>
+              {briefData.companyOverview && (
+                <div className="mb-4">
+                  <h3 className="text-base font-black mb-1">Company Overview</h3>
+                  <p className="text-sm">{briefData.companyOverview}</p>
+                </div>
+              )}
+              {briefData.whyNow && (
+                <div className="mb-4">
+                  <h3 className="text-base font-black mb-1">Why Now</h3>
+                  <p className="text-sm">{briefData.whyNow}</p>
+                </div>
+              )}
+              {briefData.engagementStrategy && (
+                <div className="mb-4">
+                  <h3 className="text-base font-black mb-1">Engagement Strategy</h3>
+                  <p className="text-sm">{briefData.engagementStrategy}</p>
+                </div>
+              )}
+              {briefData.urgencySignals?.length > 0 && (
+                <div>
+                  <h3 className="text-base font-black mb-2">Urgency Signals</h3>
+                  <div className="space-y-2">
+                    {briefData.urgencySignals.map((s: any, i: number) => (
+                      <div key={i} className="p-3 bg-yellow-50 border border-yellow-300">
+                        <span className="font-bold text-sm">{s.category} — {s.type}</span>
+                        <div className="text-sm mt-1">{s.description}</div>
+                        {s.snippet && <div className="text-xs text-gray-600 italic mt-1 border-l-2 border-yellow-400 pl-2">"{s.snippet}"</div>}
+                        {s.sourceUrl && <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">Source</a>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Expanded Approach Panel */}
+          {viewMode === "approach" && salesApproach && (
+            <div className="p-5 border-b-4 border-black bg-green-50">
+              {salesApproach.conversationStarters?.length > 0 && (
+                <div className="mb-5 p-4 border-2 border-amber-600 bg-white">
+                  <h3 className="text-base font-black text-amber-600 mb-2">Conversation Starters</h3>
+                  <div className="space-y-2">
+                    {salesApproach.conversationStarters.map((s: any, i: number) => (
+                      <div key={i} className="p-2 bg-amber-50">
+                        <div className="text-sm font-medium">{typeof s === "string" ? s : s.opener}</div>
+                        {typeof s !== "string" && s.basedOn && <div className="text-xs text-gray-500 mt-1">Based on: {s.basedOn}</div>}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {salesApproach.emailDraft && (
+                <div className="mb-5 p-4 border-2 border-green-600 bg-white">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-base font-black text-green-600">Email Draft</h3>
+                    <button
+                      onClick={() => copyText(`Subject: ${salesApproach.emailDraft.subject}\n\n${salesApproach.emailDraft.body}`, "Email")}
+                      className="text-xs font-black border-2 border-green-600 text-green-600 px-3 py-1 cursor-pointer hover:bg-green-50"
+                    >
+                      COPY EMAIL
+                    </button>
+                  </div>
+                  <div className="mb-2 text-sm"><span className="font-bold">Subject:</span> {salesApproach.emailDraft.subject}</div>
+                  <div className="whitespace-pre-wrap text-sm">{salesApproach.emailDraft.body}</div>
+                </div>
+              )}
+              {salesApproach.linkedinMessage && (
+                <div className="mb-5 p-4 border-2 border-blue-600 bg-white">
+                  <h3 className="text-base font-black text-blue-600 mb-3">LinkedIn Message</h3>
+                  <div className="mb-3">
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-bold text-sm">Connection Request:</span>
+                      <button onClick={() => copyText(salesApproach.linkedinMessage.connectionRequest, "Connection Request")} className="text-xs font-black border border-blue-600 text-blue-600 px-2 py-0.5 cursor-pointer">COPY</button>
+                    </div>
+                    <div className="text-sm bg-blue-50 p-2">{salesApproach.linkedinMessage.connectionRequest}</div>
+                  </div>
+                  <div>
+                    <div className="flex justify-between items-center mb-1">
+                      <span className="font-bold text-sm">Follow-up:</span>
+                      <button onClick={() => copyText(salesApproach.linkedinMessage.followUp, "Follow-up")} className="text-xs font-black border border-blue-600 text-blue-600 px-2 py-0.5 cursor-pointer">COPY</button>
+                    </div>
+                    <div className="text-sm bg-blue-50 p-2">{salesApproach.linkedinMessage.followUp}</div>
+                  </div>
+                </div>
+              )}
+              {salesApproach.callScript && (
+                <div className="p-4 border-2 border-purple-600 bg-white">
+                  <div className="flex justify-between items-center mb-2">
+                    <h3 className="text-base font-black text-purple-600">Call Script</h3>
+                    <button
+                      onClick={() => copyText(salesApproach.callScript.fullScript || salesApproach.callScript.opening || "", "Call Script")}
+                      className="text-xs font-black border-2 border-purple-600 text-purple-600 px-3 py-1 cursor-pointer hover:bg-purple-50"
+                    >
+                      COPY SCRIPT
+                    </button>
+                  </div>
+                  {salesApproach.callScript.opening && (
+                    <div className="mb-3">
+                      <div className="font-bold text-sm mb-1">Opening:</div>
+                      <div className="text-sm bg-purple-50 p-2">{salesApproach.callScript.opening}</div>
+                    </div>
+                  )}
+                  {salesApproach.callScript.fullScript && (
+                    <div className="whitespace-pre-wrap text-sm">{salesApproach.callScript.fullScript}</div>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Footer: Queue Progress */}
+          <div className="px-5 py-3 bg-gray-50 flex items-center justify-between gap-4">
+            <div className="text-xs font-black text-muted-foreground">
+              {currentIndex + 1} of {callTodayCompanies.length} companies
+            </div>
+            <div className="flex gap-2">
+              <button
+                onClick={() => { setCurrentIndex(Math.max(0, currentIndex - 1)); setViewMode("overview"); }}
+                disabled={currentIndex === 0}
+                className="text-xs font-black border-2 border-black px-4 py-2 disabled:opacity-30 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:cursor-default"
+              >
+                ← PREV
+              </button>
+              <button
+                onClick={() => { setCurrentIndex(Math.min(callTodayCompanies.length - 1, currentIndex + 1)); setViewMode("overview"); }}
+                disabled={currentIndex === callTodayCompanies.length - 1}
+                className="text-xs font-black border-2 border-black px-4 py-2 disabled:opacity-30 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:cursor-default"
+              >
+                NEXT COMPANY →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
   );
 }

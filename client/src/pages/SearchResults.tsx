@@ -65,6 +65,8 @@ export default function SearchResults() {
   const [sortBy, setSortBy] = useState<"default" | "urgency" | "fit_urgency">("urgency");
   const [enrichmentFilter, setEnrichmentFilter] = useState<"all" | "enriched" | "pending" | "outreach">("all");
   const [urgencyCtaAdded, setUrgencyCtaAdded] = useState(false);
+  const [quickViewCompanyId, setQuickViewCompanyId] = useState<number | null>(null);
+  const [quickViewMode, setQuickViewMode] = useState<"research" | "approach" | null>(null);
 
   useEffect(() => {
     if (searchData?.search.excludedSectors) {
@@ -536,7 +538,7 @@ export default function SearchResults() {
                   {callTodayCompanies.length} {callTodayCompanies.length === 1 ? "company" : "companies"} added to your Call Today list —{" "}
                   <span
                     className="cursor-pointer underline decoration-dotted hover:text-red-900 transition-colors"
-                    onClick={() => { setShowCallTodayOnly(true); setEnrichmentFilter("all"); }}
+                    onClick={() => navigate(`/call-today/${searchId}`)}
                   >
                     start your outreach
                   </span>.
@@ -756,8 +758,128 @@ export default function SearchResults() {
                 company={company}
                 index={index}
                 searchId={searchId!}
+                onViewResearch={(id) => { setQuickViewCompanyId(id); setQuickViewMode("research"); }}
+                onViewApproach={(id) => { setQuickViewCompanyId(id); setQuickViewMode("approach"); }}
               />
             ))}
+
+            {/* Quick-View Modal for Research/Approach header cards */}
+            {quickViewCompanyId && quickViewMode && (() => {
+              const qc = searchData?.companies?.find((c: any) => c.id === quickViewCompanyId);
+              if (!qc) return null;
+              const briefData = qc.briefData ? (typeof qc.briefData === 'string' ? JSON.parse(qc.briefData) : qc.briefData) : null;
+              const salesApproach = qc.salesApproachData ? (typeof qc.salesApproachData === 'string' ? JSON.parse(qc.salesApproachData) : qc.salesApproachData) : null;
+              const copyText = (text: string, label: string) => { navigator.clipboard.writeText(text); toast.success(`${label} copied`); };
+              return (
+                <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => { setQuickViewCompanyId(null); setQuickViewMode(null); }}>
+                  <div className="bg-white max-w-4xl w-full max-h-[90vh] overflow-y-auto border-4 border-black" onClick={(e) => e.stopPropagation()}>
+                    {/* Modal Header */}
+                    <div className="flex items-center justify-between p-4 border-b-4 border-black bg-black text-white">
+                      <div>
+                        <div className="text-xs font-black opacity-60">{quickViewMode === 'research' ? 'DEEP RESEARCH' : 'SALES APPROACH'}</div>
+                        <div className="text-xl font-black">{qc.name}</div>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        {qc.briefData && (
+                          <button onClick={() => setQuickViewMode('research')} className={`text-xs font-black px-3 py-1.5 border-2 cursor-pointer ${ quickViewMode === 'research' ? 'border-blue-400 bg-blue-600 text-white' : 'border-gray-500 text-gray-300 hover:border-blue-400'}`}>RESEARCH</button>
+                        )}
+                        {qc.salesApproachData && (
+                          <button onClick={() => setQuickViewMode('approach')} className={`text-xs font-black px-3 py-1.5 border-2 cursor-pointer ${ quickViewMode === 'approach' ? 'border-green-400 bg-green-600 text-white' : 'border-gray-500 text-gray-300 hover:border-green-400'}`}>APPROACH</button>
+                        )}
+                        <button onClick={() => { setQuickViewCompanyId(null); setQuickViewMode(null); }} className="text-2xl font-black hover:opacity-60 ml-2">×</button>
+                      </div>
+                    </div>
+                    {/* Research Content */}
+                    {quickViewMode === 'research' && briefData && (
+                      <div className="p-6">
+                        <div className="mb-6 p-4 bg-blue-50 border-2 border-blue-600">
+                          <div className="text-3xl font-black text-blue-600 mb-2">Urgency Score: {briefData.urgencyScore}/100</div>
+                          {briefData.urgencyBreakdown && (
+                            <div className="grid grid-cols-3 gap-4 text-sm">
+                              <div><div className="font-bold">Company Context</div><div>{briefData.urgencyBreakdown.companyContext}/40</div></div>
+                              <div><div className="font-bold">Market Signals</div><div>{briefData.urgencyBreakdown.marketSignals}/35</div></div>
+                              <div><div className="font-bold">Recent Activity</div><div>{briefData.urgencyBreakdown.recentActivity}/25</div></div>
+                            </div>
+                          )}
+                        </div>
+                        {briefData.companyOverview && <div className="mb-4"><h3 className="text-lg font-black mb-2">Company Overview</h3><p className="text-sm">{briefData.companyOverview}</p></div>}
+                        {briefData.whyNow && <div className="mb-4"><h3 className="text-lg font-black mb-2">Why Now</h3><p className="text-sm">{briefData.whyNow}</p></div>}
+                        {briefData.engagementStrategy && <div className="mb-4"><h3 className="text-lg font-black mb-2">Engagement Strategy</h3><p className="text-sm">{briefData.engagementStrategy}</p></div>}
+                        {briefData.urgencySignals?.length > 0 && (
+                          <div className="mb-4">
+                            <h3 className="text-lg font-black mb-2">Urgency Signals</h3>
+                            <div className="space-y-2">
+                              {briefData.urgencySignals.map((s: any, i: number) => (
+                                <div key={i} className="p-3 bg-yellow-50 border border-yellow-300">
+                                  <span className="font-bold text-sm">{s.category} — {s.type}</span>
+                                  <div className="text-sm mt-1">{s.description}</div>
+                                  {s.snippet && <div className="text-xs text-gray-600 italic mt-1 border-l-2 border-yellow-400 pl-2">"{s.snippet}"</div>}
+                                  {s.sourceUrl && <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">Source</a>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    {/* Approach Content */}
+                    {quickViewMode === 'approach' && salesApproach && (
+                      <div className="p-6">
+                        {salesApproach.conversationStarters?.length > 0 && (
+                          <div className="mb-6 p-4 border-2 border-amber-600">
+                            <h3 className="text-xl font-black text-amber-600 mb-2">Conversation Starters</h3>
+                            <div className="space-y-3">
+                              {salesApproach.conversationStarters.map((s: any, i: number) => (
+                                <div key={i} className="p-2 bg-amber-50">
+                                  <div className="text-sm font-medium">{typeof s === 'string' ? s : s.opener}</div>
+                                  {typeof s !== 'string' && s.basedOn && <div className="text-xs text-gray-500 mt-1">Based on: {s.basedOn}</div>}
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        )}
+                        {salesApproach.emailDraft && (
+                          <div className="mb-6 p-4 border-2 border-green-600">
+                            <div className="flex justify-between items-center mb-2">
+                              <h3 className="text-xl font-black text-green-600">Email Draft</h3>
+                              <button onClick={() => copyText(`Subject: ${salesApproach.emailDraft.subject}\n\n${salesApproach.emailDraft.body}`, 'Email')} className="text-xs font-black border-2 border-green-600 text-green-600 px-3 py-1 cursor-pointer hover:bg-green-50">COPY</button>
+                            </div>
+                            <div className="mb-2"><span className="font-bold">Subject:</span> {salesApproach.emailDraft.subject}</div>
+                            <div className="whitespace-pre-wrap text-sm">{salesApproach.emailDraft.body}</div>
+                          </div>
+                        )}
+                        {salesApproach.linkedinMessage && (
+                          <div className="mb-6 p-4 border-2 border-blue-600">
+                            <h3 className="text-xl font-black text-blue-600 mb-2">LinkedIn Message</h3>
+                            <div className="mb-3">
+                              <div className="flex justify-between items-center mb-1"><span className="font-bold text-sm">Connection Request:</span><button onClick={() => copyText(salesApproach.linkedinMessage.connectionRequest, 'Connection Request')} className="text-xs font-black border border-blue-600 text-blue-600 px-2 py-0.5 cursor-pointer">COPY</button></div>
+                              <div className="text-sm bg-blue-50 p-2">{salesApproach.linkedinMessage.connectionRequest}</div>
+                            </div>
+                            <div>
+                              <div className="flex justify-between items-center mb-1"><span className="font-bold text-sm">Follow-up:</span><button onClick={() => copyText(salesApproach.linkedinMessage.followUp, 'Follow-up')} className="text-xs font-black border border-blue-600 text-blue-600 px-2 py-0.5 cursor-pointer">COPY</button></div>
+                              <div className="text-sm bg-blue-50 p-2">{salesApproach.linkedinMessage.followUp}</div>
+                            </div>
+                          </div>
+                        )}
+                        {salesApproach.callScript && (
+                          <div className="mb-6 p-4 border-2 border-purple-600">
+                            <div className="flex justify-between items-center mb-2">
+                              <h3 className="text-xl font-black text-purple-600">Call Script</h3>
+                              <button onClick={() => copyText(salesApproach.callScript.fullScript || salesApproach.callScript.opening, 'Call Script')} className="text-xs font-black border-2 border-purple-600 text-purple-600 px-3 py-1 cursor-pointer hover:bg-purple-50">COPY</button>
+                            </div>
+                            {salesApproach.callScript.opening && <div className="mb-3"><div className="font-bold text-sm mb-1">Opening:</div><div className="text-sm bg-purple-50 p-2">{salesApproach.callScript.opening}</div></div>}
+                            {salesApproach.callScript.fullScript && <div className="whitespace-pre-wrap text-sm">{salesApproach.callScript.fullScript}</div>}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    <div className="p-4 border-t-2 border-black">
+                      <button onClick={() => { setQuickViewCompanyId(null); setQuickViewMode(null); }} className="w-full font-black border-2 border-black py-2 hover:bg-black hover:text-white transition-colors cursor-pointer">CLOSE</button>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </>
       )}
@@ -782,7 +904,13 @@ export default function SearchResults() {
 // ============================================================================
 // Company Card — Compact Layout
 // ============================================================================
-function CompanyCard({ company, index, searchId }: { company: any; index: number; searchId: number }) {
+function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach }: {
+  company: any;
+  index: number;
+  searchId: number;
+  onViewResearch?: (companyId: number) => void;
+  onViewApproach?: (companyId: number) => void;
+}) {
   const hasSicCodes = !!(company.sicCodes && JSON.parse(company.sicCodes).length > 0);
   const hasNaicsCodes = !!(company.naicsCodes && JSON.parse(company.naicsCodes).length > 0);
 
@@ -850,18 +978,6 @@ function CompanyCard({ company, index, searchId }: { company: any; index: number
               <div className="font-bold text-sm">{formatEmployees(company.employeeCount)}</div>
             </div>
           )}
-          {company.phone && (
-            <div>
-              <div className="text-[10px] font-black text-muted-foreground">PHONE</div>
-              <div className="font-bold text-sm">{company.phone}</div>
-            </div>
-          )}
-          {company.foundedYear && (
-            <div>
-              <div className="text-[10px] font-black text-muted-foreground">FOUNDED</div>
-              <div className="font-bold text-sm">{company.foundedYear}</div>
-            </div>
-          )}
           {company.linkedinUrl && (
             <div className="col-span-2">
               <div className="text-[10px] font-black text-muted-foreground">LINKEDIN</div>
@@ -876,6 +992,34 @@ function CompanyCard({ company, index, searchId }: { company: any; index: number
         <div className="mt-2">
           <CompanyCodeDisplay sicCodes={company.sicCodes} naicsCodes={company.naicsCodes} />
         </div>
+
+        {/* Research / Approach Quick-Access Cards — only when data exists */}
+        {(company.briefData || company.salesApproachData) && (
+          <div className="flex gap-3 mt-3">
+            {company.briefData && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onViewResearch?.(company.id); }}
+                className="flex-1 border-2 border-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors p-3 text-left cursor-pointer"
+              >
+                <div className="text-[10px] font-black text-blue-600 mb-0.5">DEEP RESEARCH</div>
+                <div className="text-sm font-black text-blue-800 leading-tight">View Research Brief →</div>
+                {company.urgencyScore > 0 && (
+                  <div className="text-xs font-bold text-blue-600 mt-1">Urgency: {company.urgencyScore}/100</div>
+                )}
+              </button>
+            )}
+            {company.salesApproachData && (
+              <button
+                onClick={(e) => { e.stopPropagation(); onViewApproach?.(company.id); }}
+                className="flex-1 border-2 border-green-600 bg-green-50 hover:bg-green-100 transition-colors p-3 text-left cursor-pointer"
+              >
+                <div className="text-[10px] font-black text-green-600 mb-0.5">SALES APPROACH</div>
+                <div className="text-sm font-black text-green-800 leading-tight">View Approach →</div>
+                <div className="text-xs font-bold text-green-600 mt-1">Email · LinkedIn · Call Script</div>
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Decision + Action Buttons — Compact Footer */}

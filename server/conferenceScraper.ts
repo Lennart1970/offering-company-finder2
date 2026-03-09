@@ -34,6 +34,7 @@ import axios from "axios";
 export interface ScrapedExhibitor {
   name: string;
   websiteUrl: string | null;
+  countryCode?: string | null;  // ISO-2 country code, populated from __NEXT_DATA__ sources
 }
 
 export interface ScrapeResult {
@@ -134,6 +135,100 @@ function normaliseName(name: string): string {
 // ---------------------------------------------------------------------------
 // Extraction strategies (single page)
 // ---------------------------------------------------------------------------
+
+/**
+ * Strategy 0: __NEXT_DATA__ JSON extractor.
+ *
+ * Many modern conference sites (Next.js / Nuxt / similar SSR frameworks) embed
+ * their full data payload inside a <script id="__NEXT_DATA__"> tag as JSON.
+ * This strategy parses that blob and recursively searches for arrays of objects
+ * that look like exhibitor lists (objects with a `name` field and optionally
+ * `website`, `url`, `websiteUrl`, `slug`, `countryCode` fields).
+ *
+ * Returns exhibitors with countryCode when available (used for Apollo name-based enrichment).
+ */
+function extractNextData(html: string): ScrapedExhibitor[] {
+  // Find __NEXT_DATA__ script tag
+  const nextDataMatch = html.match(/<script[^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i)
+    || html.match(/<script[^>]+type=["']application\/json["'][^>]+id=["']__NEXT_DATA__["'][^>]*>([\s\S]*?)<\/script>/i);
+
+  if (!nextDataMatch) return [];
+
+  let data: any;
+  try {
+    data = JSON.parse(nextDataMatch[1]);
+  } catch {
+    return [];
+  }
+
+  // Recursively search for exhibitor arrays in the JSON tree
+  const results: ScrapedExhibitor[] = [];
+  const seen = new Set<string>();
+
+  function searchNode(node: any, depth = 0): void {
+    if (depth > 15 || !node || typeof node !== "object") return;
+
+    if (Array.isArray(node)) {
+      // Check if this looks like an exhibitor list:
+      // - Array of objects
+      // - Each object has a `name` field
+      // - At least 3 items
+      if (node.length >= 3 && node[0] && typeof node[0] === "object" && typeof node[0].name === "string") {
+        const sample = node.slice(0, 5);
+        const hasNameField = sample.every((item: any) => typeof item.name === "string" && item.name.length > 1);
+
+        if (hasNameField) {
+          // Score this array: higher score = more likely to be exhibitors
+          const hasSlug = sample.some((item: any) => item.slug);
+          const hasCountry = sample.some((item: any) => item.countryCode || item.country_code || item.country);
+          const hasWebsite = sample.some((item: any) => item.website || item.websiteUrl || item.url || item.website_url);
+          const hasStand = sample.some((item: any) => item.stands || item.stand || item.booth || item.hall);
+
+          // Must have at least one of: slug, country, website, stand
+          if (hasSlug || hasCountry || hasWebsite || hasStand) {
+            for (const item of node) {
+              if (!item || typeof item.name !== "string") continue;
+              const name = item.name.trim();
+              if (!name || name.length < 2 || name.length > 150) continue;
+
+              // Skip obvious non-company entries
+              if (/^(home|contact|menu|search|register|login|privacy|cookie|terms|floor plan|register your visit)$/i.test(name)) continue;
+
+              const key = normaliseName(name);
+              if (!key || seen.has(key)) continue;
+              seen.add(key);
+
+              // Extract website URL if available
+              const rawUrl = item.website || item.websiteUrl || item.url || item.website_url || null;
+              const websiteUrl = rawUrl ? cleanUrl(rawUrl) : null;
+
+              // Extract country code
+              const countryCode = item.countryCode || item.country_code || item.country || null;
+
+              results.push({ name, websiteUrl, countryCode });
+            }
+
+            // If we found a good list, don't recurse into its items
+            if (results.length > 0) return;
+          }
+        }
+      }
+
+      // Recurse into array items
+      for (const item of node) {
+        searchNode(item, depth + 1);
+      }
+    } else {
+      // Recurse into object values
+      for (const value of Object.values(node)) {
+        searchNode(value, depth + 1);
+      }
+    }
+  }
+
+  searchNode(data);
+  return results;
+}
 
 /**
  * Strategy 1: Logo-link pattern.
@@ -265,6 +360,13 @@ async function extractFromHtml(html: string, pageUrl: string): Promise<{
   strategy: string;
 }> {
   const pageHost = new URL(pageUrl).hostname;
+
+  // Strategy 0: __NEXT_DATA__ JSON extractor (Next.js / Nuxt SSR sites)
+  const nextDataResults = extractNextData(html);
+  if (nextDataResults.length >= 3) {
+    console.log(`[Conference Scraper] __NEXT_DATA__ strategy found ${nextDataResults.length} companies`);
+    return { exhibitors: nextDataResults, strategy: "next-data" };
+  }
 
   // Strategy 1: Logo-link
   let exhibitors = extractLogoLinks(html, pageHost);
@@ -878,6 +980,85 @@ export async function scrapeConferenceExhibitors(
 // ---------------------------------------------------------------------------
 // Apollo enrichment
 // ---------------------------------------------------------------------------
+
+/**
+ * Look up a company in Apollo by name + optional country code.
+ * Uses the organizations/enrich endpoint with name-based lookup.
+ * Less precise than domain lookup but works when no website URL is available.
+ * Returns null if not found or ambiguous.
+ */
+export async function apolloEnrichByName(name: string, countryCode?: string | null): Promise<{
+  apolloId?: string;
+  name?: string;
+  websiteUrl?: string;
+  primaryDomain?: string;
+  linkedinUrl?: string;
+  phone?: string;
+  foundedYear?: number;
+  revenue?: string;
+  headcountGrowth?: string;
+  sicCodes?: string[];
+  naicsCodes?: string[];
+  city?: string;
+  state?: string;
+  country?: string;
+  streetAddress?: string;
+} | null> {
+  const apiKey = process.env.APOLLO_API_KEY;
+  if (!apiKey) throw new Error("APOLLO_API_KEY not set");
+
+  try {
+    const body: Record<string, string> = { name };
+    if (countryCode && countryCode.length === 2) {
+      body.organization_country_code = countryCode.toUpperCase();
+    }
+
+    const response = await axios.post(
+      "https://api.apollo.io/api/v1/organizations/enrich",
+      body,
+      {
+        headers: {
+          "X-Api-Key": apiKey,
+          "Content-Type": "application/json",
+        },
+        timeout: 15000,
+      }
+    );
+
+    const org = response.data.organization;
+    if (!org) return null;
+
+    const sixMonth = org.organization_headcount_six_month_growth;
+    const twelveMonth = org.organization_headcount_twelve_month_growth;
+    const growthStr = sixMonth != null || twelveMonth != null
+      ? `6mo: ${sixMonth != null ? (sixMonth * 100).toFixed(1) + "%" : "N/A"} | 12mo: ${twelveMonth != null ? (twelveMonth * 100).toFixed(1) + "%" : "N/A"}`
+      : null;
+
+    return {
+      apolloId: org.id,
+      name: org.name,
+      websiteUrl: org.website_url,
+      primaryDomain: org.primary_domain,
+      linkedinUrl: org.linkedin_url,
+      phone: org.phone || org.primary_phone?.number,
+      foundedYear: org.founded_year,
+      revenue: org.organization_revenue_printed,
+      headcountGrowth: growthStr || undefined,
+      sicCodes: org.sic_codes || [],
+      naicsCodes: org.naics_codes || [],
+      city: org.city,
+      state: org.state,
+      country: org.country,
+      streetAddress: org.street_address,
+    };
+  } catch (error: any) {
+    if (error.response?.status === 404 || error.response?.status === 422) {
+      return null;
+    }
+    console.warn(`[Apollo Enrich] Failed for name "${name}":`, error.message);
+    return null;
+  }
+}
 
 /**
  * Look up a company in Apollo by domain to get Apollo ID + firmographic data.

@@ -572,6 +572,112 @@ describe("Conference Scraper - Multi-page crawling", () => {
 });
 
 // ---------------------------------------------------------------------------
+// __NEXT_DATA__ JSON extractor
+// ---------------------------------------------------------------------------
+
+describe("Conference Scraper - __NEXT_DATA__ extractor", () => {
+  const mockedAxios = axios as any;
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it("extracts exhibitors from __NEXT_DATA__ JSON blob (Intertraffic pattern)", async () => {
+    const exhibitors = [
+      { name: "Siemens Mobility", slug: "siemens-mobility", countryCode: "DE" },
+      { name: "Kapsch TrafficCom", slug: "kapsch-trafficcom", countryCode: "AT" },
+      { name: "Iteris Inc.", slug: "iteris-inc", countryCode: "US" },
+      { name: "Q-Free ASA", slug: "q-free-asa", countryCode: "NO" },
+      { name: "Yunex Traffic", slug: "yunex-traffic", countryCode: "DE" },
+    ];
+    const nextData = JSON.stringify({
+      props: { pageProps: { exhibitors } }
+    });
+    const html = `<html><head><title>Intertraffic Amsterdam</title></head><body>
+      <script id="__NEXT_DATA__" type="application/json">${nextData}</script>
+    </body></html>`;
+
+    mockedAxios.get = vi.fn().mockResolvedValue({ data: html });
+
+    const { scrapeConferenceExhibitors } = await import("./conferenceScraper");
+    const result = await scrapeConferenceExhibitors("https://www.intertraffic.com/amsterdam/exhibitors");
+
+    expect(result.strategy).toBe("next-data");
+    expect(result.exhibitors.length).toBe(5);
+    const names = result.exhibitors.map(e => e.name);
+    expect(names).toContain("Siemens Mobility");
+    expect(names).toContain("Kapsch TrafficCom");
+    // countryCode should be preserved
+    const siemens = result.exhibitors.find(e => e.name === "Siemens Mobility");
+    expect(siemens?.countryCode).toBe("DE");
+  });
+
+  it("extracts exhibitors from __NEXT_DATA__ with website URLs when available", async () => {
+    const exhibitors = [
+      { name: "Alpha Corp", slug: "alpha-corp", countryCode: "NL", website: "https://alpha.com" },
+      { name: "Beta Industries", slug: "beta-industries", countryCode: "DE", website: "https://beta.com" },
+      { name: "Gamma Solutions", slug: "gamma-solutions", countryCode: "FR", website: "https://gamma.com" },
+      { name: "Delta Manufacturing", slug: "delta-mfg", countryCode: "IT" },
+      { name: "Epsilon Tech", slug: "epsilon-tech", countryCode: "ES" },
+    ];
+    const nextData = JSON.stringify({ props: { pageProps: { exhibitors } } });
+    const html = `<html><head><title>Test Conf</title></head><body>
+      <script id="__NEXT_DATA__">${nextData}</script>
+    </body></html>`;
+
+    mockedAxios.get = vi.fn().mockResolvedValue({ data: html });
+
+    const { scrapeConferenceExhibitors } = await import("./conferenceScraper");
+    const result = await scrapeConferenceExhibitors("https://testconf.com/exhibitors");
+
+    expect(result.strategy).toBe("next-data");
+    const alpha = result.exhibitors.find(e => e.name === "Alpha Corp");
+    expect(alpha?.websiteUrl).toBe("https://alpha.com");
+    const delta = result.exhibitors.find(e => e.name === "Delta Manufacturing");
+    expect(delta?.websiteUrl).toBeNull();
+  });
+
+  it("falls through to logo-link when no __NEXT_DATA__ present", async () => {
+    const html = makePageHtml(FIVE_COMPANIES);
+    mockedAxios.get = vi.fn().mockResolvedValue({ data: html });
+
+    const { scrapeConferenceExhibitors } = await import("./conferenceScraper");
+    const result = await scrapeConferenceExhibitors("https://static-conf.com/exhibitors");
+
+    expect(result.strategy).toBe("logo-link");
+    expect(result.exhibitors.length).toBeGreaterThanOrEqual(5);
+  });
+
+  it("ignores __NEXT_DATA__ arrays that look like nav items (no slug/country/stand)", async () => {
+    const navItems = [
+      { name: "Home", id: 1 },
+      { name: "About", id: 2 },
+      { name: "Contact", id: 3 },
+    ];
+    const nextData = JSON.stringify({ props: { pageProps: { navItems } } });
+    // Also include real exhibitors via logo-link
+    const logoLinks = FIVE_COMPANIES.map(c =>
+      `<a href="${c.url}"><img alt="${c.name}" src="logo.png"/></a>`
+    ).join("");
+    const html = `<html><head><title>Mixed</title></head><body>
+      <script id="__NEXT_DATA__">${nextData}</script>
+      ${logoLinks}
+    </body></html>`;
+
+    mockedAxios.get = vi.fn().mockResolvedValue({ data: html });
+
+    const { scrapeConferenceExhibitors } = await import("./conferenceScraper");
+    const result = await scrapeConferenceExhibitors("https://mixed-conf.com/exhibitors");
+
+    // Should fall through to logo-link since nav array has no slug/country/stand
+    expect(result.strategy).toBe("logo-link");
+    const names = result.exhibitors.map(e => e.name);
+    expect(names).not.toContain("Home");
+    expect(names).not.toContain("About");
+  });
+});
+
+// ---------------------------------------------------------------------------
 // Apollo enrichment
 // ---------------------------------------------------------------------------
 
@@ -627,5 +733,72 @@ describe("Conference Scraper - Apollo enrichment", () => {
     expect(result!.sicCodes).toContain("3531");
     expect(result!.naicsCodes).toContain("333120");
     expect(result!.headcountGrowth).toContain("2.0%");
+  });
+
+  it("apolloEnrichByName: enriches by name + country when no domain available", async () => {
+    const mockedAxios = axios as any;
+    mockedAxios.post = vi.fn().mockResolvedValue({
+      data: {
+        organization: {
+          id: "apollo-org-456",
+          name: "Siemens Mobility GmbH",
+          website_url: "https://mobility.siemens.com",
+          primary_domain: "mobility.siemens.com",
+          linkedin_url: "https://linkedin.com/company/siemens-mobility",
+          founded_year: 2017,
+          organization_revenue_printed: "€9.9B",
+          sic_codes: ["3743"],
+          naics_codes: ["336510"],
+          city: "Munich",
+          state: "Bavaria",
+          country: "Germany",
+        },
+      },
+    });
+
+    const { apolloEnrichByName } = await import("./conferenceScraper");
+    const result = await apolloEnrichByName("Siemens Mobility", "DE");
+
+    expect(result).not.toBeNull();
+    expect(result!.apolloId).toBe("apollo-org-456");
+    expect(result!.name).toBe("Siemens Mobility GmbH");
+    expect(result!.country).toBe("Germany");
+    // Verify the API was called with name + country code
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      "https://api.apollo.io/api/v1/organizations/enrich",
+      { name: "Siemens Mobility", organization_country_code: "DE" },
+      expect.any(Object)
+    );
+  });
+
+  it("apolloEnrichByName: returns null when company not found", async () => {
+    const mockedAxios = axios as any;
+    mockedAxios.post = vi.fn().mockRejectedValue({
+      response: { status: 404 },
+      message: "Not Found",
+    });
+
+    const { apolloEnrichByName } = await import("./conferenceScraper");
+    const result = await apolloEnrichByName("Unknown Company XYZ", "NL");
+
+    expect(result).toBeNull();
+  });
+
+  it("apolloEnrichByName: works without country code", async () => {
+    const mockedAxios = axios as any;
+    mockedAxios.post = vi.fn().mockResolvedValue({
+      data: { organization: { id: "org-789", name: "ACME Corp" } },
+    });
+
+    const { apolloEnrichByName } = await import("./conferenceScraper");
+    const result = await apolloEnrichByName("ACME Corp");
+
+    expect(result).not.toBeNull();
+    // Should be called without organization_country_code
+    expect(mockedAxios.post).toHaveBeenCalledWith(
+      "https://api.apollo.io/api/v1/organizations/enrich",
+      { name: "ACME Corp" },
+      expect.any(Object)
+    );
   });
 });

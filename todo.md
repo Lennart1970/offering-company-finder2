@@ -1142,3 +1142,11 @@
 - [x] Update getAllPersonnel tRPC procedure input schema with optional seniorities and department fields
 - [x] Redesign Fetch Personnel modal: seniority checkboxes (C-Suite+VP default), department dropdown, reduced max results (10/25/50/100)
 - [x] 226 tests passing — no regressions
+
+## Fix: Conference Scraper — Next.js SSR Sites (Intertraffic pattern)
+- [x] Add __NEXT_DATA__ JSON extractor as Strategy 0 (runs before all other strategies)
+- [x] Extract company names + countryCode + website from embedded Next.js JSON blobs
+- [x] Smart filtering: ignores nav/menu arrays (requires slug/countryCode/standNumber to qualify)
+- [x] Add apolloEnrichByName() fallback when no domain available (name + organization_country_code)
+- [x] conferenceImport route uses name-based enrichment when websiteUrl is null
+- [x] 7 new tests (4 __NEXT_DATA__ + 3 apolloEnrichByName) — 233 total passing (18 test files)

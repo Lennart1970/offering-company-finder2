@@ -46,7 +46,7 @@ router.post("/", async (req: any, res: any) => {
   };
 
   try {
-    const { scrapeConferenceExhibitors, apolloEnrichByDomain } = await import("../conferenceScraper");
+    const { scrapeConferenceExhibitors, apolloEnrichByDomain, apolloEnrichByName } = await import("../conferenceScraper");
 
     // Step 1: Scrape the exhibitor page (multi-page)
     send({ status: "scraping", message: "Fetching exhibitor page..." });
@@ -140,6 +140,11 @@ router.post("/", async (req: any, res: any) => {
           apolloData = await apolloEnrichByDomain(domain);
         }
 
+        // Fallback: enrich by name + country when no domain is available
+        if (!apolloData && !domain) {
+          apolloData = await apolloEnrichByName(exhibitor.name, exhibitor.countryCode);
+        }
+
         if (apolloData) {
           enriched++;
           companyRows.push({
@@ -175,6 +180,9 @@ router.post("/", async (req: any, res: any) => {
           });
         }
 
+        const enrichMethod = apolloData
+          ? (domain ? "domain" : "name")
+          : null;
         send({
           status: "progress",
           done: i + 1,
@@ -184,6 +192,7 @@ router.post("/", async (req: any, res: any) => {
           failed,
           company: exhibitor.name,
           apolloFound: apolloData !== null,
+          enrichMethod,
         });
       } catch (err: any) {
         failed++;

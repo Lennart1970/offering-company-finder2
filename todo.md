@@ -1262,3 +1262,8 @@
 - [x] enrichmentFilter extended to 'all' | 'enriched' | 'pending' | 'outreach'
 - [x] outreachReady count added to enrichmentStats in getSearch tRPC procedure
 - [x] 264 tests still passing (20 test files)
+
+## Feature: Hero Sentence UX Improvements
+- [x] Bold [RESEARCH & OUTREACH] text in all hero sentence states is now clickable (dotted underline, purple hover, triggers mutation directly)
+- [x] Tooltip added to purple RESEARCH & OUTREACH button: "Generates a deep company brief (market position, pain points, recent news) + a personalized email, LinkedIn message, and call script for each enriched company."
+- [x] CALL TODAY hero state: "You have X companies to call today. Open each card below for your call script — good luck!"

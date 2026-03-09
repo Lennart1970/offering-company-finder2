@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { useLocation, useParams } from "wouter";
 import CompanyDecisionButtons from "@/components/CompanyDecisionButtons";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
 
 // Format revenue to human-readable string
@@ -355,14 +356,24 @@ export default function SearchResults() {
           <>
             <strong>{enrichedCount} companies</strong> from <strong>{campaignName}</strong> found in Apollo —{" "}
             <strong>{researchedCount}</strong> already have a research brief.
-            {" "}Press the purple <strong>[RESEARCH &amp; OUTREACH]</strong> button to compile research reports and outreach scripts for the rest.
+            {" "}Press the purple{" "}
+            <strong
+              className="cursor-pointer underline decoration-dotted hover:text-purple-700 transition-colors"
+              onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
+            >[RESEARCH &amp; OUTREACH]</strong>{" "}
+            button to compile research reports and outreach scripts for the rest.
           </>
         );
       }
       return (
         <>
           <strong>{enrichedCount} companies</strong> from <strong>{campaignName}</strong> found in Apollo and ready to work.
-          {" "}Press the purple <strong>[RESEARCH &amp; OUTREACH]</strong> button to compile a research report and personalized outreach script for each one.
+          {" "}Press the purple{" "}
+            <strong
+              className="cursor-pointer underline decoration-dotted hover:text-purple-700 transition-colors"
+              onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
+            >[RESEARCH &amp; OUTREACH]</strong>{" "}
+            button to compile a research report and personalized outreach script for each one.
         </>
       );
     }
@@ -379,7 +390,12 @@ export default function SearchResults() {
       return (
         <>
           <strong>{outreachReadyCount} of {totalCount} companies</strong> from <strong>{campaignName}</strong> are ready for outreach.
-          {" "}Press <strong>OUTREACH READY</strong> to go straight to your scripts, or press the purple <strong>[RESEARCH &amp; OUTREACH]</strong> button to compile reports for the remaining companies.
+          {" "}Press <strong>OUTREACH READY</strong> to go straight to your scripts, or press the purple{" "}
+            <strong
+              className="cursor-pointer underline decoration-dotted hover:text-purple-700 transition-colors"
+              onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
+            >[RESEARCH &amp; OUTREACH]</strong>{" "}
+            button to compile reports for the remaining companies.
         </>
       );
     }
@@ -387,7 +403,20 @@ export default function SearchResults() {
       return (
         <>
           <strong>{enrichedCount} of {totalCount} companies</strong> from <strong>{campaignName}</strong> ({sourceType}) are enriched and ready.
-          {" "}Press <strong>ENRICHED</strong> to see them, then hit the purple <strong>[RESEARCH &amp; OUTREACH]</strong> button to compile research reports and outreach scripts.
+          {" "}Press <strong>ENRICHED</strong> to see them, then hit the purple{" "}
+            <strong
+              className="cursor-pointer underline decoration-dotted hover:text-purple-700 transition-colors"
+              onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
+            >[RESEARCH &amp; OUTREACH]</strong>{" "}
+            button to compile research reports and outreach scripts.
+        </>
+      );
+    }
+    if (showCallTodayOnly) {
+      return (
+        <>
+          You have <strong>{callTodayCompanies.length} companies</strong> to call today.
+          {" "}Open each card below for your call script — good luck!
         </>
       );
     }
@@ -517,15 +546,24 @@ export default function SearchResults() {
                 </Button>
               )}
               {(enrichmentStats?.enriched ?? 0) > 0 && (
-                <Button
-                  onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
-                  disabled={batchResearchAndOutreachMutation.isPending}
-                  className="text-lg px-6 py-4 font-black border-4 border-purple-700 bg-purple-700 text-white"
-                >
-                  {batchResearchAndOutreachMutation.isPending
-                    ? "[RUNNING...]"
-                    : `[RESEARCH & OUTREACH — ${enrichmentStats?.enriched}]`}
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
+                        disabled={batchResearchAndOutreachMutation.isPending}
+                        className="text-lg px-6 py-4 font-black border-4 border-purple-700 bg-purple-700 text-white"
+                      >
+                        {batchResearchAndOutreachMutation.isPending
+                          ? "[RUNNING...]"
+                          : `[RESEARCH & OUTREACH — ${enrichmentStats?.enriched}]`}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs text-sm">
+                      Generates a deep company brief (market position, pain points, recent news) + a personalized email, LinkedIn message, and call script for each enriched company.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               )}
               {(enrichmentStats?.nameOnly ?? 0) > 0 && (
                 <Button

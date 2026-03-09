@@ -81,6 +81,16 @@ export default function SearchResults() {
     },
   });
 
+  const nameEnrichMutation = trpc.companyFinder.nameEnrichCampaign.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Re-enriched ${data.enriched} companies by name. ${data.failed} not found in Apollo.`);
+      if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
+    },
+    onError: (error) => {
+      toast.error(`Name enrichment failed: ${error.message}`);
+    },
+  });
+
   const exportCsvQuery = trpc.companyFinder.exportCsv.useQuery(
     { searchId: searchId! },
     { enabled: false }
@@ -378,6 +388,17 @@ export default function SearchResults() {
                     : `[ENRICH ALL — ${enrichmentStats?.pending}]`}
                 </Button>
               )}
+              {(enrichmentStats?.nameOnly ?? 0) > 0 && (
+                <Button
+                  onClick={() => nameEnrichMutation.mutate({ searchId: searchId!, limit: 500, concurrency: 3 })}
+                  disabled={nameEnrichMutation.isPending}
+                  className="text-lg px-6 py-4 font-black border-4 border-orange-500 bg-orange-500 text-white"
+                >
+                  {nameEnrichMutation.isPending
+                    ? "[RE-ENRICHING...]"
+                    : `[RE-ENRICH BY NAME — ${enrichmentStats?.nameOnly}]`}
+                </Button>
+              )}
               <Button
                 onClick={handleExportCsv}
                 variant="outline"
@@ -394,6 +415,14 @@ export default function SearchResults() {
               <div className="text-xl font-black">→ ENRICHING COMPANY DETAILS...</div>
               <div className="text-sm font-bold mt-2">
                 Fetching addresses, SIC/NAICS codes for {enrichmentStats?.pending} companies.
+              </div>
+            </div>
+          )}
+          {nameEnrichMutation.isPending && (
+            <div className="border-4 border-orange-500 p-6 mb-6 animate-pulse">
+              <div className="text-xl font-black text-orange-600">→ RE-ENRICHING BY NAME...</div>
+              <div className="text-sm font-bold mt-2">
+                Searching Apollo by company name for {enrichmentStats?.nameOnly} conference exhibitors. This may take a few minutes.
               </div>
             </div>
           )}

@@ -165,6 +165,7 @@ router.post("/", async (req: any, res: any) => {
             country: apolloData.country || null,
             streetAddress: apolloData.streetAddress || null,
             searchLocation: "Conference Import",
+            sourceCountryCode: exhibitor.countryCode || null,
             enrichmentStatus: "enriched",
           });
         } else {
@@ -176,6 +177,7 @@ router.post("/", async (req: any, res: any) => {
             websiteUrl: exhibitor.websiteUrl || null,
             primaryDomain: domain,
             searchLocation: "Conference Import",
+            sourceCountryCode: exhibitor.countryCode || null,
             enrichmentStatus: "pending",
           });
         }
@@ -202,6 +204,7 @@ router.post("/", async (req: any, res: any) => {
           name: exhibitor.name,
           websiteUrl: exhibitor.websiteUrl || null,
           searchLocation: "Conference Import",
+          sourceCountryCode: exhibitor.countryCode || null,
           enrichmentStatus: "failed",
         });
         send({

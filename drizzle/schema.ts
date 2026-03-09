@@ -85,6 +85,7 @@ export const companies = mysqlTable("companies", {
   sicCodes: text("sicCodes"), // JSON array of SIC codes
   naicsCodes: text("naicsCodes"), // JSON array of NAICS codes
   sliceMetadata: text("sliceMetadata"), // JSON object: { employeeBand, industry, keywordSet, matchedKeywords }
+  sourceCountryCode: varchar("sourceCountryCode", { length: 8 }), // ISO-2 country code from conference scraper (e.g. "NL", "DE")
   urgencyScore: int("urgencyScore"), // 0-100 urgency score from Grok analysis
   fitScore: int("fitScore"), // 0-100 fit score from Grok ICP analysis
   fitScoreData: text("fitScoreData"), // JSON-stringified FitScoreResult (breakdown + rationale)

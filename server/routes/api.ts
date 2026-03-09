@@ -824,7 +824,9 @@ router.post("/name-enrich-campaign", async (req: any, res: any) => {
       await Promise.all(
         batch.map(async (company: any) => {
           try {
-            const result = await apolloEnrichByName(company.name, company.country || null);
+            // Prefer sourceCountryCode (from scraper) over country (from Apollo, may be null for unenriched)
+            const countryHint = company.sourceCountryCode || company.country || null;
+            const result = await apolloEnrichByName(company.name, countryHint);
             if (result) {
               await updateCompany(company.id, {
                 apolloId: result.apolloId || undefined,

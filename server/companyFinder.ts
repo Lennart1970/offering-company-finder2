@@ -168,6 +168,10 @@ export const companyFinderRouter = router({
       // Count enrichment stats
       const enrichedCount = companiesList.filter((c) => c.enrichmentStatus === "enriched").length;
       const pendingCount = companiesList.filter((c) => c.enrichmentStatus === "pending").length;
+      // Name-only: pending companies with no apolloId and no primaryDomain (conference imports)
+      const nameOnlyCount = companiesList.filter(
+        (c) => c.enrichmentStatus === "pending" && !c.apolloId && !c.primaryDomain
+      ).length;
 
       return {
         search,
@@ -177,6 +181,7 @@ export const companyFinderRouter = router({
           total: companiesList.length,
           enriched: enrichedCount,
           pending: pendingCount,
+          nameOnly: nameOnlyCount,
         },
       };
     }),
@@ -1408,6 +1413,75 @@ export const companyFinderRouter = router({
       await assertSearchOwner(input.searchId, ctx.user.id);
       await toggleShareSearch(input.searchId, ctx.user.id, input.shared);
       return { success: true, shared: input.shared };
+    }),
+
+  // ---------------------------------------------------------------------------
+  // nameEnrichCampaign — name-based Apollo enrichment for conference imports
+  // Processes all pending companies with no apolloId/domain using organizations/search
+  // ---------------------------------------------------------------------------
+  nameEnrichCampaign: protectedProcedure
+    .input(z.object({
+      searchId: z.number(),
+      limit: z.number().min(1).max(500).default(200),
+      concurrency: z.number().min(1).max(5).default(3),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      await assertSearchAccess(input.searchId, ctx.user.id);
+
+      const { apolloEnrichByName } = await import("./conferenceScraper");
+      const pending = await getPendingCompaniesBySearchId(input.searchId);
+      const toEnrich = pending
+        .filter((c: any) => !c.apolloId && !c.primaryDomain)
+        .filter((c: any) => c.name && c.name.length > 1)
+        .filter((c: any) => !c.websiteUrl || !c.websiteUrl.includes("localhost"))
+        .slice(0, input.limit);
+
+      let enriched = 0;
+      let failed = 0;
+
+      for (let i = 0; i < toEnrich.length; i += input.concurrency) {
+        const batch = toEnrich.slice(i, i + input.concurrency);
+        await Promise.all(
+          batch.map(async (company: any) => {
+            try {
+              const countryHint = company.sourceCountryCode || company.country || null;
+              const result = await apolloEnrichByName(company.name, countryHint);
+              if (result) {
+                await updateCompany(company.id, {
+                  apolloId: result.apolloId || undefined,
+                  name: result.name || company.name,
+                  websiteUrl: result.websiteUrl || undefined,
+                  primaryDomain: result.primaryDomain || undefined,
+                  linkedinUrl: result.linkedinUrl || undefined,
+                  phone: result.phone || undefined,
+                  foundedYear: result.foundedYear || undefined,
+                  revenue: result.revenue || undefined,
+                  headcountGrowth: result.headcountGrowth || undefined,
+                  city: result.city || undefined,
+                  state: result.state || undefined,
+                  country: result.country || undefined,
+                  streetAddress: result.streetAddress || undefined,
+                  sicCodes: result.sicCodes?.length ? JSON.stringify(result.sicCodes) : undefined,
+                  naicsCodes: result.naicsCodes?.length ? JSON.stringify(result.naicsCodes) : undefined,
+                  enrichmentStatus: "enriched",
+                });
+                enriched++;
+              } else {
+                await updateCompany(company.id, { enrichmentStatus: "failed" });
+                failed++;
+              }
+            } catch {
+              await updateCompany(company.id, { enrichmentStatus: "failed" });
+              failed++;
+            }
+          })
+        );
+        if (i + input.concurrency < toEnrich.length) {
+          await new Promise(r => setTimeout(r, 300));
+        }
+      }
+
+      return { success: true, total: toEnrich.length, enriched, failed };
     }),
 
   // ---------------------------------------------------------------------------

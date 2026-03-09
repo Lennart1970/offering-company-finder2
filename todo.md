@@ -1170,3 +1170,13 @@
 - [x] Streams NDJSON progress with per-batch lastBatch company names
 - [x] 6 unit tests — 240 total passing (19 test files)
 - [x] Curl usage: POST /api/v1/name-enrich-campaign -d '{"searchId": 900002, "limit": 200}'
+
+## Intertraffic Enrichment Sprint
+- [x] Run name-enrich-campaign on searchId 900002 (408 Intertraffic companies) — running in background
+- [x] Add sourceCountryCode column to companies table (schema + migration 0022)
+- [x] Persist sourceCountryCode from conference scraper into companies table (all 3 insert paths)
+- [x] name-enrich-campaign endpoint uses sourceCountryCode as country hint for Apollo search
+- [x] Add [RE-ENRICH BY NAME] button to Search Results page (orange, shows count of name-only companies)
+- [x] Add orange progress banner when name enrichment is running
+- [x] nameEnrichCampaign tRPC mutation added to companyFinderRouter
+- [x] nameOnly count added to enrichmentStats in getSearch procedure

@@ -510,30 +510,28 @@ export default function SearchResults() {
           </div>
 
           {/* High-Urgency CTA — secondary paragraph, same font size as hero */}
-          {(highUrgencyNotCalled.length > 0 || urgencyCtaAdded) && (
+          {(highUrgencyNotCalled.length > 0 || urgencyCtaAdded || callTodayCompanies.length > 0) && (
             <div className="mb-6">
-              <p className="text-2xl md:text-3xl font-black text-red-700 leading-snug">
-                {urgencyCtaAdded ? (
-                  <>
-                    {highUrgencyNotCalled.length === 0
-                      ? "All high-urgency companies have been added to your Call Today list."
-                      : `${highUrgencyNotCalled.length} high-urgency ${highUrgencyNotCalled.length === 1 ? "company" : "companies"} added to your Call Today list.`}
-                  </>
-                ) : (
-                  <>
-                    {highUrgencyNotCalled.slice(0, 3).map((c: any) => c.name).join(", ")}
-                    {highUrgencyNotCalled.length > 3 ? ` and ${highUrgencyNotCalled.length - 3} more` : ""}
-                    {" "}{highUrgencyNotCalled.length === 1 ? "has" : "have"} a high urgency score —{" "}
-                    <span
-                      className="cursor-pointer underline decoration-dotted hover:text-red-900 transition-colors animate-blink-cta"
-                      onClick={addAllHighUrgencyToCallToday}
-                    >
-                      add {highUrgencyNotCalled.length === 1 ? "them" : "all " + highUrgencyNotCalled.length} to your Call Today list
-                    </span>.
-                  </>
-                )}
-              </p>
-              {urgencyCtaAdded && (
+              {/* Line 1: CTA to add high-urgency companies, or confirmation once added */}
+              {highUrgencyNotCalled.length > 0 && !urgencyCtaAdded ? (
+                <p className="text-2xl md:text-3xl font-black text-red-700 leading-snug">
+                  {highUrgencyNotCalled.slice(0, 3).map((c: any) => c.name).join(", ")}
+                  {highUrgencyNotCalled.length > 3 ? ` and ${highUrgencyNotCalled.length - 3} more` : ""}
+                  {" "}{highUrgencyNotCalled.length === 1 ? "has" : "have"} a high urgency score —{" "}
+                  <span
+                    className="cursor-pointer underline decoration-dotted hover:text-red-900 transition-colors animate-blink-cta"
+                    onClick={addAllHighUrgencyToCallToday}
+                  >
+                    add {highUrgencyNotCalled.length === 1 ? "them" : "all " + highUrgencyNotCalled.length} to your Call Today list
+                  </span>.
+                </p>
+              ) : callTodayCompanies.length > 0 ? (
+                <p className="text-2xl md:text-3xl font-black text-red-700 leading-snug">
+                  All high-urgency companies have been added to your Call Today list.
+                </p>
+              ) : null}
+              {/* Line 2: Always visible when there are Call Today companies */}
+              {callTodayCompanies.length > 0 && (
                 <p className="text-2xl md:text-3xl font-black text-red-700 leading-snug mt-2">
                   {callTodayCompanies.length} {callTodayCompanies.length === 1 ? "company" : "companies"} added to your Call Today list —{" "}
                   <span

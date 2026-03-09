@@ -51,10 +51,27 @@ export default function CompanyDetail() {
   const params = useParams<{ companyId: string }>();
   const companyId = parseInt(params.companyId, 10);
 
-  // Parse ?chapter= and ?from= from URL
+  // Parse ?chapter=, ?from=, ?queue=, ?qi= from URL
   const urlParams = new URLSearchParams(window.location.search);
   const initialChapter = (urlParams.get("chapter") as Chapter) || "overview";
   const fromParam = urlParams.get("from") || "";
+  const queueParam = urlParams.get("queue") || "";
+  const queueIndex = parseInt(urlParams.get("qi") || "-1", 10);
+
+  // Parse the queue of company IDs when arriving from Call Today
+  const queueIds = useMemo(() => {
+    if (!queueParam) return [];
+    return queueParam.split(",").map(Number).filter(Boolean);
+  }, [queueParam]);
+
+  const hasPrev = queueIds.length > 0 && queueIndex > 0;
+  const hasNext = queueIds.length > 0 && queueIndex < queueIds.length - 1;
+
+  const goToQueueIndex = (newIndex: number) => {
+    const nextId = queueIds[newIndex];
+    if (!nextId) return;
+    navigate(`/company/${nextId}?from=${fromParam}&queue=${queueParam}&qi=${newIndex}`);
+  };
 
   const [chapter, setChapter] = useState<Chapter>(initialChapter);
   const [researchSub, setResearchSub] = useState<ResearchSub>("recent-developments");
@@ -253,7 +270,9 @@ export default function CompanyDetail() {
   }, [company?.headcountGrowth]);
 
   const goBack = () => {
-    if (fromParam.startsWith("call-today/")) {
+    if (fromParam === "call-today") {
+      navigate("/call-today");
+    } else if (fromParam.startsWith("call-today/")) {
       navigate(`/call-today/${fromParam.replace("call-today/", "")}`);
     } else if (fromParam.startsWith("search/")) {
       navigate(`/search-results/${fromParam.replace("search/", "")}`);
@@ -283,14 +302,38 @@ export default function CompanyDetail() {
 
   return (
     <div className="max-w-6xl">
-      {/* ── Breadcrumb / Back ── */}
-      <div className="flex items-center gap-3 mb-4 flex-wrap">
-        <button onClick={goBack} className="text-xs font-black border-2 border-black px-3 py-1.5 hover:bg-black hover:text-white transition-colors cursor-pointer">
-          ← BACK
-        </button>
-        <span className="text-xs font-bold text-muted-foreground">
-          {fromParam.startsWith("call-today/") ? "CALL TODAY" : fromParam.startsWith("search/") ? "SEARCH RESULTS" : "BACK"} / {company.name.toUpperCase()}
-        </span>
+      {/* ── Breadcrumb / Back + Queue Navigator ── */}
+      <div className="flex items-center justify-between gap-3 mb-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <button onClick={goBack} className="text-xs font-black border-2 border-black px-3 py-1.5 hover:bg-black hover:text-white transition-colors cursor-pointer">
+            ← BACK
+          </button>
+          <span className="text-xs font-bold text-muted-foreground">
+            {(fromParam === "call-today" || fromParam.startsWith("call-today/")) ? "CALL TODAY" : fromParam.startsWith("search/") ? "SEARCH RESULTS" : "BACK"} / {company.name.toUpperCase()}
+          </span>
+        </div>
+        {/* Prev/Next queue navigator — only shown when arriving from Call Today queue */}
+        {queueIds.length > 0 && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-muted-foreground">
+              {queueIndex + 1} / {queueIds.length}
+            </span>
+            <button
+              onClick={() => goToQueueIndex(queueIndex - 1)}
+              disabled={!hasPrev}
+              className="text-xs font-black border-2 border-black px-3 py-1.5 disabled:opacity-30 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:cursor-default"
+            >
+              ← PREV
+            </button>
+            <button
+              onClick={() => goToQueueIndex(queueIndex + 1)}
+              disabled={!hasNext}
+              className="text-xs font-black border-2 border-black px-3 py-1.5 disabled:opacity-30 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:cursor-default"
+            >
+              NEXT →
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Company Header ── */}

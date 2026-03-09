@@ -64,6 +64,7 @@ export default function SearchResults() {
   const [showExcluded, setShowExcluded] = useState(false);
   const [sortBy, setSortBy] = useState<"default" | "urgency" | "fit_urgency">("urgency");
   const [enrichmentFilter, setEnrichmentFilter] = useState<"all" | "enriched" | "pending" | "outreach">("all");
+  const [urgencyCtaAdded, setUrgencyCtaAdded] = useState(false);
 
   useEffect(() => {
     if (searchData?.search.excludedSectors) {
@@ -245,6 +246,7 @@ export default function SearchResults() {
       await utils.companyFinder.getSearch.cancel();
       submitDecisionMutation.mutate({ companyId: company.id, searchId: searchId!, decision: "call_today" });
     }
+    setUrgencyCtaAdded(true);
     toast.success(`${highUrgencyNotCalled.length} high-urgency companies added to Call Today`);
   };
 
@@ -505,18 +507,28 @@ export default function SearchResults() {
             </p>
           </div>
 
-          {/* High-Urgency CTA — secondary paragraph */}
-          {highUrgencyNotCalled.length > 0 && (
-            <p className="text-base font-bold text-red-700 mb-6 leading-snug">
-              {highUrgencyNotCalled.slice(0, 3).map((c: any) => c.name).join(", ")}
-              {highUrgencyNotCalled.length > 3 ? ` and ${highUrgencyNotCalled.length - 3} more` : ""}
-              {" "}{highUrgencyNotCalled.length === 1 ? "has" : "have"} a high urgency score —{" "}
-              <span
-                className="cursor-pointer underline decoration-dotted hover:text-red-900 transition-colors"
-                onClick={addAllHighUrgencyToCallToday}
-              >
-                add {highUrgencyNotCalled.length === 1 ? "them" : "all " + highUrgencyNotCalled.length} to your Call Today list
-              </span>.
+          {/* High-Urgency CTA — secondary paragraph, same font size as hero */}
+          {(highUrgencyNotCalled.length > 0 || urgencyCtaAdded) && (
+            <p className="text-2xl md:text-3xl font-black text-red-700 mb-6 leading-snug">
+              {urgencyCtaAdded ? (
+                <>
+                  {highUrgencyNotCalled.length === 0
+                    ? "All high-urgency companies have been added to your Call Today list. Check the CALL TODAY tab below."
+                    : `${highUrgencyNotCalled.length} high-urgency ${highUrgencyNotCalled.length === 1 ? "company" : "companies"} added to your Call Today list.`}
+                </>
+              ) : (
+                <>
+                  {highUrgencyNotCalled.slice(0, 3).map((c: any) => c.name).join(", ")}
+                  {highUrgencyNotCalled.length > 3 ? ` and ${highUrgencyNotCalled.length - 3} more` : ""}
+                  {" "}{highUrgencyNotCalled.length === 1 ? "has" : "have"} a high urgency score —{" "}
+                  <span
+                    className="cursor-pointer underline decoration-dotted hover:text-red-900 transition-colors animate-blink-cta"
+                    onClick={addAllHighUrgencyToCallToday}
+                  >
+                    add {highUrgencyNotCalled.length === 1 ? "them" : "all " + highUrgencyNotCalled.length} to your Call Today list
+                  </span>.
+                </>
+              )}
             </p>
           )}
           {/* Stats Bar — supporting detail */}

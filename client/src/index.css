@@ -201,3 +201,10 @@
     }
   }
 }
+@keyframes blink-cta {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+.animate-blink-cta {
+  animation: blink-cta 1.2s ease-in-out infinite;
+}

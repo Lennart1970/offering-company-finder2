@@ -1278,3 +1278,8 @@
 ## Fix: React Hooks Order Crash in SearchResults
 - [x] Moved highUrgencyNotCalled useMemo before the isSelectMode early return — hooks now always called in same order
 - [x] OUTREACH READY text in hero sentence is now clickable (dotted underline, sets enrichmentFilter to 'outreach')
+
+## Fix: High-Urgency CTA Styling
+- [x] Matched font size to hero paragraph (text-2xl md:text-3xl font-black)
+- [x] Added blink animation (animate-blink-cta keyframe in index.css, 1.2s ease-in-out infinite)
+- [x] Message stays visible after click — switches to red confirmation: "All high-urgency companies have been added to your Call Today list. Check the CALL TODAY tab below."

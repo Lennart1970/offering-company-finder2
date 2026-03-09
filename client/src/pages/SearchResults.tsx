@@ -909,6 +909,7 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
   onViewResearch?: (companyId: number) => void;
   onViewApproach?: (companyId: number) => void;
 }) {
+  const [, navigate] = useLocation();
   const hasSicCodes = !!(company.sicCodes && JSON.parse(company.sicCodes).length > 0);
   const hasNaicsCodes = !!(company.naicsCodes && JSON.parse(company.naicsCodes).length > 0);
 
@@ -935,13 +936,16 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
                 <span className="text-[10px] font-black border border-blue-600 text-blue-600 px-1.5 py-0.5">RESEARCHED</span>
               )}
               {company.urgencyScore > 0 && (
-                <span className={`text-[10px] font-black px-1.5 py-0.5 ${
-                  company.urgencyScore >= 70 ? "bg-red-600 text-white" :
-                  company.urgencyScore >= 50 ? "bg-yellow-500 text-white" :
-                  "bg-gray-200 text-gray-700"
-                }`}>
+                <button
+                  onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}?chapter=urgency&from=search/${searchId}`); }}
+                  className={`text-[10px] font-black px-1.5 py-0.5 cursor-pointer hover:opacity-80 transition-opacity ${
+                    company.urgencyScore >= 70 ? "bg-red-600 text-white" :
+                    company.urgencyScore >= 50 ? "bg-yellow-500 text-white" :
+                    "bg-gray-200 text-gray-700"
+                  }`}
+                >
                   ⚡ {company.urgencyScore}
-                </span>
+                </button>
               )}
               {company.salesApproachData && (
                 <span className="text-[10px] font-black border border-green-600 text-green-600 px-1.5 py-0.5">SALES READY</span>
@@ -1020,7 +1024,7 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
               ].filter(Boolean) as string[];
               return (
                 <button
-                  onClick={(e) => { e.stopPropagation(); onViewResearch?.(company.id); }}
+                  onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}?chapter=research&from=search/${searchId}`); }}
                   className="flex-1 border-2 border-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors p-3 text-left cursor-pointer"
                 >
                   <div className="text-[10px] font-black text-blue-600 mb-0.5">DEEP RESEARCH</div>
@@ -1052,7 +1056,7 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
               ].filter(Boolean) as string[];
               return (
                 <button
-                  onClick={(e) => { e.stopPropagation(); onViewApproach?.(company.id); }}
+                  onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}?chapter=approach&from=search/${searchId}`); }}
                   className="flex-1 border-2 border-green-600 bg-green-50 hover:bg-green-100 transition-colors p-3 text-left cursor-pointer"
                 >
                   <div className="text-[10px] font-black text-green-600 mb-0.5">SALES APPROACH</div>

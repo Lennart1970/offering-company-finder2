@@ -1154,6 +1154,22 @@ export const companyFinderRouter = router({
   // Find All C-Suite: Bulk Contact Search
   // ============================================================================
 
+  // Get single company with all data (for Company Detail page)
+  getCompany: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const company = await assertCompanyAccess(input.companyId, ctx.user.id);
+      const contacts = await getContactsByCompanyId(input.companyId);
+      const decision = await getCompanyDecision(input.companyId, ctx.user.id);
+      const search = await getSearchById(company.searchId);
+      return {
+        company,
+        contacts,
+        decision: decision ?? null,
+        search: search ?? null,
+      };
+    }),
+
   // Get all contacts for a company
   getCompanyContacts: protectedProcedure
     .input(z.object({

@@ -214,24 +214,36 @@ export default function CallToday() {
             </div>
           </div>
 
-          {/* Research / Approach Quick-Access Cards */}
+          {/* Research / Approach Quick-Access Cards — navigate to Company Detail chapter pages */}
           <div className="grid grid-cols-1 md:grid-cols-2 border-b-4 border-black">
             {company.briefData ? (
               <button
-                onClick={() => setViewMode(viewMode === "research" ? "overview" : "research")}
-                className={`p-4 text-left cursor-pointer transition-colors border-r-2 border-black ${
-                  viewMode === "research" ? "bg-blue-600 text-white" : "bg-blue-50 hover:bg-blue-100"
-                }`}
+                onClick={() => navigate(`/company/${company.id}?chapter=research&from=call-today/${searchId}`)}
+                className="p-4 text-left cursor-pointer transition-colors border-r-2 border-black bg-blue-50 hover:bg-blue-100"
               >
-                <div className={`text-[10px] font-black mb-0.5 ${viewMode === "research" ? "text-blue-200" : "text-blue-600"}`}>DEEP RESEARCH</div>
-                <div className={`text-base font-black ${viewMode === "research" ? "text-white" : "text-blue-800"}`}>
-                  {viewMode === "research" ? "▼ Research Brief" : "▶ View Research Brief"}
-                </div>
+                <div className="text-[10px] font-black mb-0.5 text-blue-600">DEEP RESEARCH</div>
+                <div className="text-base font-black text-blue-800">→ View Research Brief</div>
                 {briefData?.urgencyScore > 0 && (
-                  <div className={`text-xs font-bold mt-1 ${viewMode === "research" ? "text-blue-200" : "text-blue-600"}`}>
-                    Urgency: {briefData.urgencyScore}/100
-                  </div>
+                  <div className="text-xs font-bold mt-1 text-blue-600">Urgency: {briefData.urgencyScore}/100</div>
                 )}
+                {briefData && (() => {
+                  const sections = [
+                    briefData.recentDevelopments?.length > 0 && 'Recent Developments',
+                    briefData.productsAndServices?.length > 0 && 'Products & Services',
+                    briefData.keyTechnologies?.length > 0 && 'Key Technologies',
+                    briefData.targetMarkets?.length > 0 && 'Target Markets',
+                    briefData.sources?.length > 0 && `Sources (${briefData.sources.length})`,
+                  ].filter(Boolean) as string[];
+                  return sections.length > 0 ? (
+                    <ul className="mt-2 space-y-0.5">
+                      {sections.map((s) => (
+                        <li key={s} className="text-[10px] font-bold text-blue-700 flex items-center gap-1">
+                          <span className="w-1 h-1 rounded-full bg-blue-500 shrink-0" />{s}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null;
+                })()}
               </button>
             ) : (
               <div className="p-4 bg-gray-50 border-r-2 border-black opacity-40">
@@ -241,18 +253,28 @@ export default function CallToday() {
             )}
             {company.salesApproachData ? (
               <button
-                onClick={() => setViewMode(viewMode === "approach" ? "overview" : "approach")}
-                className={`p-4 text-left cursor-pointer transition-colors ${
-                  viewMode === "approach" ? "bg-green-600 text-white" : "bg-green-50 hover:bg-green-100"
-                }`}
+                onClick={() => navigate(`/company/${company.id}?chapter=approach&from=call-today/${searchId}`)}
+                className="p-4 text-left cursor-pointer transition-colors bg-green-50 hover:bg-green-100"
               >
-                <div className={`text-[10px] font-black mb-0.5 ${viewMode === "approach" ? "text-green-200" : "text-green-600"}`}>SALES APPROACH</div>
-                <div className={`text-base font-black ${viewMode === "approach" ? "text-white" : "text-green-800"}`}>
-                  {viewMode === "approach" ? "▼ Sales Approach" : "▶ View Approach"}
-                </div>
-                <div className={`text-xs font-bold mt-1 ${viewMode === "approach" ? "text-green-200" : "text-green-600"}`}>
-                  Email · LinkedIn · Call Script
-                </div>
+                <div className="text-[10px] font-black mb-0.5 text-green-600">SALES APPROACH</div>
+                <div className="text-base font-black text-green-800">→ View Approach</div>
+                {salesApproach && (() => {
+                  const sections = [
+                    salesApproach.conversationStarters?.length > 0 && `Conversation Starters (${salesApproach.conversationStarters.length})`,
+                    salesApproach.emailDraft && 'Email Draft',
+                    salesApproach.linkedinMessage && 'LinkedIn Message',
+                    salesApproach.callScript && 'Call Script',
+                  ].filter(Boolean) as string[];
+                  return sections.length > 0 ? (
+                    <ul className="mt-2 space-y-0.5">
+                      {sections.map((s) => (
+                        <li key={s} className="text-[10px] font-bold text-green-700 flex items-center gap-1">
+                          <span className="w-1 h-1 rounded-full bg-green-500 shrink-0" />{s}
+                        </li>
+                      ))}
+                    </ul>
+                  ) : null;
+                })()}
               </button>
             ) : (
               <div className="p-4 bg-gray-50 opacity-40">

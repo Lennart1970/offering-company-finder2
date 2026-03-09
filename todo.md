@@ -1302,3 +1302,13 @@
 - [ ] Navigation: previous/next company in queue
 - [ ] Add "Call Today" link in sidebar nav
 - [ ] Wire "start your outreach" CTA to navigate to /call-today/:searchId
+
+## Feature: Company Detail Page with Chapter Navigation
+- [x] Add tRPC procedure: companyFinder.getCompany (single company with all data by companyId)
+- [x] Build /company/:companyId page with chapter tabs: Urgency, Research, Approach, Contacts
+- [x] Back navigation: preserve ?from=search/:searchId or ?from=call-today/:searchId context
+- [x] Wire bullet CTAs on search results card to /company/:companyId?chapter=research&from=...
+- [x] Wire urgency score click to /company/:companyId?chapter=urgency&from=...
+- [x] Wire VIEW RESEARCH / VIEW APPROACH header cards to /company/:companyId?chapter=...
+- [x] Wire Call Today research/approach cards to company chapter pages
+- [x] Wide layout on chapter pages with image placeholder slots in Products & Services

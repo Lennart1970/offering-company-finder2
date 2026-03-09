@@ -1324,3 +1324,11 @@
 - [ ] Company Detail Overview: replace SIC/NAICS with plain-English industry, headcount range, growth signal
 - [ ] Search Results card: remove SIC/NAICS codes
 - [ ] Search Results card: show last call outcome badge + next-action indicator
+
+## Feature: Persistent Call Outcomes & Nurture List
+- [ ] Verify callOutcomes table has all needed fields (companyId, userId, outcome, notes, followUpDate, createdAt)
+- [ ] CompanyDetail: load persisted outcomes on page open, pre-fill last outcome state, show full outcome history log
+- [ ] Add getNurtureList tRPC procedure: companies with follow-up dates, joined with last outcome, sorted by followUpDate ASC
+- [ ] Build Nurture List page: follow-up queue sorted by date, outcome badge, notes preview, company link, overdue indicator
+- [ ] Add Nurture List to sidebar nav with badge count of overdue items
+- [ ] Wire /nurture route in App.tsx

@@ -1766,6 +1766,59 @@ export const companyFinderRouter = router({
       return { outcomes };
     }),
 
+  // Get all companies with follow-up dates set (nurture list)
+  getNurtureList: protectedProcedure
+    .query(async ({ ctx }) => {
+      const { getDb } = await import("./db");
+      const { callOutcomes, companies, searches } = await import("../drizzle/schema");
+      const { eq, and, isNotNull, asc, desc, sql } = await import("drizzle-orm");
+      const db = await getDb();
+      if (!db) return { items: [] };
+
+      // Get all call outcomes with follow-up dates for this user, joined with company info
+      const rows = await db
+        .select({
+          outcomeId: callOutcomes.id,
+          outcome: callOutcomes.outcome,
+          notes: callOutcomes.notes,
+          followUpDate: callOutcomes.followUpDate,
+          createdAt: callOutcomes.createdAt,
+          companyId: companies.id,
+          companyName: companies.name,
+          companyWebsite: companies.websiteUrl,
+          companyCity: companies.city,
+          companyCountry: companies.country,
+          urgencyScore: companies.urgencyScore,
+          searchId: companies.searchId,
+        })
+        .from(callOutcomes)
+        .innerJoin(companies, eq(callOutcomes.companyId, companies.id))
+        .where(
+          and(
+            eq(callOutcomes.userId, ctx.user.id),
+            isNotNull(callOutcomes.followUpDate)
+          )
+        )
+        .orderBy(asc(callOutcomes.followUpDate));
+
+      // Deduplicate: keep only the latest outcome per company that has a follow-up date
+      const seen = new Set<number>();
+      const items = rows.filter(r => {
+        if (seen.has(r.companyId)) return false;
+        seen.add(r.companyId);
+        return true;
+      });
+
+      const today = new Date().toISOString().slice(0, 10);
+      return {
+        items: items.map(item => ({
+          ...item,
+          isOverdue: !!(item.followUpDate && item.followUpDate < today),
+          isDueToday: item.followUpDate === today,
+        }))
+      };
+    }),
+
   // Generate a 1-sentence call readiness summary for a company
   generateCallReadiness: protectedProcedure
     .input(z.object({ companyId: z.number() }))

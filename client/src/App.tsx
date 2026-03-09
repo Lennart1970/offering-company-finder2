@@ -16,6 +16,7 @@ import ConferenceImport from "./pages/ConferenceImport";
 import ExcelImport from "./pages/ExcelImport";
 import CallToday from "./pages/CallToday";
 import CompanyDetail from "./pages/CompanyDetail";
+import NurtureList from "./pages/NurtureList";
 
 
 function Router() {
@@ -33,6 +34,7 @@ function Router() {
         <Route path={"/brain"} component={Brain} />
         <Route path={"/call-today/:searchId"} component={CallToday} />
         <Route path={"/company/:companyId"} component={CompanyDetail} />
+        <Route path={"/nurture"} component={NurtureList} />
 
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />

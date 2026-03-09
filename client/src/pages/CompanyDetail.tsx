@@ -185,8 +185,17 @@ export default function CompanyDetail() {
     onError: () => { setCallReadinessLoading(false); toast.error("Could not generate summary"); },
   });
 
+  const outcomesUtils = trpc.useUtils();
+
   const logOutcome = trpc.companyFinder.logCallOutcome.useMutation({
-    onSuccess: () => { setOutcomeSaved(true); toast.success("Outcome saved"); },
+    onSuccess: () => {
+      setOutcomeSaved(true);
+      setOutcomeNotes("");
+      setFollowUpDate("");
+      setOutcomeSelected(null);
+      toast.success("Outcome saved");
+      outcomesUtils.companyFinder.getCallOutcomes.invalidate({ companyId });
+    },
     onError: () => toast.error("Failed to save outcome"),
   });
 
@@ -601,6 +610,33 @@ export default function CompanyDetail() {
                   </div>
                 )}
               </div>
+
+              {/* ── 4b. OUTCOME HISTORY LOG ── */}
+              {outcomesData?.outcomes && outcomesData.outcomes.length > 0 && (
+                <div className="border-2 border-black p-4">
+                  <div className="text-[10px] font-black text-muted-foreground mb-3">📋 CALL HISTORY</div>
+                  <div className="space-y-2">
+                    {outcomesData.outcomes.map((o: any) => (
+                      <div key={o.id} className="flex items-start gap-3 text-xs border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+                        <span className={`shrink-0 px-2 py-0.5 font-black border text-[10px] ${
+                          OUTCOME_LABELS[o.outcome]?.color ?? "bg-gray-100 border-gray-300"
+                        }`}>
+                          {OUTCOME_LABELS[o.outcome]?.label ?? o.outcome}
+                        </span>
+                        <div className="flex-1 min-w-0">
+                          {o.notes && <p className="text-muted-foreground truncate">{o.notes}</p>}
+                          {o.followUpDate && (
+                            <p className="text-blue-700 font-bold">Follow-up: {o.followUpDate}</p>
+                          )}
+                        </div>
+                        <span className="shrink-0 text-muted-foreground">
+                          {new Date(o.createdAt).toLocaleDateString()}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               {/* ── 5. CHAPTER NAVIGATION CARDS ── */}
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">

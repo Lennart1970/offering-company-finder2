@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, Microscope, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2, FileSpreadsheet, Phone } from "lucide-react";
+import { List, Microscope, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2, FileSpreadsheet, Phone, BookMarked } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -34,6 +34,7 @@ const menuItems = [
   { icon: FileSpreadsheet, label: "Excel Import", path: "/excel-import" },
   { icon: List, label: "Search Results", path: "/search-results" },
   { icon: Phone, label: "Call Today", path: "/call-today" },
+  { icon: BookMarked, label: "Nurture List", path: "/nurture" },
   { icon: Microscope, label: "Deep Research", path: "/deep-research" },
   { icon: ShieldBan, label: "Exclusions", path: "/exclusions" },
 ];

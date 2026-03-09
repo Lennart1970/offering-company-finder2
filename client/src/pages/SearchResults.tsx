@@ -331,6 +331,48 @@ export default function SearchResults() {
   const enrichmentStats = searchData.enrichmentStats;
   const hasPendingCompanies = enrichmentStats && enrichmentStats.pending > 0;
 
+  // Dynamic context sentence for sales reps — updates based on active filter
+  const sourceType = searchData.search.location || "import"; // e.g. "Excel Import", "Conference Import"
+  const campaignName = searchData.search.offeringName || "this campaign";
+  const totalCount = filteredCompanies.length;
+  const enrichedCount = enrichmentStats?.enriched ?? 0;
+  const researchedCount = searchData.companies.filter((c: any) => !!c.briefData).length;
+
+  const contextSentence = (() => {
+    if (enrichmentFilter === "enriched") {
+      if (researchedCount > 0) {
+        return (
+          <>
+            You are looking at the <strong>{enrichedCount} enriched companies</strong> from <strong>{campaignName}</strong>.
+            {" "}<strong>{researchedCount}</strong> of them already have a research brief.
+            {" "}Open any company card to read the brief and copy your outreach script.
+          </>
+        );
+      }
+      return (
+        <>
+          You are looking at the <strong>{enrichedCount} companies</strong> found in the Apollo database.
+          {" "}Press <strong>[RESEARCH &amp; OUTREACH]</strong> to generate a deep brief and personalized sales approach for each one.
+        </>
+      );
+    }
+    if (enrichmentFilter === "pending") {
+      return (
+        <>
+          You are looking at the <strong>{enrichmentStats?.pending ?? 0} companies</strong> not yet found in Apollo.
+          {" "}Press <strong>[ENRICH ALL]</strong> to retry, or use <strong>[RE-ENRICH BY NAME]</strong> if these came from a conference or Excel import.
+        </>
+      );
+    }
+    // Default: all
+    return (
+      <>
+        You are looking at <strong>{totalCount} matches</strong> from <strong>{campaignName}</strong> ({sourceType}).
+        {" "}Press <strong>{enrichedCount} ENRICHED</strong> to see which ones were found in the Apollo database.
+      </>
+    );
+  })();
+
   return (
     <div className="max-w-6xl">
       {/* Page Header */}
@@ -379,6 +421,11 @@ export default function SearchResults() {
 
       {(searchData.search.status === "completed" || searchData.search.status === "searching") && searchData.companies.length > 0 && (
         <>
+          {/* Dynamic Context Sentence */}
+          <div className="mb-4 text-sm font-medium text-muted-foreground border-l-4 border-black pl-4 py-1">
+            {contextSentence}
+          </div>
+
           {/* Stats Bar */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-4">

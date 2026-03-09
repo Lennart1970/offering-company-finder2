@@ -1237,3 +1237,11 @@
 - [x] Combined progress banner: Phase 1 (research) + Phase 2 (approaches) described in one banner
 - [x] Toast on completion with research completed/failed + approach completed/failed counts
 - [x] 264 tests still passing (20 test files)
+
+## Feature: Dynamic Context Sentence in Search Results
+- [x] Dynamic guidance sentence added below campaign title, updates based on enrichmentFilter state
+- [x] Default (all): "You are looking at {N matches} from {campaign name} (Excel Import). Press {X ENRICHED} to see which ones were found in the Apollo database."
+- [x] Enriched filter + no research: "You are looking at the {X enriched companies}. Press [RESEARCH & OUTREACH] to generate a deep brief and personalized sales approach for each one."
+- [x] Enriched filter + some research: "You are looking at the {X enriched companies} — {Y} of them already have a research brief. Open any company card to read the brief and copy your outreach script."
+- [x] Pending filter: "You are looking at the {X companies} not yet found in Apollo. Press [ENRICH ALL] to retry, or use [RE-ENRICH BY NAME] if these came from a conference or Excel import."
+- [x] Styled with left black border for visual distinction from main content

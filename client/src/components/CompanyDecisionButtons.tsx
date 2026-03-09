@@ -99,15 +99,15 @@ export default function CompanyDecisionButtons({
     const badges: Record<string, { label: string; style: string }> = {
       call_today: {
         label: "✓ CALL TODAY",
-        style: "bg-green-600 text-white border-green-600",
+        style: "bg-green-700 text-white border-green-700",
       },
       park: {
         label: "⏸ PARKED",
-        style: "bg-yellow-500 text-black border-yellow-500",
+        style: "bg-gray-200 text-gray-700 border-gray-300",
       },
       not_relevant: {
         label: "✕ NOT RELEVANT",
-        style: "bg-red-600 text-white border-red-600",
+        style: "bg-gray-100 text-gray-500 border-gray-300",
       },
     };
 
@@ -209,7 +209,7 @@ export default function CompanyDecisionButtons({
         onClick={() => handleDecision("park")}
         disabled={submitMutation.isPending}
         variant="outline"
-        className="text-xs font-black border-2 border-black hover:bg-yellow-400 hover:border-yellow-400 px-4 py-2 h-auto"
+        className="text-xs font-black border-2 border-gray-300 text-gray-600 hover:bg-gray-100 hover:border-gray-400 px-4 py-2 h-auto"
         size="sm"
       >
         ⏸ PARK
@@ -218,7 +218,7 @@ export default function CompanyDecisionButtons({
         onClick={() => handleDecision("not_relevant")}
         disabled={submitMutation.isPending}
         variant="outline"
-        className="text-xs font-black border-2 border-red-600 text-red-600 hover:bg-red-600 hover:text-white px-4 py-2 h-auto"
+        className="text-xs font-black border-2 border-gray-300 text-gray-500 hover:bg-gray-100 hover:border-gray-400 px-4 py-2 h-auto"
         size="sm"
       >
         ✕ NOT RELEVANT

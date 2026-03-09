@@ -1332,3 +1332,20 @@
 - [ ] Build Nurture List page: follow-up queue sorted by date, outcome badge, notes preview, company link, overdue indicator
 - [ ] Add Nurture List to sidebar nav with badge count of overdue items
 - [ ] Wire /nurture route in App.tsx
+
+## UI Restyle Pass (Visual Noise Reduction)
+- [x] SALES BRIEF button added to company cards (right-side CTA, dark bg)
+- [x] Decision buttons: CALL TODAY stays green, PARK and NOT RELEVANT neutralised to grey
+- [x] Filter badges (ENRICHED/PENDING/OUTREACH READY/EXCLUDED) neutralised to grey/black
+- [x] Action buttons (ENRICH ALL, RESEARCH & OUTREACH, RE-ENRICH) border reduced from 4 to 2
+- [x] Progress banners (enriching/research/re-enrich) neutralised to grey-50 background
+- [x] ALL/CALL TODAY tab buttons border reduced from 4 to 2, CALL TODAY active state changed to black
+- [x] Quick-view modal sections (urgency, starters, email, linkedin, call script) unified to border-l-4 gray-900 scheme
+- [x] DeepResearchButton and CreateSalesApproachButton modals fully neutralised
+- [x] FindAllCSuiteButton and GetAllPersonnelButton neutralised to grey/black
+- [x] CSuiteContactsModal header changed from purple to gray-900
+- [x] Tier progress indicators neutralised to grey scale
+- [x] Hero sentence inline links changed from purple hover to gray-600 hover
+- [x] Search progress bar changed from blue to gray-900
+- [x] All source/link anchors changed from blue-600 to gray-600/gray-900
+- [x] LinkedIn URL in data grid changed from blue to gray-700

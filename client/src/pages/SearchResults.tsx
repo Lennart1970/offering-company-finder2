@@ -295,8 +295,8 @@ export default function SearchResults() {
                           }}
                           className={`text-xs font-black border-2 px-3 py-1 transition-colors ${
                             search.sharedWithTeam
-                              ? "border-blue-600 text-blue-600 bg-blue-50"
-                              : "border-gray-400 text-gray-400 hover:border-blue-400 hover:text-blue-400"
+                              ? "border-gray-900 text-gray-900 bg-gray-100"
+                              : "border-gray-400 text-gray-400 hover:border-gray-700 hover:text-gray-700"
                           }`}
                           title={search.sharedWithTeam ? "Shared with team — click to make private" : "Private — click to share with team"}
                         >
@@ -305,13 +305,13 @@ export default function SearchResults() {
                       )}
                       {/* Shared badge for non-owners viewing a shared campaign */}
                       {search.userId !== user?.id && search.sharedWithTeam && (
-                        <span className="text-xs font-black border-2 px-3 py-1 border-blue-600 text-blue-600">
+                        <span className="text-xs font-black border-2 px-3 py-1 border-gray-700 text-gray-700">
                           SHARED
                         </span>
                       )}
                       <span className={`text-xs font-black border-2 px-3 py-1 ${
-                        search.status === "completed" ? "border-green-600 text-green-600" :
-                        search.status === "searching" ? "border-blue-600 text-blue-600" :
+                        search.status === "completed" ? "border-gray-900 text-gray-900" :
+                        search.status === "searching" ? "border-gray-700 text-gray-700" :
                         "border-black"
                       }`}>
                         {search.status?.toUpperCase()}
@@ -390,24 +390,24 @@ export default function SearchResults() {
           <>
             <strong>{enrichedCount} companies</strong> from <strong>{campaignName}</strong> found in Apollo —{" "}
             <strong>{researchedCount}</strong> already have a research brief.
-            {" "}Press the purple{" "}
+            {" "}Press{" "}
             <strong
-              className="cursor-pointer underline decoration-dotted hover:text-purple-700 transition-colors"
+              className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
               onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
             >[RESEARCH &amp; OUTREACH]</strong>{" "}
-            button to compile research reports and outreach scripts for the rest.
+            to compile research reports and outreach scripts for the rest.
           </>
         );
       }
       return (
         <>
           <strong>{enrichedCount} companies</strong> from <strong>{campaignName}</strong> found in Apollo and ready to work.
-          {" "}Press the purple{" "}
+          {" "}Press{" "}
             <strong
-              className="cursor-pointer underline decoration-dotted hover:text-purple-700 transition-colors"
+              className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
               onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
             >[RESEARCH &amp; OUTREACH]</strong>{" "}
-            button to compile a research report and personalized outreach script for each one.
+            to compile a research report and personalized outreach script for each one.
         </>
       );
     }
@@ -424,12 +424,12 @@ export default function SearchResults() {
       return (
         <>
           <strong>{outreachReadyCount} of {totalCount} companies</strong> from <strong>{campaignName}</strong> are ready for outreach.
-          {" "}Press <span className="cursor-pointer underline decoration-dotted hover:opacity-70 transition-opacity font-black" onClick={() => setEnrichmentFilter("outreach")}>OUTREACH READY</span> to go straight to your scripts, or press the purple{" "}
+          {" "}Press <span className="cursor-pointer underline decoration-dotted hover:opacity-70 transition-opacity font-black" onClick={() => setEnrichmentFilter("outreach")}>OUTREACH READY</span> to go straight to your scripts, or press{" "}
             <strong
-              className="cursor-pointer underline decoration-dotted hover:text-purple-700 transition-colors"
+              className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
               onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
             >[RESEARCH &amp; OUTREACH]</strong>{" "}
-            button to compile reports for the remaining companies.
+            to compile reports for the remaining companies.
         </>
       );
     }
@@ -437,12 +437,12 @@ export default function SearchResults() {
       return (
         <>
           <strong>{enrichedCount} of {totalCount} companies</strong> from <strong>{campaignName}</strong> ({sourceType}) are enriched and ready.
-          {" "}Press <strong>ENRICHED</strong> to see them, then hit the purple{" "}
+          {" "}Press <strong>ENRICHED</strong> to see them, then hit{" "}
             <strong
-              className="cursor-pointer underline decoration-dotted hover:text-purple-700 transition-colors"
+              className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
               onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
             >[RESEARCH &amp; OUTREACH]</strong>{" "}
-            button to compile research reports and outreach scripts.
+            to compile research reports and outreach scripts.
         </>
       );
     }
@@ -480,8 +480,8 @@ export default function SearchResults() {
 
       {/* Search still in progress */}
       {searchData.search.status === "searching" && (
-        <div className="border-4 border-blue-600 bg-blue-50 p-6 mb-8">
-          <div className="text-xl font-black text-blue-600 animate-pulse mb-4">→ SEARCH IN PROGRESS...</div>
+        <div className="border-2 border-gray-300 bg-gray-50 p-6 mb-8">
+          <div className="text-xl font-black text-gray-700 animate-pulse mb-4">→ SEARCH IN PROGRESS...</div>
           {searchData.search.codesTotal && searchData.search.codesSearched !== null && (
             <div>
               <div className="text-lg font-bold text-gray-700">
@@ -489,7 +489,7 @@ export default function SearchResults() {
               </div>
               <div className="mt-3 w-full bg-gray-200 h-4">
                 <div
-                  className="bg-blue-600 h-4 transition-all duration-300"
+                  className="bg-gray-900 h-4 transition-all duration-300"
                   style={{
                     width: `${((searchData.search.codesSearched ?? 0) / (searchData.search.codesTotal || 1)) * 100}%`,
                   }}
@@ -564,8 +564,8 @@ export default function SearchResults() {
                   onClick={() => setEnrichmentFilter(enrichmentFilter === "enriched" ? "all" : "enriched")}
                   className={`text-xs font-black border-2 px-3 py-1 cursor-pointer transition-colors ${
                     enrichmentFilter === "enriched"
-                      ? "border-green-600 bg-green-600 text-white"
-                      : "border-green-600 text-green-700 hover:bg-green-50"
+                      ? "border-gray-900 bg-gray-900 text-white"
+                      : "border-gray-400 text-gray-600 hover:border-gray-700"
                   }`}
                 >
                   {enrichmentStats?.enriched || 0} ENRICHED
@@ -574,8 +574,8 @@ export default function SearchResults() {
                   onClick={() => setEnrichmentFilter(enrichmentFilter === "pending" ? "all" : "pending")}
                   className={`text-xs font-black border-2 px-3 py-1 cursor-pointer transition-colors ${
                     enrichmentFilter === "pending"
-                      ? "border-orange-500 bg-orange-500 text-white"
-                      : "border-orange-500 text-orange-600 hover:bg-orange-50"
+                      ? "border-gray-900 bg-gray-900 text-white"
+                      : "border-gray-300 text-gray-500 hover:border-gray-600"
                   }`}
                 >
                   {enrichmentStats?.pending || 0} PENDING
@@ -585,8 +585,8 @@ export default function SearchResults() {
                     onClick={() => setEnrichmentFilter(enrichmentFilter === "outreach" ? "all" : "outreach")}
                     className={`text-xs font-black border-2 px-3 py-1 cursor-pointer transition-colors ${
                       enrichmentFilter === "outreach"
-                        ? "border-teal-600 bg-teal-600 text-white"
-                        : "border-teal-600 text-teal-700 hover:bg-teal-50"
+                        ? "border-gray-900 bg-gray-900 text-white"
+                        : "border-gray-400 text-gray-600 hover:border-gray-700"
                     }`}
                   >
                     {enrichmentStats?.outreachReady || 0} OUTREACH READY
@@ -595,7 +595,7 @@ export default function SearchResults() {
                 {excludedCompanies.length > 0 && (
                   <button
                     onClick={() => setShowExcluded(!showExcluded)}
-                    className="text-xs font-black border-2 border-red-600 text-red-600 px-3 py-1 cursor-pointer"
+                    className="text-xs font-black border-2 border-gray-400 text-gray-600 px-3 py-1 cursor-pointer hover:border-gray-700"
                   >
                     {excludedCompanies.length} EXCLUDED {showExcluded ? "▲" : "▼"}
                   </button>
@@ -607,7 +607,7 @@ export default function SearchResults() {
                 <Button
                   onClick={() => enrichAllMutation.mutate({ searchId: searchId! })}
                   disabled={enrichAllMutation.isPending}
-                  className="text-lg px-6 py-4 font-black border-4 border-black bg-black text-white"
+                  className="text-lg px-6 py-4 font-black border-2 border-black bg-black text-white"
                 >
                   {enrichAllMutation.isPending
                     ? "[ENRICHING...]"
@@ -621,7 +621,7 @@ export default function SearchResults() {
                       <Button
                         onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
                         disabled={batchResearchAndOutreachMutation.isPending}
-                        className="text-lg px-6 py-4 font-black border-4 border-purple-700 bg-purple-700 text-white"
+                        className="text-lg px-6 py-4 font-black border-2 border-gray-900 bg-gray-900 text-white"
                       >
                         {batchResearchAndOutreachMutation.isPending
                           ? "[RUNNING...]"
@@ -638,7 +638,7 @@ export default function SearchResults() {
                 <Button
                   onClick={() => nameEnrichMutation.mutate({ searchId: searchId!, limit: 500, concurrency: 3 })}
                   disabled={nameEnrichMutation.isPending}
-                  className="text-lg px-6 py-4 font-black border-4 border-orange-500 bg-orange-500 text-white"
+                  className="text-lg px-6 py-4 font-black border-2 border-gray-700 bg-gray-700 text-white"
                 >
                   {nameEnrichMutation.isPending
                     ? "[RE-ENRICHING...]"
@@ -648,7 +648,7 @@ export default function SearchResults() {
               <Button
                 onClick={handleExportCsv}
                 variant="outline"
-                className="text-lg px-6 py-4 font-black border-4 border-black"
+                className="text-lg px-6 py-4 font-black border-2 border-black"
               >
                 EXPORT CSV
               </Button>
@@ -657,16 +657,16 @@ export default function SearchResults() {
 
           {/* Enrichment Progress */}
           {enrichAllMutation.isPending && (
-            <div className="border-4 border-black p-6 mb-6 animate-pulse">
-              <div className="text-xl font-black">→ ENRICHING COMPANY DETAILS...</div>
+            <div className="border-2 border-gray-300 bg-gray-50 p-6 mb-6 animate-pulse">
+              <div className="text-xl font-black text-gray-700">→ ENRICHING COMPANY DETAILS...</div>
               <div className="text-sm font-bold mt-2">
                 Fetching addresses, SIC/NAICS codes for {enrichmentStats?.pending} companies.
               </div>
             </div>
           )}
           {batchResearchAndOutreachMutation.isPending && (
-            <div className="border-4 border-purple-700 p-6 mb-6 animate-pulse">
-              <div className="text-xl font-black text-purple-700">→ RESEARCH & OUTREACH RUNNING...</div>
+            <div className="border-2 border-gray-300 bg-gray-50 p-6 mb-6 animate-pulse">
+              <div className="text-xl font-black text-gray-700">→ RESEARCH & OUTREACH RUNNING...</div>
               <div className="text-sm font-bold mt-2">
                 Phase 1: Generating deep research briefs — Phase 2: Creating personalized sales approaches.
                 Each company takes ~30s. This runs in the background for all {enrichmentStats?.enriched} enriched companies.
@@ -674,8 +674,8 @@ export default function SearchResults() {
             </div>
           )}
           {nameEnrichMutation.isPending && (
-            <div className="border-4 border-orange-500 p-6 mb-6 animate-pulse">
-              <div className="text-xl font-black text-orange-600">→ RE-ENRICHING BY NAME...</div>
+            <div className="border-2 border-gray-300 bg-gray-50 p-6 mb-6 animate-pulse">
+              <div className="text-xl font-black text-gray-700">→ RE-ENRICHING BY NAME...</div>
               <div className="text-sm font-bold mt-2">
                 Searching Apollo by company name for {enrichmentStats?.nameOnly} conference exhibitors. This may take a few minutes.
               </div>
@@ -709,7 +709,7 @@ export default function SearchResults() {
             <Button
               onClick={() => setShowCallTodayOnly(false)}
               variant="outline"
-              className={`text-sm px-4 py-3 font-black border-4 border-black ${
+              className={`text-sm px-4 py-3 font-black border-2 border-black ${
                 !showCallTodayOnly ? 'bg-black text-white' : ''
               }`}
             >
@@ -718,8 +718,8 @@ export default function SearchResults() {
             <Button
               onClick={() => setShowCallTodayOnly(true)}
               variant="outline"
-              className={`text-sm px-4 py-3 font-black border-4 border-black ${
-                showCallTodayOnly ? 'bg-green-500 text-white' : ''
+              className={`text-sm px-4 py-3 font-black border-2 border-black ${
+                showCallTodayOnly ? 'bg-black text-white' : ''
               }`}
             >
               CALL TODAY ({callTodayCompanies?.length || 0})
@@ -779,10 +779,10 @@ export default function SearchResults() {
                       </div>
                       <div className="flex items-center gap-3">
                         {qc.briefData && (
-                          <button onClick={() => setQuickViewMode('research')} className={`text-xs font-black px-3 py-1.5 border-2 cursor-pointer ${ quickViewMode === 'research' ? 'border-blue-400 bg-blue-600 text-white' : 'border-gray-500 text-gray-300 hover:border-blue-400'}`}>RESEARCH</button>
+                            <button onClick={() => setQuickViewMode('research')} className={`text-xs font-black px-3 py-1.5 border-2 cursor-pointer ${ quickViewMode === 'research' ? 'border-white bg-white text-black' : 'border-gray-500 text-gray-300 hover:border-white'}`}>RESEARCH</button>
                         )}
                         {qc.salesApproachData && (
-                          <button onClick={() => setQuickViewMode('approach')} className={`text-xs font-black px-3 py-1.5 border-2 cursor-pointer ${ quickViewMode === 'approach' ? 'border-green-400 bg-green-600 text-white' : 'border-gray-500 text-gray-300 hover:border-green-400'}`}>APPROACH</button>
+                            <button onClick={() => setQuickViewMode('approach')} className={`text-xs font-black px-3 py-1.5 border-2 cursor-pointer ${ quickViewMode === 'approach' ? 'border-white bg-white text-black' : 'border-gray-500 text-gray-300 hover:border-white'}`}>APPROACH</button>
                         )}
                         <button onClick={() => { setQuickViewCompanyId(null); setQuickViewMode(null); }} className="text-2xl font-black hover:opacity-60 ml-2">×</button>
                       </div>
@@ -790,8 +790,8 @@ export default function SearchResults() {
                     {/* Research Content */}
                     {quickViewMode === 'research' && briefData && (
                       <div className="p-6">
-                        <div className="mb-6 p-4 bg-blue-50 border-2 border-blue-600">
-                          <div className="text-3xl font-black text-blue-600 mb-2">Urgency Score: {briefData.urgencyScore}/100</div>
+                        <div className="mb-6 p-4 bg-gray-50 border-l-4 border-gray-900">
+                          <div className="text-3xl font-black text-gray-900 mb-2">Urgency Score: {briefData.urgencyScore}/100</div>
                           {briefData.urgencyBreakdown && (
                             <div className="grid grid-cols-3 gap-4 text-sm">
                               <div><div className="font-bold">Company Context</div><div>{briefData.urgencyBreakdown.companyContext}/40</div></div>
@@ -808,11 +808,11 @@ export default function SearchResults() {
                             <h3 className="text-lg font-black mb-2">Urgency Signals</h3>
                             <div className="space-y-2">
                               {briefData.urgencySignals.map((s: any, i: number) => (
-                                <div key={i} className="p-3 bg-yellow-50 border border-yellow-300">
+                                <div key={i} className="p-3 bg-white border border-gray-200">
                                   <span className="font-bold text-sm">{s.category} — {s.type}</span>
                                   <div className="text-sm mt-1">{s.description}</div>
-                                  {s.snippet && <div className="text-xs text-gray-600 italic mt-1 border-l-2 border-yellow-400 pl-2">"{s.snippet}"</div>}
-                                  {s.sourceUrl && <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">Source</a>}
+                                  {s.snippet && <div className="text-xs text-gray-600 italic mt-1 border-l-2 border-gray-400 pl-2">"{s.snippet}"</div>}
+                                  {s.sourceUrl && <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 underline mt-1 inline-block">Source</a>}
                                 </div>
                               ))}
                             </div>
@@ -824,11 +824,11 @@ export default function SearchResults() {
                     {quickViewMode === 'approach' && salesApproach && (
                       <div className="p-6">
                         {salesApproach.conversationStarters?.length > 0 && (
-                          <div className="mb-6 p-4 border-2 border-amber-600">
-                            <h3 className="text-xl font-black text-amber-600 mb-2">Conversation Starters</h3>
+                            <div className="mb-6 p-4 border-l-4 border-gray-900 bg-gray-50">
+                            <h3 className="text-xl font-black text-gray-900 mb-2">Conversation Starters</h3>
                             <div className="space-y-3">
                               {salesApproach.conversationStarters.map((s: any, i: number) => (
-                                <div key={i} className="p-2 bg-amber-50">
+                                <div key={i} className="p-2 bg-white border border-gray-200">
                                   <div className="text-sm font-medium">{typeof s === 'string' ? s : s.opener}</div>
                                   {typeof s !== 'string' && s.basedOn && <div className="text-xs text-gray-500 mt-1">Based on: {s.basedOn}</div>}
                                 </div>
@@ -837,35 +837,35 @@ export default function SearchResults() {
                           </div>
                         )}
                         {salesApproach.emailDraft && (
-                          <div className="mb-6 p-4 border-2 border-green-600">
+                          <div className="mb-6 p-4 border-l-4 border-gray-900 bg-gray-50">
                             <div className="flex justify-between items-center mb-2">
-                              <h3 className="text-xl font-black text-green-600">Email Draft</h3>
-                              <button onClick={() => copyText(`Subject: ${salesApproach.emailDraft.subject}\n\n${salesApproach.emailDraft.body}`, 'Email')} className="text-xs font-black border-2 border-green-600 text-green-600 px-3 py-1 cursor-pointer hover:bg-green-50">COPY</button>
+                              <h3 className="text-xl font-black text-gray-900">Email Draft</h3>
+                              <button onClick={() => copyText(`Subject: ${salesApproach.emailDraft.subject}\n\n${salesApproach.emailDraft.body}`, 'Email')} className="text-xs font-black border-2 border-gray-900 text-gray-900 px-3 py-1 cursor-pointer hover:bg-gray-100">COPY</button>
                             </div>
                             <div className="mb-2"><span className="font-bold">Subject:</span> {salesApproach.emailDraft.subject}</div>
                             <div className="whitespace-pre-wrap text-sm">{salesApproach.emailDraft.body}</div>
                           </div>
                         )}
                         {salesApproach.linkedinMessage && (
-                          <div className="mb-6 p-4 border-2 border-blue-600">
-                            <h3 className="text-xl font-black text-blue-600 mb-2">LinkedIn Message</h3>
+                          <div className="mb-6 p-4 border-l-4 border-gray-900 bg-gray-50">
+                              <h3 className="text-xl font-black text-gray-900 mb-2">LinkedIn Message</h3>
                             <div className="mb-3">
-                              <div className="flex justify-between items-center mb-1"><span className="font-bold text-sm">Connection Request:</span><button onClick={() => copyText(salesApproach.linkedinMessage.connectionRequest, 'Connection Request')} className="text-xs font-black border border-blue-600 text-blue-600 px-2 py-0.5 cursor-pointer">COPY</button></div>
-                              <div className="text-sm bg-blue-50 p-2">{salesApproach.linkedinMessage.connectionRequest}</div>
+                              <div className="flex justify-between items-center mb-1"><span className="font-bold text-sm">Connection Request:</span><button onClick={() => copyText(salesApproach.linkedinMessage.connectionRequest, 'Connection Request')} className="text-xs font-black border border-gray-400 text-gray-700 px-2 py-0.5 cursor-pointer hover:bg-gray-100">COPY</button></div>
+                              <div className="text-sm bg-white border border-gray-200 p-2">{salesApproach.linkedinMessage.connectionRequest}</div>
                             </div>
                             <div>
-                              <div className="flex justify-between items-center mb-1"><span className="font-bold text-sm">Follow-up:</span><button onClick={() => copyText(salesApproach.linkedinMessage.followUp, 'Follow-up')} className="text-xs font-black border border-blue-600 text-blue-600 px-2 py-0.5 cursor-pointer">COPY</button></div>
-                              <div className="text-sm bg-blue-50 p-2">{salesApproach.linkedinMessage.followUp}</div>
+                              <div className="flex justify-between items-center mb-1"><span className="font-bold text-sm">Follow-up:</span><button onClick={() => copyText(salesApproach.linkedinMessage.followUp, 'Follow-up')} className="text-xs font-black border border-gray-400 text-gray-700 px-2 py-0.5 cursor-pointer hover:bg-gray-100">COPY</button></div>
+                              <div className="text-sm bg-white border border-gray-200 p-2">{salesApproach.linkedinMessage.followUp}</div>
                             </div>
                           </div>
                         )}
                         {salesApproach.callScript && (
-                          <div className="mb-6 p-4 border-2 border-purple-600">
+                          <div className="mb-6 p-4 border-l-4 border-gray-900 bg-gray-50">
                             <div className="flex justify-between items-center mb-2">
-                              <h3 className="text-xl font-black text-purple-600">Call Script</h3>
-                              <button onClick={() => copyText(salesApproach.callScript.fullScript || salesApproach.callScript.opening, 'Call Script')} className="text-xs font-black border-2 border-purple-600 text-purple-600 px-3 py-1 cursor-pointer hover:bg-purple-50">COPY</button>
+                              <h3 className="text-xl font-black text-gray-900">Call Script</h3>
+                              <button onClick={() => copyText(salesApproach.callScript.fullScript || salesApproach.callScript.opening, 'Call Script')} className="text-xs font-black border-2 border-gray-900 text-gray-900 px-3 py-1 cursor-pointer hover:bg-gray-100">COPY</button>
                             </div>
-                            {salesApproach.callScript.opening && <div className="mb-3"><div className="font-bold text-sm mb-1">Opening:</div><div className="text-sm bg-purple-50 p-2">{salesApproach.callScript.opening}</div></div>}
+                            {salesApproach.callScript.opening && <div className="mb-3"><div className="font-bold text-sm mb-1">Opening:</div><div className="text-sm bg-white border border-gray-200 p-2">{salesApproach.callScript.opening}</div></div>}
                             {salesApproach.callScript.fullScript && <div className="whitespace-pre-wrap text-sm">{salesApproach.callScript.fullScript}</div>}
                           </div>
                         )}
@@ -918,42 +918,35 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
     : company.searchLocation || "—";
 
   return (
-    <div id={`company-${company.id}`} className="border-4 border-black bg-white">
+    <div id={`company-${company.id}`} className="border border-gray-200 bg-white hover:border-gray-400 transition-colors">
       {/* Header Row: Index + Badges + Name + Website */}
       <div className="p-4 pb-3">
         <div className="flex items-start justify-between gap-4">
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-2 mb-1 flex-wrap">
-              <span className="text-xs font-black text-muted-foreground">[{String(index + 1).padStart(2, "0")}]</span>
-              {company.enrichmentStatus === "enriched" ? (
-                <span className="text-[10px] font-black border border-black px-1.5 py-0.5 bg-black text-white">ENRICHED</span>
-              ) : company.enrichmentStatus === "failed" ? (
-                <span className="text-[10px] font-black border border-red-600 text-red-600 px-1.5 py-0.5">FAILED</span>
-              ) : (
-                <span className="text-[10px] font-black border border-current px-1.5 py-0.5 opacity-40">PENDING</span>
+              <span className="text-xs font-medium text-gray-400">[{String(index + 1).padStart(2, "0")}]</span>
+              {company.enrichmentStatus === "failed" && (
+                <span className="text-[10px] font-medium border border-red-300 text-red-500 px-1.5 py-0.5">FAILED</span>
               )}
-              {company.briefData && (
-                <span className="text-[10px] font-black border border-blue-600 text-blue-600 px-1.5 py-0.5">RESEARCHED</span>
+              {company.enrichmentStatus === "pending" && (
+                <span className="text-[10px] font-medium text-gray-400 px-1.5 py-0.5">PENDING</span>
               )}
               {company.urgencyScore > 0 && (
                 <button
                   onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}?chapter=urgency&from=search/${searchId}`); }}
-                  className={`text-[10px] font-black px-1.5 py-0.5 cursor-pointer hover:opacity-80 transition-opacity ${
+                  className={`text-[10px] font-bold px-2 py-0.5 cursor-pointer hover:opacity-80 transition-opacity rounded-sm ${
                     company.urgencyScore >= 70 ? "bg-red-600 text-white" :
-                    company.urgencyScore >= 50 ? "bg-yellow-500 text-white" :
-                    "bg-gray-200 text-gray-700"
+                    company.urgencyScore >= 50 ? "bg-amber-500 text-white" :
+                    "bg-gray-200 text-gray-600"
                   }`}
                 >
                   ⚡ {company.urgencyScore}
                 </button>
               )}
-              {company.salesApproachData && (
-                <span className="text-[10px] font-black border border-green-600 text-green-600 px-1.5 py-0.5">SALES READY</span>
-              )}
             </div>
-            <h4 className="text-xl md:text-2xl font-black leading-tight truncate">{company.name}</h4>
+            <h4 className="text-lg md:text-xl font-bold leading-tight truncate text-gray-900">{company.name}</h4>
             {company.websiteUrl && (
-              <a href={company.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-muted-foreground underline truncate block mt-0.5">
+              <a href={company.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-400 hover:text-gray-600 truncate block mt-0.5">
                 {company.websiteUrl.replace(/^https?:\/\//, "")}
               </a>
             )}
@@ -972,6 +965,16 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
               } catch { return null; }
             })()}
           </div>
+          {/* SALES BRIEF — prominent right-side CTA */}
+          <div className="shrink-0">
+            <button
+              onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}?from=search/${searchId}`); }}
+              className="flex flex-col items-center justify-center gap-0.5 border-2 border-gray-900 bg-gray-900 text-white hover:bg-gray-700 transition-colors px-4 py-3 min-w-[90px]"
+            >
+              <span className="text-[10px] font-medium tracking-widest uppercase text-gray-300">Sales</span>
+              <span className="text-sm font-bold leading-tight">Brief →</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -979,25 +982,25 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
       <div className="px-4 pb-3">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-x-6 gap-y-2 text-sm border-t border-gray-200 pt-3">
           <div>
-            <div className="text-[10px] font-black text-muted-foreground">LOCATION</div>
-            <div className="font-bold text-sm truncate">{location}</div>
+            <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Location</div>
+            <div className="font-medium text-sm text-gray-700 truncate">{location}</div>
           </div>
           {company.revenue && (
             <div>
-              <div className="text-[10px] font-black text-muted-foreground">REVENUE</div>
-              <div className="font-bold text-sm">{formatRevenue(company.revenue)}</div>
+              <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Revenue</div>
+              <div className="font-medium text-sm text-gray-700">{formatRevenue(company.revenue)}</div>
             </div>
           )}
           {company.employeeCount && (
             <div>
-              <div className="text-[10px] font-black text-muted-foreground">EMPLOYEES</div>
-              <div className="font-bold text-sm">{formatEmployees(company.employeeCount)}</div>
+              <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">Employees</div>
+              <div className="font-medium text-sm text-gray-700">{formatEmployees(company.employeeCount)}</div>
             </div>
           )}
           {company.linkedinUrl && (
             <div className="col-span-2">
-              <div className="text-[10px] font-black text-muted-foreground">LINKEDIN</div>
-              <a href={company.linkedinUrl} target="_blank" rel="noopener noreferrer" className="font-bold text-sm underline truncate block">
+              <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide">LinkedIn</div>
+              <a href={company.linkedinUrl} target="_blank" rel="noopener noreferrer" className="font-medium text-sm text-gray-700 hover:underline truncate block">
                 {company.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}
               </a>
             </div>
@@ -1020,18 +1023,18 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
               return (
                 <button
                   onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}?chapter=research&from=search/${searchId}`); }}
-                  className="flex-1 border-2 border-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors p-3 text-left cursor-pointer"
+                  className="flex-1 border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors p-3 text-left cursor-pointer"
                 >
-                  <div className="text-[10px] font-black text-blue-600 mb-0.5">DEEP RESEARCH</div>
-                  <div className="text-sm font-black text-blue-800 leading-tight">View Research Brief →</div>
+                  <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Research</div>
+                  <div className="text-sm font-semibold text-gray-800 leading-tight">View Research Brief →</div>
                   {company.urgencyScore > 0 && (
-                    <div className="text-xs font-bold text-blue-600 mt-1">Urgency: {company.urgencyScore}/100</div>
+                    <div className="text-xs font-medium text-gray-500 mt-1">Urgency: {company.urgencyScore}/100</div>
                   )}
                   {sections.length > 0 && (
                     <ul className="mt-2 space-y-0.5">
                       {sections.map((s) => (
-                        <li key={s} className="text-[10px] font-bold text-blue-700 flex items-center gap-1">
-                          <span className="w-1 h-1 rounded-full bg-blue-500 shrink-0" />
+                        <li key={s} className="text-[10px] font-medium text-gray-500 flex items-center gap-1">
+                          <span className="w-1 h-1 rounded-full bg-gray-400 shrink-0" />
                           {s}
                         </li>
                       ))}
@@ -1052,15 +1055,15 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
               return (
                 <button
                   onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}?chapter=approach&from=search/${searchId}`); }}
-                  className="flex-1 border-2 border-green-600 bg-green-50 hover:bg-green-100 transition-colors p-3 text-left cursor-pointer"
+                  className="flex-1 border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors p-3 text-left cursor-pointer"
                 >
-                  <div className="text-[10px] font-black text-green-600 mb-0.5">SALES APPROACH</div>
-                  <div className="text-sm font-black text-green-800 leading-tight">View Approach →</div>
+                  <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Approach</div>
+                  <div className="text-sm font-semibold text-gray-800 leading-tight">View Approach →</div>
                   {approachSections.length > 0 && (
                     <ul className="mt-2 space-y-0.5">
                       {approachSections.map((s) => (
-                        <li key={s} className="text-[10px] font-bold text-green-700 flex items-center gap-1">
-                          <span className="w-1 h-1 rounded-full bg-green-500 shrink-0" />
+                    <li key={s} className="text-[10px] font-medium text-gray-500 flex items-center gap-1">
+                            <span className="w-1 h-1 rounded-full bg-gray-400 shrink-0" />
                           {s}
                         </li>
                       ))}
@@ -1074,7 +1077,7 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
       </div>
 
       {/* Decision + Action Buttons — Compact Footer */}
-      <div className="px-4 py-3 bg-gray-50 border-t-2 border-black">
+      <div className="px-4 py-3 bg-white border-t border-gray-100">
         <div className="flex items-center justify-between gap-3 flex-wrap">
           {/* Left: Decision Buttons */}
           <CompanyDecisionButtons
@@ -1170,7 +1173,7 @@ function DeepResearchButton({ companyId, companyName, hasResearch }: { companyId
         size="sm"
         variant="outline"
         className={`text-xs font-black border-2 h-8 px-3 cursor-pointer ${
-          hasResearch ? "border-blue-600 text-blue-600 bg-blue-50" : "border-blue-600 text-blue-600"
+          hasResearch ? "border-gray-900 text-gray-900 bg-gray-100" : "border-gray-700 text-gray-700"
         }`}
       >
         {isGenerating ? "..." : hasResearch ? "VIEW RESEARCH" : "RESEARCH"}
@@ -1185,8 +1188,8 @@ function DeepResearchButton({ companyId, companyName, hasResearch }: { companyId
             </div>
 
             {/* Urgency Score */}
-            <div className="mb-6 p-4 bg-blue-50 border-2 border-blue-600 rounded">
-              <div className="text-3xl font-black text-blue-600 mb-2">Urgency Score: {briefData.urgencyScore}/100</div>
+            <div className="mb-6 p-4 bg-gray-50 border-l-4 border-gray-900">
+              <div className="text-3xl font-black text-gray-900 mb-2">Urgency Score: {briefData.urgencyScore}/100</div>
               {briefData.urgencyBreakdown && (
                 <div className="grid grid-cols-3 gap-4 text-sm">
                   <div><div className="font-bold">Company Context</div><div>{briefData.urgencyBreakdown.companyContext}/40</div></div>
@@ -1206,7 +1209,7 @@ function DeepResearchButton({ companyId, companyName, hasResearch }: { companyId
                       <div>{typeof dev === 'string' ? dev : dev.text}</div>
                       {typeof dev !== 'string' && dev.date && <div className="text-xs text-gray-500 mt-1">{dev.date}</div>}
                       {typeof dev !== 'string' && dev.snippet && <div className="text-xs text-gray-600 italic mt-1 border-l-2 border-gray-300 pl-2">"{dev.snippet}"</div>}
-                      {typeof dev !== 'string' && dev.sourceUrl && <a href={dev.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">Source</a>}
+                      {typeof dev !== 'string' && dev.sourceUrl && <a href={dev.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 underline mt-1 inline-block">Source</a>}
                     </li>
                   ))}
                 </ul>
@@ -1219,7 +1222,7 @@ function DeepResearchButton({ companyId, companyName, hasResearch }: { companyId
                 <h3 className="text-xl font-black mb-2">Conversation Starters</h3>
                 <ul className="list-disc pl-5 space-y-2">
                   {briefData.conversationStarters.map((starter: any, i: number) => (
-                    <li key={i} className="text-blue-600">{typeof starter === 'string' ? starter : starter.opener || starter}</li>
+                    <li key={i} className="text-gray-800">{typeof starter === 'string' ? starter : starter.opener || starter}</li>
                   ))}
                 </ul>
               </div>
@@ -1231,7 +1234,7 @@ function DeepResearchButton({ companyId, companyName, hasResearch }: { companyId
                 <h3 className="text-xl font-black mb-2">Products & Services</h3>
                 {briefData.productsServices.map((ps: any, i: number) => (
                   <div key={i} className="mb-2">
-                    <div className="font-bold">{ps.category}{ps.sourceUrl && <a href={ps.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline ml-2 font-normal">Source</a>}</div>
+                    <div className="font-bold">{ps.category}{ps.sourceUrl && <a href={ps.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 underline ml-2 font-normal">Source</a>}</div>
                     <div className="text-sm">{ps.description}</div>
                   </div>
                 ))}
@@ -1244,7 +1247,7 @@ function DeepResearchButton({ companyId, companyName, hasResearch }: { companyId
                 <h3 className="text-xl font-black mb-2">Key Technologies</h3>
                 {briefData.keyTechnologies.map((tech: any, i: number) => (
                   <div key={i} className="mb-2">
-                    <div className="font-bold">{tech.name}{tech.sourceUrl && <a href={tech.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline ml-2 font-normal">Source</a>}</div>
+                    <div className="font-bold">{tech.name}{tech.sourceUrl && <a href={tech.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 underline ml-2 font-normal">Source</a>}</div>
                     <div className="text-sm">{tech.description}</div>
                   </div>
                 ))}
@@ -1301,15 +1304,15 @@ function DeepResearchButton({ companyId, companyName, hasResearch }: { companyId
                 <h3 className="text-xl font-black mb-2">Urgency Signals</h3>
                 <div className="space-y-2">
                   {briefData.urgencySignals.map((signal: any, i: number) => (
-                    <div key={i} className="p-3 bg-yellow-50 border border-yellow-300 rounded">
+                    <div key={i} className="p-3 bg-gray-50 border border-gray-200">
                       <div className="flex justify-between items-start">
                         <div>
                           <span className="font-bold text-sm">{signal.category} — {signal.type}</span>
                           <div className="text-sm mt-1">{signal.description}</div>
-                          {signal.snippet && <div className="text-xs text-gray-600 italic mt-1 border-l-2 border-yellow-400 pl-2">"{signal.snippet}"</div>}
-                          {signal.sourceUrl && <a href={signal.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">Source</a>}
+                          {signal.snippet && <div className="text-xs text-gray-600 italic mt-1 border-l-2 border-gray-400 pl-2">"{signal.snippet}"</div>}
+                          {signal.sourceUrl && <a href={signal.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 underline mt-1 inline-block">Source</a>}
                         </div>
-                        <span className="text-sm font-black text-yellow-700 ml-4">+{signal.weight}</span>
+                        <span className="text-sm font-black text-gray-700 ml-4">+{signal.weight}</span>
                       </div>
                     </div>
                   ))}
@@ -1324,7 +1327,7 @@ function DeepResearchButton({ companyId, companyName, hasResearch }: { companyId
                 <div className="space-y-2">
                   {briefData.sources.map((source: any, i: number) => (
                     <div key={i} className="p-2 bg-gray-50 border border-gray-200 rounded text-sm">
-                      <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 underline font-bold">{source.title || source.url}</a>
+                      <a href={source.url} target="_blank" rel="noopener noreferrer" className="text-gray-900 underline font-bold">{source.title || source.url}</a>
                       {source.snippet && <div className="text-xs text-gray-600 mt-1">{source.snippet}</div>}
                     </div>
                   ))}
@@ -1374,7 +1377,7 @@ function CreateSalesApproachButton({ companyId, companyName, hasSalesApproach }:
         size="sm"
         variant="outline"
         className={`text-xs font-black border-2 h-8 px-3 cursor-pointer ${
-          hasSalesApproach ? "border-green-600 text-green-600 bg-green-50" : "border-green-600 text-green-600"
+          hasSalesApproach ? "border-gray-900 text-gray-900 bg-gray-100" : "border-gray-700 text-gray-700"
         }`}
       >
         {isGenerating ? "..." : hasSalesApproach ? "VIEW APPROACH" : "SALES APPROACH"}
@@ -1390,14 +1393,14 @@ function CreateSalesApproachButton({ companyId, companyName, hasSalesApproach }:
 
             {/* Conversation Starters */}
             {salesApproach.conversationStarters?.length > 0 && (
-              <div className="mb-6 p-4 border-2 border-amber-600 rounded">
-                <h3 className="text-xl font-black text-amber-600 mb-2">Conversation Starters</h3>
+              <div className="mb-6 p-4 border-l-4 border-gray-900 bg-gray-50">
+                <h3 className="text-xl font-black text-gray-900 mb-2">Conversation Starters</h3>
                 <div className="space-y-3">
                   {salesApproach.conversationStarters.map((starter: any, i: number) => (
-                    <div key={i} className="p-2 bg-amber-50 rounded">
+                    <div key={i} className="p-2 bg-white border border-gray-200">
                       <div className="text-sm font-medium">{typeof starter === 'string' ? starter : starter.opener}</div>
                       {typeof starter !== 'string' && starter.basedOn && <div className="text-xs text-gray-500 mt-1">Based on: {starter.basedOn}</div>}
-                      {typeof starter !== 'string' && starter.sourceUrl && <a href={starter.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">Source</a>}
+                      {typeof starter !== 'string' && starter.sourceUrl && <a href={starter.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 underline mt-1 inline-block">Source</a>}
                     </div>
                   ))}
                 </div>
@@ -1405,46 +1408,46 @@ function CreateSalesApproachButton({ companyId, companyName, hasSalesApproach }:
             )}
 
             {/* Email Draft */}
-            <div className="mb-6 p-4 border-2 border-green-600 rounded">
-              <div className="flex justify-between items-center mb-2">
-                <h3 className="text-xl font-black text-green-600">Email Draft</h3>
+                          <div className="mb-6 p-4 border-l-4 border-gray-900 bg-gray-50">
+                            <div className="flex justify-between items-center mb-2">
+                              <h3 className="text-xl font-black text-gray-900">Email Draft</h3>
                 <Button onClick={() => copyToClipboard(`Subject: ${salesApproach.emailDraft.subject}\n\n${salesApproach.emailDraft.body}`, "Email")} variant="outline" size="sm" className="font-black">COPY</Button>
               </div>
               <div className="mb-2"><span className="font-bold">Subject:</span> {salesApproach.emailDraft.subject}</div>
               <div className="whitespace-pre-wrap text-sm">{salesApproach.emailDraft.body}</div>
               {salesApproach.emailDraft.referencedSources?.length > 0 && (
-                <div className="mt-2 pt-2 border-t border-green-200">
+                              <div className="mt-2 pt-2 border-t border-gray-200">
                   <div className="text-xs text-gray-500">Referenced sources:</div>
                   {salesApproach.emailDraft.referencedSources.map((src: string, i: number) => (
-                    <a key={i} href={src} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline block">{src}</a>
+                    <a key={i} href={src} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 underline block">{src}</a>
                   ))}
                 </div>
               )}
             </div>
 
             {/* LinkedIn Message */}
-            <div className="mb-6 p-4 border-2 border-blue-600 rounded">
-              <h3 className="text-xl font-black text-blue-600 mb-2">LinkedIn Message</h3>
+            <div className="mb-6 p-4 border-l-4 border-gray-900 bg-gray-50">
+              <h3 className="text-xl font-black text-gray-900 mb-2">LinkedIn Message</h3>
               <div className="mb-4">
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-bold">Connection Request:</span>
-                  <Button onClick={() => copyToClipboard(salesApproach.linkedinMessage.connectionRequest, "Connection Request")} variant="outline" size="sm" className="font-black">COPY</Button>
+                  <Button onClick={() => copyToClipboard(salesApproach.linkedinMessage.connectionRequest, "Connection Request")} variant="outline" size="sm" className="font-black border-gray-400">COPY</Button>
                 </div>
-                <div className="text-sm bg-blue-50 p-2 rounded">{salesApproach.linkedinMessage.connectionRequest}</div>
+                <div className="text-sm bg-white border border-gray-200 p-2">{salesApproach.linkedinMessage.connectionRequest}</div>
               </div>
               <div>
                 <div className="flex justify-between items-center mb-1">
                   <span className="font-bold">Follow-up:</span>
-                  <Button onClick={() => copyToClipboard(salesApproach.linkedinMessage.followUp, "Follow-up")} variant="outline" size="sm" className="font-black">COPY</Button>
+                  <Button onClick={() => copyToClipboard(salesApproach.linkedinMessage.followUp, "Follow-up")} variant="outline" size="sm" className="font-black border-gray-400">COPY</Button>
                 </div>
-                <div className="text-sm bg-blue-50 p-2 rounded">{salesApproach.linkedinMessage.followUp}</div>
+                <div className="text-sm bg-white border border-gray-200 p-2">{salesApproach.linkedinMessage.followUp}</div>
               </div>
             </div>
 
             {/* Call Script */}
-            <div className="mb-6 p-4 border-2 border-purple-600 rounded">
+            <div className="mb-6 p-4 border-l-4 border-gray-900 bg-gray-50">
               <div className="flex justify-between items-center mb-2">
-                <h3 className="text-xl font-black text-purple-600">Call Script</h3>
+                <h3 className="text-xl font-black text-gray-900">Call Script</h3>
                 <Button onClick={() => copyToClipboard(`OPENING:\n${salesApproach.callScript.opening}\n\nDISCOVERY QUESTIONS:\n${salesApproach.callScript.discoveryQuestions.join("\n")}\n\nVALUE PROPOSITION:\n${salesApproach.callScript.valueProposition}\n\nCALL TO ACTION:\n${salesApproach.callScript.callToAction}`, "Call Script")} variant="outline" size="sm" className="font-black">COPY</Button>
               </div>
               <div className="mb-3"><span className="font-bold">Opening:</span><div className="text-sm mt-1">{salesApproach.callScript.opening}</div></div>
@@ -1542,7 +1545,7 @@ function GetAllPersonnelButton({ companyId, companyName }: { companyId: number; 
         disabled={getAllPersonnelMutation.isPending}
         size="sm"
         variant="outline"
-        className="text-xs font-black border-2 border-blue-600 text-blue-600 h-8 px-3 cursor-pointer"
+        className="text-xs font-black border-2 border-gray-700 text-gray-700 h-8 px-3 cursor-pointer"
       >
         GET ALL PERSONNEL
       </Button>
@@ -1567,7 +1570,7 @@ function GetAllPersonnelButton({ companyId, companyName }: { companyId: number; 
                         type="checkbox"
                         checked={checkedSeniorities[idx]}
                         onChange={() => toggleSeniority(idx)}
-                        className="w-4 h-4 accent-blue-600 cursor-pointer"
+                        className="w-4 h-4 cursor-pointer"
                       />
                       <span className={`text-sm font-bold ${checkedSeniorities[idx] ? "text-gray-900" : "text-gray-400"}`}>
                         {opt.label}
@@ -1576,7 +1579,7 @@ function GetAllPersonnelButton({ companyId, companyName }: { companyId: number; 
                   ))}
                 </div>
                 {!anyChecked && (
-                  <p className="text-xs text-amber-600 font-bold mt-2">⚠ No seniority selected — will fetch all levels</p>
+                  <p className="text-xs text-gray-500 font-bold mt-2">⚠ No seniority selected — will fetch all levels</p>
                 )}
               </div>
 
@@ -1586,7 +1589,7 @@ function GetAllPersonnelButton({ companyId, companyName }: { companyId: number; 
                 <select
                   value={department}
                   onChange={(e) => setDepartment(e.target.value)}
-                  className="w-full border-2 border-gray-300 rounded px-3 py-2 text-sm font-bold cursor-pointer focus:border-blue-600 outline-none"
+                  className="w-full border-2 border-gray-300 px-3 py-2 text-sm font-bold cursor-pointer focus:border-gray-700 outline-none"
                 >
                   {SR_DEPARTMENT_OPTIONS.map((opt) => (
                     <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -1600,7 +1603,7 @@ function GetAllPersonnelButton({ companyId, companyName }: { companyId: number; 
                 <select
                   value={fetchLimit}
                   onChange={(e) => setFetchLimit(Number(e.target.value))}
-                  className="w-full border-2 border-gray-300 rounded px-3 py-2 text-sm font-bold cursor-pointer focus:border-blue-600 outline-none"
+                  className="w-full border-2 border-gray-300 px-3 py-2 text-sm font-bold cursor-pointer focus:border-gray-700 outline-none"
                 >
                   <option value={10}>10 people</option>
                   <option value={25}>25 people</option>
@@ -1622,7 +1625,7 @@ function GetAllPersonnelButton({ companyId, companyName }: { companyId: number; 
               <Button
                 onClick={handleFetch}
                 disabled={getAllPersonnelMutation.isPending}
-                className="font-black bg-blue-600 text-white cursor-pointer flex-1"
+                className="font-black bg-gray-900 text-white cursor-pointer flex-1"
               >
                 {getAllPersonnelMutation.isPending ? "FETCHING..." : "FETCH"}
               </Button>
@@ -1695,8 +1698,8 @@ function FindAllCSuiteButton({ companyId, companyName }: { companyId: number; co
         variant="outline"
         className={`text-xs font-black border-2 h-8 px-3 cursor-pointer ${
           contactCount > 0
-            ? "border-purple-600 text-purple-600 bg-purple-50"
-            : "border-purple-600 text-purple-600"
+            ? "border-gray-900 text-gray-900 bg-gray-100"
+            : "border-gray-700 text-gray-700"
         }`}
       >
         {findCSuiteMutation.isPending
@@ -1774,21 +1777,21 @@ function CSuiteContactsModal({
 
   // Tier color mapping
   const tierColors: Record<number, string> = {
-    1: "bg-red-600",
-    2: "bg-orange-500",
-    3: "bg-yellow-500",
-    4: "bg-blue-500",
-    5: "bg-gray-500",
+    1: "bg-gray-900",
+    2: "bg-gray-700",
+    3: "bg-gray-600",
+    4: "bg-gray-500",
+    5: "bg-gray-400",
   };
 
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white max-w-2xl w-full rounded-lg shadow-2xl border-2 border-purple-600 overflow-hidden max-h-[85vh] flex flex-col"
+        className="bg-white max-w-2xl w-full shadow-2xl border-2 border-gray-900 overflow-hidden max-h-[85vh] flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="bg-purple-600 text-white px-5 py-3 flex justify-between items-center shrink-0">
+        <div className="bg-gray-900 text-white px-5 py-3 flex justify-between items-center shrink-0">
           <div>
             <h2 className="text-lg font-black">Decision-Makers at {companyName}</h2>
             <div className="text-xs opacity-80 flex items-center gap-2">
@@ -1825,9 +1828,9 @@ function CSuiteContactsModal({
                     key={tier.level}
                     className={`flex-1 text-center py-1 text-[9px] font-black border ${
                       isFoundTier
-                        ? "border-green-500 bg-green-50 text-green-700"
+                        ? "border-gray-900 bg-gray-100 text-gray-900 font-black"
                         : wasSearched
-                          ? "border-red-300 bg-red-50 text-red-400"
+                          ? "border-gray-300 bg-white text-gray-400"
                           : "border-gray-200 bg-white text-gray-300"
                     }`}
                   >
@@ -1847,7 +1850,7 @@ function CSuiteContactsModal({
             </div>
           ) : (
             contacts.map((contact: any, idx: number) => (
-              <div key={contact.id || idx} className="border-2 border-gray-200 p-3 hover:border-purple-300 transition-colors">
+              <div key={contact.id || idx} className="border border-gray-200 p-3 hover:border-gray-500 transition-colors">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0 flex-1">
                     <div className="font-black text-base">
@@ -1858,7 +1861,7 @@ function CSuiteContactsModal({
                     )}
                   </div>
                   {contact.searchedTitle && (
-                    <span className="text-[10px] font-black border border-purple-300 text-purple-600 px-2 py-0.5 shrink-0">
+                    <span className="text-[10px] font-black border border-gray-300 text-gray-600 px-2 py-0.5 shrink-0">
                       {contact.searchedTitle}
                     </span>
                   )}
@@ -1873,7 +1876,7 @@ function CSuiteContactsModal({
                         disabled={enrichingContactId === contact.id}
                         variant="outline"
                         size="sm"
-                        className="font-black border-2 border-green-600 text-green-600 h-6 px-2 text-[10px] shrink-0 cursor-pointer"
+                        className="font-black border-2 border-gray-700 text-gray-700 h-6 px-2 text-[10px] shrink-0 cursor-pointer"
                       >
                         {enrichingContactId === contact.id ? "ENRICHING..." : "ENRICH EMAIL (1 credit)"}
                       </Button>
@@ -1910,7 +1913,7 @@ function CSuiteContactsModal({
                       href={contact.linkedinUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-xs font-bold underline text-blue-600 truncate"
+                      className="text-xs font-bold underline text-gray-700 truncate"
                     >
                       LinkedIn Profile
                     </a>
@@ -1944,7 +1947,7 @@ function CSuiteContactsModal({
               onClick={onRefresh}
               disabled={isPending}
               variant="outline"
-              className="font-black border-2 border-purple-600 text-purple-600 cursor-pointer flex-1"
+              className="font-black border-2 border-gray-700 text-gray-700 cursor-pointer flex-1"
             >
               {isPending ? "SEARCHING..." : "SEARCH AGAIN"}
             </Button>

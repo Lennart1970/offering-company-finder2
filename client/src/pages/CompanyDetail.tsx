@@ -59,6 +59,8 @@ export default function CompanyDetail() {
   const [chapter, setChapter] = useState<Chapter>(initialChapter);
   const [researchSub, setResearchSub] = useState<ResearchSub>("recent-developments");
   const [approachSub, setApproachSub] = useState<ApproachSub>("conversation-starters");
+  const [contactSeniorityFilter, setContactSeniorityFilter] = useState<string>("all");
+  const [contactDeptFilter, setContactDeptFilter] = useState<string>("all");
 
   const { data, isLoading, refetch } = trpc.companyFinder.getCompany.useQuery(
     { companyId },
@@ -66,7 +68,92 @@ export default function CompanyDetail() {
   );
 
   const company = data?.company ?? null;
-  const contacts = data?.contacts ?? [];
+  const rawContacts = data?.contacts ?? [];
+
+  // Derive unique seniority and department values from contact titles
+  const seniorityOptions = useMemo(() => {
+    const keywords = [
+      { label: "C-Suite / VP", match: /\b(ceo|cto|coo|cfo|cmo|cso|cpo|chief|president|vp|vice president)\b/i },
+      { label: "Director", match: /\bdirector\b/i },
+      { label: "Manager", match: /\bmanager\b/i },
+      { label: "Head of", match: /\bhead of\b/i },
+      { label: "Lead / Senior", match: /\b(lead|senior|sr\.)\b/i },
+      { label: "Engineer / Developer", match: /\b(engineer|developer|dev)\b/i },
+      { label: "Consultant", match: /\bconsultant\b/i },
+      { label: "Other", match: null },
+    ];
+    const present = new Set<string>();
+    rawContacts.forEach((c: any) => {
+      const title = (c.title || c.jobTitle || "").toLowerCase();
+      let matched = false;
+      for (const k of keywords) {
+        if (k.match && k.match.test(title)) { present.add(k.label); matched = true; break; }
+      }
+      if (!matched) present.add("Other");
+    });
+    return keywords.map(k => k.label).filter(l => present.has(l));
+  }, [rawContacts]);
+
+  const deptOptions = useMemo(() => {
+    const keywords = [
+      { label: "Sales & BD", match: /\b(sales|business development|bd|account)\b/i },
+      { label: "Engineering", match: /\b(engineer|engineering|software|hardware|dev|developer|technical)\b/i },
+      { label: "Operations", match: /\b(operations|ops|supply chain|logistics|facility|office)\b/i },
+      { label: "Finance", match: /\b(finance|financial|cfo|accounting|controller)\b/i },
+      { label: "Marketing", match: /\b(marketing|cmo|brand|growth|content)\b/i },
+      { label: "HR / People", match: /\b(hr|human resources|people|talent|recruiting)\b/i },
+      { label: "Product", match: /\b(product|cpo|ux|design|ui)\b/i },
+      { label: "Strategy", match: /\b(strategy|strategic|cso|transformation|innovation)\b/i },
+      { label: "Other", match: null },
+    ];
+    const present = new Set<string>();
+    rawContacts.forEach((c: any) => {
+      const title = (c.title || c.jobTitle || "").toLowerCase();
+      let matched = false;
+      for (const k of keywords) {
+        if (k.match && k.match.test(title)) { present.add(k.label); matched = true; break; }
+      }
+      if (!matched) present.add("Other");
+    });
+    return keywords.map(k => k.label).filter(l => present.has(l));
+  }, [rawContacts]);
+
+  const seniorityKeywords: Record<string, RegExp> = {
+    "C-Suite / VP": /\b(ceo|cto|coo|cfo|cmo|cso|cpo|chief|president|vp|vice president)\b/i,
+    "Director": /\bdirector\b/i,
+    "Manager": /\bmanager\b/i,
+    "Head of": /\bhead of\b/i,
+    "Lead / Senior": /\b(lead|senior|sr\.)\b/i,
+    "Engineer / Developer": /\b(engineer|developer|dev)\b/i,
+    "Consultant": /\bconsultant\b/i,
+  };
+  const deptKeywords: Record<string, RegExp> = {
+    "Sales & BD": /\b(sales|business development|bd|account)\b/i,
+    "Engineering": /\b(engineer|engineering|software|hardware|dev|developer|technical)\b/i,
+    "Operations": /\b(operations|ops|supply chain|logistics|facility|office)\b/i,
+    "Finance": /\b(finance|financial|cfo|accounting|controller)\b/i,
+    "Marketing": /\b(marketing|cmo|brand|growth|content)\b/i,
+    "HR / People": /\b(hr|human resources|people|talent|recruiting)\b/i,
+    "Product": /\b(product|cpo|ux|design|ui)\b/i,
+    "Strategy": /\b(strategy|strategic|cso|transformation|innovation)\b/i,
+  };
+
+  const contacts = useMemo(() => {
+    return rawContacts.filter((c: any) => {
+      const title = (c.title || c.jobTitle || "");
+      const matchSeniority = contactSeniorityFilter === "all" || (() => {
+        const rx = seniorityKeywords[contactSeniorityFilter];
+        if (!rx) return !Object.values(seniorityKeywords).some(r => r.test(title));
+        return rx.test(title);
+      })();
+      const matchDept = contactDeptFilter === "all" || (() => {
+        const rx = deptKeywords[contactDeptFilter];
+        if (!rx) return !Object.values(deptKeywords).some(r => r.test(title));
+        return rx.test(title);
+      })();
+      return matchSeniority && matchDept;
+    });
+  }, [rawContacts, contactSeniorityFilter, contactDeptFilter]);
 
   const briefData = useMemo(() => {
     if (!company?.briefData) return null;
@@ -691,13 +778,66 @@ export default function CompanyDetail() {
           {/* CONTACTS */}
           {chapter === "contacts" && (
             <div className="p-6">
-              <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
-                <h2 className="text-xl font-black">Contacts ({contacts.length})</h2>
-                <div className="flex gap-3">
+              {/* Header row: title + action buttons */}
+              <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
+                <h2 className="text-xl font-black">
+                  Contacts ({contacts.length}{contacts.length !== rawContacts.length ? ` of ${rawContacts.length}` : ""})
+                </h2>
+                <div className="flex gap-3 flex-wrap">
                   <CompanyDetailFindDecisionMakersButton companyId={company.id} companyName={company.name} onDone={() => refetch()} />
                   <CompanyDetailGetAllPersonnelButton companyId={company.id} companyName={company.name} onDone={() => refetch()} />
                 </div>
               </div>
+
+              {/* Filter row */}
+              {rawContacts.length > 0 && (
+                <div className="flex items-center gap-3 mb-5 flex-wrap border-2 border-gray-200 p-3 bg-gray-50">
+                  <span className="text-[10px] font-black text-muted-foreground shrink-0">FILTER:</span>
+                  {/* Seniority */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-black">SENIORITY</span>
+                    {["all", ...seniorityOptions].map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() => setContactSeniorityFilter(opt)}
+                        className={`text-[10px] font-black px-2 py-0.5 border transition-colors cursor-pointer ${
+                          contactSeniorityFilter === opt
+                            ? "bg-purple-600 text-white border-purple-600"
+                            : "border-gray-300 hover:border-purple-400 hover:text-purple-600"
+                        }`}
+                      >
+                        {opt === "all" ? "ALL" : opt}
+                      </button>
+                    ))}
+                  </div>
+                  <div className="w-px h-4 bg-gray-300 shrink-0 hidden md:block" />
+                  {/* Department */}
+                  <div className="flex items-center gap-1.5 flex-wrap">
+                    <span className="text-[10px] font-black">DEPT</span>
+                    {["all", ...deptOptions].map((opt) => (
+                      <button
+                        key={opt}
+                        onClick={() => setContactDeptFilter(opt)}
+                        className={`text-[10px] font-black px-2 py-0.5 border transition-colors cursor-pointer ${
+                          contactDeptFilter === opt
+                            ? "bg-blue-600 text-white border-blue-600"
+                            : "border-gray-300 hover:border-blue-400 hover:text-blue-600"
+                        }`}
+                      >
+                        {opt === "all" ? "ALL" : opt}
+                      </button>
+                    ))}
+                  </div>
+                  {(contactSeniorityFilter !== "all" || contactDeptFilter !== "all") && (
+                    <button
+                      onClick={() => { setContactSeniorityFilter("all"); setContactDeptFilter("all"); }}
+                      className="text-[10px] font-black text-red-600 border border-red-300 px-2 py-0.5 hover:bg-red-50 transition-colors cursor-pointer ml-auto shrink-0"
+                    >
+                      ✕ CLEAR
+                    </button>
+                  )}
+                </div>
+              )}
 
               {contacts.length === 0 ? (
                 <div className="text-center py-16 border-4 border-dashed border-gray-300">

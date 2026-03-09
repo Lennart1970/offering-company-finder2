@@ -1283,3 +1283,8 @@
 - [x] Matched font size to hero paragraph (text-2xl md:text-3xl font-black)
 - [x] Added blink animation (animate-blink-cta keyframe in index.css, 1.2s ease-in-out infinite)
 - [x] Message stays visible after click — switches to red confirmation: "All high-urgency companies have been added to your Call Today list. Check the CALL TODAY tab below."
+
+## Feature: Call Today Count Sentence After CTA Confirmation
+- [x] Added second red sentence after urgency CTA confirmation: "{N} companies added to your Call Today list — [start your outreach]"
+- [x] Clicking "start your outreach" sets showCallTodayOnly=true to scroll into Call Today view
+- [x] Same font size and red color as the hero/CTA paragraphs (text-2xl md:text-3xl font-black text-red-700)

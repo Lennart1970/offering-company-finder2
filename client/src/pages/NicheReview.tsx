@@ -476,6 +476,10 @@ export default function NicheReview() {
       toast.error("Select a search first to batch score its niches");
       return;
     }
+    if (sortedNiches.length === 0) {
+      toast.error("No niches in this search yet. Add niches manually or run the import pipeline first.");
+      return;
+    }
     setScoringAll(true);
     scoreAllMutation.mutate({ searchId: selectedSearchId });
   };
@@ -545,7 +549,7 @@ export default function NicheReview() {
               size="sm"
               className="font-black bg-black text-white hover:bg-gray-800"
               onClick={handleScoreAll}
-              disabled={scoringAll || !selectedSearchId}
+              disabled={scoringAll || !selectedSearchId || sortedNiches.length === 0}
             >
               {scoringAll ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
@@ -594,17 +598,20 @@ export default function NicheReview() {
           <div className="text-center py-20 border-4 border-dashed border-gray-200">
             <Network className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-lg font-black mb-2">No niches yet</h2>
-            <p className="text-sm text-muted-foreground mb-4">
-              Niches are created during the import pipeline (k-means clustering)
-              or you can add them manually for testing.
+            <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
+              Niches are created automatically when you run the import pipeline
+              (Import Campaign → Step 4: Cluster &amp; Score). You can also add
+              niches manually below to test scoring against your Offering Brain.
             </p>
-            <CreateNicheDialog
-              searchId={selectedSearchId ?? undefined}
-              onCreated={() => {
-                if (selectedSearchId) refetchSearch();
-                else refetch();
-              }}
-            />
+            <div className="flex items-center justify-center gap-3 flex-wrap">
+              <CreateNicheDialog
+                searchId={selectedSearchId ?? undefined}
+                onCreated={() => {
+                  if (selectedSearchId) refetchSearch();
+                  else refetch();
+                }}
+              />
+            </div>
           </div>
         ) : (
           <div className="space-y-3">

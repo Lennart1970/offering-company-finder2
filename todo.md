@@ -1414,3 +1414,8 @@
 - [x] Write vitest tests for nicheFitScorer (303 passing)
 - [x] Update niche-intelligence SKILL.md with dynamic scoring architecture
 - [x] Add future plan item: explicit scoring criteria defined in Offering Brain
+
+## Bug Fix: Herd Mapping Score All Niches error
+- [x] Guard "Score All Niches" button — show toast "No niches in this search yet. Add niches first." instead of propagating the API error
+- [x] Disable "Score All Niches" when the selected search has 0 niches
+- [x] Improve empty-state message to explain niches come from the import pipeline or can be added manually

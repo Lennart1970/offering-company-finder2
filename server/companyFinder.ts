@@ -502,22 +502,21 @@ export const companyFinderRouter = router({
     }),
 
   // Generate sales intelligence brief for a company
-  generateBrief: protectedProcedure
+   generateBrief: protectedProcedure
     .input(z.object({
       companyId: z.number(),
+      force: z.boolean().optional(), // If true, bypass cache and regenerate
     }))
     .mutation(async ({ ctx, input }) => {
       const company = await assertCompanyAccess(input.companyId, ctx.user.id);
-
       console.log(`[generateBrief] Starting brief generation for company ${input.companyId}`);
-
-      // Check if cached brief exists and is recent (< 7 days old)
-      if (company.briefData && company.briefGeneratedAt) {
+      // Check if cached brief exists and is recent (< 7 days old) — skip if force=true
+      if (!input.force && company.briefData && company.briefGeneratedAt) {
         const cacheAge = Date.now() - new Date(company.briefGeneratedAt).getTime();
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
         
         if (cacheAge < sevenDaysMs) {
-          console.log(`[generateBrief] Using cached brief (age: ${Math.floor(cacheAge / (24 * 60 * 60 * 1000))} days)`);
+          console.log(`[generateBrief] Using cached brief (age: ${Math.floor(cacheAge / (24 * 60 * 60 * 1000))} days)`);;
           const cachedBrief = JSON.parse(company.briefData);
           return {
             success: true,

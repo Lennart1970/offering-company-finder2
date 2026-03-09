@@ -1387,3 +1387,10 @@
 - [x] Add Prompt Repository sidebar nav item (ScrollText icon, /prompts route)
 - [x] Create PromptRepository.tsx page with category filter tabs and expandable cards
 - [x] Write vitest tests for prompt catalogue integrity and fillTemplate (21 new tests, 291 total passing)
+
+## UX: Loud Cache Indicators
+- [x] Show prominent CACHED banner/badge on Research, Urgency, Approach, Contacts when data is from DB cache
+- [x] Include cache age ("Research data cached 3 days ago") so user knows how stale the data is
+- [x] Stale data (>7 days) shown in orange with DATA MAY BE STALE warning
+- [x] REFRESH NOW button on Urgency, Research, Approach; RE-ENRICH on Contacts
+- [x] force=true parameter added to generateBrief to bypass cache on manual refresh

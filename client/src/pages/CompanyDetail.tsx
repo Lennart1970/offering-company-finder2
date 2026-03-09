@@ -239,6 +239,22 @@ export default function CompanyDetail() {
     not_interested: "Park this company and revisit in 90 days with a new angle.",
   };
 
+  // Re-research mutation (force-regenerate brief)
+  const [reResearchLoading, setReResearchLoading] = useState(false);
+  const reResearchUtils = trpc.useUtils();
+  const reResearchMutation = trpc.companyFinder.generateBrief.useMutation({
+    onSuccess: () => { setReResearchLoading(false); reResearchUtils.companyFinder.getCompany.invalidate({ companyId }); toast.success("Research refreshed"); },
+    onError: () => { setReResearchLoading(false); toast.error("Re-research failed"); },
+  });
+
+  // Re-approach mutation (force-regenerate sales approach)
+  const [reApproachLoading, setReApproachLoading] = useState(false);
+  const reApproachUtils = trpc.useUtils();
+  const reApproachMutation = trpc.companyFinder.generateSalesApproach.useMutation({
+    onSuccess: () => { setReApproachLoading(false); reApproachUtils.companyFinder.getCompany.invalidate({ companyId }); toast.success("Approach refreshed"); },
+    onError: () => { setReApproachLoading(false); toast.error("Re-approach failed"); },
+  });
+
   // Product images
   const [productImagesLoading, setProductImagesLoading] = useState(false);
   const productImagesUtils = trpc.useUtils();
@@ -305,6 +321,59 @@ export default function CompanyDetail() {
     : company?.searchLocation || "—";
 
   if (!user) return null;
+
+  // ── Cache Banner helper ──────────────────────────────────────────────────────
+  function CacheBanner({
+    cachedAt,
+    label,
+    onRefresh,
+    loading,
+  }: {
+    cachedAt: Date | string | null | undefined;
+    label: string;
+    onRefresh: () => void;
+    loading: boolean;
+  }) {
+    if (!cachedAt) return null;
+    const d = new Date(cachedAt);
+    const now = Date.now();
+    const diffMs = now - d.getTime();
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+    const ageLabel =
+      diffDays >= 1
+        ? `${diffDays} day${diffDays !== 1 ? "s" : ""} ago`
+        : diffHours >= 1
+        ? `${diffHours} hour${diffHours !== 1 ? "s" : ""} ago`
+        : "just now";
+    const isStale = diffDays >= 7;
+    return (
+      <div className={`flex items-center justify-between px-4 py-2.5 mb-5 border-2 ${
+        isStale ? "border-orange-500 bg-orange-50" : "border-amber-400 bg-amber-50"
+      }`}>
+        <div className="flex items-center gap-3">
+          <span className={`text-[11px] font-black px-2 py-0.5 ${
+            isStale ? "bg-orange-500 text-white" : "bg-amber-400 text-black"
+          }`}>⚠ CACHED</span>
+          <span className="text-xs font-bold text-gray-700">
+            {label} cached <span className="font-black">{ageLabel}</span>
+            {isStale && <span className="text-orange-600 font-black ml-2">— DATA MAY BE STALE</span>}
+          </span>
+        </div>
+        <button
+          onClick={onRefresh}
+          disabled={loading}
+          className={`text-[11px] font-black px-3 py-1.5 border-2 transition-colors cursor-pointer ${
+            isStale
+              ? "border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white"
+              : "border-amber-500 text-amber-700 hover:bg-amber-500 hover:text-white"
+          } disabled:opacity-50 disabled:cursor-not-allowed`}
+        >
+          {loading ? "REFRESHING..." : "↻ REFRESH NOW"}
+        </button>
+      </div>
+    );
+  }
 
   if (isLoading) return (
     <div className="max-w-6xl">
@@ -771,6 +840,13 @@ export default function CompanyDetail() {
               {!briefData ? (
                 <div className="text-center py-16 text-muted-foreground font-bold">No research data available. Run Deep Research first.</div>
               ) : (
+                <>
+                <CacheBanner
+                  cachedAt={company.briefGeneratedAt}
+                  label="Urgency analysis"
+                  onRefresh={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: true }); }}
+                  loading={reResearchLoading}
+                />
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
                   {/* Left: Score + breakdown */}
                   <div>
@@ -836,6 +912,7 @@ export default function CompanyDetail() {
                     )}
                   </div>
                 </div>
+                </>
               )}
             </div>
           )}
@@ -847,6 +924,12 @@ export default function CompanyDetail() {
                 <div className="text-center py-16 text-muted-foreground font-bold">No research data available. Run Deep Research first.</div>
               ) : (
                 <>
+                  <CacheBanner
+                    cachedAt={company.briefGeneratedAt}
+                    label="Research data"
+                    onRefresh={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: true }); }}
+                    loading={reResearchLoading}
+                  />
                   {/* Recent Developments sub-chapter */}
                   {researchSub === "recent-developments" && (
                     <section>
@@ -1070,6 +1153,12 @@ export default function CompanyDetail() {
                 <div className="text-center py-16 text-muted-foreground font-bold">No sales approach generated yet. Run Create Approach first.</div>
               ) : (
                 <div>
+                  <CacheBanner
+                    cachedAt={company.salesApproachGeneratedAt}
+                    label="Sales approach"
+                    onRefresh={() => { setReApproachLoading(true); reApproachMutation.mutate({ companyId }); }}
+                    loading={reApproachLoading}
+                  />
                   {/* Conversation Starters sub-chapter */}
                   {approachSub === "conversation-starters" && (
                     <section>
@@ -1174,6 +1263,23 @@ export default function CompanyDetail() {
           {/* CONTACTS */}
           {chapter === "contacts" && (
             <div className="p-6">
+              {/* Contacts cache indicator — show when contacts exist */}
+              {rawContacts.length > 0 && (
+                <div className="flex items-center justify-between px-4 py-2.5 mb-5 border-2 border-amber-400 bg-amber-50">
+                  <div className="flex items-center gap-3">
+                    <span className="text-[11px] font-black px-2 py-0.5 bg-amber-400 text-black">⚠ CACHED</span>
+                    <span className="text-xs font-bold text-gray-700">
+                      {rawContacts.length} contact{rawContacts.length !== 1 ? "s" : ""} from Apollo enrichment — may not reflect latest org changes
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => refetch()}
+                    className="text-[11px] font-black px-3 py-1.5 border-2 border-amber-500 text-amber-700 hover:bg-amber-500 hover:text-white transition-colors cursor-pointer"
+                  >
+                    ↻ RE-ENRICH
+                  </button>
+                </div>
+              )}
               {/* Header row: title + action buttons */}
               <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
                 <h2 className="text-xl font-black">

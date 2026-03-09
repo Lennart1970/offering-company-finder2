@@ -82,6 +82,16 @@ export default function SearchResults() {
     },
   });
 
+  const batchResearchMutation = trpc.companyFinder.batchGenerateBriefs.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Deep research complete: ${data.completed}/${data.total} companies researched.${data.failed > 0 ? ` ${data.failed} failed.` : ""}`);
+      if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
+    },
+    onError: (error) => {
+      toast.error(`Batch research failed: ${error.message}`);
+    },
+  });
+
   const nameEnrichMutation = trpc.companyFinder.nameEnrichCampaign.useMutation({
     onSuccess: (data) => {
       toast.success(`Re-enriched ${data.enriched} companies by name. ${data.failed} not found in Apollo.`);
@@ -420,6 +430,17 @@ export default function SearchResults() {
                     : `[ENRICH ALL — ${enrichmentStats?.pending}]`}
                 </Button>
               )}
+              {(enrichmentStats?.enriched ?? 0) > 0 && (
+                <Button
+                  onClick={() => batchResearchMutation.mutate({ searchId: searchId! })}
+                  disabled={batchResearchMutation.isPending}
+                  className="text-lg px-6 py-4 font-black border-4 border-purple-700 bg-purple-700 text-white"
+                >
+                  {batchResearchMutation.isPending
+                    ? "[RESEARCHING...]"
+                    : `[RESEARCH ALL — ${enrichmentStats?.enriched}]`}
+                </Button>
+              )}
               {(enrichmentStats?.nameOnly ?? 0) > 0 && (
                 <Button
                   onClick={() => nameEnrichMutation.mutate({ searchId: searchId!, limit: 500, concurrency: 3 })}
@@ -447,6 +468,14 @@ export default function SearchResults() {
               <div className="text-xl font-black">→ ENRICHING COMPANY DETAILS...</div>
               <div className="text-sm font-bold mt-2">
                 Fetching addresses, SIC/NAICS codes for {enrichmentStats?.pending} companies.
+              </div>
+            </div>
+          )}
+          {batchResearchMutation.isPending && (
+            <div className="border-4 border-purple-700 p-6 mb-6 animate-pulse">
+              <div className="text-xl font-black text-purple-700">→ RUNNING DEEP RESEARCH...</div>
+              <div className="text-sm font-bold mt-2">
+                Generating sales intelligence briefs for {enrichmentStats?.enriched} enriched companies. Each brief takes ~30s — this will run in the background.
               </div>
             </div>
           )}

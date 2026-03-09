@@ -1485,6 +1485,63 @@ export const companyFinderRouter = router({
     }),
 
   // ---------------------------------------------------------------------------
+  // batchGenerateBriefs — run deep research for all enriched companies in a search
+  // ---------------------------------------------------------------------------
+  batchGenerateBriefs: protectedProcedure
+    .input(z.object({
+      searchId: z.number(),
+      skipCached: z.boolean().optional().default(true), // skip companies with a brief < 7 days old
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { getCompaniesBySearchId } = await import("./db");
+      const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
+
+      const allCompanies = await getCompaniesBySearchId(input.searchId);
+
+      // Only process enriched companies (need a domain for Grok web search)
+      const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+      const toResearch = allCompanies.filter((c) => {
+        if (c.enrichmentStatus !== "enriched") return false;
+        if (!input.skipCached) return true;
+        if (!c.briefData || !c.briefGeneratedAt) return true;
+        const age = Date.now() - new Date(c.briefGeneratedAt).getTime();
+        return age >= sevenDaysMs; // skip fresh briefs
+      });
+
+      console.log(`[batchGenerateBriefs] searchId=${input.searchId} — ${toResearch.length} companies to research (${allCompanies.length} total)`);
+
+      let completed = 0;
+      let failed = 0;
+      const errors: string[] = [];
+
+      // Process sequentially to avoid hammering Grok / rate limits
+      for (const company of toResearch) {
+        try {
+          const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id);
+          await updateCompany(company.id, {
+            urgencyScore: brief.urgencyScore,
+            briefData: JSON.stringify(brief),
+            briefGeneratedAt: new Date(),
+          });
+          completed++;
+          console.log(`[batchGenerateBriefs] ✓ ${company.name} (${completed}/${toResearch.length})`);
+        } catch (err: any) {
+          failed++;
+          errors.push(`${company.name}: ${err.message}`);
+          console.error(`[batchGenerateBriefs] ✗ ${company.name}:`, err.message);
+        }
+      }
+
+      return {
+        success: true,
+        total: toResearch.length,
+        completed,
+        failed,
+        errors: errors.slice(0, 10), // cap error list
+      };
+    }),
+
+  // ---------------------------------------------------------------------------
   // scoreCompanyFit — Grok-powered ICP fit scoring (0-100) with full breakdown
   // ---------------------------------------------------------------------------
   scoreCompanyFit: protectedProcedure

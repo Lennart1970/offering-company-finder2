@@ -1204,3 +1204,11 @@
 - [x] ENRICHED badge is now a green toggle button; PENDING badge is orange toggle button
 - [x] MATCHES count shows filtered/total when a filter is active, with ✕ to clear
 - [x] Clicking active filter button toggles back to 'all'
+
+## Feature: RESEARCH ALL Button in Search Results
+- [x] Understand existing single-company deep research trigger (generateBrief tRPC mutation)
+- [x] Build batchGenerateBriefs tRPC mutation: iterates all enriched companies in a searchId, calls generateSalesIntelligenceBrief sequentially, skips cached briefs < 7 days old
+- [x] Add purple [RESEARCH ALL — N] button to SearchResults toolbar (visible when enriched > 0)
+- [x] Show purple progress banner while batch research is running
+- [x] Toast on completion with completed/total/failed counts
+- [x] 264 tests still passing (20 test files)

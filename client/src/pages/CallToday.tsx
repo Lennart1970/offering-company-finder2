@@ -4,6 +4,7 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useLocation, useParams } from "wouter";
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
+import { Button } from "@/components/ui/button";
 
 function formatRevenue(revenue: number | string | null): string {
   if (!revenue) return "—";
@@ -385,30 +386,272 @@ export default function CallToday() {
             </div>
           )}
 
-          {/* Footer: Queue Progress */}
-          <div className="px-5 py-3 bg-gray-50 flex items-center justify-between gap-4">
-            <div className="text-xs font-black text-muted-foreground">
-              {currentIndex + 1} of {callTodayCompanies.length} companies
+          {/* Footer: Action Buttons + Queue Progress */}
+          <div className="px-5 py-4 bg-gray-50 border-t-4 border-black">
+            {/* Prominent action buttons row */}
+            <div className="flex flex-wrap gap-3 mb-4">
+              <CallTodayFindDecisionMakersButton companyId={company.id} companyName={company.name} />
+              <CallTodayGetAllPersonnelButton companyId={company.id} companyName={company.name} />
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => { setCurrentIndex(Math.max(0, currentIndex - 1)); setViewMode("overview"); }}
-                disabled={currentIndex === 0}
-                className="text-xs font-black border-2 border-black px-4 py-2 disabled:opacity-30 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:cursor-default"
-              >
-                ← PREV
-              </button>
-              <button
-                onClick={() => { setCurrentIndex(Math.min(callTodayCompanies.length - 1, currentIndex + 1)); setViewMode("overview"); }}
-                disabled={currentIndex === callTodayCompanies.length - 1}
-                className="text-xs font-black border-2 border-black px-4 py-2 disabled:opacity-30 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:cursor-default"
-              >
-                NEXT COMPANY →
-              </button>
+            {/* Prev / Next navigation */}
+            <div className="flex items-center justify-between gap-4">
+              <div className="text-xs font-black text-muted-foreground">
+                {currentIndex + 1} of {callTodayCompanies.length} companies
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { setCurrentIndex(Math.max(0, currentIndex - 1)); setViewMode("overview"); }}
+                  disabled={currentIndex === 0}
+                  className="text-xs font-black border-2 border-black px-4 py-2 disabled:opacity-30 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:cursor-default"
+                >
+                  ← PREV
+                </button>
+                <button
+                  onClick={() => { setCurrentIndex(Math.min(callTodayCompanies.length - 1, currentIndex + 1)); setViewMode("overview"); }}
+                  disabled={currentIndex === callTodayCompanies.length - 1}
+                  className="text-xs font-black border-2 border-black px-4 py-2 disabled:opacity-30 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:cursor-default"
+                >
+                  NEXT COMPANY →
+                </button>
+              </div>
             </div>
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Prominent FIND DECISION-MAKERS button for Call Today page
+// ============================================================================
+function CallTodayFindDecisionMakersButton({ companyId, companyName }: { companyId: number; companyName: string }) {
+  const [showModal, setShowModal] = useState(false);
+  const [results, setResults] = useState<any>(null);
+
+  const { data: existingContacts } = trpc.companyFinder.getCompanyContacts.useQuery({ companyId });
+
+  const findCSuiteMutation = trpc.companyFinder.findAllCSuite.useMutation({
+    onSuccess: (data) => {
+      setResults(data);
+      setShowModal(true);
+      if (data.cached) {
+        toast.success(`${data.contacts.length} cached decision-makers at ${companyName}`);
+      } else if (data.contacts.length > 0) {
+        toast.success(`Found ${data.contacts.length} decision-makers at ${companyName}`);
+      } else {
+        toast.error(`No decision-makers found at ${companyName}`);
+      }
+    },
+    onError: (error) => {
+      toast.error(`Decision-maker search failed: ${error.message}`);
+    },
+  });
+
+  const contactCount = existingContacts?.contacts?.length || 0;
+
+  const handleClick = () => {
+    if (contactCount > 0) {
+      setResults({ contacts: existingContacts?.contacts, tierFound: 0, tierLabel: "Cached", tiersSearched: [], cached: true });
+      setShowModal(true);
+    } else {
+      findCSuiteMutation.mutate({ companyId });
+    }
+  };
+
+  return (
+    <>
+      <button
+        onClick={handleClick}
+        disabled={findCSuiteMutation.isPending}
+        className={`font-black border-4 px-6 py-3 text-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default ${
+          contactCount > 0
+            ? "border-purple-600 bg-purple-600 text-white hover:bg-purple-700"
+            : "border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white"
+        }`}
+      >
+        {findCSuiteMutation.isPending
+          ? "SEARCHING..."
+          : contactCount > 0
+            ? `👤 ${contactCount} CONTACTS FOUND`
+            : "👤 FIND DECISION-MAKERS"}
+      </button>
+      {showModal && results && (
+        <CallTodayContactsModal
+          companyName={companyName}
+          companyId={companyId}
+          results={results}
+          isPending={findCSuiteMutation.isPending}
+          onRefresh={() => findCSuiteMutation.mutate({ companyId })}
+          onClose={() => setShowModal(false)}
+        />
+      )}
+    </>
+  );
+}
+
+// ============================================================================
+// Prominent GET ALL PERSONNEL button for Call Today page
+// ============================================================================
+function CallTodayGetAllPersonnelButton({ companyId, companyName }: { companyId: number; companyName: string }) {
+  const [showModal, setShowModal] = useState(false);
+  const [results, setResults] = useState<any>(null);
+  const [fetchLimit, setFetchLimit] = useState(25);
+
+  const getAllPersonnelMutation = trpc.companyFinder.getAllPersonnel.useMutation({
+    onSuccess: (data) => {
+      setResults({ contacts: data.contacts, totalFound: data.totalFound });
+      setShowModal(true);
+      toast.success(`Found ${data.contacts.length} personnel at ${companyName}`);
+    },
+    onError: (error) => {
+      toast.error(`Personnel search failed: ${error.message}`);
+    },
+  });
+
+  return (
+    <>
+      <button
+        onClick={() => getAllPersonnelMutation.mutate({ companyId, limit: fetchLimit })}
+        disabled={getAllPersonnelMutation.isPending}
+        className="font-black border-4 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-6 py-3 text-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default"
+      >
+        {getAllPersonnelMutation.isPending ? "FETCHING..." : "🏢 GET ALL PERSONNEL"}
+      </button>
+      {showModal && results && (
+        <CallTodayContactsModal
+          companyName={companyName}
+          companyId={companyId}
+          results={results}
+          isPending={getAllPersonnelMutation.isPending}
+          onRefresh={() => getAllPersonnelMutation.mutate({ companyId, limit: fetchLimit })}
+          onClose={() => setShowModal(false)}
+          fetchLimit={fetchLimit}
+          onFetchLimitChange={setFetchLimit}
+        />
+      )}
+    </>
+  );
+}
+
+// ============================================================================
+// Contacts Modal for Call Today page (inline, self-contained)
+// ============================================================================
+function CallTodayContactsModal({
+  companyName,
+  companyId,
+  results,
+  isPending,
+  onRefresh,
+  onClose,
+  fetchLimit,
+  onFetchLimitChange,
+}: {
+  companyName: string;
+  companyId: number;
+  results: any;
+  isPending: boolean;
+  onRefresh: () => void;
+  onClose: () => void;
+  fetchLimit?: number;
+  onFetchLimitChange?: (limit: number) => void;
+}) {
+  const enrichContactMutation = trpc.companyFinder.enrichContact.useMutation({
+    onSuccess: () => {
+      toast.success("Contact enriched!");
+      onRefresh();
+    },
+    onError: (error) => {
+      toast.error(`Enrichment failed: ${error.message}`);
+    },
+  });
+
+  const contacts: any[] = results?.contacts ?? [];
+
+  return (
+    <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white w-full max-w-2xl max-h-[80vh] flex flex-col shadow-2xl border-4 border-black" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
+        <div className="px-6 py-4 border-b-4 border-black flex items-center justify-between shrink-0">
+          <div>
+            <div className="text-xs font-black text-muted-foreground">CONTACTS</div>
+            <h3 className="text-xl font-black">{companyName}</h3>
+            <div className="text-sm font-bold text-muted-foreground mt-0.5">{contacts.length} contact{contacts.length !== 1 ? "s" : ""} found</div>
+          </div>
+          <button onClick={onClose} className="text-2xl font-black hover:opacity-60 cursor-pointer">✕</button>
+        </div>
+
+        {/* Contact List */}
+        <div className="overflow-y-auto flex-1 p-4 space-y-3">
+          {contacts.length === 0 ? (
+            <div className="text-center py-8 text-muted-foreground font-bold">No contacts found</div>
+          ) : contacts.map((c: any, i: number) => (
+            <div key={i} className="border-2 border-gray-200 p-4 hover:border-black transition-colors">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex-1 min-w-0">
+                  <div className="font-black text-base">{c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim() || "—"}</div>
+                  <div className="text-sm font-bold text-muted-foreground">{c.title || c.jobTitle || "—"}</div>
+                  {c.email && (
+                    <a href={`mailto:${c.email}`} className="text-sm text-blue-600 underline font-bold block mt-1">{c.email}</a>
+                  )}
+                  {c.phone && (
+                    <a href={`tel:${c.phone}`} className="text-sm text-green-600 underline font-bold block">{c.phone}</a>
+                  )}
+                  {c.linkedinUrl && (
+                    <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 underline block mt-1">
+                      {c.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}
+                    </a>
+                  )}
+                </div>
+                {!c.email && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => enrichContactMutation.mutate({ contactId: c.id })}
+                    disabled={enrichContactMutation.isPending}
+                    className="text-xs font-black border-2 border-purple-600 text-purple-600 shrink-0 cursor-pointer"
+                  >
+                    {enrichContactMutation.isPending ? "..." : "GET EMAIL"}
+                  </Button>
+                )}
+              </div>
+            </div>
+          ))}
+        </div>
+
+        {/* Footer */}
+        <div className="px-5 py-3 border-t-4 border-black shrink-0 flex items-center justify-between gap-4 bg-gray-50">
+          {fetchLimit !== undefined && onFetchLimitChange && (
+            <div className="flex items-center gap-2">
+              <label className="text-xs font-black">LIMIT:</label>
+              <select
+                value={fetchLimit}
+                onChange={(e) => onFetchLimitChange(Number(e.target.value))}
+                className="border-2 border-gray-300 px-2 py-1 text-sm font-bold cursor-pointer"
+              >
+                <option value={25}>25</option>
+                <option value={100}>100</option>
+                <option value={500}>500</option>
+              </select>
+            </div>
+          )}
+          <div className="flex gap-2 ml-auto">
+            <button
+              onClick={onRefresh}
+              disabled={isPending}
+              className="text-xs font-black border-2 border-black px-4 py-2 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {isPending ? "REFRESHING..." : "REFRESH"}
+            </button>
+            <button
+              onClick={onClose}
+              className="text-xs font-black border-2 border-black px-4 py-2 hover:bg-black hover:text-white transition-colors cursor-pointer"
+            >
+              CLOSE
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

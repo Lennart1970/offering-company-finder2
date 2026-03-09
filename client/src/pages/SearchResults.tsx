@@ -953,6 +953,20 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
                 {company.websiteUrl.replace(/^https?:\/\//, "")}
               </a>
             )}
+            {/* Company Overview snippet — first sentence from briefData */}
+            {company.briefData && (() => {
+              try {
+                const bd = typeof company.briefData === 'string' ? JSON.parse(company.briefData) : company.briefData;
+                const overview = bd?.companyOverview as string | undefined;
+                if (!overview) return null;
+                const firstSentence = overview.split(/(?<=[.!?])\s+/)[0] ?? overview;
+                return (
+                  <p className="text-xs text-muted-foreground mt-1 leading-snug line-clamp-2">
+                    {firstSentence}
+                  </p>
+                );
+              } catch { return null; }
+            })()}
           </div>
         </div>
       </div>
@@ -1027,16 +1041,35 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
                 </button>
               );
             })()}
-            {company.salesApproachData && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onViewApproach?.(company.id); }}
-                className="flex-1 border-2 border-green-600 bg-green-50 hover:bg-green-100 transition-colors p-3 text-left cursor-pointer"
-              >
-                <div className="text-[10px] font-black text-green-600 mb-0.5">SALES APPROACH</div>
-                <div className="text-sm font-black text-green-800 leading-tight">View Approach →</div>
-                <div className="text-xs font-bold text-green-600 mt-1">Email · LinkedIn · Call Script</div>
-              </button>
-            )}
+            {company.salesApproachData && (() => {
+              let sa: any = null;
+              try { sa = typeof company.salesApproachData === 'string' ? JSON.parse(company.salesApproachData) : company.salesApproachData; } catch {}
+              const approachSections = [
+                sa?.conversationStarters?.length > 0 && `Conversation Starters (${sa.conversationStarters.length})`,
+                sa?.emailDraft && 'Email Draft',
+                sa?.linkedinMessage && 'LinkedIn Message',
+                sa?.callScript && 'Call Script',
+              ].filter(Boolean) as string[];
+              return (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onViewApproach?.(company.id); }}
+                  className="flex-1 border-2 border-green-600 bg-green-50 hover:bg-green-100 transition-colors p-3 text-left cursor-pointer"
+                >
+                  <div className="text-[10px] font-black text-green-600 mb-0.5">SALES APPROACH</div>
+                  <div className="text-sm font-black text-green-800 leading-tight">View Approach →</div>
+                  {approachSections.length > 0 && (
+                    <ul className="mt-2 space-y-0.5">
+                      {approachSections.map((s) => (
+                        <li key={s} className="text-[10px] font-bold text-green-700 flex items-center gap-1">
+                          <span className="w-1 h-1 rounded-full bg-green-500 shrink-0" />
+                          {s}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </button>
+              );
+            })()}
           </div>
         )}
       </div>

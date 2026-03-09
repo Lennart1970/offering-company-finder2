@@ -13,6 +13,7 @@ import Exclusions from "./pages/Exclusions";
 import ImportCampaign from "./pages/ImportCampaign";
 import Brain from "./pages/Brain";
 import ConferenceImport from "./pages/ConferenceImport";
+import ExcelImport from "./pages/ExcelImport";
 
 
 function Router() {
@@ -26,6 +27,7 @@ function Router() {
         <Route path={"/exclusions"} component={Exclusions} />
         <Route path={"/import-campaign"} component={ImportCampaign} />
         <Route path={"/conference-import"} component={ConferenceImport} />
+        <Route path={"/excel-import"} component={ExcelImport} />
         <Route path={"/brain"} component={Brain} />
 
         <Route path={"/404"} component={NotFound} />

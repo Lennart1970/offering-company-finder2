@@ -1180,3 +1180,20 @@
 - [x] Add orange progress banner when name enrichment is running
 - [x] nameEnrichCampaign tRPC mutation added to companyFinderRouter
 - [x] nameOnly count added to enrichmentStats in getSearch procedure
+
+## Feature: Excel Upload Campaign
+- [x] Install xlsx + multer npm packages for server-side Excel parsing
+- [x] Build POST /api/excel-import endpoint (multipart/form-data, session-authenticated)
+  - [x] Accepts .xlsx/.xls/.csv file + campaignName field
+  - [x] Auto-detects Company Name and Website columns (case-insensitive, flexible headers)
+  - [x] Skips rows with '–' or empty website (treats as name-only)
+  - [x] Domain-first Apollo enrichment, name-fallback for rows without website
+  - [x] Creates search/campaign record, bulk inserts companies
+  - [x] Streams NDJSON progress
+- [x] Build Excel Upload UI page (/excel-import)
+  - [x] Drag-and-drop file input (xlsx/csv)
+  - [x] Campaign name field (auto-filled from filename)
+  - [x] Live progress stream with per-company enrichment status
+  - [x] Redirect to Search Results on completion
+- [x] Add Excel Import to sidebar navigation
+- [x] 24 unit tests for column detection, website cleaning, domain extraction, and workbook parsing — 264 total passing (20 test files)

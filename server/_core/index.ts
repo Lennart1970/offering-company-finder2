@@ -8,6 +8,7 @@ import { appRouter } from "../routers";
 import { createContext } from "./context";
 import apiRouter from "../routes/api";
 import conferenceImportRouter from "../routes/conferenceImport";
+import excelImportRouter from "../routes/excelImport";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -41,6 +42,8 @@ async function startServer() {
   app.use("/api/v1", apiRouter);
   // Conference import endpoint (session-authenticated, streams NDJSON)
   app.use("/api/conference-import", conferenceImportRouter);
+  // Excel/CSV import endpoint (session-authenticated, streams NDJSON)
+  app.use("/api/excel-import", excelImportRouter);
   // tRPC API
   app.use(
     "/api/trpc",

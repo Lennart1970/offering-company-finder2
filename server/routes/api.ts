@@ -756,4 +756,133 @@ router.post("/score-campaign", async (req: any, res: any) => {
   res.end();
 });
 
+// ============================================================================
+// POST /api/v1/name-enrich-campaign
+// Apollo name-based enrichment for conference-imported companies that have
+// no domain (e.g. Intertraffic exhibitors imported via __NEXT_DATA__ scraper).
+// Uses organizations/search endpoint with q_organization_name.
+// Streams NDJSON progress. No browser required.
+// Body: { searchId: number, limit?: number, concurrency?: number }
+// Example:
+//   curl -X POST http://localhost:3000/api/v1/name-enrich-campaign \
+//     -H "Authorization: Bearer YOUR_API_KEY" \
+//     -H "Content-Type: application/json" \
+//     -d '{"searchId": 900002, "limit": 200}'
+// ============================================================================
+router.post("/name-enrich-campaign", async (req: any, res: any) => {
+  const { searchId, limit = 100, concurrency = 3 } = req.body || {};
+
+  if (!searchId || isNaN(parseInt(searchId))) {
+    res.status(400).json({ error: "searchId is required" });
+    return;
+  }
+
+  const sid = parseInt(searchId);
+  const maxLimit = Math.min(500, Math.max(1, parseInt(limit) || 100));
+  const concur = Math.min(5, Math.max(1, parseInt(concurrency) || 3));
+
+  res.setHeader("Content-Type", "application/x-ndjson");
+  res.setHeader("Transfer-Encoding", "chunked");
+  res.setHeader("Cache-Control", "no-cache");
+  res.flushHeaders();
+
+  const send = (obj: object) => res.write(JSON.stringify(obj) + "\n");
+
+  try {
+    const { apolloEnrichByName } = await import("../conferenceScraper");
+
+    const search = await getSearchById(sid);
+    if (!search) {
+      send({ error: `Search ${sid} not found.` });
+      return res.end();
+    }
+
+    // Get all pending companies with no apolloId (name-only imports)
+    const allPending = await getPendingCompaniesBySearchId(sid);
+    const toEnrich = allPending
+      .filter((c: any) => !c.apolloId && !c.primaryDomain)
+      .filter((c: any) => c.name && c.name.length > 1)
+      // Skip junk entries from Next.js internal routes
+      .filter((c: any) => !c.websiteUrl || !c.websiteUrl.includes("localhost"))
+      .slice(0, maxLimit);
+
+    send({ status: "started", searchId: sid, total: toEnrich.length, concurrency: concur });
+    console.log(`[Name Enrich] Starting name-based enrichment for ${toEnrich.length} companies in search ${sid}`);
+
+    if (toEnrich.length === 0) {
+      send({ status: "done", enriched: 0, failed: 0, message: "No pending name-only companies to enrich." });
+      return res.end();
+    }
+
+    let enriched = 0;
+    let failed = 0;
+    let done = 0;
+
+    // Process in batches of `concur` to respect Apollo rate limits
+    for (let i = 0; i < toEnrich.length; i += concur) {
+      const batch = toEnrich.slice(i, i + concur);
+      await Promise.all(
+        batch.map(async (company: any) => {
+          try {
+            const result = await apolloEnrichByName(company.name, company.country || null);
+            if (result) {
+              await updateCompany(company.id, {
+                apolloId: result.apolloId || undefined,
+                name: result.name || company.name,
+                websiteUrl: result.websiteUrl || undefined,
+                primaryDomain: result.primaryDomain || undefined,
+                linkedinUrl: result.linkedinUrl || undefined,
+                phone: result.phone || undefined,
+                foundedYear: result.foundedYear || undefined,
+                revenue: result.revenue || undefined,
+                headcountGrowth: result.headcountGrowth || undefined,
+                city: result.city || undefined,
+                state: result.state || undefined,
+                country: result.country || undefined,
+                streetAddress: result.streetAddress || undefined,
+                sicCodes: result.sicCodes?.length ? JSON.stringify(result.sicCodes) : undefined,
+                naicsCodes: result.naicsCodes?.length ? JSON.stringify(result.naicsCodes) : undefined,
+                enrichmentStatus: "enriched",
+              });
+              enriched++;
+            } else {
+              await updateCompany(company.id, { enrichmentStatus: "failed" });
+              failed++;
+            }
+          } catch (err: any) {
+            await updateCompany(company.id, { enrichmentStatus: "failed" });
+            failed++;
+            console.warn(`[Name Enrich] Failed for "${company.name}":`, err.message);
+          }
+          done++;
+        })
+      );
+
+      send({
+        status: "progress",
+        done,
+        total: toEnrich.length,
+        enriched,
+        failed,
+        lastBatch: batch.map((c: any) => c.name),
+      });
+
+      // Small delay between batches to be gentle on Apollo rate limits
+      if (i + concur < toEnrich.length) {
+        await new Promise((r) => setTimeout(r, 300));
+      }
+    }
+
+    send({
+      status: "done",
+      enriched,
+      failed,
+      message: `Name-enriched ${enriched} companies, ${failed} not found in Apollo.`,
+    });
+  } catch (err: any) {
+    send({ error: err.message });
+  }
+  res.end();
+});
+
 export default router;

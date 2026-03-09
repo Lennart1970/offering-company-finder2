@@ -1158,3 +1158,15 @@
 - [x] Smart best-match selection: exact name match preferred, falls back to first result
 - [x] Country code mapped to full country name (ISO 2-letter → "Netherlands", "Germany", etc.)
 - [x] Updated 3 tests → 4 tests (added exact-match test) — 234 total passing (18 test files)
+
+## Feature: Backend Name-Enrich Campaign Endpoint
+- [x] Add POST /api/v1/name-enrich-campaign endpoint to api.ts
+- [x] Fetches all pending companies with no apolloId and no primaryDomain
+- [x] Skips junk localhost entries from Next.js internal routes
+- [x] Calls apolloEnrichByName(name, country) for each company
+- [x] Updates company with full firmographic data on match (apolloId, domain, city, country, SIC/NAICS, etc.)
+- [x] Marks as 'failed' when Apollo returns no match
+- [x] Supports limit (default 100, max 500) and concurrency (default 3, max 5) params
+- [x] Streams NDJSON progress with per-batch lastBatch company names
+- [x] 6 unit tests — 240 total passing (19 test files)
+- [x] Curl usage: POST /api/v1/name-enrich-campaign -d '{"searchId": 900002, "limit": 200}'

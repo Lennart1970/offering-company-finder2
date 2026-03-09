@@ -1,0 +1,130 @@
+{
+  "query": "\nSELECT \n  s.id as search_id,\n  s.companyWebsite as campaign_source,\n  s.location,\n  COUNT(c.id) as total_companies,\n  SUM(CASE WHEN c.enrichmentStatus = 'pending' THEN 1 ELSE 0 END) as pending,\n  SUM(CASE WHEN c.enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) as enriched,\n  SUM(CASE WHEN c.enrichmentStatus = 'failed' THEN 1 ELSE 0 END) as failed,\n  SUM(CASE WHEN c.primaryDomain IS NULL OR c.primaryDomain = '' THEN 1 ELSE 0 END) as no_domain\nFROM searches s\nJOIN companies c ON c.searchId = s.id\nGROUP BY s.id, s.companyWebsite, s.location\nORDER BY s.id DESC\nLIMIT 15;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  s.id as search_id,\n  s.companyWebsite as campaign_source,\n  s.location,\n  COUNT(c.id) as total_companies,\n  SUM(CASE WHEN c.enrichmentStatus = 'pending' THEN 1 ELSE 0 END) as pending,\n  SUM(CASE WHEN c.enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) as enriched,\n  SUM(CASE WHEN c.enrichmentStatus = 'failed' THEN 1 ELSE 0 END) as failed,\n  SUM(CASE WHEN c.primaryDomain IS NULL OR c.primaryDomain = '' THEN 1 ELSE 0 END) as no_domain\nFROM searches s\nJOIN companies c ON c.searchId = s.id\nGROUP BY s.id, s.companyWebsite, s.location\nORDER BY s.id DESC\nLIMIT 15;\n",
+  "rows": [
+    {
+      "search_id": "900002",
+      "campaign_source": "https://www.intertraffic.com/amsterdam/exhibitors",
+      "location": "Conference Import",
+      "total_companies": "417",
+      "pending": "417",
+      "enriched": "0",
+      "failed": "0",
+      "no_domain": "408"
+    },
+    {
+      "search_id": "900001",
+      "campaign_source": "https://www.intertraffic.com/amsterdam/exhibitors",
+      "location": "Conference Import",
+      "total_companies": "3",
+      "pending": "3",
+      "enriched": "0",
+      "failed": "0",
+      "no_domain": "0"
+    },
+    {
+      "search_id": "870001",
+      "campaign_source": "https://bauma.de/en/trade-fair/exhibitor-directory/exhibitors-brands/",
+      "location": "Conference Import",
+      "total_companies": "3",
+      "pending": "1",
+      "enriched": "2",
+      "failed": "0",
+      "no_domain": "1"
+    },
+    {
+      "search_id": "840001",
+      "campaign_source": "https://www.conexpoconagg.com/exhibitor-sponsors",
+      "location": "Conference Import",
+      "total_companies": "81",
+      "pending": "0",
+      "enriched": "81",
+      "failed": "0",
+      "no_domain": "0"
+    },
+    {
+      "search_id": "810002",
+      "campaign_source": "https://www.conexpoconagg.com/exhibitor-sponsors",
+      "location": "Conference Import",
+      "total_companies": "81",
+      "pending": "0",
+      "enriched": "81",
+      "failed": "0",
+      "no_domain": "0"
+    },
+    {
+      "search_id": "780001",
+      "campaign_source": "N/A",
+      "location": "CSV Import",
+      "total_companies": "699",
+      "pending": "696",
+      "enriched": "3",
+      "failed": "0",
+      "no_domain": "28"
+    },
+    {
+      "search_id": "750001",
+      "campaign_source": "N/A",
+      "location": "United States",
+      "total_companies": "4959",
+      "pending": "0",
+      "enriched": "4959",
+      "failed": "0",
+      "no_domain": "152"
+    },
+    {
+      "search_id": "690001",
+      "campaign_source": "N/A",
+      "location": "CSV Import",
+      "total_companies": "34",
+      "pending": "31",
+      "enriched": "3",
+      "failed": "0",
+      "no_domain": "0"
+    },
+    {
+      "search_id": "660002",
+      "campaign_source": "N/A",
+      "location": "CSV Import",
+      "total_companies": "34",
+      "pending": "0",
+      "enriched": "34",
+      "failed": "0",
+      "no_domain": "0"
+    },
+    {
+      "search_id": "660001",
+      "campaign_source": "N/A",
+      "location": "CSV Import",
+      "total_companies": "34",
+      "pending": "34",
+      "enriched": "0",
+      "failed": "0",
+      "no_domain": "0"
+    },
+    {
+      "search_id": "630001",
+      "campaign_source": "N/A",
+      "location": "CSV Import",
+      "total_companies": "34",
+      "pending": "27",
+      "enriched": "7",
+      "failed": "0",
+      "no_domain": "0"
+    },
+    {
+      "search_id": "600004",
+      "campaign_source": "N/A",
+      "location": "CSV Import",
+      "total_companies": "34",
+      "pending": "0",
+      "enriched": "34",
+      "failed": "0",
+      "no_domain": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "search_id\tcampaign_source\tlocation\ttotal_companies\tpending\tenriched\tfailed\tno_domain\n900002\thttps://www.intertraffic.com/amsterdam/exhibitors\tConference Import\t417\t417\t0\t0\t408\n900001\thttps://www.intertraffic.com/amsterdam/exhibitors\tConference Import\t3\t3\t0\t0\t0\n870001\thttps://bauma.de/en/trade-fair/exhibitor-directory/exhibitors-brands/\tConference Import\t3\t1\t2\t0\t1\n840001\thttps://www.conexpoconagg.com/exhibitor-sponsors\tConference Import\t81\t0\t81\t0\t0\n810002\thttps://www.conexpoconagg.com/exhibitor-sponsors\tConference Import\t81\t0\t81\t0\t0\n780001\tN/A\tCSV Import\t699\t696\t3\t0\t28\n750001\tN/A\tUnited States\t4959\t0\t4959\t0\t152\n690001\tN/A\tCSV Import\t34\t31\t3\t0\t0\n660002\tN/A\tCSV Import\t34\t0\t34\t0\t0\n660001\tN/A\tCSV Import\t34\t34\t0\t0\t0\n630001\tN/A\tCSV Import\t34\t27\t7\t0\t0\n600004\tN/A\tCSV Import\t34\t0\t34\t0\t0\n",
+  "stderr": "",
+  "execution_time_ms": 84
+}

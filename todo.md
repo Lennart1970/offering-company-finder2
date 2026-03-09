@@ -1432,3 +1432,8 @@
 - [x] Add `niche.clusterAndSaveNiches` tRPC procedure — full pipeline (embed → cluster → save → score)
 - [x] Rewrite ImportCampaign page — 3-step flow: upload → clustering progress → results + redirect to Herd Mapping
 - [x] Validate OpenAI API key for embeddings (304 tests passing)
+
+## Rename: Herd Mapping → Market Segments
+- [ ] Rename in DashboardLayout sidebar nav
+- [ ] Rename page title and headings in NicheReview.tsx
+- [ ] Rename route from /niche-review references in ImportCampaign.tsx (keep URL, just update display text)

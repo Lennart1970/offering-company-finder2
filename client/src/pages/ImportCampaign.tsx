@@ -238,7 +238,7 @@ export default function ImportCampaign() {
               onClick={() => setLocation("/niche-review")}
               className="flex-1 font-black bg-black text-white py-6 text-lg cursor-pointer"
             >
-              VIEW HERD MAPPING →
+              VIEW MARKET SEGMENTS →
             </Button>
             <Button
               onClick={() => setLocation("/")}

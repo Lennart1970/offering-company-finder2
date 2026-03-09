@@ -1,5 +1,5 @@
 /**
- * NicheReview.tsx — Herd Mapping
+ * NicheReview.tsx — Market Segments
  *
  * Displays niche clusters ranked by fit score against the active Offering Brain.
  * Each niche shows a dynamic breakdown of LLM-inferred scoring dimensions.
@@ -511,7 +511,7 @@ export default function NicheReview() {
           <div className="flex items-center gap-3">
             <Network className="w-6 h-6" />
             <div>
-              <h1 className="text-xl font-black">Herd Mapping</h1>
+              <h1 className="text-xl font-black">Market Segments</h1>
               <p className="text-xs text-muted-foreground font-bold">
                 Niche clusters ranked by fit against your Offering Brain
               </p>

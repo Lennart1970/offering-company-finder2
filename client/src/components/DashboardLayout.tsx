@@ -36,7 +36,7 @@ const menuItems = [
   { icon: Phone, label: "Call Today", path: "/call-today" },
   { icon: BookMarked, label: "Nurture List", path: "/nurture" },
   { icon: ShieldBan, label: "Exclusions", path: "/exclusions" },
-  { icon: Network, label: "Herd Mapping", path: "/niche-review" },
+  { icon: Network, label: "Market Segments", path: "/niche-review" },
   { icon: ScrollText, label: "Prompt Repository", path: "/prompts" },
 ];
 

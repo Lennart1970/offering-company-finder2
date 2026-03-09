@@ -15,15 +15,17 @@ describe("fetchSerperImages", () => {
   });
 
   it("returns domain-matched images first", async () => {
-    const mockImages = [
-      { imageUrl: "https://other.com/img1.jpg", thumbnailUrl: "https://other.com/t1.jpg", title: "Other image", source: "Other", domain: "other.com", link: "https://other.com" },
+    const ownDomainImages = [
       { imageUrl: "https://connectgroup.com/img2.jpg", thumbnailUrl: "https://connectgroup.com/t2.jpg", title: "CG image", source: "Connect Group", domain: "www.connectgroup.com", link: "https://connectgroup.com" },
     ];
+    const broadImages = [
+      { imageUrl: "https://other.com/img1.jpg", thumbnailUrl: "https://other.com/t1.jpg", title: "Other image", source: "Other", domain: "other.com", link: "https://other.com" },
+    ];
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ images: mockImages }),
-    });
+    // Two fetch calls: first for site: query, second for broad query
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ images: ownDomainImages }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ images: broadImages }) });
 
     const { fetchSerperImages } = await import("./serperImages");
     const result = await fetchSerperImages("Connect Group", "connectgroup.com", 6);
@@ -34,10 +36,10 @@ describe("fetchSerperImages", () => {
   });
 
   it("calls the Serper API with correct headers", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ images: [] }),
-    });
+    // Two fetch calls: site: query + broad query
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ images: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ images: [] }) });
 
     const { fetchSerperImages } = await import("./serperImages");
     await fetchSerperImages("Acme Corp", "acme.com", 3);
@@ -55,11 +57,6 @@ describe("fetchSerperImages", () => {
   });
 
   it("throws when API key is missing", async () => {
-    // Temporarily override the mock to return empty key
-    vi.mocked(global.fetch); // ensure fetch mock is active
-    // We test this indirectly: the module is already loaded with test-key-123
-    // so we just verify the guard logic by calling with a spy that checks the env
-    // Instead, test the guard directly by importing a fresh module
     const envMod = await import("./_core/env");
     const original = (envMod as any).ENV.serperApiKey;
     (envMod as any).ENV.serperApiKey = "";
@@ -69,21 +66,20 @@ describe("fetchSerperImages", () => {
   });
 
   it("throws on non-ok API response", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 401,
-      statusText: "Unauthorized",
-    });
+    // First call (site: query) fails with 401
+    mockFetch
+      .mockResolvedValueOnce({ ok: false, status: 401, statusText: "Unauthorized" })
+      // Second call (broad query) also fails so the error propagates
+      .mockResolvedValueOnce({ ok: false, status: 401, statusText: "Unauthorized" });
 
     const { fetchSerperImages } = await import("./serperImages");
     await expect(fetchSerperImages("Test Co", "test.com")).rejects.toThrow("401");
   });
 
   it("returns empty array when API returns no images", async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ images: [] }),
-    });
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ images: [] }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ images: [] }) });
 
     const { fetchSerperImages } = await import("./serperImages");
     const result = await fetchSerperImages("Empty Corp", "empty.com");
@@ -91,19 +87,26 @@ describe("fetchSerperImages", () => {
   });
 
   it("respects the limit parameter", async () => {
-    const mockImages = Array.from({ length: 10 }, (_, i) => ({
+    const siteImages = Array.from({ length: 5 }, (_, i) => ({
       imageUrl: `https://example.com/img${i}.jpg`,
       thumbnailUrl: `https://example.com/t${i}.jpg`,
-      title: `Image ${i}`,
+      title: `Site Image ${i}`,
       source: "Example",
       domain: "example.com",
       link: `https://example.com/${i}`,
     }));
+    const broadImages = Array.from({ length: 5 }, (_, i) => ({
+      imageUrl: `https://other.com/img${i}.jpg`,
+      thumbnailUrl: `https://other.com/t${i}.jpg`,
+      title: `Other Image ${i}`,
+      source: "Other",
+      domain: "other.com",
+      link: `https://other.com/${i}`,
+    }));
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({ images: mockImages }),
-    });
+    mockFetch
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ images: siteImages }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ images: broadImages }) });
 
     const { fetchSerperImages } = await import("./serperImages");
     const result = await fetchSerperImages("Example", "example.com", 4);

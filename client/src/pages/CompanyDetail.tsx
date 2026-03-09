@@ -18,7 +18,7 @@ function formatRevenue(revenue: number | string | null): string {
 }
 
 type Chapter = "overview" | "urgency" | "research" | "approach" | "contacts";
-type ResearchSub = "recent-developments" | "products-services" | "key-technologies" | "target-markets" | "sources";
+type ResearchSub = "recent-developments" | "products-services" | "key-technologies" | "target-markets" | "sources" | "product-images";
 type ApproachSub = "conversation-starters" | "email-draft" | "linkedin-message" | "call-script";
 
 const CHAPTERS: { id: Chapter; label: string; color: string; activeColor: string }[] = [
@@ -34,6 +34,7 @@ const RESEARCH_SUBS: { id: ResearchSub; label: string }[] = [
   { id: "products-services",   label: "Products & Services" },
   { id: "key-technologies",    label: "Key Technologies" },
   { id: "target-markets",      label: "Target Markets" },
+  { id: "product-images",      label: "Product Images" },
   { id: "sources",             label: "Sources" },
 ];
 
@@ -470,6 +471,7 @@ export default function CompanyDetail() {
                 (sub.id === "products-services"   && briefData.productsAndServices?.length > 0) ||
                 (sub.id === "key-technologies"    && briefData.keyTechnologies?.length > 0) ||
                 (sub.id === "target-markets"      && briefData.targetMarkets?.length > 0) ||
+                (sub.id === "product-images"      /* always show */) ||
                 (sub.id === "sources"             && briefData.sources?.length > 0);
               if (!hasContent) return null;
               return (
@@ -485,6 +487,9 @@ export default function CompanyDetail() {
                   {sub.label}
                   {sub.id === "sources" && briefData.sources?.length > 0 && (
                     <span className="ml-1 opacity-70">({briefData.sources.length})</span>
+                  )}
+                  {sub.id === "product-images" && productImages.length > 0 && (
+                    <span className="ml-1 opacity-70">({productImages.length})</span>
                   )}
                 </button>
               );
@@ -939,9 +944,9 @@ export default function CompanyDetail() {
                     </section>
                   )}
 
-                  {/* Product Images section — shown below Key Technologies */}
-                  {researchSub === "key-technologies" && (
-                    <section className="mt-8">
+                  {/* Product Images — own tab */}
+                  {researchSub === "product-images" && (
+                    <section>
                       <div className="flex items-center justify-between mb-4">
                         <h2 className="text-xl font-black border-b-4 border-black pb-2 flex-1">Product Images</h2>
                         <button
@@ -977,8 +982,9 @@ export default function CompanyDetail() {
                           ))}
                         </div>
                       ) : (
-                        <div className="py-8 text-center border-2 border-dashed border-gray-200">
+                        <div className="py-12 text-center border-2 border-dashed border-gray-200">
                           <p className="text-sm text-muted-foreground font-bold mb-3">No product images fetched yet.</p>
+                          <p className="text-xs text-muted-foreground mb-4">Images are sourced from the company's own domain and technology-related sites. E-commerce results are excluded.</p>
                           <button
                             onClick={() => { setProductImagesLoading(true); fetchProductImages.mutate({ companyId }); }}
                             disabled={productImagesLoading}
@@ -991,7 +997,7 @@ export default function CompanyDetail() {
                     </section>
                   )}
 
-                  {/* Lightbox */}
+                  {/* Lightbox — rendered outside tab sections so it works from any tab */}
                   {lightboxImage && (
                     <div
                       className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"

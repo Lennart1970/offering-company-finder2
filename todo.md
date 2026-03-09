@@ -1372,3 +1372,10 @@
 
 ## UX: Enrich Recent Developments Cards
 - [x] Show headline, summary snippet, and source attribution on each card (not just date + link)
+
+## UX: Product Images - Own Tab + Domain Filter
+- [x] Move Product Images to its own "Product Images" tab in the Research sub-nav
+- [x] Remove Product Images section from Key Technologies tab
+- [x] Filter Serper results: exclude e-commerce/retail domains (amazon, ebay, alibaba, etc.)
+- [x] Prefer company's own domain in results (two-pass query: site: first, then broad)
+- [x] Add site: operator + tech-focused query to Serper to get product/tech images

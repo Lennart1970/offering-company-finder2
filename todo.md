@@ -1267,3 +1267,10 @@
 - [x] Bold [RESEARCH & OUTREACH] text in all hero sentence states is now clickable (dotted underline, purple hover, triggers mutation directly)
 - [x] Tooltip added to purple RESEARCH & OUTREACH button: "Generates a deep company brief (market position, pain points, recent news) + a personalized email, LinkedIn message, and call script for each enriched company."
 - [x] CALL TODAY hero state: "You have X companies to call today. Open each card below for your call script — good luck!"
+
+## Feature: High-Urgency CTA Paragraph
+- [x] Secondary red CTA paragraph appears below hero sentence when companies with urgencyScore >= 70 are not yet in Call Today list
+- [x] Names up to 3 companies inline: "Arvoo Imaging, Siemens Mobility, and 2 more have a high urgency score"
+- [x] Clickable underlined text: "add all N to your Call Today list" — triggers submitDecision for each high-urgency company
+- [x] Paragraph disappears once all high-urgency companies are in Call Today list
+- [x] submitDecisionMutation hook added to SearchResults (invalidates getSearch on success)

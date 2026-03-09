@@ -172,6 +172,77 @@ export default function CompanyDetail() {
     toast.success(`${label} copied`);
   };
 
+  // Call readiness + outcomes
+  const [callReadinessLoading, setCallReadinessLoading] = useState(false);
+  const [callReadinessSummary, setCallReadinessSummary] = useState<string | null>(company?.callReadinessSummary ?? null);
+  const [outcomeSelected, setOutcomeSelected] = useState<string | null>(null);
+  const [outcomeNotes, setOutcomeNotes] = useState("");
+  const [followUpDate, setFollowUpDate] = useState("");
+  const [outcomeSaved, setOutcomeSaved] = useState(false);
+
+  const generateReadiness = trpc.companyFinder.generateCallReadiness.useMutation({
+    onSuccess: (d) => { setCallReadinessSummary(d.summary); setCallReadinessLoading(false); },
+    onError: () => { setCallReadinessLoading(false); toast.error("Could not generate summary"); },
+  });
+
+  const logOutcome = trpc.companyFinder.logCallOutcome.useMutation({
+    onSuccess: () => { setOutcomeSaved(true); toast.success("Outcome saved"); },
+    onError: () => toast.error("Failed to save outcome"),
+  });
+
+  const { data: outcomesData } = trpc.companyFinder.getCallOutcomes.useQuery(
+    { companyId },
+    { enabled: !!companyId && !isNaN(companyId) }
+  );
+  const lastOutcome = outcomesData?.outcomes?.[0] ?? null;
+
+  const OUTCOME_LABELS: Record<string, { label: string; color: string }> = {
+    reached:         { label: "✅ Reached",         color: "bg-green-600 text-white border-green-600" },
+    voicemail:       { label: "📱 Voicemail",       color: "bg-yellow-500 text-white border-yellow-500" },
+    no_answer:       { label: "📵 No Answer",        color: "bg-gray-500 text-white border-gray-500" },
+    meeting_booked:  { label: "📅 Meeting Booked",  color: "bg-blue-600 text-white border-blue-600" },
+    not_interested:  { label: "❌ Not Interested",  color: "bg-red-600 text-white border-red-600" },
+  };
+
+  const NEXT_ACTION: Record<string, string> = {
+    reached:        "Follow up with a personalised email summarising your conversation.",
+    voicemail:      "Send a LinkedIn message referencing your voicemail — today.",
+    no_answer:      "Try again tomorrow at a different time, then send an email.",
+    meeting_booked: "Prepare a tailored demo using the Research and Approach chapters.",
+    not_interested: "Park this company and revisit in 90 days with a new angle.",
+  };
+
+  // Top contact (first enriched contact with email, else first contact)
+  const topContact = useMemo(() => {
+    const withEmail = rawContacts.find((c: any) => c.email);
+    return withEmail ?? rawContacts[0] ?? null;
+  }, [rawContacts]);
+
+  // Plain-English industry from NAICS description
+  const industryLabel = useMemo(() => {
+    if (!company) return null;
+    const naics = company.naicsCodes ? (() => { try { return JSON.parse(company.naicsCodes as string); } catch { return []; } })() : [];
+    if (naics.length > 0) {
+      const first = Array.isArray(naics[0]) ? naics[0][1] : null;
+      if (first) return first;
+    }
+    return null;
+  }, [company]);
+
+  // Headcount growth label
+  const growthLabel = useMemo(() => {
+    if (!company?.headcountGrowth) return null;
+    const g = company.headcountGrowth;
+    const match12 = g.match(/12mo:\s*([+-]?[\d.]+)%/);
+    if (match12) {
+      const pct = parseFloat(match12[1]);
+      if (pct > 15) return `Growing fast — +${pct.toFixed(0)}% headcount (12mo)`;
+      if (pct > 0)  return `Stable growth — +${pct.toFixed(0)}% headcount (12mo)`;
+      if (pct < 0)  return `Shrinking — ${pct.toFixed(0)}% headcount (12mo)`;
+    }
+    return g;
+  }, [company?.headcountGrowth]);
+
   const goBack = () => {
     if (fromParam.startsWith("call-today/")) {
       navigate(`/call-today/${fromParam.replace("call-today/", "")}`);
@@ -282,9 +353,27 @@ export default function CompanyDetail() {
             </div>
           </div>
 
-          <div className="mt-3">
-            <CompanyCodeDisplay sicCodes={company.sicCodes} naicsCodes={company.naicsCodes} />
-          </div>
+          {/* Plain-English industry + growth block */}
+          {(industryLabel || growthLabel || company.revenue) && (
+            <div className="mt-3 flex flex-wrap gap-4 text-sm">
+              {industryLabel && (
+                <div className="flex items-center gap-1.5">
+                  <span className="text-[10px] font-black text-muted-foreground">INDUSTRY</span>
+                  <span className="font-bold">{industryLabel}</span>
+                </div>
+              )}
+              {growthLabel && (
+                <div className="flex items-center gap-1.5">
+                  <span className={`text-[10px] font-black px-1.5 py-0.5 ${
+                    growthLabel.startsWith("Growing") ? "bg-green-100 text-green-700" :
+                    growthLabel.startsWith("Shrinking") ? "bg-red-100 text-red-700" :
+                    "bg-gray-100 text-gray-700"
+                  }`}>{growthLabel}</span>
+                </div>
+              )}
+
+            </div>
+          )}
         </div>
 
         {/* ── Chapter Tab Bar ── */}
@@ -366,59 +455,184 @@ export default function CompanyDetail() {
         {/* ── Chapter Content ── */}
         <div className="min-h-[400px]">
 
-          {/* OVERVIEW */}
+          {/* OVERVIEW — Sales-rep pre-call dossier */}
           {chapter === "overview" && (
-            <div className="p-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-                {/* Urgency card */}
-                <button
-                  onClick={() => setChapter("urgency")}
-                  disabled={!briefData}
+            <div className="p-6 space-y-6">
+
+              {/* ── 1. CALL READINESS BAR ── */}
+              <div className="border-4 border-black p-4">
+                <div className="flex items-start justify-between gap-3 flex-wrap">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[10px] font-black text-muted-foreground mb-1">WHY CALL TODAY</div>
+                    {callReadinessSummary ? (
+                      <p className="text-base font-bold leading-snug">{callReadinessSummary}</p>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic">No call readiness summary yet — generate one below.</p>
+                    )}
+                  </div>
+                  <button
+                    onClick={() => {
+                      setCallReadinessLoading(true);
+                      generateReadiness.mutate({ companyId });
+                    }}
+                    disabled={callReadinessLoading}
+                    className="shrink-0 text-xs font-black border-2 border-black px-3 py-1.5 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                  >
+                    {callReadinessLoading ? "GENERATING..." : callReadinessSummary ? "↺ REFRESH" : "⚡ GENERATE"}
+                  </button>
+                </div>
+              </div>
+
+              {/* ── 2. TOP CONTACT ── */}
+              <div className="border-4 border-purple-600 p-4">
+                <div className="text-[10px] font-black text-purple-600 mb-2">TOP CONTACT</div>
+                {topContact ? (
+                  <div className="flex flex-wrap gap-6 items-start">
+                    <div>
+                      <div className="text-lg font-black">{topContact.fullName || [topContact.firstName, topContact.lastName].filter(Boolean).join(" ") || "—"}</div>
+                      <div className="text-sm font-bold text-muted-foreground">{topContact.title || topContact.searchedTitle || "—"}</div>
+                    </div>
+                    <div className="flex flex-wrap gap-4 text-sm">
+                      {topContact.email && (
+                        <div>
+                          <div className="text-[10px] font-black text-muted-foreground">EMAIL</div>
+                          <a href={`mailto:${topContact.email}`} className="font-bold text-blue-600 underline">{topContact.email}</a>
+                        </div>
+                      )}
+                      {topContact.phone && (
+                        <div>
+                          <div className="text-[10px] font-black text-muted-foreground">PHONE</div>
+                          <a href={`tel:${topContact.phone}`} className="font-bold text-blue-600 underline">{topContact.phone}</a>
+                        </div>
+                      )}
+                      {topContact.linkedinUrl && (
+                        <div>
+                          <div className="text-[10px] font-black text-muted-foreground">LINKEDIN</div>
+                          <a href={topContact.linkedinUrl} target="_blank" rel="noopener noreferrer" className="font-bold text-blue-600 underline">View profile →</a>
+                        </div>
+                      )}
+                    </div>
+                    <button onClick={() => setChapter("contacts")} className="ml-auto text-xs font-black text-purple-600 underline cursor-pointer">
+                      All {rawContacts.length} contacts →
+                    </button>
+                  </div>
+                ) : (
+                  <div className="text-sm text-muted-foreground font-bold">No contacts found yet — use FIND DECISION-MAKERS in the Contacts tab.</div>
+                )}
+              </div>
+
+              {/* ── 3. NEXT BEST ACTION (based on last outcome) ── */}
+              {lastOutcome && (
+                <div className={`border-4 p-4 ${
+                  lastOutcome.outcome === "meeting_booked" ? "border-blue-600 bg-blue-50" :
+                  lastOutcome.outcome === "reached" ? "border-green-600 bg-green-50" :
+                  "border-yellow-500 bg-yellow-50"
+                }`}>
+                  <div className="text-[10px] font-black text-muted-foreground mb-1">NEXT BEST ACTION</div>
+                  <div className="flex items-start gap-3 flex-wrap">
+                    <span className={`text-xs font-black px-2 py-1 border-2 ${OUTCOME_LABELS[lastOutcome.outcome]?.color ?? ""}`}>
+                      {OUTCOME_LABELS[lastOutcome.outcome]?.label ?? lastOutcome.outcome}
+                    </span>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold">{NEXT_ACTION[lastOutcome.outcome]}</p>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Last contact: {new Date(lastOutcome.createdAt).toLocaleDateString()}
+                        {lastOutcome.followUpDate && ` · Follow-up: ${lastOutcome.followUpDate}`}
+                      </p>
+                      {lastOutcome.notes && (
+                        <p className="text-xs italic text-gray-600 mt-1">"{lastOutcome.notes}"</p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* ── 4. CALL OUTCOME LOGGER ── */}
+              <div className="border-4 border-gray-300 p-4">
+                <div className="text-[10px] font-black text-muted-foreground mb-3">LOG CALL OUTCOME</div>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {Object.entries(OUTCOME_LABELS).map(([key, { label, color }]) => (
+                    <button
+                      key={key}
+                      onClick={() => { setOutcomeSelected(key); setOutcomeSaved(false); }}
+                      className={`text-xs font-black px-3 py-1.5 border-2 cursor-pointer transition-all ${
+                        outcomeSelected === key ? color : "border-gray-300 text-gray-600 hover:border-gray-500"
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                {outcomeSelected && (
+                  <div className="space-y-2">
+                    <textarea
+                      value={outcomeNotes}
+                      onChange={(e) => setOutcomeNotes(e.target.value)}
+                      placeholder="Notes (optional)..."
+                      rows={2}
+                      className="w-full text-sm border-2 border-gray-300 p-2 resize-none focus:outline-none focus:border-black"
+                    />
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <div className="flex items-center gap-2">
+                        <label className="text-[10px] font-black text-muted-foreground">FOLLOW-UP DATE</label>
+                        <input
+                          type="date"
+                          value={followUpDate}
+                          onChange={(e) => setFollowUpDate(e.target.value)}
+                          className="text-sm border-2 border-gray-300 px-2 py-1 focus:outline-none focus:border-black"
+                        />
+                      </div>
+                      <button
+                        onClick={() => {
+                          if (!outcomeSelected) return;
+                          logOutcome.mutate({
+                            companyId,
+                            outcome: outcomeSelected as any,
+                            notes: outcomeNotes || undefined,
+                            followUpDate: followUpDate || undefined,
+                          });
+                        }}
+                        disabled={logOutcome.isPending || outcomeSaved}
+                        className="text-xs font-black border-2 border-black px-4 py-1.5 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        {outcomeSaved ? "✓ SAVED" : logOutcome.isPending ? "SAVING..." : "SAVE OUTCOME"}
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* ── 5. CHAPTER NAVIGATION CARDS ── */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                <button onClick={() => setChapter("urgency")} disabled={!briefData}
                   className={`p-4 border-4 text-left cursor-pointer transition-colors ${
                     briefData ? "border-red-600 hover:bg-red-50" : "border-gray-200 opacity-40 cursor-default"
-                  }`}
-                >
+                  }`}>
                   <div className="text-[10px] font-black text-red-600 mb-1">⚡ URGENCY</div>
                   {briefData ? (
-                    <>
-                      <div className="text-3xl font-black text-red-600">{briefData.urgencyScore}/100</div>
-                      <div className="text-xs font-bold text-muted-foreground mt-1">Click to view breakdown →</div>
-                    </>
-                  ) : (
-                    <div className="text-sm font-bold text-gray-400">No research yet</div>
-                  )}
+                    <><div className="text-3xl font-black text-red-600">{briefData.urgencyScore}/100</div>
+                    <div className="text-xs font-bold text-muted-foreground mt-1">Click to view breakdown →</div></>
+                  ) : <div className="text-sm font-bold text-gray-400">No research yet</div>}
                 </button>
-
-                {/* Research card */}
-                <button
-                  onClick={() => setChapter("research")}
-                  disabled={!briefData}
+                <button onClick={() => setChapter("research")} disabled={!briefData}
                   className={`p-4 border-4 text-left cursor-pointer transition-colors ${
                     briefData ? "border-blue-600 hover:bg-blue-50" : "border-gray-200 opacity-40 cursor-default"
-                  }`}
-                >
+                  }`}>
                   <div className="text-[10px] font-black text-blue-600 mb-1">🔬 RESEARCH</div>
                   {briefData ? (
                     <ul className="space-y-0.5">
-                      {briefData.recentDevelopments?.length > 0 && <li className="text-xs font-bold text-blue-800">• Recent Developments ({briefData.recentDevelopments.length})</li>}
-                      {briefData.productsAndServices?.length > 0 && <li className="text-xs font-bold text-blue-800">• Products & Services ({briefData.productsAndServices.length})</li>}
-                      {briefData.keyTechnologies?.length > 0 && <li className="text-xs font-bold text-blue-800">• Key Technologies ({briefData.keyTechnologies.length})</li>}
-                      {briefData.targetMarkets?.length > 0 && <li className="text-xs font-bold text-blue-800">• Target Markets ({briefData.targetMarkets.length})</li>}
+                      {briefData.recentDevelopments?.length > 0 && <li className="text-xs font-bold text-blue-800">• Recent Developments</li>}
+                      {briefData.productsAndServices?.length > 0 && <li className="text-xs font-bold text-blue-800">• Products & Services</li>}
+                      {briefData.keyTechnologies?.length > 0 && <li className="text-xs font-bold text-blue-800">• Key Technologies</li>}
+                      {briefData.targetMarkets?.length > 0 && <li className="text-xs font-bold text-blue-800">• Target Markets</li>}
                       {briefData.sources?.length > 0 && <li className="text-xs font-bold text-blue-800">• Sources ({briefData.sources.length})</li>}
                     </ul>
-                  ) : (
-                    <div className="text-sm font-bold text-gray-400">No research yet</div>
-                  )}
+                  ) : <div className="text-sm font-bold text-gray-400">No research yet</div>}
                 </button>
-
-                {/* Approach card */}
-                <button
-                  onClick={() => setChapter("approach")}
-                  disabled={!salesApproach}
+                <button onClick={() => setChapter("approach")} disabled={!salesApproach}
                   className={`p-4 border-4 text-left cursor-pointer transition-colors ${
                     salesApproach ? "border-green-600 hover:bg-green-50" : "border-gray-200 opacity-40 cursor-default"
-                  }`}
-                >
+                  }`}>
                   <div className="text-[10px] font-black text-green-600 mb-1">💬 APPROACH</div>
                   {salesApproach ? (
                     <ul className="space-y-0.5">
@@ -427,44 +641,23 @@ export default function CompanyDetail() {
                       {salesApproach.linkedinMessage && <li className="text-xs font-bold text-green-800">• LinkedIn Message</li>}
                       {salesApproach.callScript && <li className="text-xs font-bold text-green-800">• Call Script</li>}
                     </ul>
-                  ) : (
-                    <div className="text-sm font-bold text-gray-400">No approach yet</div>
-                  )}
+                  ) : <div className="text-sm font-bold text-gray-400">No approach yet</div>}
                 </button>
-
-                {/* Contacts card */}
-                <button
-                  onClick={() => setChapter("contacts")}
-                  className="p-4 border-4 border-purple-600 text-left cursor-pointer hover:bg-purple-50 transition-colors"
-                >
+                <button onClick={() => setChapter("contacts")}
+                  className="p-4 border-4 border-purple-600 text-left cursor-pointer hover:bg-purple-50 transition-colors">
                   <div className="text-[10px] font-black text-purple-600 mb-1">👤 CONTACTS</div>
-                  {contacts.length > 0 ? (
-                    <>
-                      <div className="text-3xl font-black text-purple-600">{contacts.length}</div>
-                      <div className="text-xs font-bold text-muted-foreground mt-1">contacts found →</div>
-                    </>
-                  ) : (
-                    <div className="text-sm font-bold text-gray-400">No contacts yet</div>
-                  )}
+                  {rawContacts.length > 0 ? (
+                    <><div className="text-3xl font-black text-purple-600">{rawContacts.length}</div>
+                    <div className="text-xs font-bold text-muted-foreground mt-1">contacts found →</div></>
+                  ) : <div className="text-sm font-bold text-gray-400">No contacts yet</div>}
                 </button>
               </div>
 
-              {/* Full company overview text */}
+              {/* Company overview text */}
               {briefData?.companyOverview && (
-                <div className="mb-6 p-5 border-2 border-gray-200">
+                <div className="p-5 border-2 border-gray-200">
                   <h3 className="text-base font-black mb-2">Company Overview</h3>
                   <p className="text-sm leading-relaxed">{briefData.companyOverview}</p>
-                </div>
-              )}
-
-              {/* Why Now teaser */}
-              {briefData?.whyNow && (
-                <div className="p-5 border-2 border-red-200 bg-red-50">
-                  <h3 className="text-base font-black text-red-700 mb-2">Why Now</h3>
-                  <p className="text-sm leading-relaxed">{briefData.whyNow}</p>
-                  <button onClick={() => setChapter("urgency")} className="text-xs font-black text-red-600 underline mt-2 cursor-pointer">
-                    See full urgency breakdown →
-                  </button>
                 </div>
               )}
             </div>

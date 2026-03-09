@@ -162,6 +162,13 @@
       "when": 1773047535464,
       "tag": "0022_abnormal_shinobi_shaw",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1773057754766,
+      "tag": "0023_cuddly_tinkerer",
+      "breakpoints": true
     }
   ]
 }

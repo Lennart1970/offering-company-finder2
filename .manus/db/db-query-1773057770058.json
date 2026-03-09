@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `callOutcomes` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`companyId` int NOT NULL,\n\t`userId` int NOT NULL,\n\t`outcome` enum('reached','voicemail','no_answer','meeting_booked','not_interested') NOT NULL,\n\t`notes` text,\n\t`followUpDate` varchar(16),\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `callOutcomes_id` PRIMARY KEY(`id`)\n);\nALTER TABLE `companies` ADD `callReadinessSummary` text;\nALTER TABLE `callOutcomes` ADD CONSTRAINT `callOutcomes_companyId_companies_id_fk` FOREIGN KEY (`companyId`) REFERENCES `companies`(`id`) ON DELETE cascade ON UPDATE no action;\nALTER TABLE `callOutcomes` ADD CONSTRAINT `callOutcomes_userId_users_id_fk` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE no action ON UPDATE no action;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute CREATE TABLE `callOutcomes` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`companyId` int NOT NULL,\n\t`userId` int NOT NULL,\n\t`outcome` enum('reached','voicemail','no_answer','meeting_booked','not_interested') NOT NULL,\n\t`notes` text,\n\t`followUpDate` varchar(16),\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `callOutcomes_id` PRIMARY KEY(`id`)\n);\nALTER TABLE `companies` ADD `callReadinessSummary` text;\nALTER TABLE `callOutcomes` ADD CONSTRAINT `callOutcomes_companyId_companies_id_fk` FOREIGN KEY (`companyId`) REFERENCES `companies`(`id`) ON DELETE cascade ON UPDATE no action;\nALTER TABLE `callOutcomes` ADD CONSTRAINT `callOutcomes_userId_users_id_fk` FOREIGN KEY (`userId`) REFERENCES `users`(`id`) ON DELETE no action ON UPDATE no action;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1618
+}

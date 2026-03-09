@@ -1723,6 +1723,84 @@ export const companyFinderRouter = router({
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: error.message });
       }
     }),
+
+  // Log a call outcome for a company
+  logCallOutcome: protectedProcedure
+    .input(z.object({
+      companyId: z.number(),
+      outcome: z.enum(["reached", "voicemail", "no_answer", "meeting_booked", "not_interested"]),
+      notes: z.string().optional(),
+      followUpDate: z.string().optional(), // YYYY-MM-DD
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await assertCompanyAccess(input.companyId, ctx.user.id);
+      const { getDb } = await import("./db");
+      const { callOutcomes } = await import("../drizzle/schema");
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      await db.insert(callOutcomes).values({
+        companyId: input.companyId,
+        userId: ctx.user.id,
+        outcome: input.outcome,
+        notes: input.notes ?? null,
+        followUpDate: input.followUpDate ?? null,
+      });
+      return { success: true };
+    }),
+
+  // Get call outcomes for a company
+  getCallOutcomes: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      await assertCompanyAccess(input.companyId, ctx.user.id);
+      const { getDb } = await import("./db");
+      const { callOutcomes } = await import("../drizzle/schema");
+      const { eq, desc } = await import("drizzle-orm");
+      const db = await getDb();
+      if (!db) return { outcomes: [] };
+      const outcomes = await db
+        .select()
+        .from(callOutcomes)
+        .where(eq(callOutcomes.companyId, input.companyId))
+        .orderBy(desc(callOutcomes.createdAt));
+      return { outcomes };
+    }),
+
+  // Generate a 1-sentence call readiness summary for a company
+  generateCallReadiness: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const company = await assertCompanyAccess(input.companyId, ctx.user.id);
+      const { invokeLLM } = await import("./_core/llm");
+
+      const brief = company.briefData ? (() => { try { return JSON.parse(company.briefData); } catch { return null; } })() : null;
+      const approach = company.salesApproachData ? (() => { try { return JSON.parse(company.salesApproachData); } catch { return null; } })() : null;
+
+      const context = [
+        `Company: ${company.name}`,
+        company.revenue ? `Revenue: ${company.revenue}` : "",
+        company.city ? `Location: ${company.city}, ${company.country ?? ""}` : "",
+        company.urgencyScore ? `Urgency score: ${company.urgencyScore}/100` : "",
+        brief?.recentDevelopments?.length ? `Recent: ${brief.recentDevelopments.slice(0, 2).map((d: any) => d.headline || d.summary || d).join("; ")}` : "",
+        brief?.productsAndServices?.length ? `Products: ${brief.productsAndServices.slice(0, 2).map((p: any) => p.name || p).join(", ")}` : "",
+        approach?.conversationStarters?.length ? `Hook: ${approach.conversationStarters[0]}` : "",
+      ].filter(Boolean).join("\n");
+
+      const result = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content: "You are a B2B sales coach. Write exactly ONE sentence (max 25 words) that tells a sales rep WHY this company is worth calling TODAY. Be specific — mention a real trigger event or signal if available. No fluff, no generic phrases.",
+          },
+          { role: "user", content: context },
+        ],
+      });
+
+      const rawContent = result.choices?.[0]?.message?.content;
+      const summary = typeof rawContent === "string" ? rawContent.trim() : "";
+      await updateCompany(input.companyId, { callReadinessSummary: summary });
+      return { summary };
+    }),
 });
 
 // Background search function for hardcoded ConnectGroup offering (skip extraction)

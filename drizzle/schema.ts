@@ -93,6 +93,7 @@ export const companies = mysqlTable("companies", {
   briefGeneratedAt: timestamp("briefGeneratedAt"), // When the brief was generated
   salesApproachData: text("salesApproachData"), // JSON-stringified SalesApproach (email, LinkedIn, call script)
   salesApproachGeneratedAt: timestamp("salesApproachGeneratedAt"), // When the sales approach was generated
+  callReadinessSummary: text("callReadinessSummary"), // LLM-generated 1-sentence pre-call briefing
   enrichmentStatus: mysqlEnum("enrichmentStatus", ["pending", "enriched", "failed"]).default("pending").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -222,3 +223,19 @@ export const offeringBrain = mysqlTable("offering_brain", {
 
 export type OfferingBrain = typeof offeringBrain.$inferSelect;
 export type InsertOfferingBrain = typeof offeringBrain.$inferInsert;
+
+/**
+ * Stores call outcomes logged by sales reps per company
+ */
+export const callOutcomes = mysqlTable("callOutcomes", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  userId: int("userId").notNull().references(() => users.id),
+  outcome: mysqlEnum("outcome", ["reached", "voicemail", "no_answer", "meeting_booked", "not_interested"]).notNull(),
+  notes: text("notes"),
+  followUpDate: varchar("followUpDate", { length: 16 }), // ISO date string YYYY-MM-DD
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type CallOutcome = typeof callOutcomes.$inferSelect;
+export type InsertCallOutcome = typeof callOutcomes.$inferInsert;

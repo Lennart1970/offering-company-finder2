@@ -1312,3 +1312,15 @@
 - [x] Wire VIEW RESEARCH / VIEW APPROACH header cards to /company/:companyId?chapter=...
 - [x] Wire Call Today research/approach cards to company chapter pages
 - [x] Wide layout on chapter pages with image placeholder slots in Products & Services
+
+## Feature: Sales-Rep Company Detail Redesign
+- [ ] Add callOutcomes DB table (companyId, outcome, followUpDate, notes, createdAt)
+- [ ] Add callReadinessSummary column to companies table
+- [ ] Add tRPC: logCallOutcome mutation, getCallOutcomes query, generateCallReadiness mutation
+- [ ] Company Detail Overview: call readiness summary bar (LLM-generated, 1 sentence)
+- [ ] Company Detail Overview: top contact surfaced front and centre (name, title, phone, email)
+- [ ] Company Detail Overview: call outcome logger (Reached / Voicemail / No Answer + follow-up date)
+- [ ] Company Detail Overview: next-best-action prompt based on last outcome
+- [ ] Company Detail Overview: replace SIC/NAICS with plain-English industry, headcount range, growth signal
+- [ ] Search Results card: remove SIC/NAICS codes
+- [ ] Search Results card: show last call outcome badge + next-action indicator

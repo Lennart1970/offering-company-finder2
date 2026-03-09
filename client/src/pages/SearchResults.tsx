@@ -1004,11 +1004,6 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
           )}
         </div>
 
-        {/* SIC/NAICS Codes — Inline */}
-        <div className="mt-2">
-          <CompanyCodeDisplay sicCodes={company.sicCodes} naicsCodes={company.naicsCodes} />
-        </div>
-
         {/* Research / Approach Quick-Access Cards — only when data exists */}
         {(company.briefData || company.salesApproachData) && (
           <div className="flex gap-3 mt-3">

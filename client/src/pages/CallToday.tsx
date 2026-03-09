@@ -2,7 +2,7 @@ import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
-import { useLocation, useParams } from "wouter";
+import { useLocation, useParams, Link } from "wouter";
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
 import { Button } from "@/components/ui/button";
 
@@ -114,17 +114,25 @@ export default function CallToday() {
       {/* Queue Navigator */}
       <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1">
         {callTodayCompanies.map((c: any, i: number) => (
-          <button
-            key={c.id}
-            onClick={() => { setCurrentIndex(i); setViewMode("overview"); }}
-            className={`shrink-0 text-xs font-black px-3 py-1.5 border-2 cursor-pointer transition-colors ${
-              i === currentIndex
-                ? "bg-black text-white border-black"
-                : "border-gray-300 hover:border-black"
-            }`}
-          >
-            {String(i + 1).padStart(2, "0")} {c.name.split(" ")[0]}
-          </button>
+          <div key={c.id} className="shrink-0 flex items-center gap-0">
+            <button
+              onClick={() => { setCurrentIndex(i); setViewMode("overview"); }}
+              className={`text-xs font-black px-3 py-1.5 border-2 cursor-pointer transition-colors ${
+                i === currentIndex
+                  ? "bg-black text-white border-black"
+                  : "border-gray-300 hover:border-black"
+              }`}
+            >
+              {String(i + 1).padStart(2, "0")} {c.name.split(" ")[0]}
+            </button>
+            <Link
+              href={`/company/${c.id}?from=call-today/${searchId}`}
+              className="text-[9px] font-black border-2 border-l-0 border-gray-300 px-1.5 py-1.5 text-blue-600 hover:bg-blue-50 hover:border-blue-300 transition-colors cursor-pointer"
+              title={`Open ${c.name} dedicated page`}
+            >
+              ↗
+            </Link>
+          </div>
         ))}
       </div>
 
@@ -408,6 +416,15 @@ export default function CallToday() {
             </div>
           )}
 
+          {/* Actions Taken — Under Development */}
+          <div className="px-5 py-4 border-t-4 border-dashed border-gray-300 bg-gray-50">
+            <div className="flex items-center gap-2 mb-2">
+              <span className="text-xs font-black">ACTIONS TAKEN</span>
+              <span className="text-[9px] font-black border border-orange-400 text-orange-500 px-1.5 py-0.5 bg-orange-50">🚧 UNDER DEVELOPMENT</span>
+            </div>
+            <ActionsTakenBox companyId={company.id} />
+          </div>
+
           {/* Footer: Action Buttons + Queue Progress */}
           <div className="px-5 py-4 bg-gray-50 border-t-4 border-black">
             {/* Prominent action buttons row */}
@@ -673,6 +690,48 @@ function CallTodayContactsModal({
             </button>
           </div>
         </div>
+      </div>
+    </div>
+  );
+}
+
+// ============================================================================
+// Actions Taken — simple local text box (Under Development placeholder)
+// ============================================================================
+function ActionsTakenBox({ companyId }: { companyId: number }) {
+  const storageKey = `actions-taken-${companyId}`;
+  const [text, setText] = useState(() => {
+    try { return localStorage.getItem(storageKey) || ""; } catch { return ""; }
+  });
+  const [saved, setSaved] = useState(false);
+
+  const handleSave = () => {
+    try { localStorage.setItem(storageKey, text); } catch {}
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2000);
+  };
+
+  return (
+    <div>
+      <textarea
+        value={text}
+        onChange={(e) => { setText(e.target.value); setSaved(false); }}
+        placeholder="Note actions taken, call outcome, follow-up needed..."
+        rows={3}
+        className="w-full border-2 border-gray-300 p-2 text-sm font-medium resize-y focus:outline-none focus:border-black transition-colors"
+      />
+      <div className="flex items-center justify-between mt-1">
+        <span className="text-[9px] text-muted-foreground font-bold">Saved locally in browser — server persistence coming soon</span>
+        <button
+          onClick={handleSave}
+          className={`text-xs font-black border-2 px-3 py-1 transition-colors cursor-pointer ${
+            saved
+              ? "border-green-600 bg-green-600 text-white"
+              : "border-black hover:bg-black hover:text-white"
+          }`}
+        >
+          {saved ? "✓ SAVED" : "SAVE NOTE"}
+        </button>
       </div>
     </div>
   );

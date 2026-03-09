@@ -62,7 +62,7 @@ export default function SearchResults() {
   const [showCallTodayOnly, setShowCallTodayOnly] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
   const [sortBy, setSortBy] = useState<"default" | "urgency" | "fit_urgency">("urgency");
-  const [enrichmentFilter, setEnrichmentFilter] = useState<"all" | "enriched" | "pending">("all");
+  const [enrichmentFilter, setEnrichmentFilter] = useState<"all" | "enriched" | "pending" | "outreach">("all");
 
   useEffect(() => {
     if (searchData?.search.excludedSectors) {
@@ -197,6 +197,7 @@ export default function SearchResults() {
   const enrichmentFiltered = useMemo(() => {
     if (enrichmentFilter === "enriched") return filteredCompanies.filter(c => c.enrichmentStatus === "enriched");
     if (enrichmentFilter === "pending") return filteredCompanies.filter(c => c.enrichmentStatus === "pending" || c.enrichmentStatus === "failed");
+    if (enrichmentFilter === "outreach") return filteredCompanies.filter(c => !!c.salesApproachData);
     return filteredCompanies;
   }, [filteredCompanies, enrichmentFilter]);
 
@@ -331,27 +332,36 @@ export default function SearchResults() {
   const enrichmentStats = searchData.enrichmentStats;
   const hasPendingCompanies = enrichmentStats && enrichmentStats.pending > 0;
 
-  // Dynamic context sentence for sales reps — updates based on active filter
-  const sourceType = searchData.search.location || "import"; // e.g. "Excel Import", "Conference Import"
+  // Dynamic hero sentence — the main message for sales reps
+  const sourceType = searchData.search.location || "import";
   const campaignName = searchData.search.offeringName || "this campaign";
   const totalCount = filteredCompanies.length;
   const enrichedCount = enrichmentStats?.enriched ?? 0;
+  const outreachReadyCount = enrichmentStats?.outreachReady ?? 0;
   const researchedCount = searchData.companies.filter((c: any) => !!c.briefData).length;
 
-  const contextSentence = (() => {
+  const heroSentence = (() => {
+    if (enrichmentFilter === "outreach") {
+      return (
+        <>
+          <strong>{outreachReadyCount} companies</strong> are ready to contact — research done, outreach script written.
+          {" "}Open any card below to copy your email, LinkedIn message, or call script.
+        </>
+      );
+    }
     if (enrichmentFilter === "enriched") {
       if (researchedCount > 0) {
         return (
           <>
-            You are looking at the <strong>{enrichedCount} enriched companies</strong> from <strong>{campaignName}</strong>.
-            {" "}<strong>{researchedCount}</strong> of them already have a research brief.
-            {" "}Open any company card to read the brief and copy your outreach script.
+            <strong>{enrichedCount} companies</strong> from <strong>{campaignName}</strong> found in Apollo.
+            {" "}<strong>{researchedCount}</strong> already have a research brief — press{" "}
+            <strong>[RESEARCH &amp; OUTREACH]</strong> to complete the rest.
           </>
         );
       }
       return (
         <>
-          You are looking at the <strong>{enrichedCount} companies</strong> found in the Apollo database.
+          <strong>{enrichedCount} companies</strong> from <strong>{campaignName}</strong> found in Apollo.
           {" "}Press <strong>[RESEARCH &amp; OUTREACH]</strong> to generate a deep brief and personalized sales approach for each one.
         </>
       );
@@ -359,42 +369,50 @@ export default function SearchResults() {
     if (enrichmentFilter === "pending") {
       return (
         <>
-          You are looking at the <strong>{enrichmentStats?.pending ?? 0} companies</strong> not yet found in Apollo.
-          {" "}Press <strong>[ENRICH ALL]</strong> to retry, or use <strong>[RE-ENRICH BY NAME]</strong> if these came from a conference or Excel import.
+          <strong>{enrichmentStats?.pending ?? 0} companies</strong> were not found in Apollo yet.
+          {" "}Press <strong>[ENRICH ALL]</strong> to retry, or <strong>[RE-ENRICH BY NAME]</strong> for conference and Excel imports.
         </>
       );
     }
-    // Default: all
+    // Default: all — smart entry point based on campaign state
+    if (outreachReadyCount > 0) {
+      return (
+        <>
+          <strong>{outreachReadyCount} of {totalCount} companies</strong> from <strong>{campaignName}</strong> are ready for outreach.
+          {" "}Press <strong>OUTREACH READY</strong> to go straight to your scripts.
+        </>
+      );
+    }
+    if (enrichedCount > 0) {
+      return (
+        <>
+          <strong>{enrichedCount} of {totalCount} companies</strong> from <strong>{campaignName}</strong> ({sourceType}) are enriched and ready for research.
+          {" "}Press <strong>ENRICHED</strong> to see them, then hit <strong>[RESEARCH &amp; OUTREACH]</strong>.
+        </>
+      );
+    }
     return (
       <>
-        You are looking at <strong>{totalCount} matches</strong> from <strong>{campaignName}</strong> ({sourceType}).
-        {" "}Press <strong>{enrichedCount} ENRICHED</strong> to see which ones were found in the Apollo database.
+        You have <strong>{totalCount} matches</strong> from <strong>{campaignName}</strong> ({sourceType}).
+        {" "}Press <strong>ENRICHED</strong> to see which ones were found in the Apollo database.
       </>
     );
   })();
 
   return (
     <div className="max-w-6xl">
-      {/* Page Header */}
-      <div className="mb-8">
-        <div className="text-xs font-black text-muted-foreground mb-2">[03] COCKPIT</div>
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-4xl md:text-5xl font-black leading-none">
-              RESULTS: {searchData.search.offeringName || "Search"}
-            </h1>
-            <div className="text-sm font-bold text-muted-foreground mt-2">
-              Run #{searchData.search.id} — {searchData.search.location} — {new Date(searchData.search.createdAt).toLocaleDateString()}
-            </div>
-          </div>
-          <Button
-            onClick={() => navigate("/search-results/select")}
-            variant="outline"
-            className="text-sm font-black border-2 border-black"
-          >
-            ← CHANGE SEARCH
-          </Button>
+      {/* Page Header — minimal, secondary */}
+      <div className="mb-2 flex items-center justify-between">
+        <div className="text-xs font-black text-muted-foreground">
+          [03] COCKPIT · Run #{searchData.search.id} · {searchData.search.location} · {new Date(searchData.search.createdAt).toLocaleDateString()}
         </div>
+        <Button
+          onClick={() => navigate("/search-results/select")}
+          variant="outline"
+          className="text-xs font-black border border-black px-3 py-1 h-auto"
+        >
+          ← CHANGE SEARCH
+        </Button>
       </div>
 
       {/* Search still in progress */}
@@ -421,12 +439,14 @@ export default function SearchResults() {
 
       {(searchData.search.status === "completed" || searchData.search.status === "searching") && searchData.companies.length > 0 && (
         <>
-          {/* Dynamic Context Sentence */}
-          <div className="mb-4 text-sm font-medium text-muted-foreground border-l-4 border-black pl-4 py-1">
-            {contextSentence}
+          {/* HERO SENTENCE — the main message for sales reps */}
+          <div className="mb-6 mt-4">
+            <p className="text-2xl md:text-3xl font-black leading-snug text-foreground">
+              {heroSentence}
+            </p>
           </div>
 
-          {/* Stats Bar */}
+          {/* Stats Bar — supporting detail */}
           <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
             <div className="flex items-center gap-4">
               <div className="text-3xl font-black">
@@ -462,6 +482,18 @@ export default function SearchResults() {
                 >
                   {enrichmentStats?.pending || 0} PENDING
                 </button>
+                {(enrichmentStats?.outreachReady ?? 0) > 0 && (
+                  <button
+                    onClick={() => setEnrichmentFilter(enrichmentFilter === "outreach" ? "all" : "outreach")}
+                    className={`text-xs font-black border-2 px-3 py-1 cursor-pointer transition-colors ${
+                      enrichmentFilter === "outreach"
+                        ? "border-teal-600 bg-teal-600 text-white"
+                        : "border-teal-600 text-teal-700 hover:bg-teal-50"
+                    }`}
+                  >
+                    {enrichmentStats?.outreachReady || 0} OUTREACH READY
+                  </button>
+                )}
                 {excludedCompanies.length > 0 && (
                   <button
                     onClick={() => setShowExcluded(!showExcluded)}

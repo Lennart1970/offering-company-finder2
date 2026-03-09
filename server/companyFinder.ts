@@ -172,6 +172,10 @@ export const companyFinderRouter = router({
       const nameOnlyCount = companiesList.filter(
         (c) => c.enrichmentStatus === "pending" && !c.apolloId && !c.primaryDomain
       ).length;
+      // Outreach ready: enriched companies with a sales approach generated
+      const outreachReadyCount = companiesList.filter(
+        (c) => c.enrichmentStatus === "enriched" && !!c.salesApproachData
+      ).length;
 
       return {
         search,
@@ -182,6 +186,7 @@ export const companyFinderRouter = router({
           enriched: enrichedCount,
           pending: pendingCount,
           nameOnly: nameOnlyCount,
+          outreachReady: outreachReadyCount,
         },
       };
     }),

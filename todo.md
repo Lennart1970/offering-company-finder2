@@ -1245,3 +1245,20 @@
 - [x] Enriched filter + some research: "You are looking at the {X enriched companies} — {Y} of them already have a research brief. Open any company card to read the brief and copy your outreach script."
 - [x] Pending filter: "You are looking at the {X companies} not yet found in Apollo. Press [ENRICH ALL] to retry, or use [RE-ENRICH BY NAME] if these came from a conference or Excel import."
 - [x] Styled with left black border for visual distinction from main content
+
+## Feature: OUTREACH READY Filter Badge in Search Results
+- [ ] Add 'outreach' to enrichmentFilter state (all | enriched | pending | outreach)
+- [ ] Filter: show only companies where salesApproachData is not null
+- [ ] Add blue/teal OUTREACH READY badge button next to ENRICHED and PENDING
+- [ ] Show count of companies with sales approach generated
+- [ ] Update dynamic context sentence for outreach filter state
+
+## Feature: Hero Sentence + OUTREACH READY Filter
+- [x] Hero sentence is now 2xl/3xl font-black — the dominant visual element on the page
+- [x] Campaign title, run ID, and date demoted to a single compact metadata line at the top
+- [x] CHANGE SEARCH button shrunk to match the secondary metadata line
+- [x] Hero sentence is context-aware: shows outreach-ready count when available, enriched count next, then total
+- [x] Add teal OUTREACH READY badge button (only shown when outreachReady > 0)
+- [x] enrichmentFilter extended to 'all' | 'enriched' | 'pending' | 'outreach'
+- [x] outreachReady count added to enrichmentStats in getSearch tRPC procedure
+- [x] 264 tests still passing (20 test files)

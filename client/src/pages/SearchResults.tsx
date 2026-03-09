@@ -103,6 +103,22 @@ export default function SearchResults() {
     },
   });
 
+  const completeMissingApproachMutation = trpc.companyFinder.completeMissingApproach.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Approach complete — ${data.completed}/${data.total} done${data.failed > 0 ? ` (${data.failed} failed)` : ""}`);
+      if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
+      if (searchId) utils.companyFinder.getBatchStatus.invalidate({ searchId });
+    },
+    onError: (error) => {
+      toast.error(`Complete approach failed: ${error.message}`);
+    },
+  });
+
+  const { data: batchStatus } = trpc.companyFinder.getBatchStatus.useQuery(
+    { searchId: searchId! },
+    { enabled: !!searchId }
+  );
+
   const submitDecisionMutation = trpc.companyFinder.submitDecision.useMutation({
     onSuccess: () => {
       utils.companyFinder.getSearch.invalidate({ searchId: searchId! });
@@ -630,6 +646,26 @@ export default function SearchResults() {
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-xs text-sm">
                       Generates a deep company brief (market position, pain points, recent news) + a personalized email, LinkedIn message, and call script for each enriched company.
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              )}
+              {(batchStatus?.missingApproach ?? 0) > 0 && (
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => completeMissingApproachMutation.mutate({ searchId: searchId! })}
+                        disabled={completeMissingApproachMutation.isPending}
+                        className="text-lg px-6 py-4 font-black border-2 border-orange-600 bg-orange-600 text-white"
+                      >
+                        {completeMissingApproachMutation.isPending
+                          ? "[COMPLETING...]"
+                          : `[COMPLETE APPROACH — ${batchStatus?.missingApproach} MISSING]`}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom" className="max-w-xs text-sm">
+                      {batchStatus?.missingApproach} companies have deep research but no sales approach yet. Click to generate the missing outreach scripts.
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>

@@ -1889,6 +1889,69 @@ export const companyFinderRouter = router({
         return { images: [] };
       }
     }),
+
+  // ---------------------------------------------------------------------------
+  // getBatchStatus — returns per-company research/approach status for a search
+  // ---------------------------------------------------------------------------
+  getBatchStatus: protectedProcedure
+    .input(z.object({ searchId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const { getCompaniesBySearchId } = await import("./db");
+      await assertSearchAccess(input.searchId, ctx.user.id);
+      const companies = await getCompaniesBySearchId(input.searchId);
+      const enriched = companies.filter((c) => c.enrichmentStatus === "enriched");
+      const hasResearch = enriched.filter((c) => c.briefData != null);
+      const hasApproach = enriched.filter((c) => c.salesApproachData != null);
+      const missingApproach = hasResearch.filter((c) => c.salesApproachData == null);
+      return {
+        total: enriched.length,
+        researched: hasResearch.length,
+        approached: hasApproach.length,
+        missingApproach: missingApproach.length,
+        missingApproachIds: missingApproach.map((c) => c.id),
+      };
+    }),
+
+  // ---------------------------------------------------------------------------
+  // completeMissingApproach — run sales approach ONLY for companies that have
+  // research but no salesApproachData (catch-up after a partial batch run)
+  // ---------------------------------------------------------------------------
+  completeMissingApproach: protectedProcedure
+    .input(z.object({ searchId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const { getCompaniesBySearchId } = await import("./db");
+      const { generateSalesApproach } = await import("./salesApproachGenerator");
+      await assertSearchAccess(input.searchId, ctx.user.id);
+
+      const companies = await getCompaniesBySearchId(input.searchId);
+      const toApproach = companies.filter(
+        (c) => c.enrichmentStatus === "enriched" && c.briefData != null && c.salesApproachData == null
+      );
+
+      console.log(`[completeMissingApproach] searchId=${input.searchId} — ${toApproach.length} companies need sales approach`);
+
+      let completed = 0;
+      let failed = 0;
+      const errors: string[] = [];
+
+      for (const company of toApproach) {
+        try {
+          const salesApproach = await generateSalesApproach(company.id, ctx.user.id);
+          await updateCompany(company.id, {
+            salesApproachData: JSON.stringify(salesApproach),
+            salesApproachGeneratedAt: new Date(),
+          });
+          completed++;
+          console.log(`[completeMissingApproach] ✓ ${company.name} (${completed}/${toApproach.length})`);
+        } catch (err: any) {
+          failed++;
+          errors.push(`${company.name}: ${err.message}`);
+          console.error(`[completeMissingApproach] ✗ ${company.name}:`, err.message);
+        }
+      }
+
+      return { success: true, total: toApproach.length, completed, failed, errors: errors.slice(0, 10) };
+    }),
 });
 
 // Background search function for hardcoded ConnectGroup offering (skip extraction)

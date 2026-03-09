@@ -1,0 +1,91 @@
+{
+  "query": "\nSELECT \n  s.id as search_id,\n  s.offeringName,\n  COUNT(*) as total,\n  SUM(CASE WHEN c.enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) as enriched,\n  SUM(CASE WHEN c.briefData IS NOT NULL THEN 1 ELSE 0 END) as has_research,\n  SUM(CASE WHEN c.salesApproachData IS NOT NULL THEN 1 ELSE 0 END) as has_approach,\n  SUM(CASE WHEN c.briefData IS NOT NULL AND c.salesApproachData IS NULL THEN 1 ELSE 0 END) as research_but_no_approach\nFROM searches s\nJOIN companies c ON c.searchId = s.id\nGROUP BY s.id, s.offeringName\nHAVING has_research > 0\nORDER BY s.id DESC\nLIMIT 10;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  s.id as search_id,\n  s.offeringName,\n  COUNT(*) as total,\n  SUM(CASE WHEN c.enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) as enriched,\n  SUM(CASE WHEN c.briefData IS NOT NULL THEN 1 ELSE 0 END) as has_research,\n  SUM(CASE WHEN c.salesApproachData IS NOT NULL THEN 1 ELSE 0 END) as has_approach,\n  SUM(CASE WHEN c.briefData IS NOT NULL AND c.salesApproachData IS NULL THEN 1 ELSE 0 END) as research_but_no_approach\nFROM searches s\nJOIN companies c ON c.searchId = s.id\nGROUP BY s.id, s.offeringName\nHAVING has_research > 0\nORDER BY s.id DESC\nLIMIT 10;\n",
+  "rows": [
+    {
+      "search_id": "930001",
+      "offeringName": "companies-900004",
+      "total": "25",
+      "enriched": "20",
+      "has_research": "11",
+      "has_approach": "2",
+      "research_but_no_approach": "9"
+    },
+    {
+      "search_id": "900004",
+      "offeringName": "beurs amsterdam 9_3",
+      "total": "25",
+      "enriched": "20",
+      "has_research": "20",
+      "has_approach": "20",
+      "research_but_no_approach": "0"
+    },
+    {
+      "search_id": "840001",
+      "offeringName": "CONEXPO-CON/AGG",
+      "total": "81",
+      "enriched": "81",
+      "has_research": "3",
+      "has_approach": "2",
+      "research_but_no_approach": "1"
+    },
+    {
+      "search_id": "780001",
+      "offeringName": "VanderlandeUSA_Machinery_03_03_2026",
+      "total": "699",
+      "enriched": "3",
+      "has_research": "3",
+      "has_approach": "1",
+      "research_but_no_approach": "2"
+    },
+    {
+      "search_id": "750001",
+      "offeringName": "VanderLandeUSA_02_03_2026",
+      "total": "4959",
+      "enriched": "4959",
+      "has_research": "25",
+      "has_approach": "8",
+      "research_but_no_approach": "17"
+    },
+    {
+      "search_id": "690001",
+      "offeringName": "Steve",
+      "total": "34",
+      "enriched": "3",
+      "has_research": "3",
+      "has_approach": "0",
+      "research_but_no_approach": "3"
+    },
+    {
+      "search_id": "660002",
+      "offeringName": "Q1 USA",
+      "total": "34",
+      "enriched": "34",
+      "has_research": "5",
+      "has_approach": "1",
+      "research_but_no_approach": "4"
+    },
+    {
+      "search_id": "630001",
+      "offeringName": "John Deere (1)",
+      "total": "34",
+      "enriched": "7",
+      "has_research": "1",
+      "has_approach": "0",
+      "research_but_no_approach": "1"
+    },
+    {
+      "search_id": "600004",
+      "offeringName": "2",
+      "total": "34",
+      "enriched": "34",
+      "has_research": "34",
+      "has_approach": "34",
+      "research_but_no_approach": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "search_id\tofferingName\ttotal\tenriched\thas_research\thas_approach\tresearch_but_no_approach\n930001\tcompanies-900004\t25\t20\t11\t2\t9\n900004\tbeurs amsterdam 9_3\t25\t20\t20\t20\t0\n840001\tCONEXPO-CON/AGG\t81\t81\t3\t2\t1\n780001\tVanderlandeUSA_Machinery_03_03_2026\t699\t3\t3\t1\t2\n750001\tVanderLandeUSA_02_03_2026\t4959\t4959\t25\t8\t17\n690001\tSteve\t34\t3\t3\t0\t3\n660002\tQ1 USA\t34\t34\t5\t1\t4\n630001\tJohn Deere (1)\t34\t7\t1\t0\t1\n600004\t2\t34\t34\t34\t34\t0\n",
+  "stderr": "",
+  "execution_time_ms": 424
+}

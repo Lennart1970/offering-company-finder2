@@ -1394,3 +1394,10 @@
 - [x] Stale data (>7 days) shown in orange with DATA MAY BE STALE warning
 - [x] REFRESH NOW button on Urgency, Research, Approach; RE-ENRICH on Contacts
 - [x] force=true parameter added to generateBrief to bypass cache on manual refresh
+
+## Bug: Batch RESEARCH & OUTREACH — Some Companies Missing Sales Approach
+- [x] Diagnose why Phase 2 (sales approach) skips some companies that completed Phase 1 (research)
+  - Root cause: HTTP timeout mid-batch leaves companies with research but no approach
+- [x] Add getBatchStatus tRPC query to count companies with research but no approach
+- [x] Add completeMissingApproach tRPC mutation to run Phase 2 only for gap companies
+- [x] Add orange [COMPLETE APPROACH — N MISSING] button to toolbar (only shown when gap > 0)

@@ -1353,3 +1353,19 @@
 ## Bug Fix: Sidebar Nav Items Gated to Active Search
 - [x] Remove search-result dependency from Call Today, Nurture List, and other nav items
 - [x] All sidebar items should be navigable without a search result selected
+
+## Feature: Serper Images API — Company Card Images
+- [ ] Test Serper Images API and understand response structure
+- [ ] Store SERPER_API_KEY as project secret
+- [ ] Add imageUrl column to companies table
+- [ ] Build fetchCompanyImage tRPC procedure (query Serper, cache result in DB)
+- [ ] Display image on company cards (lazy-load, graceful fallback to placeholder)
+- [ ] Auto-fetch image when company is enriched (or on-demand button)
+
+## Feature: Product Images Section in Company Detail (Research Tab)
+- [x] Add imageUrls TEXT column to companies table (JSON array of image objects)
+- [x] Build fetchCompanyImages tRPC procedure: query Serper Images API, prefer domain-matched results, cache in DB
+- [x] Add Product Images section to CompanyDetail Research tab, below Key Technologies
+- [x] Image grid: 3-4 images, lazy-load, click to open full-size, graceful fallback placeholder
+- [x] On-demand FETCH IMAGES button with REFRESH option after first fetch
+- [x] Write vitest for fetchCompanyImages procedure (6 tests passing)

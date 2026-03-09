@@ -238,6 +238,24 @@ export default function CompanyDetail() {
     not_interested: "Park this company and revisit in 90 days with a new angle.",
   };
 
+  // Product images
+  const [productImagesLoading, setProductImagesLoading] = useState(false);
+  const productImagesUtils = trpc.useUtils();
+  const { data: productImagesData, refetch: refetchProductImages } = trpc.companyFinder.getProductImages.useQuery(
+    { companyId },
+    { enabled: !!companyId && !isNaN(companyId) }
+  );
+  const productImages: Array<{ imageUrl: string; thumbnailUrl: string; title: string; source: string; domain: string; link: string }> = productImagesData?.images ?? [];
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
+  const fetchProductImages = trpc.companyFinder.fetchProductImages.useMutation({
+    onSuccess: () => {
+      setProductImagesLoading(false);
+      productImagesUtils.companyFinder.getProductImages.invalidate({ companyId });
+    },
+    onError: () => { setProductImagesLoading(false); toast.error("Could not fetch product images"); },
+  });
+
   // Top contact (first enriched contact with email, else first contact)
   const topContact = useMemo(() => {
     const withEmail = rawContacts.find((c: any) => c.email);
@@ -890,6 +908,77 @@ export default function CompanyDetail() {
                         </>
                       ) : <div className="text-muted-foreground font-bold py-8 text-center">No key technologies recorded.</div>}
                     </section>
+                  )}
+
+                  {/* Product Images section — shown below Key Technologies */}
+                  {researchSub === "key-technologies" && (
+                    <section className="mt-8">
+                      <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-black border-b-4 border-black pb-2 flex-1">Product Images</h2>
+                        <button
+                          onClick={() => { setProductImagesLoading(true); fetchProductImages.mutate({ companyId }); }}
+                          disabled={productImagesLoading}
+                          className="ml-4 text-xs font-black border-2 border-black px-3 py-1.5 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                        >
+                          {productImagesLoading ? "FETCHING..." : productImages.length > 0 ? "↻ REFRESH" : "FETCH IMAGES"}
+                        </button>
+                      </div>
+                      {productImages.length > 0 ? (
+                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                          {productImages.map((img, i) => (
+                            <div
+                              key={i}
+                              className="border-2 border-gray-200 hover:border-black transition-colors cursor-pointer overflow-hidden group"
+                              onClick={() => setLightboxImage(img.imageUrl)}
+                            >
+                              <div className="aspect-video bg-gray-50 overflow-hidden">
+                                <img
+                                  src={img.thumbnailUrl || img.imageUrl}
+                                  alt={img.title}
+                                  loading="lazy"
+                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                />
+                              </div>
+                              <div className="px-2 py-1.5">
+                                <p className="text-xs font-bold truncate">{img.title}</p>
+                                <p className="text-xs text-muted-foreground truncate">{img.source || img.domain}</p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="py-8 text-center border-2 border-dashed border-gray-200">
+                          <p className="text-sm text-muted-foreground font-bold mb-3">No product images fetched yet.</p>
+                          <button
+                            onClick={() => { setProductImagesLoading(true); fetchProductImages.mutate({ companyId }); }}
+                            disabled={productImagesLoading}
+                            className="text-xs font-black border-2 border-black px-4 py-2 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+                          >
+                            {productImagesLoading ? "FETCHING..." : "FETCH PRODUCT IMAGES"}
+                          </button>
+                        </div>
+                      )}
+                    </section>
+                  )}
+
+                  {/* Lightbox */}
+                  {lightboxImage && (
+                    <div
+                      className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+                      onClick={() => setLightboxImage(null)}
+                    >
+                      <img
+                        src={lightboxImage}
+                        alt="Product image"
+                        className="max-w-full max-h-full object-contain"
+                        onClick={(e) => e.stopPropagation()}
+                      />
+                      <button
+                        className="absolute top-4 right-4 text-white font-black text-2xl hover:text-gray-300"
+                        onClick={() => setLightboxImage(null)}
+                      >✕</button>
+                    </div>
                   )}
 
                   {/* Target Markets sub-chapter */}

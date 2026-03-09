@@ -1854,6 +1854,42 @@ export const companyFinderRouter = router({
       await updateCompany(input.companyId, { callReadinessSummary: summary });
       return { summary };
     }),
+
+  // Fetch and cache product images for a company via Serper Images API
+  fetchProductImages: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const company = await assertCompanyAccess(input.companyId, ctx.user.id);
+
+      // Return cached images if already fetched
+      if (company.productImages) {
+        try {
+          const cached = JSON.parse(company.productImages);
+          if (Array.isArray(cached) && cached.length > 0) {
+            return { images: cached, cached: true };
+          }
+        } catch { /* fall through to re-fetch */ }
+      }
+
+      const { fetchSerperImages } = await import("./serperImages");
+      const images = await fetchSerperImages(company.name, company.primaryDomain, 6);
+      await updateCompany(input.companyId, { productImages: JSON.stringify(images) });
+      return { images, cached: false };
+    }),
+
+  // Return cached product images without re-fetching (for initial page load)
+  getProductImages: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const company = await assertCompanyAccess(input.companyId, ctx.user.id);
+      if (!company.productImages) return { images: [] };
+      try {
+        const images = JSON.parse(company.productImages);
+        return { images: Array.isArray(images) ? images : [] };
+      } catch {
+        return { images: [] };
+      }
+    }),
 });
 
 // Background search function for hardcoded ConnectGroup offering (skip extraction)

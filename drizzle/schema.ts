@@ -94,6 +94,7 @@ export const companies = mysqlTable("companies", {
   salesApproachData: text("salesApproachData"), // JSON-stringified SalesApproach (email, LinkedIn, call script)
   salesApproachGeneratedAt: timestamp("salesApproachGeneratedAt"), // When the sales approach was generated
   callReadinessSummary: text("callReadinessSummary"), // LLM-generated 1-sentence pre-call briefing
+  productImages: text("productImages"), // JSON array of { imageUrl, thumbnailUrl, title, source } from Serper Images API
   enrichmentStatus: mysqlEnum("enrichmentStatus", ["pending", "enriched", "failed"]).default("pending").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });

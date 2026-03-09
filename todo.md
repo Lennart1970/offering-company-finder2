@@ -1212,3 +1212,11 @@
 - [x] Show purple progress banner while batch research is running
 - [x] Toast on completion with completed/total/failed counts
 - [x] 264 tests still passing (20 test files)
+
+## Feature: POST /api/v1/research-campaign REST Endpoint
+- [x] Add POST /api/v1/research-campaign to api.ts (API key auth, NDJSON streaming)
+- [x] Accepts searchId + optional skipCached (default true) + optional userId (default 1)
+- [x] Fetches all enriched companies for searchId, runs generateSalesIntelligenceBrief sequentially
+- [x] Streams NDJSON: start → progress (per company with urgencyScore) → done summary
+- [x] Skips companies with briefs < 7 days old when skipCached=true
+- [x] 264 tests still passing (20 test files)

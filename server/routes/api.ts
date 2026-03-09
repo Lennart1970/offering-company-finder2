@@ -887,4 +887,100 @@ router.post("/name-enrich-campaign", async (req: any, res: any) => {
   res.end();
 });
 
+// ---------------------------------------------------------------------------
+// POST /api/v1/research-campaign
+// Run deep research (generateSalesIntelligenceBrief) for all enriched companies
+// in a campaign. Streams NDJSON progress.
+//
+// Body: { searchId: number, skipCached?: boolean, userId?: number }
+//
+// Example:
+//   curl -X POST https://your-domain/api/v1/research-campaign \
+//     -H "Authorization: Bearer YOUR_API_KEY" \
+//     -H "Content-Type: application/json" \
+//     -d '{"searchId": 900003}'
+// ---------------------------------------------------------------------------
+router.post("/research-campaign", async (req: any, res: any) => {
+  const { searchId, skipCached = true, userId = 1 } = req.body || {};
+
+  if (!searchId) {
+    return res.status(400).json({ error: "Bad Request", message: "searchId is required." });
+  }
+
+  const uid = parseInt(userId) || 1;
+  const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+  // Set up NDJSON streaming
+  res.setHeader("Content-Type", "application/x-ndjson");
+  res.setHeader("Transfer-Encoding", "chunked");
+  res.setHeader("Cache-Control", "no-cache");
+  res.flushHeaders();
+
+  const send = (obj: object) => res.write(JSON.stringify(obj) + "\n");
+
+  try {
+    const allCompanies = await getCompaniesBySearchId(searchId);
+
+    // Only process enriched companies (need a domain for Grok web search)
+    const toResearch = allCompanies.filter((c: any) => {
+      if (c.enrichmentStatus !== "enriched") return false;
+      if (!skipCached) return true;
+      if (!c.briefData || !c.briefGeneratedAt) return true;
+      const age = Date.now() - new Date(c.briefGeneratedAt).getTime();
+      return age >= sevenDaysMs;
+    });
+
+    send({
+      status: "start",
+      total: toResearch.length,
+      skipped: allCompanies.length - toResearch.length,
+      message: `Starting deep research for ${toResearch.length} companies (${allCompanies.length - toResearch.length} skipped — already have fresh briefs).`,
+    });
+
+    let completed = 0;
+    let failed = 0;
+
+    for (const company of toResearch) {
+      try {
+        const brief = await generateSalesIntelligenceBrief(company.id, uid);
+        await updateCompany(company.id, {
+          urgencyScore: brief.urgencyScore,
+          briefData: JSON.stringify(brief),
+          briefGeneratedAt: new Date(),
+        });
+        completed++;
+        send({
+          status: "progress",
+          company: company.name,
+          domain: company.primaryDomain,
+          urgencyScore: brief.urgencyScore,
+          completed,
+          total: toResearch.length,
+        });
+      } catch (err: any) {
+        failed++;
+        send({
+          status: "error",
+          company: company.name,
+          error: err.message,
+          completed,
+          failed,
+          total: toResearch.length,
+        });
+      }
+    }
+
+    send({
+      status: "done",
+      completed,
+      failed,
+      total: toResearch.length,
+      message: `Deep research complete: ${completed} briefs generated, ${failed} failed.`,
+    });
+  } catch (err: any) {
+    send({ error: err.message });
+  }
+  res.end();
+});
+
 export default router;

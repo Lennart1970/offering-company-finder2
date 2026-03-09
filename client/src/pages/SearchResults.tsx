@@ -994,18 +994,39 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
         {/* Research / Approach Quick-Access Cards — only when data exists */}
         {(company.briefData || company.salesApproachData) && (
           <div className="flex gap-3 mt-3">
-            {company.briefData && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onViewResearch?.(company.id); }}
-                className="flex-1 border-2 border-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors p-3 text-left cursor-pointer"
-              >
-                <div className="text-[10px] font-black text-blue-600 mb-0.5">DEEP RESEARCH</div>
-                <div className="text-sm font-black text-blue-800 leading-tight">View Research Brief →</div>
-                {company.urgencyScore > 0 && (
-                  <div className="text-xs font-bold text-blue-600 mt-1">Urgency: {company.urgencyScore}/100</div>
-                )}
-              </button>
-            )}
+            {company.briefData && (() => {
+              let bd: any = null;
+              try { bd = typeof company.briefData === 'string' ? JSON.parse(company.briefData) : company.briefData; } catch {}
+              const sections = [
+                bd?.recentDevelopments?.length > 0 && 'Recent Developments',
+                bd?.productsServices?.length > 0 && 'Products & Services',
+                bd?.keyTechnologies?.length > 0 && 'Key Technologies',
+                bd?.targetMarkets?.length > 0 && 'Target Markets',
+                bd?.sources?.length > 0 && `Sources (${bd.sources.length})`,
+              ].filter(Boolean) as string[];
+              return (
+                <button
+                  onClick={(e) => { e.stopPropagation(); onViewResearch?.(company.id); }}
+                  className="flex-1 border-2 border-blue-600 bg-blue-50 hover:bg-blue-100 transition-colors p-3 text-left cursor-pointer"
+                >
+                  <div className="text-[10px] font-black text-blue-600 mb-0.5">DEEP RESEARCH</div>
+                  <div className="text-sm font-black text-blue-800 leading-tight">View Research Brief →</div>
+                  {company.urgencyScore > 0 && (
+                    <div className="text-xs font-bold text-blue-600 mt-1">Urgency: {company.urgencyScore}/100</div>
+                  )}
+                  {sections.length > 0 && (
+                    <ul className="mt-2 space-y-0.5">
+                      {sections.map((s) => (
+                        <li key={s} className="text-[10px] font-bold text-blue-700 flex items-center gap-1">
+                          <span className="w-1 h-1 rounded-full bg-blue-500 shrink-0" />
+                          {s}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </button>
+              );
+            })()}
             {company.salesApproachData && (
               <button
                 onClick={(e) => { e.stopPropagation(); onViewApproach?.(company.id); }}

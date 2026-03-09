@@ -18,6 +18,8 @@ function formatRevenue(revenue: number | string | null): string {
 }
 
 type Chapter = "overview" | "urgency" | "research" | "approach" | "contacts";
+type ResearchSub = "recent-developments" | "products-services" | "key-technologies" | "target-markets" | "sources";
+type ApproachSub = "conversation-starters" | "email-draft" | "linkedin-message" | "call-script";
 
 const CHAPTERS: { id: Chapter; label: string; color: string; activeColor: string }[] = [
   { id: "overview",  label: "OVERVIEW",         color: "border-black text-black",           activeColor: "bg-black text-white border-black" },
@@ -25,6 +27,21 @@ const CHAPTERS: { id: Chapter; label: string; color: string; activeColor: string
   { id: "research",  label: "🔬 RESEARCH",       color: "border-blue-600 text-blue-600",      activeColor: "bg-blue-600 text-white border-blue-600" },
   { id: "approach",  label: "💬 APPROACH",       color: "border-green-600 text-green-600",    activeColor: "bg-green-600 text-white border-green-600" },
   { id: "contacts",  label: "👤 CONTACTS",       color: "border-purple-600 text-purple-600",  activeColor: "bg-purple-600 text-white border-purple-600" },
+];
+
+const RESEARCH_SUBS: { id: ResearchSub; label: string }[] = [
+  { id: "recent-developments", label: "Recent Developments" },
+  { id: "products-services",   label: "Products & Services" },
+  { id: "key-technologies",    label: "Key Technologies" },
+  { id: "target-markets",      label: "Target Markets" },
+  { id: "sources",             label: "Sources" },
+];
+
+const APPROACH_SUBS: { id: ApproachSub; label: string }[] = [
+  { id: "conversation-starters", label: "Conversation Starters" },
+  { id: "email-draft",           label: "Email Draft" },
+  { id: "linkedin-message",      label: "LinkedIn Message" },
+  { id: "call-script",           label: "Call Script" },
 ];
 
 // ── Main Component ────────────────────────────────────────────────────────────
@@ -40,6 +57,8 @@ export default function CompanyDetail() {
   const fromParam = urlParams.get("from") || "";
 
   const [chapter, setChapter] = useState<Chapter>(initialChapter);
+  const [researchSub, setResearchSub] = useState<ResearchSub>("recent-developments");
+  const [approachSub, setApproachSub] = useState<ApproachSub>("conversation-starters");
 
   const { data, isLoading, refetch } = trpc.companyFinder.getCompany.useQuery(
     { companyId },
@@ -195,6 +214,67 @@ export default function CompanyDetail() {
             </button>
           ))}
         </div>
+
+        {/* ── Research Sub-Nav ── */}
+        {chapter === "research" && briefData && (
+          <div className="flex overflow-x-auto border-b-2 border-blue-200 bg-blue-50">
+            {RESEARCH_SUBS.map((sub) => {
+              const hasContent =
+                (sub.id === "recent-developments" && briefData.recentDevelopments?.length > 0) ||
+                (sub.id === "products-services"   && briefData.productsAndServices?.length > 0) ||
+                (sub.id === "key-technologies"    && briefData.keyTechnologies?.length > 0) ||
+                (sub.id === "target-markets"      && briefData.targetMarkets?.length > 0) ||
+                (sub.id === "sources"             && briefData.sources?.length > 0);
+              if (!hasContent) return null;
+              return (
+                <button
+                  key={sub.id}
+                  onClick={() => setResearchSub(sub.id)}
+                  className={`shrink-0 px-4 py-2 text-[11px] font-black border-r border-blue-200 cursor-pointer transition-colors ${
+                    researchSub === sub.id
+                      ? "bg-blue-600 text-white"
+                      : "text-blue-700 hover:bg-blue-100"
+                  }`}
+                >
+                  {sub.label}
+                  {sub.id === "sources" && briefData.sources?.length > 0 && (
+                    <span className="ml-1 opacity-70">({briefData.sources.length})</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {/* ── Approach Sub-Nav ── */}
+        {chapter === "approach" && salesApproach && (
+          <div className="flex overflow-x-auto border-b-2 border-green-200 bg-green-50">
+            {APPROACH_SUBS.map((sub) => {
+              const hasContent =
+                (sub.id === "conversation-starters" && salesApproach.conversationStarters?.length > 0) ||
+                (sub.id === "email-draft"           && !!salesApproach.emailDraft) ||
+                (sub.id === "linkedin-message"      && !!salesApproach.linkedinMessage) ||
+                (sub.id === "call-script"           && !!salesApproach.callScript);
+              if (!hasContent) return null;
+              return (
+                <button
+                  key={sub.id}
+                  onClick={() => setApproachSub(sub.id)}
+                  className={`shrink-0 px-4 py-2 text-[11px] font-black border-r border-green-200 cursor-pointer transition-colors ${
+                    approachSub === sub.id
+                      ? "bg-green-600 text-white"
+                      : "text-green-700 hover:bg-green-100"
+                  }`}
+                >
+                  {sub.label}
+                  {sub.id === "conversation-starters" && salesApproach.conversationStarters?.length > 0 && (
+                    <span className="ml-1 opacity-70">({salesApproach.conversationStarters.length})</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        )}
 
         {/* ── Chapter Content ── */}
         <div className="min-h-[400px]">
@@ -384,109 +464,118 @@ export default function CompanyDetail() {
               {!briefData ? (
                 <div className="text-center py-16 text-muted-foreground font-bold">No research data available. Run Deep Research first.</div>
               ) : (
-                <div className="space-y-8">
-
-                  {/* Recent Developments */}
-                  {briefData.recentDevelopments?.length > 0 && (
+                <>
+                  {/* Recent Developments sub-chapter */}
+                  {researchSub === "recent-developments" && (
                     <section>
                       <h2 className="text-xl font-black border-b-4 border-black pb-2 mb-4">Recent Developments</h2>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {briefData.recentDevelopments.map((d: any, i: number) => (
-                          <div key={i} className="p-4 border-2 border-blue-200 bg-blue-50">
-                            <div className="font-black text-sm mb-1">{typeof d === "string" ? d : d.title || d.event}</div>
-                            {typeof d !== "string" && d.description && <p className="text-xs text-muted-foreground">{d.description}</p>}
-                            {typeof d !== "string" && d.date && <div className="text-[10px] font-bold text-muted-foreground mt-1">{d.date}</div>}
-                            {typeof d !== "string" && d.sourceUrl && <a href={d.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">Source →</a>}
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {/* Products & Services */}
-                  {briefData.productsAndServices?.length > 0 && (
-                    <section>
-                      <h2 className="text-xl font-black border-b-4 border-black pb-2 mb-4">Products & Services</h2>
-                      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                        {briefData.productsAndServices.map((p: any, i: number) => (
-                          <div key={i} className="p-4 border-2 border-gray-200 hover:border-black transition-colors">
-                            {/* Image placeholder — future: upload product image */}
-                            <div className="w-full h-24 bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center mb-3">
-                              <span className="text-xs font-bold text-gray-400">+ Add Image</span>
-                            </div>
-                            <div className="font-black text-sm mb-1">{typeof p === "string" ? p : p.name || p.product}</div>
-                            {typeof p !== "string" && p.description && <p className="text-xs text-muted-foreground">{p.description}</p>}
-                            {typeof p !== "string" && p.category && <div className="text-[10px] font-black text-muted-foreground mt-1 uppercase">{p.category}</div>}
-                          </div>
-                        ))}
-                      </div>
-                    </section>
-                  )}
-
-                  {/* Key Technologies */}
-                  {briefData.keyTechnologies?.length > 0 && (
-                    <section>
-                      <h2 className="text-xl font-black border-b-4 border-black pb-2 mb-4">Key Technologies</h2>
-                      <div className="flex flex-wrap gap-2">
-                        {briefData.keyTechnologies.map((t: any, i: number) => (
-                          <span key={i} className="text-sm font-bold border-2 border-black px-3 py-1.5 bg-gray-50">
-                            {typeof t === "string" ? t : t.name || t.technology}
-                          </span>
-                        ))}
-                      </div>
-                      {/* Detail cards if objects */}
-                      {briefData.keyTechnologies.some((t: any) => typeof t !== "string" && t.description) && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-                          {briefData.keyTechnologies.filter((t: any) => typeof t !== "string" && t.description).map((t: any, i: number) => (
-                            <div key={i} className="p-4 border-2 border-gray-200">
-                              <div className="font-black text-sm mb-1">{t.name || t.technology}</div>
-                              <p className="text-xs text-muted-foreground">{t.description}</p>
+                      {briefData.recentDevelopments?.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {briefData.recentDevelopments.map((d: any, i: number) => (
+                            <div key={i} className="p-4 border-2 border-blue-200 bg-blue-50">
+                              <div className="font-black text-sm mb-1">{typeof d === "string" ? d : d.title || d.event}</div>
+                              {typeof d !== "string" && d.description && <p className="text-xs text-muted-foreground">{d.description}</p>}
+                              {typeof d !== "string" && d.date && <div className="text-[10px] font-bold text-muted-foreground mt-1">{d.date}</div>}
+                              {typeof d !== "string" && d.sourceUrl && <a href={d.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">Source →</a>}
                             </div>
                           ))}
                         </div>
-                      )}
+                      ) : <div className="text-muted-foreground font-bold py-8 text-center">No recent developments recorded.</div>}
                     </section>
                   )}
 
-                  {/* Target Markets */}
-                  {briefData.targetMarkets?.length > 0 && (
+                  {/* Products & Services sub-chapter */}
+                  {researchSub === "products-services" && (
+                    <section>
+                      <h2 className="text-xl font-black border-b-4 border-black pb-2 mb-4">Products & Services</h2>
+                      {briefData.productsAndServices?.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {briefData.productsAndServices.map((p: any, i: number) => (
+                            <div key={i} className="p-4 border-2 border-gray-200 hover:border-black transition-colors">
+                              <div className="w-full h-24 bg-gray-100 border-2 border-dashed border-gray-300 flex items-center justify-center mb-3">
+                                <span className="text-xs font-bold text-gray-400">+ Add Image</span>
+                              </div>
+                              <div className="font-black text-sm mb-1">{typeof p === "string" ? p : p.name || p.product}</div>
+                              {typeof p !== "string" && p.description && <p className="text-xs text-muted-foreground">{p.description}</p>}
+                              {typeof p !== "string" && p.category && <div className="text-[10px] font-black text-muted-foreground mt-1 uppercase">{p.category}</div>}
+                            </div>
+                          ))}
+                        </div>
+                      ) : <div className="text-muted-foreground font-bold py-8 text-center">No products & services recorded.</div>}
+                    </section>
+                  )}
+
+                  {/* Key Technologies sub-chapter */}
+                  {researchSub === "key-technologies" && (
+                    <section>
+                      <h2 className="text-xl font-black border-b-4 border-black pb-2 mb-4">Key Technologies</h2>
+                      {briefData.keyTechnologies?.length > 0 ? (
+                        <>
+                          <div className="flex flex-wrap gap-2 mb-4">
+                            {briefData.keyTechnologies.map((t: any, i: number) => (
+                              <span key={i} className="text-sm font-bold border-2 border-black px-3 py-1.5 bg-gray-50">
+                                {typeof t === "string" ? t : t.name || t.technology}
+                              </span>
+                            ))}
+                          </div>
+                          {briefData.keyTechnologies.some((t: any) => typeof t !== "string" && t.description) && (
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                              {briefData.keyTechnologies.filter((t: any) => typeof t !== "string" && t.description).map((t: any, i: number) => (
+                                <div key={i} className="p-4 border-2 border-gray-200">
+                                  <div className="font-black text-sm mb-1">{t.name || t.technology}</div>
+                                  <p className="text-xs text-muted-foreground">{t.description}</p>
+                                </div>
+                              ))}
+                            </div>
+                          )}
+                        </>
+                      ) : <div className="text-muted-foreground font-bold py-8 text-center">No key technologies recorded.</div>}
+                    </section>
+                  )}
+
+                  {/* Target Markets sub-chapter */}
+                  {researchSub === "target-markets" && (
                     <section>
                       <h2 className="text-xl font-black border-b-4 border-black pb-2 mb-4">Target Markets</h2>
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        {briefData.targetMarkets.map((m: any, i: number) => (
-                          <div key={i} className="p-4 border-2 border-gray-200">
-                            <div className="font-black text-sm mb-1">{typeof m === "string" ? m : m.market || m.segment || m.name}</div>
-                            {typeof m !== "string" && m.description && <p className="text-xs text-muted-foreground">{m.description}</p>}
-                          </div>
-                        ))}
-                      </div>
+                      {briefData.targetMarkets?.length > 0 ? (
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {briefData.targetMarkets.map((m: any, i: number) => (
+                            <div key={i} className="p-4 border-2 border-gray-200">
+                              <div className="font-black text-sm mb-1">{typeof m === "string" ? m : m.market || m.segment || m.name}</div>
+                              {typeof m !== "string" && m.description && <p className="text-xs text-muted-foreground">{m.description}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      ) : <div className="text-muted-foreground font-bold py-8 text-center">No target markets recorded.</div>}
                     </section>
                   )}
 
-                  {/* Sources */}
-                  {briefData.sources?.length > 0 && (
+                  {/* Sources sub-chapter */}
+                  {researchSub === "sources" && (
                     <section>
-                      <h2 className="text-xl font-black border-b-4 border-black pb-2 mb-4">Sources ({briefData.sources.length})</h2>
-                      <div className="space-y-2">
-                        {briefData.sources.map((s: any, i: number) => (
-                          <div key={i} className="flex items-start gap-3 p-3 border border-gray-200 hover:border-black transition-colors">
-                            <span className="text-xs font-black text-muted-foreground shrink-0">[{i + 1}]</span>
-                            <div className="flex-1 min-w-0">
-                              {(s.url || s.sourceUrl) ? (
-                                <a href={s.url || s.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-blue-600 underline truncate block">
-                                  {s.title || s.url || s.sourceUrl}
-                                </a>
-                              ) : (
-                                <div className="text-sm font-bold">{s.title || String(s)}</div>
-                              )}
-                              {s.snippet && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{s.snippet}</p>}
+                      <h2 className="text-xl font-black border-b-4 border-black pb-2 mb-4">Sources ({briefData.sources?.length ?? 0})</h2>
+                      {briefData.sources?.length > 0 ? (
+                        <div className="space-y-2">
+                          {briefData.sources.map((s: any, i: number) => (
+                            <div key={i} className="flex items-start gap-3 p-3 border border-gray-200 hover:border-black transition-colors">
+                              <span className="text-xs font-black text-muted-foreground shrink-0">[{i + 1}]</span>
+                              <div className="flex-1 min-w-0">
+                                {(s.url || s.sourceUrl) ? (
+                                  <a href={s.url || s.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-blue-600 underline truncate block">
+                                    {s.title || s.url || s.sourceUrl}
+                                  </a>
+                                ) : (
+                                  <div className="text-sm font-bold">{s.title || String(s)}</div>
+                                )}
+                                {s.snippet && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{s.snippet}</p>}
+                              </div>
                             </div>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                      ) : <div className="text-muted-foreground font-bold py-8 text-center">No sources recorded.</div>}
                     </section>
                   )}
-                </div>
+                </>
               )}
             </div>
           )}
@@ -497,85 +586,101 @@ export default function CompanyDetail() {
               {!salesApproach ? (
                 <div className="text-center py-16 text-muted-foreground font-bold">No sales approach generated yet. Run Create Approach first.</div>
               ) : (
-                <div className="space-y-6">
-                  {/* Conversation Starters */}
-                  {salesApproach.conversationStarters?.length > 0 && (
-                    <section className="p-5 border-4 border-amber-500 bg-amber-50">
-                      <h2 className="text-xl font-black text-amber-700 mb-4">Conversation Starters</h2>
-                      <div className="space-y-3">
-                        {salesApproach.conversationStarters.map((s: any, i: number) => (
-                          <div key={i} className="p-3 bg-white border-2 border-amber-200">
-                            <p className="text-sm font-medium">{typeof s === "string" ? s : s.opener}</p>
-                            {typeof s !== "string" && s.basedOn && <p className="text-xs text-muted-foreground mt-1">Based on: {s.basedOn}</p>}
-                          </div>
-                        ))}
-                      </div>
+                <div>
+                  {/* Conversation Starters sub-chapter */}
+                  {approachSub === "conversation-starters" && (
+                    <section>
+                      <h2 className="text-xl font-black border-b-4 border-amber-500 pb-2 mb-4 text-amber-700">Conversation Starters</h2>
+                      {salesApproach.conversationStarters?.length > 0 ? (
+                        <div className="space-y-3">
+                          {salesApproach.conversationStarters.map((s: any, i: number) => (
+                            <div key={i} className="p-4 bg-amber-50 border-2 border-amber-200">
+                              <p className="text-sm font-medium">{typeof s === "string" ? s : s.opener}</p>
+                              {typeof s !== "string" && s.basedOn && <p className="text-xs text-muted-foreground mt-1">Based on: {s.basedOn}</p>}
+                            </div>
+                          ))}
+                        </div>
+                      ) : <div className="text-muted-foreground font-bold py-8 text-center">No conversation starters generated.</div>}
                     </section>
                   )}
 
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                    {/* Email Draft */}
-                    {salesApproach.emailDraft && (
-                      <section className="p-5 border-4 border-green-600 bg-green-50">
-                        <div className="flex items-center justify-between mb-3">
-                          <h2 className="text-xl font-black text-green-700">Email Draft</h2>
+                  {/* Email Draft sub-chapter */}
+                  {approachSub === "email-draft" && (
+                    <section>
+                      <div className="flex items-center justify-between border-b-4 border-green-600 pb-2 mb-4">
+                        <h2 className="text-xl font-black text-green-700">Email Draft</h2>
+                        {salesApproach.emailDraft && (
                           <button
                             onClick={() => copyText(`Subject: ${salesApproach.emailDraft.subject}\n\n${salesApproach.emailDraft.body}`, "Email")}
                             className="text-xs font-black border-2 border-green-600 text-green-600 px-3 py-1 cursor-pointer hover:bg-green-600 hover:text-white transition-colors"
                           >COPY EMAIL</button>
-                        </div>
-                        <div className="mb-3 p-2 bg-white border border-green-200">
-                          <span className="text-xs font-black text-muted-foreground">SUBJECT: </span>
-                          <span className="text-sm font-bold">{salesApproach.emailDraft.subject}</span>
-                        </div>
-                        <div className="whitespace-pre-wrap text-sm bg-white p-3 border border-green-200">{salesApproach.emailDraft.body}</div>
-                      </section>
-                    )}
-
-                    {/* LinkedIn Message */}
-                    {salesApproach.linkedinMessage && (
-                      <section className="p-5 border-4 border-blue-600 bg-blue-50">
-                        <h2 className="text-xl font-black text-blue-700 mb-4">LinkedIn Message</h2>
-                        <div className="mb-4">
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-black">CONNECTION REQUEST</span>
-                            <button onClick={() => copyText(salesApproach.linkedinMessage.connectionRequest, "Connection Request")} className="text-xs font-black border border-blue-600 text-blue-600 px-2 py-0.5 cursor-pointer">COPY</button>
-                          </div>
-                          <div className="text-sm bg-white p-3 border border-blue-200">{salesApproach.linkedinMessage.connectionRequest}</div>
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between mb-2">
-                            <span className="text-xs font-black">FOLLOW-UP</span>
-                            <button onClick={() => copyText(salesApproach.linkedinMessage.followUp, "Follow-up")} className="text-xs font-black border border-blue-600 text-blue-600 px-2 py-0.5 cursor-pointer">COPY</button>
-                          </div>
-                          <div className="text-sm bg-white p-3 border border-blue-200">{salesApproach.linkedinMessage.followUp}</div>
-                        </div>
-                      </section>
-                    )}
-                  </div>
-
-                  {/* Call Script — full width */}
-                  {salesApproach.callScript && (
-                    <section className="p-5 border-4 border-purple-600 bg-purple-50">
-                      <div className="flex items-center justify-between mb-4">
-                        <h2 className="text-xl font-black text-purple-700">Call Script</h2>
-                        <button
-                          onClick={() => copyText(salesApproach.callScript.fullScript || salesApproach.callScript.opening || "", "Call Script")}
-                          className="text-xs font-black border-2 border-purple-600 text-purple-600 px-3 py-1 cursor-pointer hover:bg-purple-600 hover:text-white transition-colors"
-                        >COPY SCRIPT</button>
+                        )}
                       </div>
-                      {salesApproach.callScript.opening && (
-                        <div className="mb-4">
-                          <div className="text-xs font-black mb-1">OPENING</div>
-                          <div className="text-sm bg-white p-3 border border-purple-200">{salesApproach.callScript.opening}</div>
+                      {salesApproach.emailDraft ? (
+                        <div className="p-5 border-4 border-green-600 bg-green-50">
+                          <div className="mb-3 p-2 bg-white border border-green-200">
+                            <span className="text-xs font-black text-muted-foreground">SUBJECT: </span>
+                            <span className="text-sm font-bold">{salesApproach.emailDraft.subject}</span>
+                          </div>
+                          <div className="whitespace-pre-wrap text-sm bg-white p-3 border border-green-200">{salesApproach.emailDraft.body}</div>
                         </div>
-                      )}
-                      {salesApproach.callScript.fullScript && (
-                        <div>
-                          <div className="text-xs font-black mb-1">FULL SCRIPT</div>
-                          <div className="whitespace-pre-wrap text-sm bg-white p-4 border border-purple-200">{salesApproach.callScript.fullScript}</div>
+                      ) : <div className="text-muted-foreground font-bold py-8 text-center">No email draft generated.</div>}
+                    </section>
+                  )}
+
+                  {/* LinkedIn Message sub-chapter */}
+                  {approachSub === "linkedin-message" && (
+                    <section>
+                      <h2 className="text-xl font-black border-b-4 border-blue-600 pb-2 mb-4 text-blue-700">LinkedIn Message</h2>
+                      {salesApproach.linkedinMessage ? (
+                        <div className="p-5 border-4 border-blue-600 bg-blue-50 space-y-4">
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-black">CONNECTION REQUEST</span>
+                              <button onClick={() => copyText(salesApproach.linkedinMessage.connectionRequest, "Connection Request")} className="text-xs font-black border border-blue-600 text-blue-600 px-2 py-0.5 cursor-pointer hover:bg-blue-600 hover:text-white transition-colors">COPY</button>
+                            </div>
+                            <div className="text-sm bg-white p-3 border border-blue-200">{salesApproach.linkedinMessage.connectionRequest}</div>
+                          </div>
+                          <div>
+                            <div className="flex items-center justify-between mb-2">
+                              <span className="text-xs font-black">FOLLOW-UP</span>
+                              <button onClick={() => copyText(salesApproach.linkedinMessage.followUp, "Follow-up")} className="text-xs font-black border border-blue-600 text-blue-600 px-2 py-0.5 cursor-pointer hover:bg-blue-600 hover:text-white transition-colors">COPY</button>
+                            </div>
+                            <div className="text-sm bg-white p-3 border border-blue-200">{salesApproach.linkedinMessage.followUp}</div>
+                          </div>
                         </div>
-                      )}
+                      ) : <div className="text-muted-foreground font-bold py-8 text-center">No LinkedIn message generated.</div>}
+                    </section>
+                  )}
+
+                  {/* Call Script sub-chapter */}
+                  {approachSub === "call-script" && (
+                    <section>
+                      <div className="flex items-center justify-between border-b-4 border-purple-600 pb-2 mb-4">
+                        <h2 className="text-xl font-black text-purple-700">Call Script</h2>
+                        {salesApproach.callScript && (
+                          <button
+                            onClick={() => copyText(salesApproach.callScript.fullScript || salesApproach.callScript.opening || "", "Call Script")}
+                            className="text-xs font-black border-2 border-purple-600 text-purple-600 px-3 py-1 cursor-pointer hover:bg-purple-600 hover:text-white transition-colors"
+                          >COPY SCRIPT</button>
+                        )}
+                      </div>
+                      {salesApproach.callScript ? (
+                        <div className="p-5 border-4 border-purple-600 bg-purple-50">
+                          {salesApproach.callScript.opening && (
+                            <div className="mb-4">
+                              <div className="text-xs font-black mb-1">OPENING</div>
+                              <div className="text-sm bg-white p-3 border border-purple-200">{salesApproach.callScript.opening}</div>
+                            </div>
+                          )}
+                          {salesApproach.callScript.fullScript && (
+                            <div>
+                              <div className="text-xs font-black mb-1">FULL SCRIPT</div>
+                              <div className="whitespace-pre-wrap text-sm bg-white p-4 border border-purple-200">{salesApproach.callScript.fullScript}</div>
+                            </div>
+                          )}
+                        </div>
+                      ) : <div className="text-muted-foreground font-bold py-8 text-center">No call script generated.</div>}
                     </section>
                   )}
                 </div>

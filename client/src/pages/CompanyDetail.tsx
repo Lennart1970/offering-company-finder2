@@ -847,15 +847,44 @@ export default function CompanyDetail() {
                     <section>
                       <h2 className="text-xl font-black border-b-4 border-black pb-2 mb-4">Recent Developments</h2>
                       {briefData.recentDevelopments?.length > 0 ? (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {briefData.recentDevelopments.map((d: any, i: number) => (
-                            <div key={i} className="p-4 border-2 border-blue-200 bg-blue-50">
-                              <div className="font-black text-sm mb-1">{typeof d === "string" ? d : d.title || d.event}</div>
-                              {typeof d !== "string" && d.description && <p className="text-xs text-muted-foreground">{d.description}</p>}
-                              {typeof d !== "string" && d.date && <div className="text-[10px] font-bold text-muted-foreground mt-1">{d.date}</div>}
-                              {typeof d !== "string" && d.sourceUrl && <a href={d.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">Source →</a>}
-                            </div>
-                          ))}
+                        <div className="flex flex-col gap-4">
+                          {briefData.recentDevelopments.map((d: any, i: number) => {
+                            const headline = typeof d === "string" ? d : (d.text || d.title || d.event || "");
+                            const snippet = typeof d !== "string" ? (d.snippet || d.description || "") : "";
+                            const date = typeof d !== "string" ? (d.date || "") : "";
+                            const sourceUrl = typeof d !== "string" ? (d.sourceUrl || d.url || "") : "";
+                            const sourceDomain = sourceUrl ? (() => { try { return new URL(sourceUrl).hostname.replace(/^www\./, ""); } catch { return sourceUrl; } })() : "";
+                            return (
+                              <div key={i} className="border-2 border-gray-200 hover:border-black transition-colors p-4">
+                                {/* Headline */}
+                                <p className="font-black text-sm leading-snug mb-2">{headline}</p>
+                                {/* Snippet / excerpt */}
+                                {snippet && (
+                                  <blockquote className="border-l-4 border-gray-300 pl-3 mb-3">
+                                    <p className="text-xs text-muted-foreground italic leading-relaxed line-clamp-4">{snippet}</p>
+                                  </blockquote>
+                                )}
+                                {/* Footer: source + date */}
+                                <div className="flex items-center justify-between gap-2 mt-1">
+                                  {sourceUrl ? (
+                                    <a
+                                      href={sourceUrl}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-black hover:underline transition-colors"
+                                    >
+                                      <span className="inline-block w-4 h-4 bg-gray-100 border border-gray-300 rounded-sm text-[9px] font-black text-gray-500 flex items-center justify-center overflow-hidden shrink-0">
+                                        {sourceDomain.charAt(0).toUpperCase()}
+                                      </span>
+                                      <span className="truncate max-w-[200px]">{sourceDomain}</span>
+                                      <span className="text-gray-400">↗</span>
+                                    </a>
+                                  ) : <span />}
+                                  {date && <span className="text-[10px] font-bold text-muted-foreground shrink-0">{date}</span>}
+                                </div>
+                              </div>
+                            );
+                          })}
                         </div>
                       ) : <div className="text-muted-foreground font-bold py-8 text-center">No recent developments recorded.</div>}
                     </section>

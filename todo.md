@@ -1369,3 +1369,6 @@
 - [x] Image grid: 3-4 images, lazy-load, click to open full-size, graceful fallback placeholder
 - [x] On-demand FETCH IMAGES button with REFRESH option after first fetch
 - [x] Write vitest for fetchCompanyImages procedure (6 tests passing)
+
+## UX: Enrich Recent Developments Cards
+- [x] Show headline, summary snippet, and source attribution on each card (not just date + link)

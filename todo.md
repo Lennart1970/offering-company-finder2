@@ -1379,3 +1379,11 @@
 - [x] Filter Serper results: exclude e-commerce/retail domains (amazon, ebay, alibaba, etc.)
 - [x] Prefer company's own domain in results (two-pass query: site: first, then broad)
 - [x] Add site: operator + tech-focused query to Serper to get product/tech images
+
+## Feature: Prompt Repository Integration (rebuilt after sandbox reset)
+- [x] Audit all LLM prompts across the codebase (8 prompts found in 6 files)
+- [x] Create server/prompts/index.ts with 8 typed PromptTemplate constants and fillTemplate helper
+- [x] Add prompts.list tRPC procedure (protectedProcedure.query)
+- [x] Add Prompt Repository sidebar nav item (ScrollText icon, /prompts route)
+- [x] Create PromptRepository.tsx page with category filter tabs and expandable cards
+- [x] Write vitest tests for prompt catalogue integrity and fillTemplate (21 new tests, 291 total passing)

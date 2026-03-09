@@ -1150,3 +1150,11 @@
 - [x] Add apolloEnrichByName() fallback when no domain available (name + organization_country_code)
 - [x] conferenceImport route uses name-based enrichment when websiteUrl is null
 - [x] 7 new tests (4 __NEXT_DATA__ + 3 apolloEnrichByName) — 233 total passing (18 test files)
+
+## Fix: Apollo Name-Based Enrichment Not Finding Companies (Conference Import)
+- [x] Diagnose why apolloEnrichByName returns null for Intertraffic exhibitors
+- [x] Root cause: apolloEnrichByName was using organizations/enrich (requires domain) instead of organizations/search
+- [x] Fix: Rewrote apolloEnrichByName to use organizations/search with q_organization_name + organization_locations[]
+- [x] Smart best-match selection: exact name match preferred, falls back to first result
+- [x] Country code mapped to full country name (ISO 2-letter → "Netherlands", "Germany", etc.)
+- [x] Updated 3 tests → 4 tests (added exact-match test) — 234 total passing (18 test files)

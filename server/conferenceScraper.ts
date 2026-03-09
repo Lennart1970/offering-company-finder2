@@ -983,9 +983,9 @@ export async function scrapeConferenceExhibitors(
 
 /**
  * Look up a company in Apollo by name + optional country code.
- * Uses the organizations/enrich endpoint with name-based lookup.
- * Less precise than domain lookup but works when no website URL is available.
- * Returns null if not found or ambiguous.
+ * Uses the organizations/search endpoint (NOT enrich — enrich requires a domain).
+ * Searches by q_organization_name, picks the best match by name similarity.
+ * Returns null if not found.
  */
 export async function apolloEnrichByName(name: string, countryCode?: string | null): Promise<{
   apolloId?: string;
@@ -1008,13 +1008,32 @@ export async function apolloEnrichByName(name: string, countryCode?: string | nu
   if (!apiKey) throw new Error("APOLLO_API_KEY not set");
 
   try {
-    const body: Record<string, string> = { name };
+    // Map ISO 2-letter country code to country name for Apollo's location filter
+    const countryNameMap: Record<string, string> = {
+      NL: "Netherlands", DE: "Germany", GB: "United Kingdom", US: "United States",
+      FR: "France", BE: "Belgium", CH: "Switzerland", AT: "Austria", SE: "Sweden",
+      NO: "Norway", DK: "Denmark", FI: "Finland", ES: "Spain", IT: "Italy",
+      PL: "Poland", CZ: "Czech Republic", HU: "Hungary", RO: "Romania",
+      CN: "China", JP: "Japan", KR: "South Korea", IN: "India", AU: "Australia",
+      CA: "Canada", BR: "Brazil", MX: "Mexico", SG: "Singapore", AE: "United Arab Emirates",
+    };
+
+    const body: Record<string, unknown> = {
+      q_organization_name: name,
+      page: 1,
+      per_page: 5,
+    };
+
+    // Add country location filter if we have a known country
     if (countryCode && countryCode.length === 2) {
-      body.organization_country_code = countryCode.toUpperCase();
+      const countryName = countryNameMap[countryCode.toUpperCase()];
+      if (countryName) {
+        body.organization_locations = [countryName];
+      }
     }
 
     const response = await axios.post(
-      "https://api.apollo.io/api/v1/organizations/enrich",
+      "https://api.apollo.io/api/v1/organizations/search",
       body,
       {
         headers: {
@@ -1025,7 +1044,16 @@ export async function apolloEnrichByName(name: string, countryCode?: string | nu
       }
     );
 
-    const org = response.data.organization;
+    const orgs: any[] = response.data?.organizations || [];
+    if (orgs.length === 0) return null;
+
+    // Pick the best match: prefer exact name match, then first result
+    const normalizedInput = name.toLowerCase().replace(/[^a-z0-9]/g, "");
+    const exactMatch = orgs.find(o => {
+      const normalized = (o.name || "").toLowerCase().replace(/[^a-z0-9]/g, "");
+      return normalized === normalizedInput;
+    });
+    const org = exactMatch || orgs[0];
     if (!org) return null;
 
     const sixMonth = org.organization_headcount_six_month_growth;
@@ -1055,7 +1083,7 @@ export async function apolloEnrichByName(name: string, countryCode?: string | nu
     if (error.response?.status === 404 || error.response?.status === 422) {
       return null;
     }
-    console.warn(`[Apollo Enrich] Failed for name "${name}":`, error.message);
+    console.warn(`[Apollo Search] Failed for name "${name}":`, error.message);
     return null;
   }
 }

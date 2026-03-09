@@ -735,11 +735,11 @@ describe("Conference Scraper - Apollo enrichment", () => {
     expect(result!.headcountGrowth).toContain("2.0%");
   });
 
-  it("apolloEnrichByName: enriches by name + country when no domain available", async () => {
+  it("apolloEnrichByName: searches by name + country using organizations/search", async () => {
     const mockedAxios = axios as any;
     mockedAxios.post = vi.fn().mockResolvedValue({
       data: {
-        organization: {
+        organizations: [{
           id: "apollo-org-456",
           name: "Siemens Mobility GmbH",
           website_url: "https://mobility.siemens.com",
@@ -752,30 +752,51 @@ describe("Conference Scraper - Apollo enrichment", () => {
           city: "Munich",
           state: "Bavaria",
           country: "Germany",
-        },
+        }],
       },
     });
 
     const { apolloEnrichByName } = await import("./conferenceScraper");
-    const result = await apolloEnrichByName("Siemens Mobility", "DE");
+    const result = await apolloEnrichByName("Siemens Mobility GmbH", "DE");
 
     expect(result).not.toBeNull();
     expect(result!.apolloId).toBe("apollo-org-456");
     expect(result!.name).toBe("Siemens Mobility GmbH");
     expect(result!.country).toBe("Germany");
-    // Verify the API was called with name + country code
+    // Verify the API was called with organizations/search (NOT enrich)
     expect(mockedAxios.post).toHaveBeenCalledWith(
-      "https://api.apollo.io/api/v1/organizations/enrich",
-      { name: "Siemens Mobility", organization_country_code: "DE" },
+      "https://api.apollo.io/api/v1/organizations/search",
+      expect.objectContaining({
+        q_organization_name: "Siemens Mobility GmbH",
+        organization_locations: ["Germany"],
+      }),
       expect.any(Object)
     );
   });
 
-  it("apolloEnrichByName: returns null when company not found", async () => {
+  it("apolloEnrichByName: picks exact name match over first result", async () => {
     const mockedAxios = axios as any;
-    mockedAxios.post = vi.fn().mockRejectedValue({
-      response: { status: 404 },
-      message: "Not Found",
+    mockedAxios.post = vi.fn().mockResolvedValue({
+      data: {
+        organizations: [
+          { id: "org-wrong", name: "Arvoo Systems Inc", country: "US" },
+          { id: "org-correct", name: "Arvoo Imaging Products B.V.", country: "Netherlands", primary_domain: "arvoo.com" },
+        ],
+      },
+    });
+
+    const { apolloEnrichByName } = await import("./conferenceScraper");
+    const result = await apolloEnrichByName("Arvoo Imaging Products B.V.", "NL");
+
+    expect(result).not.toBeNull();
+    expect(result!.apolloId).toBe("org-correct");
+    expect(result!.primaryDomain).toBe("arvoo.com");
+  });
+
+  it("apolloEnrichByName: returns null when no organizations found", async () => {
+    const mockedAxios = axios as any;
+    mockedAxios.post = vi.fn().mockResolvedValue({
+      data: { organizations: [] },
     });
 
     const { apolloEnrichByName } = await import("./conferenceScraper");
@@ -784,20 +805,20 @@ describe("Conference Scraper - Apollo enrichment", () => {
     expect(result).toBeNull();
   });
 
-  it("apolloEnrichByName: works without country code", async () => {
+  it("apolloEnrichByName: works without country code (no location filter)", async () => {
     const mockedAxios = axios as any;
     mockedAxios.post = vi.fn().mockResolvedValue({
-      data: { organization: { id: "org-789", name: "ACME Corp" } },
+      data: { organizations: [{ id: "org-789", name: "ACME Corp" }] },
     });
 
     const { apolloEnrichByName } = await import("./conferenceScraper");
     const result = await apolloEnrichByName("ACME Corp");
 
     expect(result).not.toBeNull();
-    // Should be called without organization_country_code
+    // Should NOT include organization_locations when no country code
     expect(mockedAxios.post).toHaveBeenCalledWith(
-      "https://api.apollo.io/api/v1/organizations/enrich",
-      { name: "ACME Corp" },
+      "https://api.apollo.io/api/v1/organizations/search",
+      expect.not.objectContaining({ organization_locations: expect.anything() }),
       expect.any(Object)
     );
   });

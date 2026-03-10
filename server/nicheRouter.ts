@@ -22,19 +22,15 @@ import {
   getNicheById,
   updateNiche,
   deleteNichesBySearchId,
+  getCompaniesBySearchId,
+  updateCompany,
 } from "./db";
-import { scoreNicheFit, scoreNichesBatch, NicheClusterInput } from "./nicheFitScorer";
+import { scoreNicheFit, NicheClusterInput } from "./nicheFitScorer";
 import { generateEmbeddings } from "./embeddingService";
-import { clusterCompanies } from "./clusteringService";
+import { clusterCompanies, assignRemainingByProximity } from "./clusteringService";
 import { companies } from "../drizzle/schema";
-import { eq } from "drizzle-orm";
-import { drizzle } from "drizzle-orm/mysql2";
-
-async function getDb() {
-  const { default: mysql } = await import("mysql2/promise");
-  const conn = await mysql.createConnection(process.env.DATABASE_URL!);
-  return drizzle(conn);
-}
+import { eq, isNull } from "drizzle-orm";
+import { getDb } from "./db";
 
 export const nicheRouter = router({
   /**
@@ -53,6 +49,7 @@ export const nicheRouter = router({
 
       // 1. Load all companies for this search
       const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
       const allCompanies = await db
         .select()
         .from(companies)
@@ -81,6 +78,8 @@ export const nicheRouter = router({
       // 5. Persist niches
       console.log(`[nicheRouter] Saving ${clusters.length} niches...`);
       const nicheIds: number[] = [];
+      // Map clusterIndex → nicheId for Phase 1 company assignment
+      const clusterIndexToNicheId = new Map<number, number>();
       for (const cluster of clusters) {
         const id = await createNiche({
           userId,
@@ -96,6 +95,17 @@ export const nicheRouter = router({
           rationale: null,
         });
         nicheIds.push(id);
+        clusterIndexToNicheId.set(cluster.clusterIndex, id);
+      }
+
+      // 5b. Assign seed companies' nicheId in DB (Phase 1 companies only)
+      console.log(`[nicheRouter] Assigning nicheId to seed companies...`);
+      for (const cluster of clusters) {
+        const nicheId = clusterIndexToNicheId.get(cluster.clusterIndex);
+        if (!nicheId) continue;
+        for (const companyId of cluster.companyIds) {
+          await updateCompany(companyId, { nicheId });
+        }
       }
 
       // 6. Auto-score against active Brain (if requested)
@@ -330,6 +340,111 @@ export const nicheRouter = router({
       }
       await deleteNichesBySearchId(input.searchId);
       return { deleted: niches.length };
+    }),
+
+  /**
+   * Count how many companies in a search have not yet been assigned to a niche.
+   * Used by the UI to show the "Assign Remaining (N)" button.
+   */
+  getUnassignedCount: protectedProcedure
+    .input(z.object({ searchId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) return { unassigned: 0, total: 0 };
+      const allCompanies = await db
+        .select({ id: companies.id, nicheId: companies.nicheId })
+        .from(companies)
+        .where(eq(companies.searchId, input.searchId));
+      const total = allCompanies.length;
+      const unassigned = allCompanies.filter((c) => c.nicheId === null || c.nicheId === undefined).length;
+      return { unassigned, total, assigned: total - unassigned };
+    }),
+
+  /**
+   * Phase 2: Assign remaining unassigned companies to the nearest niche centroid.
+   * Requires Phase 1 (clusterAndSaveNiches) to have been run first.
+   *
+   * Steps:
+   *   1. Load all niches for this search (to get centroids)
+   *   2. Load all companies without a nicheId
+   *   3. Generate embeddings for unassigned companies
+   *   4. Assign each to nearest centroid by cosine similarity
+   *   5. Update companies.nicheId and niches.companyCount
+   */
+  assignRemainingCompanies: protectedProcedure
+    .input(z.object({ searchId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      // 1. Load niches with centroids
+      const savedNiches = await getNichesBySearchId(input.searchId);
+      if (savedNiches.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No niches found. Run Phase 1 clustering first.",
+        });
+      }
+
+      const nicheCentroids = savedNiches
+        .filter((n) => n.centroid)
+        .map((n) => ({
+          nicheId: n.id,
+          centroid: JSON.parse(n.centroid!) as number[],
+        }));
+
+      if (nicheCentroids.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Niches have no centroid data. Re-run Phase 1 clustering.",
+        });
+      }
+
+      // 2. Load unassigned companies
+      const allCompanies = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.searchId, input.searchId));
+
+      const unassigned = allCompanies.filter((c) => c.nicheId === null || c.nicheId === undefined);
+
+      if (unassigned.length === 0) {
+        return { assigned: 0, message: "All companies are already assigned to niches." };
+      }
+
+      console.log(`[nicheRouter] Phase 2: Assigning ${unassigned.length} unassigned companies to ${nicheCentroids.length} niches`);
+
+      // 3. Generate embeddings for unassigned companies
+      const embeddings = await generateEmbeddings(unassigned);
+
+      // 4. Assign by proximity
+      const assignments = await assignRemainingByProximity(embeddings, nicheCentroids);
+
+      // 5. Update companies.nicheId in DB
+      let assigned = 0;
+      for (const [companyId, nicheId] of Array.from(assignments)) {
+        await updateCompany(companyId, { nicheId });
+        assigned++;
+      }
+
+      // 6. Update companyCount on each niche
+      const nicheCounts = new Map<number, number>();
+      for (const company of allCompanies) {
+        const nId = assignments.get(company.id) ?? company.nicheId;
+        if (nId) nicheCounts.set(nId, (nicheCounts.get(nId) ?? 0) + 1);
+      }
+      for (const [nicheId, count] of Array.from(nicheCounts)) {
+        await updateNiche(nicheId, { companyCount: count });
+      }
+
+      console.log(`[nicheRouter] Phase 2 done: ${assigned} companies assigned`);
+
+      return {
+        assigned,
+        total: allCompanies.length,
+        nichesUpdated: nicheCounts.size,
+        message: `Assigned ${assigned} companies to ${nicheCounts.size} niches.`,
+      };
     }),
 });
 

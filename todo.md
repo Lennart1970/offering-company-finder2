@@ -1450,3 +1450,38 @@
 - [x] Show progress feedback (embedding → clustering → naming → scoring) during the pipeline
 - [x] Auto-select searchId from URL param (?searchId=X) when arriving from Excel Import
 - [x] Refresh niche list after clustering completes
+
+## Feature: Phone Enrichment → Premium Gate
+- [ ] Find all phone enrichment UI and backend calls
+- [ ] Disable phone enrichment functionality (no API calls)
+- [ ] Show "Premium Feature" badge/lock on phone fields in UI
+- [ ] Show toast "Phone enrichment is a premium feature" on click
+
+## Feature: Two-Phase Clustering (500 seed + proximity assignment)
+- [ ] Update clusteringService.ts to accept sampleSize param (default 500) and store centroids
+- [ ] Add assignByProximity() function: embed remaining companies, assign to nearest centroid
+- [ ] Add background job runner (in-memory queue) for Phase 2
+- [ ] Add niche.assignRemainingCompanies tRPC procedure (triggers background job, returns jobId)
+- [ ] Add niche.getJobStatus tRPC procedure (polls job progress)
+- [ ] Update Market Segments UI: show company count per niche, "Assign Remaining" button after Phase 1
+- [ ] Show Phase 2 progress (X of Y companies assigned) with polling
+- [ ] Gate phone enrichment as premium feature (checkbox → Premium badge)
+
+## Two-Phase Clustering for Large Imports
+- [x] Add `stratifiedSample()` function to clusteringService.ts (proportional sampling by industry)
+- [x] Add `assignToNearestCentroid()` function (cosine similarity assignment)
+- [x] Add `assignRemainingByProximity()` function (batch Phase 2 assignment)
+- [x] Add `nicheId` column to companies table (schema + migration)
+- [x] Update `clusterAndSaveNiches` to assign seed companies' nicheId during Phase 1
+- [x] Add `niche.getUnassignedCount` tRPC query (returns unassigned/total counts)
+- [x] Add `niche.assignRemainingCompanies` tRPC mutation (Phase 2 proximity assignment)
+- [x] Update Market Segments UI: rename button to "Cluster Seed Sample"
+- [x] Add "Assign Remaining (N)" blue button that appears when unassigned companies exist
+- [x] Add Phase 2 progress banner and result summary banner
+- [x] Write 12 vitest tests for clusteringService (stratifiedSample, assignToNearestCentroid, assignRemainingByProximity)
+- [x] 316 tests passing
+
+## Phone Enrichment Premium Gate
+- [x] Remove "Include phone number" checkbox from Find Contact modal
+- [x] Replace with strikethrough label + amber "Premium" badge with tooltip
+- [x] Force `includePhone: false` in findContact mutation call

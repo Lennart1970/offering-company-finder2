@@ -34,7 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Network, RefreshCw, Plus, ChevronDown, ChevronUp, Loader2, Brain, Cpu } from "lucide-react";
+import { Network, RefreshCw, Plus, ChevronDown, ChevronUp, Loader2, Brain, Cpu, GitBranch } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -416,7 +416,9 @@ export default function NicheReview() {
   const [rescoringId, setRescoringId] = useState<number | null>(null);
   const [scoringAll, setScoringAll] = useState(false);
   const [clustering, setClustering] = useState(false);
+  const [assigning, setAssigning] = useState(false);
   const [clusterResult, setClusterResult] = useState<{ nichesCreated: number; nichesScored: number; companiesProcessed: number } | null>(null);
+  const [assignResult, setAssignResult] = useState<{ assigned: number; total: number } | null>(null);
 
   // Fetch all searches for the selector
   const { data: searches } = trpc.companyFinder.getSearchHistory.useQuery();
@@ -450,6 +452,12 @@ export default function NicheReview() {
     });
   }, [displayNiches]);
 
+  // Unassigned company count (for Phase 2 button)
+  const { data: unassignedData, refetch: refetchUnassigned } = trpc.niche.getUnassignedCount.useQuery(
+    { searchId: selectedSearchId! },
+    { enabled: !!selectedSearchId }
+  );
+
   const utils = trpc.useUtils();
 
   // Cluster companies into niches
@@ -473,6 +481,22 @@ export default function NicheReview() {
     },
   });
 
+  // Phase 2: Assign remaining companies
+  const assignMutation = trpc.niche.assignRemainingCompanies.useMutation({
+    onSuccess: (data) => {
+      setAssigning(false);
+      setAssignResult({ assigned: data.assigned, total: data.total ?? 0 });
+      toast.success(data.message);
+      refetchUnassigned();
+      if (selectedSearchId) refetchSearch();
+      else refetch();
+    },
+    onError: (e) => {
+      setAssigning(false);
+      toast.error(e.message);
+    },
+  });
+
   const handleCluster = () => {
     if (!selectedSearchId) {
       toast.error("Select a campaign first");
@@ -480,7 +504,18 @@ export default function NicheReview() {
     }
     setClustering(true);
     setClusterResult(null);
+    setAssignResult(null);
     clusterMutation.mutate({ searchId: selectedSearchId, autoScore: true });
+  };
+
+  const handleAssignRemaining = () => {
+    if (!selectedSearchId) {
+      toast.error("Select a campaign first");
+      return;
+    }
+    setAssigning(true);
+    setAssignResult(null);
+    assignMutation.mutate({ searchId: selectedSearchId });
   };
 
   // Batch score all
@@ -577,20 +612,39 @@ export default function NicheReview() {
               </SelectContent>
             </Select>
 
-            {/* PRIMARY: Cluster Companies */}
+            {/* PRIMARY: Cluster Companies (Phase 1) */}
             <Button
               size="sm"
               className="font-black bg-black text-white hover:bg-gray-800 border-2 border-black"
               onClick={handleCluster}
-              disabled={clustering || !selectedSearchId}
+              disabled={clustering || assigning || !selectedSearchId}
             >
               {clustering ? (
                 <Loader2 className="w-4 h-4 animate-spin mr-2" />
               ) : (
                 <Cpu className="w-4 h-4 mr-2" />
               )}
-              {clustering ? "Clustering..." : "Cluster Companies"}
+              {clustering ? "Clustering..." : "Cluster Seed Sample"}
             </Button>
+
+            {/* PHASE 2: Assign Remaining — only shown when there are unassigned companies */}
+            {selectedSearchId && sortedNiches.length > 0 && unassignedData && unassignedData.unassigned > 0 && (
+              <Button
+                size="sm"
+                className="font-black bg-blue-700 text-white hover:bg-blue-800 border-2 border-blue-700"
+                onClick={handleAssignRemaining}
+                disabled={assigning || clustering}
+              >
+                {assigning ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <GitBranch className="w-4 h-4 mr-2" />
+                )}
+                {assigning
+                  ? "Assigning..."
+                  : `Assign Remaining (${unassignedData.unassigned.toLocaleString()})`}
+              </Button>
+            )}
 
             <CreateNicheDialog
               searchId={selectedSearchId ?? undefined}
@@ -664,7 +718,35 @@ export default function NicheReview() {
         {clusterResult && !clustering && (
           <div className="mb-4 border-4 border-green-600 bg-green-50 px-6 py-4">
             <p className="font-black text-green-800">
-              Clustering complete — {clusterResult.companiesProcessed} companies grouped into {clusterResult.nichesCreated} segments, {clusterResult.nichesScored} scored.
+              Phase 1 complete — {clusterResult.companiesProcessed} companies grouped into {clusterResult.nichesCreated} segments, {clusterResult.nichesScored} scored.
+            </p>
+            {unassignedData && unassignedData.unassigned > 0 && (
+              <p className="text-sm text-green-700 mt-1">
+                {unassignedData.unassigned.toLocaleString()} companies not yet assigned — click <strong>Assign Remaining</strong> to complete Phase 2.
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Phase 2 progress banner */}
+        {assigning && (
+          <div className="mb-4 border-4 border-blue-700 bg-blue-700 text-white px-6 py-4 flex items-center gap-4">
+            <Loader2 className="w-6 h-6 animate-spin shrink-0" />
+            <div>
+              <p className="font-black">Phase 2: Assigning remaining companies...</p>
+              <p className="text-sm opacity-70">
+                Generating embeddings for unassigned companies and assigning each to the nearest cluster centroid.
+                This may take a few minutes for large datasets.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Phase 2 result summary */}
+        {assignResult && !assigning && (
+          <div className="mb-4 border-4 border-blue-600 bg-blue-50 px-6 py-4">
+            <p className="font-black text-blue-800">
+              Phase 2 complete — {assignResult.assigned.toLocaleString()} companies assigned to segments.
             </p>
           </div>
         )}
@@ -678,9 +760,9 @@ export default function NicheReview() {
             <Network className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
             <h2 className="text-lg font-black mb-2">No segments yet</h2>
             <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
-              Select a campaign above and click <strong>Cluster Companies</strong> to automatically
-              group your imported companies into market segments using k-means clustering,
-              then score each segment against your active Offering Brain.
+              Select a campaign above and click <strong>Cluster Seed Sample</strong> to cluster a representative
+              sample of your companies into market segments, then use <strong>Assign Remaining</strong> to
+              assign the rest by proximity.
             </p>
             <div className="flex items-center justify-center gap-3 flex-wrap">
               <Button
@@ -689,7 +771,7 @@ export default function NicheReview() {
                 disabled={!selectedSearchId || clustering}
               >
                 <Cpu className="w-4 h-4 mr-2" />
-                Cluster Companies
+                Cluster Seed Sample
               </Button>
               <CreateNicheDialog
                 searchId={selectedSearchId ?? undefined}

@@ -1756,7 +1756,7 @@ function FindContactButton({ companyId, companyName }: { companyId: number; comp
       toast.error("Please enter a job title");
       return;
     }
-    findContactMutation.mutate({ companyId, jobTitle: jobTitle.trim(), includePhone });
+    findContactMutation.mutate({ companyId, jobTitle: jobTitle.trim(), includePhone: false });
   };
 
   // If we have a cached contact, show "View Contact" button
@@ -1817,16 +1817,15 @@ function FindContactButton({ companyId, companyName }: { companyId: number; comp
               ×
             </Button>
           </div>
-          <label className="flex items-center gap-2 mt-1 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={includePhone}
-              onChange={(e) => setIncludePhone(e.target.checked)}
-              className="accent-orange-600 w-4 h-4"
-            />
-            <span className="text-xs font-bold text-black">Include phone number</span>
-            <span className="text-xs font-bold text-red-600">⚠ +8 credits</span>
-          </label>
+          <div className="flex items-center gap-2 mt-1">
+            <span className="text-xs font-bold text-gray-400 line-through">Include phone number</span>
+            <span
+              className="text-[10px] font-black bg-amber-500 text-white px-1.5 py-0.5 rounded uppercase tracking-wide cursor-default"
+              title="Phone enrichment is a Premium feature. Contact us to unlock."
+            >
+              Premium
+            </span>
+          </div>
         </div>
       )}
 

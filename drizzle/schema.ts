@@ -96,6 +96,9 @@ export const companies = mysqlTable("companies", {
   callReadinessSummary: text("callReadinessSummary"), // LLM-generated 1-sentence pre-call briefing
   productImages: text("productImages"), // JSON array of { imageUrl, thumbnailUrl, title, source } from Serper Images API
   enrichmentStatus: mysqlEnum("enrichmentStatus", ["pending", "enriched", "failed"]).default("pending").notNull(),
+  // Niche cluster assignment (set during Phase 1 seed clustering or Phase 2 proximity assignment)
+  // Note: FK constraint added via SQL migration to avoid circular reference in schema definition
+  nicheId: int("nicheId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

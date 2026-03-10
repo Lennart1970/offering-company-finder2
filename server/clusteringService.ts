@@ -1,15 +1,23 @@
 /**
  * Clustering Service
  *
- * Runs k-means++ on company embeddings to discover niche clusters.
- * Uses silhouette score to auto-select the optimal K (3–12 clusters).
+ * Two-phase clustering pipeline:
  *
- * Pipeline: generateEmbeddings → clusterCompanies → scoreNiches
+ * Phase 1 — Seed (fast, in-browser):
+ *   Take a stratified sample of up to SEED_SAMPLE_SIZE companies,
+ *   run k-means++ with silhouette auto-K, name each cluster with LLM.
+ *   Returns NicheCluster[] with stable centroids.
+ *
+ * Phase 2 — Assign (background-safe):
+ *   For remaining companies not in the seed sample, embed them and
+ *   assign each to the nearest centroid by cosine similarity.
+ *   Can run as a background job — no re-clustering needed.
  */
 import { invokeLLM } from "./_core/llm";
 import type { CompanyEmbedding } from "./embeddingService";
 import type { Company } from "../drizzle/schema";
 
+export const SEED_SAMPLE_SIZE = 500;
 const MIN_K = 3;
 const MAX_K = 12;
 const MIN_COMPANIES_PER_CLUSTER = 3;
@@ -48,6 +56,60 @@ function meanVector(vectors: number[][]): number[] {
   return mean;
 }
 
+// ─── Stratified Sample ───────────────────────────────────────────────────────
+
+/**
+ * Pick up to `size` companies using stratified sampling by industry.
+ * Falls back to random if no industry metadata is available.
+ */
+export function stratifiedSample(
+  companyEmbeddings: CompanyEmbedding[],
+  allCompanies: Company[],
+  size: number
+): { sample: CompanyEmbedding[]; remainder: CompanyEmbedding[] } {
+  if (companyEmbeddings.length <= size) {
+    return { sample: companyEmbeddings, remainder: [] };
+  }
+
+  const companyMap = new Map(allCompanies.map((c) => [c.id, c]));
+
+  // Group by industry
+  const byIndustry = new Map<string, CompanyEmbedding[]>();
+  for (const ce of companyEmbeddings) {
+    const company = companyMap.get(ce.companyId);
+    const meta = company?.sliceMetadata
+      ? (() => { try { return JSON.parse(company.sliceMetadata!); } catch { return {}; } })()
+      : {};
+    const industry: string = meta.industry || "Unknown";
+    if (!byIndustry.has(industry)) byIndustry.set(industry, []);
+    byIndustry.get(industry)!.push(ce);
+  }
+
+  // Proportional allocation across industries
+  const total = companyEmbeddings.length;
+  const sampled: CompanyEmbedding[] = [];
+  const remainderSet = new Set<number>();
+
+  for (const [, group] of Array.from(byIndustry)) {
+    const quota = Math.max(1, Math.round((group.length / total) * size));
+    // Shuffle group
+    const shuffled = [...group].sort(() => Math.random() - 0.5);
+    sampled.push(...shuffled.slice(0, quota));
+    shuffled.slice(quota).forEach((ce) => remainderSet.add(ce.companyId));
+  }
+
+  // Trim or top-up to exact size
+  const finalSample = sampled.slice(0, size);
+  const sampledIds = new Set(finalSample.map((ce) => ce.companyId));
+  const remainder = companyEmbeddings.filter((ce) => !sampledIds.has(ce.companyId));
+
+  console.log(
+    `[Clustering] Stratified sample: ${finalSample.length} seed companies, ${remainder.length} remainder`
+  );
+
+  return { sample: finalSample, remainder };
+}
+
 // ─── K-Means++ ──────────────────────────────────────────────────────────────
 
 function kMeansPlusPlus(
@@ -56,8 +118,6 @@ function kMeansPlusPlus(
 ): { assignments: number[]; centroids: number[][] } {
   const n = embeddings.length;
 
-  // K-means++ initialisation: pick first centroid randomly, then pick
-  // subsequent centroids with probability proportional to distance squared
   const centroidIndices: number[] = [];
   centroidIndices.push(Math.floor(Math.random() * n));
 
@@ -84,9 +144,7 @@ function kMeansPlusPlus(
   let centroids = centroidIndices.map((i) => [...embeddings[i]]);
   let assignments = new Array(n).fill(0);
 
-  // Iterate
   for (let iter = 0; iter < KMEANS_MAX_ITERATIONS; iter++) {
-    // Assign each point to nearest centroid
     const newAssignments = embeddings.map((emb) => {
       let minDist = Infinity;
       let nearest = 0;
@@ -100,12 +158,10 @@ function kMeansPlusPlus(
       return nearest;
     });
 
-    // Check convergence
     const changed = newAssignments.some((a, i) => a !== assignments[i]);
     assignments = newAssignments;
     if (!changed) break;
 
-    // Update centroids
     for (let c = 0; c < k; c++) {
       const clusterVecs = embeddings.filter((_, i) => assignments[i] === c);
       if (clusterVecs.length > 0) {
@@ -129,10 +185,8 @@ function silhouetteScore(embeddings: number[][], assignments: number[]): number 
     const sameCluster = embeddings.filter((_, j) => j !== i && assignments[j] === clusterI);
     if (sameCluster.length === 0) continue;
 
-    // a(i): mean distance to same-cluster points
     const a = sameCluster.reduce((sum, v) => sum + cosineDistance(embeddings[i], v), 0) / sameCluster.length;
 
-    // b(i): min mean distance to any other cluster
     const clusters = Array.from(new Set(assignments)).filter((c) => c !== clusterI);
     if (clusters.length === 0) continue;
 
@@ -165,7 +219,6 @@ function selectOptimalK(
   let bestResult = kMeansPlusPlus(embeddings, effectiveMin);
 
   for (let k = effectiveMin; k <= effectiveMax; k++) {
-    // Run k-means 3 times and pick best (reduces sensitivity to random init)
     let bestRunResult = kMeansPlusPlus(embeddings, k);
     let bestRunScore = silhouetteScore(embeddings, bestRunResult.assignments);
 
@@ -258,11 +311,11 @@ async function nameCluster(
   }
 }
 
-// ─── Main Export ─────────────────────────────────────────────────────────────
+// ─── Phase 1: Seed Clustering ─────────────────────────────────────────────────
 
 /**
- * Cluster companies by embedding similarity using k-means++ with auto-K selection.
- * Returns NicheCluster[] with LLM-generated names and descriptions.
+ * Phase 1: Cluster a seed sample of up to SEED_SAMPLE_SIZE companies.
+ * Returns NicheCluster[] with stable centroids for Phase 2 assignment.
  */
 export async function clusterCompanies(
   companyEmbeddings: CompanyEmbedding[],
@@ -274,16 +327,18 @@ export async function clusterCompanies(
     );
   }
 
-  const companyMap = new Map(allCompanies.map((c) => [c.id, c]));
-  const embeddings = companyEmbeddings.map((e) => e.embedding);
+  // Use stratified sample for seeding if we have more than SEED_SAMPLE_SIZE
+  const { sample } = stratifiedSample(companyEmbeddings, allCompanies, SEED_SAMPLE_SIZE);
 
-  console.log(`[Clustering] Running k-means++ on ${embeddings.length} companies (k=${MIN_K}–${MAX_K})`);
+  const companyMap = new Map(allCompanies.map((c) => [c.id, c]));
+  const embeddings = sample.map((e) => e.embedding);
+
+  console.log(`[Clustering] Phase 1: k-means++ on ${embeddings.length} seed companies (k=${MIN_K}–${MAX_K})`);
   const { k, assignments, centroids } = selectOptimalK(embeddings, MIN_K, MAX_K);
 
-  // Group companies by cluster
   const clusters: NicheCluster[] = [];
   for (let c = 0; c < k; c++) {
-    const clusterEmbeddings = companyEmbeddings.filter((_, i) => assignments[i] === c);
+    const clusterEmbeddings = sample.filter((_, i) => assignments[i] === c);
     const clusterCompanyIds = clusterEmbeddings.map((e) => e.companyId);
     const clusterCompanies = clusterCompanyIds
       .map((id) => companyMap.get(id))
@@ -308,6 +363,61 @@ export async function clusterCompanies(
     });
   }
 
-  console.log(`[Clustering] Done: ${clusters.length} niches identified`);
+  console.log(`[Clustering] Phase 1 done: ${clusters.length} niches from ${sample.length} seed companies`);
   return clusters;
+}
+
+// ─── Phase 2: Proximity Assignment ───────────────────────────────────────────
+
+/**
+ * Assign a single company embedding to the nearest centroid.
+ * Returns the cluster index (0-based) of the nearest niche.
+ */
+export function assignToNearestCentroid(
+  embedding: number[],
+  centroids: number[][]
+): number {
+  let nearest = 0;
+  let minDist = Infinity;
+  for (let i = 0; i < centroids.length; i++) {
+    const d = cosineDistance(embedding, centroids[i]);
+    if (d < minDist) {
+      minDist = d;
+      nearest = i;
+    }
+  }
+  return nearest;
+}
+
+/**
+ * Phase 2: Assign remaining companies (not in seed) to the nearest niche centroid.
+ * Returns a map of companyId → nicheId (DB row ID).
+ *
+ * @param remainingEmbeddings - embeddings for companies not in the seed sample
+ * @param nicheCentroids - array of { nicheId, centroid } from the saved niches
+ * @param onProgress - optional callback called after each batch (for polling)
+ */
+export async function assignRemainingByProximity(
+  remainingEmbeddings: CompanyEmbedding[],
+  nicheCentroids: { nicheId: number; centroid: number[] }[],
+  onProgress?: (assigned: number, total: number) => void
+): Promise<Map<number, number>> {
+  const assignments = new Map<number, number>(); // companyId → nicheId
+  const centroids = nicheCentroids.map((n) => n.centroid);
+
+  for (let i = 0; i < remainingEmbeddings.length; i++) {
+    const ce = remainingEmbeddings[i];
+    const clusterIdx = assignToNearestCentroid(ce.embedding, centroids);
+    const nicheId = nicheCentroids[clusterIdx].nicheId;
+    assignments.set(ce.companyId, nicheId);
+
+    if (onProgress && (i + 1) % 100 === 0) {
+      onProgress(i + 1, remainingEmbeddings.length);
+    }
+  }
+
+  if (onProgress) onProgress(remainingEmbeddings.length, remainingEmbeddings.length);
+
+  console.log(`[Clustering] Phase 2 done: ${assignments.size} companies assigned by proximity`);
+  return assignments;
 }

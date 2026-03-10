@@ -19,6 +19,7 @@ import CompanyDetail from "./pages/CompanyDetail";
 import NurtureList from "./pages/NurtureList";
 import PromptRepository from "./pages/PromptRepository";
 import NicheReview from "./pages/NicheReview";
+import NicheCompanyList from "./pages/NicheCompanyList";
 
 
 function Router() {
@@ -41,6 +42,7 @@ function Router() {
         <Route path={"/nurture"} component={NurtureList} />
         <Route path={"/prompts"} component={PromptRepository} />
         <Route path={"/niche-review"} component={NicheReview} />
+        <Route path={"/niche/:nicheId"} component={({ params }: { params: { nicheId: string } }) => <NicheCompanyList nicheId={parseInt(params.nicheId)} />} />
 
         <Route path={"/404"} component={NotFound} />
         <Route component={NotFound} />

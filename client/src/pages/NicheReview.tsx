@@ -35,7 +35,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Network, RefreshCw, Plus, ChevronDown, ChevronUp, Loader2, Brain, Cpu, GitBranch, Layers, ChevronRight, Rocket } from "lucide-react";
+import { Network, RefreshCw, Plus, ChevronDown, ChevronUp, Loader2, Brain, Cpu, GitBranch, Layers, ChevronRight, Rocket, Users } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -135,6 +135,7 @@ function NicheCard({
   onSubClusterTargetSizeChange,
   onCreateCampaign,
   creatingCampaign,
+  onViewCompanies,
 }: {
   niche: NicheItem;
   rank: number;
@@ -147,6 +148,7 @@ function NicheCard({
   onSubClusterTargetSizeChange?: (size: number) => void;
   onCreateCampaign?: (id: number) => void;
   creatingCampaign?: boolean;
+  onViewCompanies?: (id: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasScore = niche.fitScore !== null && niche.fitScore !== undefined;
@@ -192,9 +194,6 @@ function NicheCard({
               )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <span className="text-xs text-muted-foreground font-bold">
-                {niche.companyCount} co.
-              </span>
               <Button
                 variant="outline"
                 size="sm"
@@ -247,6 +246,18 @@ function NicheCard({
                 </div>
               )}
 
+              {onViewCompanies && niche.companyCount > 0 && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs font-bold px-2 border border-blue-400 text-blue-700 hover:bg-blue-50 transition-colors"
+                  onClick={() => onViewCompanies(niche.id)}
+                  title={`Browse ${niche.companyCount} companies in this segment`}
+                >
+                  <Users className="w-3 h-3 mr-1" />
+                  <span>{niche.companyCount.toLocaleString()} co.</span>
+                </Button>
+              )}
               <Button
                 variant="outline"
                 size="sm"
@@ -1055,6 +1066,7 @@ export default function NicheReview() {
                       onSubClusterTargetSizeChange={setSubClusterTargetSize}
                       onCreateCampaign={handleCreateCampaign}
                       creatingCampaign={creatingCampaignId === niche.id}
+                      onViewCompanies={(id) => navigate(`/niche/${id}`)}
                     />
                     {/* Sub-cluster progress banner */}
                     {subClusteringId === niche.id && (
@@ -1090,6 +1102,7 @@ export default function NicheReview() {
                             isChild
                             onCreateCampaign={handleCreateCampaign}
                             creatingCampaign={creatingCampaignId === child.id}
+                            onViewCompanies={(id) => navigate(`/niche/${id}`)}
                           />
                         ))}
                       </div>

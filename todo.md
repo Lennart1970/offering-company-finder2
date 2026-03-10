@@ -1539,3 +1539,21 @@
 - [x] Ensure all mutating tRPC procedures in nicheRouter use adminProcedure
 - [x] Read-only queries (getNiches, getAllNiches, getUnassignedCount, getChildNiches) remain protectedProcedure
 - [x] TypeScript 0 errors, backend guards in place
+
+## Feature: Segment Drill-Down Company List
+- [x] Add getCompaniesByNicheId tRPC query (protectedProcedure, returns companies with nicheId = X)
+- [x] Add NicheCompanyList page at /niche/:nicheId/companies: shows company name, domain, industry, fit score
+- [x] Add "View Companies" blue button to NicheCard header
+- [x] Show company count and niche name as header in drill-down view
+- [x] Add back navigation to Market Segments from drill-down
+
+## Feature: Campaign Source Label on Search Results
+- [x] Add sourceNicheId column to searches table (nullable FK), run migration
+- [x] Update createCampaignFromNiche to set sourceNicheId and sharedWithTeam=true on new search
+- [x] Add "From Segment" blue banner at top of Search Results when search.sourceNicheId is set
+- [x] Banner links back to the source niche
+
+## Feature: Team Invite / Shareable URL
+- [x] Add "Copy invite link" option to user profile dropdown (admin only)
+- [x] Copies window.location.origin with a toast confirmation
+- [x] Campaigns created from niches auto-shared (sharedWithTeam=true)

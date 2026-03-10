@@ -166,6 +166,37 @@ export async function getCompaniesBySearchId(searchId: number) {
   return db.select().from(companies).where(eq(companies.searchId, searchId));
 }
 
+export async function getCompaniesByNicheId(nicheId: number, limit = 500, offset = 0) {
+  const { and } = await import("drizzle-orm");
+  const db = await getDb();
+  if (!db) return [];
+  
+  return db.select({
+    id: companies.id,
+    name: companies.name,
+    websiteUrl: companies.websiteUrl,
+    primaryDomain: companies.primaryDomain,
+    country: companies.country,
+    city: companies.city,
+    revenue: companies.revenue,
+    enrichmentStatus: companies.enrichmentStatus,
+    fitScore: companies.fitScore,
+    urgencyScore: companies.urgencyScore,
+    nicheId: companies.nicheId,
+    searchId: companies.searchId,
+    createdAt: companies.createdAt,
+  }).from(companies).where(eq(companies.nicheId, nicheId)).limit(limit).offset(offset);
+}
+
+export async function countCompaniesByNicheId(nicheId: number) {
+  const { count } = await import("drizzle-orm");
+  const db = await getDb();
+  if (!db) return 0;
+  
+  const result = await db.select({ total: count() }).from(companies).where(eq(companies.nicheId, nicheId));
+  return result[0]?.total ?? 0;
+}
+
 export async function getCompanyById(id: number) {
   const db = await getDb();
   if (!db) return undefined;

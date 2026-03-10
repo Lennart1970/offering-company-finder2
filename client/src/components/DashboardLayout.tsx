@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2, FileSpreadsheet, Phone, BookMarked, ScrollText, Network } from "lucide-react";
+import { List, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2, FileSpreadsheet, Phone, BookMarked, ScrollText, Network, UserPlus, Copy } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -262,6 +262,25 @@ function DashboardLayoutContent({
                 </button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end" className="w-48">
+                {user?.role === "admin" && (
+                  <DropdownMenuItem
+                    onClick={() => {
+                      const url = window.location.origin;
+                      navigator.clipboard.writeText(url).then(() => {
+                        // Show a quick visual feedback
+                        const el = document.createElement("div");
+                        el.textContent = "Invite link copied!";
+                        el.style.cssText = "position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:#111;color:#fff;padding:8px 20px;font-weight:900;font-size:12px;z-index:9999;letter-spacing:0.1em;";
+                        document.body.appendChild(el);
+                        setTimeout(() => document.body.removeChild(el), 2000);
+                      });
+                    }}
+                    className="cursor-pointer"
+                  >
+                    <UserPlus className="mr-2 h-4 w-4" />
+                    <span>Copy invite link</span>
+                  </DropdownMenuItem>
+                )}
                 <DropdownMenuItem
                   onClick={logout}
                   className="cursor-pointer text-destructive focus:text-destructive"

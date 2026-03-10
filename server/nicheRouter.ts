@@ -25,6 +25,8 @@ import {
   updateNiche,
   deleteNichesBySearchId,
   getCompaniesBySearchId,
+  getCompaniesByNicheId,
+  countCompaniesByNicheId,
   updateCompany,
   createSearch,
   getSearchById,
@@ -33,7 +35,7 @@ import {
 import { scoreNicheFit, NicheClusterInput } from "./nicheFitScorer";
 import { generateEmbeddings } from "./embeddingService";
 import { clusterCompanies, assignRemainingByProximity, expandWithDiscovery } from "./clusteringService";
-import { companies } from "../drizzle/schema";
+import { companies, searches } from "../drizzle/schema";
 import { eq, isNull } from "drizzle-orm";
 import { getDb } from "./db";
 
@@ -812,6 +814,14 @@ export const nicheRouter = router({
         copied += batch.length;
       }
 
+      // 6. Update the new search to record its source niche and share with team
+      const db2 = await getDb();
+      if (db2) {
+        await db2.update(searches)
+          .set({ sourceNicheId: input.nicheId, sharedWithTeam: 1 })
+          .where(eq(searches.id, newSearchId));
+      }
+
       console.log(`[nicheRouter] Created campaign "${campaignName}" (searchId=${newSearchId}) with ${copied} companies from niche ${input.nicheId}`);
 
       return {
@@ -820,6 +830,26 @@ export const nicheRouter = router({
         companiesCopied: copied,
         nicheId: input.nicheId,
       };
+    }),
+
+  /**
+   * Get companies assigned to a specific niche (paginated).
+   * Available to all logged-in users (read-only).
+   */
+  getCompaniesByNiche: protectedProcedure
+    .input(
+      z.object({
+        nicheId: z.number(),
+        limit: z.number().min(1).max(500).default(200),
+        offset: z.number().min(0).default(0),
+      })
+    )
+    .query(async ({ input }) => {
+      const [items, total] = await Promise.all([
+        getCompaniesByNicheId(input.nicheId, input.limit, input.offset),
+        countCompaniesByNicheId(input.nicheId),
+      ]);
+      return { items, total };
     }),
 });
 

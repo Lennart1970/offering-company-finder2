@@ -494,6 +494,20 @@ export default function SearchResults() {
         </Button>
       </div>
 
+      {/* Source Niche Banner — shown when campaign was created from a Market Segment */}
+      {searchData.search.sourceNicheId && (
+        <div className="mb-4 flex items-center gap-3 border-2 border-blue-400 bg-blue-50 px-4 py-2">
+          <span className="text-[10px] font-black uppercase text-blue-500 tracking-widest shrink-0">From Segment</span>
+          <button
+            onClick={() => navigate(`/niche/${searchData.search.sourceNicheId}`)}
+            className="text-sm font-black text-blue-800 hover:text-blue-600 hover:underline transition-colors text-left"
+          >
+            {searchData.search.offeringName?.replace(/^\[Niche\] /, "") ?? "Market Segment"} →
+          </button>
+          <span className="text-xs text-blue-600 ml-auto">Click to view segment</span>
+        </div>
+      )}
+
       {/* Search still in progress */}
       {searchData.search.status === "searching" && (
         <div className="border-2 border-gray-300 bg-gray-50 p-6 mb-8">

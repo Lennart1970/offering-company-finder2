@@ -197,6 +197,13 @@
       "when": 1773154422905,
       "tag": "0027_legal_mandarin",
       "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "5",
+      "when": 1773164123676,
+      "tag": "0028_lowly_cerebro",
+      "breakpoints": true
     }
   ]
 }

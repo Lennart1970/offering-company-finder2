@@ -247,12 +247,16 @@ function NicheCard({
               )}
 
               <Button
-                variant="ghost"
+                variant="outline"
                 size="sm"
-                className="h-7 w-7 p-0"
+                className="h-7 text-xs font-black px-2 border-2 border-black hover:bg-black hover:text-white transition-colors"
                 onClick={() => setExpanded(!expanded)}
               >
-                {expanded ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+                {expanded ? (
+                  <><ChevronUp className="w-3 h-3 mr-1" /><span>Hide Details</span></>
+                ) : (
+                  <><ChevronDown className="w-3 h-3 mr-1" /><span>View Details</span></>
+                )}
               </Button>
             </div>
           </div>

@@ -1529,3 +1529,6 @@
 
 ## Create Campaign Button: Make More Prominent
 - [x] Redesign Create Campaign as full-width CTA at bottom of qualifying niche cards with pulse/glow effect
+
+## Make Expand Chevron More Prominent
+- [x] Redesign expand/collapse button as labeled text button ("View Details" / "Hide Details") with chevron

@@ -1485,3 +1485,10 @@
 - [x] Remove "Include phone number" checkbox from Find Contact modal
 - [x] Replace with strikethrough label + amber "Premium" badge with tooltip
 - [x] Force `includePhone: false` in findContact mutation call
+
+## Phase 1 Banner Fix + Iterative Expand Sample
+- [x] Fix Phase 1 banner: "N companies not yet assigned" should exclude seed companies (which are already assigned)
+- [x] Add `expandClusterSample` tRPC mutation: takes next 500 unassigned companies, embeds them, merges into existing clusters by proximity (no re-clustering)
+- [x] Add "Expand Sample (+500)" button in Market Segments UI (shown when unassigned > 0 and niches exist)
+- [x] Show progress/result banner for expand sample operation
+- [x] 316 tests passing (no new tests needed — expand uses same assignRemainingByProximity already tested)

@@ -139,9 +139,13 @@ export const nicheRouter = router({
         }
       }
 
+      const seedCount = clusters.reduce((sum, c) => sum + c.companyIds.length, 0);
+
       return {
         searchId: input.searchId,
-        companiesProcessed: allCompanies.length,
+        seedCount,
+        totalCompanies: allCompanies.length,
+        companiesProcessed: allCompanies.length, // kept for backward compat
         nichesCreated: clusters.length,
         nichesScored: scoredCount,
         nicheIds,
@@ -444,6 +448,105 @@ export const nicheRouter = router({
         total: allCompanies.length,
         nichesUpdated: nicheCounts.size,
         message: `Assigned ${assigned} companies to ${nicheCounts.size} niches.`,
+      };
+    }),
+
+  /**
+   * Expand Sample: take the next N unassigned companies, embed them, and assign
+   * each to the nearest existing centroid. This refines cluster membership without
+   * re-running full k-means — useful for iterative exploration of large datasets.
+   *
+   * Unlike assignRemainingCompanies (which processes ALL unassigned), this processes
+   * only a batch of EXPAND_BATCH_SIZE at a time so the user can inspect results
+   * incrementally.
+   */
+  expandClusterSample: protectedProcedure
+    .input(
+      z.object({
+        searchId: z.number(),
+        batchSize: z.number().min(1).max(2000).default(500),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      // 1. Load niches with centroids
+      const savedNiches = await getNichesBySearchId(input.searchId);
+      if (savedNiches.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No niches found. Run Phase 1 clustering first.",
+        });
+      }
+
+      const nicheCentroids = savedNiches
+        .filter((n) => n.centroid)
+        .map((n) => ({
+          nicheId: n.id,
+          centroid: JSON.parse(n.centroid!) as number[],
+        }));
+
+      if (nicheCentroids.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Niches have no centroid data. Re-run Phase 1 clustering.",
+        });
+      }
+
+      // 2. Load next batch of unassigned companies
+      const allCompanies = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.searchId, input.searchId));
+
+      const unassigned = allCompanies
+        .filter((c) => c.nicheId === null || c.nicheId === undefined)
+        .slice(0, input.batchSize);
+
+      if (unassigned.length === 0) {
+        return {
+          assigned: 0,
+          remaining: 0,
+          message: "All companies are already assigned to niches.",
+        };
+      }
+
+      const totalUnassigned = allCompanies.filter((c) => c.nicheId === null || c.nicheId === undefined).length;
+
+      console.log(`[nicheRouter] Expand Sample: assigning ${unassigned.length} of ${totalUnassigned} unassigned companies`);
+
+      // 3. Generate embeddings for this batch
+      const embeddings = await generateEmbeddings(unassigned);
+
+      // 4. Assign by proximity
+      const assignments = await assignRemainingByProximity(embeddings, nicheCentroids);
+
+      // 5. Update companies.nicheId in DB
+      let assigned = 0;
+      for (const [companyId, nicheId] of Array.from(assignments)) {
+        await updateCompany(companyId, { nicheId });
+        assigned++;
+      }
+
+      // 6. Update companyCount on each niche
+      const nicheCounts = new Map<number, number>();
+      for (const company of allCompanies) {
+        const nId = assignments.get(company.id) ?? company.nicheId;
+        if (nId) nicheCounts.set(nId, (nicheCounts.get(nId) ?? 0) + 1);
+      }
+      for (const [nicheId, count] of Array.from(nicheCounts)) {
+        await updateNiche(nicheId, { companyCount: count });
+      }
+
+      const remainingAfter = totalUnassigned - assigned;
+      console.log(`[nicheRouter] Expand Sample done: ${assigned} assigned, ${remainingAfter} still unassigned`);
+
+      return {
+        assigned,
+        remaining: remainingAfter,
+        nichesUpdated: nicheCounts.size,
+        message: `Assigned ${assigned} more companies. ${remainingAfter.toLocaleString()} still unassigned.`,
       };
     }),
 });

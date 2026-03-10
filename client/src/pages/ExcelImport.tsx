@@ -12,6 +12,7 @@ import {
   ArrowRight,
   Upload,
   X,
+  Zap,
 } from "lucide-react";
 
 interface ProgressEvent {
@@ -19,16 +20,10 @@ interface ProgressEvent {
   message?: string;
   error?: string;
   total?: number;
-  enriched?: number;
-  notFound?: number;
-  failed?: number;
+  skipped?: number;
   done?: number;
-  company?: string;
-  apolloFound?: boolean;
-  enrichMethod?: string;
-  hasWebsite?: number;
-  nameOnly?: number;
   searchId?: number;
+  isApolloExport?: boolean;
 }
 
 export default function ExcelImport() {
@@ -93,7 +88,7 @@ export default function ExcelImport() {
 
       if (!response.ok || !response.body) {
         const text = await response.text();
-        throw new Error(`Server error ${response.status}: ${text}`);
+        throw new Error(`Server error ${response.status}: ${text.slice(0, 200)}`);
       }
 
       const reader = response.body.getReader();
@@ -129,9 +124,7 @@ export default function ExcelImport() {
   const getEventIcon = (ev: ProgressEvent) => {
     if (ev.error) return <AlertCircle className="w-4 h-4 text-red-500 shrink-0" />;
     if (ev.status === "done") return <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0" />;
-    if (ev.status === "progress") return ev.apolloFound
-      ? <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
-      : <AlertCircle className="w-4 h-4 text-yellow-500 shrink-0" />;
+    if (ev.status === "progress") return <Loader2 className="w-4 h-4 text-blue-500 shrink-0 animate-spin" />;
     return <Loader2 className="w-4 h-4 text-blue-500 shrink-0 animate-spin" />;
   };
 
@@ -139,16 +132,15 @@ export default function ExcelImport() {
     if (ev.error) return `Error: ${ev.error}`;
     if (ev.status === "parsing") return "Parsing file...";
     if (ev.status === "parsed") {
-      return `Parsed ${ev.total} companies — ${ev.hasWebsite} with website, ${ev.nameOnly} name-only`;
+      const apolloNote = ev.isApolloExport ? " — Apollo export detected, direct import" : "";
+      return `Parsed ${ev.total} companies${ev.skipped ? `, ${ev.skipped} skipped (empty name)` : ""}${apolloNote}`;
     }
     if (ev.status === "campaign_created") return `Campaign created (ID: ${ev.searchId})`;
     if (ev.status === "progress") {
-      const method = ev.enrichMethod ? ` via ${ev.enrichMethod}` : "";
-      const found = ev.apolloFound ? `✓ Apollo match${method}` : "○ Not in Apollo";
-      return `[${ev.done}/${ev.total}] ${ev.company} — ${found}`;
+      return `Saved ${ev.done} / ${ev.total} companies...`;
     }
     if (ev.status === "done") {
-      return `Done! ${ev.enriched} enriched via Apollo, ${ev.notFound} not found, ${ev.failed} failed`;
+      return `Done! ${ev.total} companies imported directly — no API calls used.`;
     }
     return ev.message || JSON.stringify(ev);
   };
@@ -168,14 +160,23 @@ export default function ExcelImport() {
           <h1 className="text-4xl font-black">EXCEL IMPORT</h1>
         </div>
         <p className="text-lg opacity-70">
-          Upload an Excel or CSV file with company names and websites. Each company is enriched via Apollo and added to a new campaign.
+          Upload an Apollo CSV export. Companies are saved directly — no API calls, no quota used.
+          After import, go to <strong>Market Segments</strong> to cluster and score.
         </p>
+      </div>
+
+      {/* Direct import badge */}
+      <div className="flex items-center gap-2 mb-6 bg-green-50 border-2 border-green-600 px-4 py-2 w-fit">
+        <Zap className="w-4 h-4 text-green-700" />
+        <span className="text-sm font-black text-green-800 uppercase tracking-wider">
+          Direct Import — Apollo API not called
+        </span>
       </div>
 
       <div className="bg-white border-4 border-black p-8 space-y-6">
         {/* File drop zone */}
         <div className="space-y-2">
-          <Label className="text-sm font-black uppercase tracking-wider">File (.xlsx / .xls / .csv)</Label>
+          <Label className="text-sm font-black uppercase tracking-wider">Apollo CSV Export (.xlsx / .xls / .csv)</Label>
           <div
             className={`border-4 border-dashed transition-colors cursor-pointer rounded-none p-8 text-center ${
               isDragging ? "border-black bg-gray-50" : "border-gray-300 hover:border-black"
@@ -190,7 +191,7 @@ export default function ExcelImport() {
                 <FileSpreadsheet className="w-8 h-8 text-green-600" />
                 <div className="text-left">
                   <p className="font-black">{file.name}</p>
-                  <p className="text-sm opacity-60">{(file.size / 1024).toFixed(1)} KB</p>
+                  <p className="text-sm opacity-60">{(file.size / 1024 / 1024).toFixed(2)} MB</p>
                 </div>
                 <button
                   className="ml-4 p-1 hover:bg-gray-100 rounded"
@@ -202,8 +203,8 @@ export default function ExcelImport() {
             ) : (
               <div className="space-y-2">
                 <Upload className="w-10 h-10 mx-auto opacity-40" />
-                <p className="font-black text-sm">Drop your file here or click to browse</p>
-                <p className="text-xs opacity-50">Supports .xlsx, .xls, .csv — max 10MB</p>
+                <p className="font-black text-sm">Drop your Apollo CSV here or click to browse</p>
+                <p className="text-xs opacity-50">Supports .xlsx, .xls, .csv — max 100MB</p>
               </div>
             )}
           </div>
@@ -221,7 +222,7 @@ export default function ExcelImport() {
           <Label className="text-sm font-black uppercase tracking-wider">Campaign Name</Label>
           <Input
             className="border-2 border-black font-bold"
-            placeholder="e.g. Beurs 2026 Exhibitors"
+            placeholder="e.g. Intertraffic 2026 Exhibitors"
             value={campaignName}
             onChange={(e) => setCampaignName(e.target.value)}
             disabled={isRunning}
@@ -230,33 +231,29 @@ export default function ExcelImport() {
 
         {/* Expected format */}
         <div className="bg-gray-50 border-2 border-gray-200 p-4 text-sm">
-          <p className="font-black text-xs uppercase tracking-wider mb-3">Expected File Format</p>
-          <div className="overflow-x-auto">
-            <table className="text-xs border-collapse w-full max-w-sm">
-              <thead>
-                <tr className="bg-black text-white">
-                  <th className="px-3 py-1 text-left font-black">Company Name</th>
-                  <th className="px-3 py-1 text-left font-black">Website</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-b border-gray-200">
-                  <td className="px-3 py-1">Arcadis Nederland B.V.</td>
-                  <td className="px-3 py-1 font-mono">https://www.arcadis.com</td>
-                </tr>
-                <tr className="border-b border-gray-200">
-                  <td className="px-3 py-1">TomTom</td>
-                  <td className="px-3 py-1 font-mono">https://www.tomtom.com</td>
-                </tr>
-                <tr>
-                  <td className="px-3 py-1">Also Nederland B.V.</td>
-                  <td className="px-3 py-1 opacity-50 italic">– (name-only fallback)</td>
-                </tr>
-              </tbody>
-            </table>
+          <p className="font-black text-xs uppercase tracking-wider mb-3">Apollo CSV Columns Detected Automatically</p>
+          <div className="grid grid-cols-2 gap-x-6 gap-y-1 text-xs">
+            {[
+              ["Company Name", "required"],
+              ["Website", "domain extracted"],
+              ["Industry", "used for clustering"],
+              ["# Employees", "headcount"],
+              ["Keywords", "used for clustering"],
+              ["Short Description", "used for clustering"],
+              ["Annual Revenue", "firmographic"],
+              ["SIC Codes", "industry codes"],
+              ["Company City / Country", "location"],
+              ["Apollo Account Id", "dedup key"],
+            ].map(([col, note]) => (
+              <div key={col} className="flex justify-between gap-2 border-b border-gray-100 py-0.5">
+                <span className="font-mono font-bold">{col}</span>
+                <span className="opacity-50">{note}</span>
+              </div>
+            ))}
           </div>
-          <p className="text-xs opacity-60 mt-2">
-            Column headers are detected automatically (case-insensitive). Website column is optional — companies without a URL are enriched by name.
+          <p className="text-xs opacity-60 mt-3">
+            All columns are optional except Company Name. Headers are matched case-insensitively.
+            Non-Apollo files (name + website only) are also accepted.
           </p>
         </div>
 
@@ -270,7 +267,7 @@ export default function ExcelImport() {
           {isRunning ? (
             <><Loader2 className="w-5 h-5 mr-2 animate-spin" /> Importing...</>
           ) : (
-            <><FileSpreadsheet className="w-5 h-5 mr-2" /> START IMPORT</>
+            <><FileSpreadsheet className="w-5 h-5 mr-2" /> IMPORT DIRECTLY</>
           )}
         </Button>
       </div>
@@ -319,21 +316,32 @@ export default function ExcelImport() {
             )}
           </div>
 
-          {/* Done — navigate to results */}
+          {/* Done — navigate to results or market segments */}
           {completedSearchId && (
-            <div className="border-t-4 border-black p-4 bg-green-50 flex items-center justify-between">
-              <div>
-                <p className="font-black">Import complete!</p>
-                <p className="text-sm text-muted-foreground">
-                  {doneEvent?.enriched} companies enriched via Apollo. Ready for Deep Research.
-                </p>
+            <div className="border-t-4 border-black p-4 bg-green-50">
+              <div className="flex items-center justify-between flex-wrap gap-3">
+                <div>
+                  <p className="font-black">Import complete!</p>
+                  <p className="text-sm text-muted-foreground">
+                    {doneEvent?.total} companies saved directly from file — no Apollo API calls used.
+                  </p>
+                </div>
+                <div className="flex gap-3">
+                  <Button
+                    variant="outline"
+                    onClick={() => setLocation(`/search-results/${completedSearchId}`)}
+                    className="font-black border-2 border-black flex items-center gap-2"
+                  >
+                    VIEW COMPANIES <ArrowRight className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    onClick={() => setLocation(`/niche-review?searchId=${completedSearchId}`)}
+                    className="font-black border-2 border-black flex items-center gap-2 bg-black text-white"
+                  >
+                    CLUSTER & SCORE <Zap className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
-              <Button
-                onClick={() => setLocation(`/search-results/${completedSearchId}`)}
-                className="font-black border-2 border-black flex items-center gap-2"
-              >
-                VIEW CAMPAIGN <ArrowRight className="w-4 h-4" />
-              </Button>
             </div>
           )}
         </div>

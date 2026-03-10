@@ -1437,3 +1437,9 @@
 - [ ] Rename in DashboardLayout sidebar nav
 - [ ] Rename page title and headings in NicheReview.tsx
 - [ ] Rename route from /niche-review references in ImportCampaign.tsx (keep URL, just update display text)
+
+## Feature: Direct Apollo CSV Import (No Apollo API Calls)
+- [x] Detect Apollo CSV column headers (Company Name, Website, Industry, # Employees, City, Country, etc.)
+- [x] Map Apollo columns directly to companies table — skip all Apollo API enrichment calls
+- [x] Update ExcelImport.tsx UI to reflect instant import (no Apollo progress messages)
+- [x] Keep fallback: non-Apollo files (name + website only) also accepted, headers matched case-insensitively

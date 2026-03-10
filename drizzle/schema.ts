@@ -269,6 +269,8 @@ export const niches = mysqlTable("niches", {
   scoreBreakdown: text("scoreBreakdown"), // JSON array of { dimension, score, maxScore, weight, reasoning }
   scoredAt: timestamp("scoredAt"), // When the fit score was last computed
   scoredWithBrainId: int("scoredWithBrainId"), // Which brain version was used for scoring
+  // Hierarchy: sub-clustering
+  parentNicheId: int("parentNicheId"), // null = top-level segment; set = child niche of a parent segment
   // Metadata
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

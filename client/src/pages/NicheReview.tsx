@@ -34,7 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Network, RefreshCw, Plus, ChevronDown, ChevronUp, Loader2, Brain, Cpu, GitBranch } from "lucide-react";
+import { Network, RefreshCw, Plus, ChevronDown, ChevronUp, Loader2, Brain, Cpu, GitBranch, Layers, ChevronRight } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -59,6 +59,7 @@ interface NicheItem {
   scoreBreakdown: ScoreDimension[];
   scoredAt?: Date | null;
   searchId?: number | null;
+  parentNicheId?: number | null;
 }
 
 // ── Score Color Helpers ───────────────────────────────────────────────────────
@@ -126,11 +127,17 @@ function NicheCard({
   rank,
   onRescore,
   rescoring,
+  onSubCluster,
+  subClustering,
+  isChild,
 }: {
   niche: NicheItem;
   rank: number;
   onRescore: (id: number) => void;
   rescoring: boolean;
+  onSubCluster?: (id: number) => void;
+  subClustering?: boolean;
+  isChild?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasScore = niche.fitScore !== null && niche.fitScore !== undefined;
@@ -193,6 +200,24 @@ function NicheCard({
                 )}
                 <span className="ml-1">{hasScore ? "Re-score" : "Score"}</span>
               </Button>
+              {/* Sub-cluster button — only for top-level segments */}
+              {!isChild && onSubCluster && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-xs font-bold border-purple-400 text-purple-700 hover:bg-purple-50"
+                  onClick={() => onSubCluster(niche.id)}
+                  disabled={subClustering || niche.companyCount < 9}
+                  title={niche.companyCount < 9 ? "Need at least 9 assigned companies to sub-cluster" : `Split into sub-niches (~${Math.round(niche.companyCount / 5)} per group)`}
+                >
+                  {subClustering ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Layers className="w-3 h-3" />
+                  )}
+                  <span className="ml-1">Sub-cluster</span>
+                </Button>
+              )}
               <Button
                 variant="ghost"
                 size="sm"
@@ -418,9 +443,11 @@ export default function NicheReview() {
   const [clustering, setClustering] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [expanding, setExpanding] = useState(false);
+  const [subClusteringId, setSubClusteringId] = useState<number | null>(null);
   const [clusterResult, setClusterResult] = useState<{ nichesCreated: number; nichesScored: number; seedCount: number; totalCompanies: number } | null>(null);
   const [assignResult, setAssignResult] = useState<{ assigned: number; total: number } | null>(null);
-  const [expandResult, setExpandResult] = useState<{ assigned: number; remaining: number } | null>(null);
+  const [expandResult, setExpandResult] = useState<{ assigned: number; remaining: number; newNichesCreated?: number; newNicheNames?: string[] } | null>(null);
+  const [subClusterResults, setSubClusterResults] = useState<Map<number, { childNichesCreated: number; companiesProcessed: number }>>(new Map());
 
   // Fetch all searches for the selector
   const { data: searches } = trpc.companyFinder.getSearchHistory.useQuery();
@@ -523,11 +550,16 @@ export default function NicheReview() {
     assignMutation.mutate({ searchId: selectedSearchId });
   };
 
-  // Expand Sample: assign next 500 unassigned companies
+  // Expand Sample: assign next 500 unassigned companies (with discovery)
   const expandMutation = trpc.niche.expandClusterSample.useMutation({
     onSuccess: (data) => {
       setExpanding(false);
-      setExpandResult({ assigned: data.assigned, remaining: data.remaining });
+      setExpandResult({
+        assigned: data.assigned,
+        remaining: data.remaining,
+        newNichesCreated: data.newNichesCreated,
+        newNicheNames: data.newNicheNames,
+      });
       toast.success(data.message);
       refetchUnassigned();
       if (selectedSearchId) refetchSearch();
@@ -538,6 +570,36 @@ export default function NicheReview() {
       toast.error(e.message);
     },
   });
+
+  // Sub-cluster a top-level segment
+  const subClusterMutation = trpc.niche.subClusterNiche.useMutation({
+    onSuccess: (data) => {
+      const parentId = data.parentNicheId;
+      setSubClusteringId(null);
+      setSubClusterResults((prev) => {
+        const next = new Map(prev);
+        next.set(parentId, {
+          childNichesCreated: data.childNichesCreated,
+          companiesProcessed: data.companiesProcessed,
+        });
+        return next;
+      });
+      toast.success(
+        `"${data.parentNicheName}" split into ${data.childNichesCreated} sub-niches from ${data.companiesProcessed.toLocaleString()} companies`
+      );
+      if (selectedSearchId) refetchSearch();
+      else refetch();
+    },
+    onError: (e) => {
+      setSubClusteringId(null);
+      toast.error(e.message);
+    },
+  });
+
+  const handleSubCluster = (parentNicheId: number) => {
+    setSubClusteringId(parentNicheId);
+    subClusterMutation.mutate({ parentNicheId, autoScore: true });
+  };
 
   const handleExpandSample = () => {
     if (!selectedSearchId) {
@@ -796,13 +858,16 @@ export default function NicheReview() {
           <div className="mb-4 border-4 border-blue-600 bg-blue-50 px-6 py-4">
             <p className="font-black text-blue-800">
               Expanded — {expandResult.assigned.toLocaleString()} more companies assigned.
-              {expandResult.remaining > 0 && (
-                <span className="font-normal"> {expandResult.remaining.toLocaleString()} still unassigned — expand again or use Assign All.</span>
-              )}
-              {expandResult.remaining === 0 && (
-                <span className="font-normal"> All companies are now assigned.</span>
+              {(expandResult.newNichesCreated ?? 0) > 0 && (
+                <span className="text-purple-700 font-black"> {expandResult.newNichesCreated} new segment{expandResult.newNichesCreated! > 1 ? "s" : ""} discovered: {expandResult.newNicheNames?.join(", ")}.</span>
               )}
             </p>
+            {expandResult.remaining > 0 && (
+              <p className="text-sm text-blue-700 mt-1">{expandResult.remaining.toLocaleString()} still unassigned — expand again or use Assign All.</p>
+            )}
+            {expandResult.remaining === 0 && (
+              <p className="text-sm text-blue-700 mt-1">All companies are now assigned.</p>
+            )}
           </div>
         )}
 
@@ -862,15 +927,60 @@ export default function NicheReview() {
           </div>
         ) : (
           <div className="space-y-3">
-            {sortedNiches.map((niche, i) => (
-              <NicheCard
-                key={niche.id}
-                niche={niche}
-                rank={i + 1}
-                onRescore={handleRescore}
-                rescoring={rescoringId === niche.id}
-              />
-            ))}
+            {sortedNiches
+              .filter((n) => !n.parentNicheId) // top-level only
+              .map((niche, i) => {
+                const subResult = subClusterResults.get(niche.id);
+                const childNiches = sortedNiches.filter((n) => n.parentNicheId === niche.id);
+                return (
+                  <div key={niche.id}>
+                    <NicheCard
+                      niche={niche}
+                      rank={i + 1}
+                      onRescore={handleRescore}
+                      rescoring={rescoringId === niche.id}
+                      onSubCluster={handleSubCluster}
+                      subClustering={subClusteringId === niche.id}
+                    />
+                    {/* Sub-cluster progress banner */}
+                    {subClusteringId === niche.id && (
+                      <div className="ml-6 mt-1 border-2 border-purple-400 bg-purple-50 px-4 py-3 flex items-center gap-3">
+                        <Loader2 className="w-4 h-4 animate-spin text-purple-700 shrink-0" />
+                        <p className="text-sm font-black text-purple-800">
+                          Sub-clustering "{niche.name}"... generating embeddings and splitting into sub-niches.
+                        </p>
+                      </div>
+                    )}
+                    {/* Sub-cluster result banner */}
+                    {subResult && subClusteringId !== niche.id && (
+                      <div className="ml-6 mt-1 border-2 border-purple-400 bg-purple-50 px-4 py-2">
+                        <p className="text-xs font-black text-purple-800">
+                          Split into {subResult.childNichesCreated} sub-niches from {subResult.companiesProcessed.toLocaleString()} companies.
+                        </p>
+                      </div>
+                    )}
+                    {/* Child niches */}
+                    {childNiches.length > 0 && (
+                      <div className="ml-6 mt-1 space-y-1 border-l-4 border-purple-300 pl-3">
+                        <p className="text-[10px] font-black uppercase text-purple-600 mb-2 flex items-center gap-1">
+                          <ChevronRight className="w-3 h-3" />
+                          {childNiches.length} sub-niches
+                        </p>
+                        {childNiches.map((child, ci) => (
+                          <NicheCard
+                            key={child.id}
+                            niche={child}
+                            rank={ci + 1}
+                            onRescore={handleRescore}
+                            rescoring={rescoringId === child.id}
+                            isChild
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
           </div>
         )}
       </div>

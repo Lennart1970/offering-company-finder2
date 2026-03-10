@@ -190,6 +190,13 @@
       "when": 1773152230688,
       "tag": "0026_motionless_tiger_shark",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "5",
+      "when": 1773154422905,
+      "tag": "0027_legal_mandarin",
+      "breakpoints": true
     }
   ]
 }

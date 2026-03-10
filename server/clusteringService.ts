@@ -421,3 +421,109 @@ export async function assignRemainingByProximity(
   console.log(`[Clustering] Phase 2 done: ${assignments.size} companies assigned by proximity`);
   return assignments;
 }
+
+// ─── Online Clustering (Expand with Discovery) ───────────────────────────────
+
+/**
+ * Similarity threshold below which a company is considered a "poor fit"
+ * for all existing centroids and should be considered for new niche discovery.
+ * Cosine similarity range: -1 (opposite) to 1 (identical).
+ * 0.35 means the company shares less than ~35% directional alignment with
+ * the nearest existing centroid — a reasonable signal for a distinct sub-pattern.
+ */
+export const DISCOVERY_SIMILARITY_THRESHOLD = 0.35;
+
+/**
+ * Minimum number of poor-fit companies needed to attempt forming a new niche.
+ * Below this, they are assigned to the nearest centroid anyway (not enough signal).
+ */
+export const MIN_DISCOVERY_CLUSTER_SIZE = 9;
+
+export interface ExpandWithDiscoveryResult {
+  /** companyId → nicheId (existing or newly created) */
+  assignments: Map<number, number>;
+  /** New NicheCluster objects discovered from poor-fit companies */
+  newClusters: NicheCluster[];
+}
+
+/**
+ * Assign a batch of company embeddings to existing centroids.
+ * Companies with cosine similarity below DISCOVERY_SIMILARITY_THRESHOLD
+ * to their nearest centroid are collected and re-clustered to discover
+ * new niches. If enough poor-fit companies exist, new NicheCluster objects
+ * are returned for the caller to persist.
+ *
+ * @param batchEmbeddings - embeddings for the batch of companies to process
+ * @param allCompanies    - full company objects (for LLM naming)
+ * @param nicheCentroids  - existing { nicheId, centroid } pairs
+ */
+export async function expandWithDiscovery(
+  batchEmbeddings: CompanyEmbedding[],
+  allCompanies: Company[],
+  nicheCentroids: { nicheId: number; centroid: number[] }[]
+): Promise<ExpandWithDiscoveryResult> {
+  const assignments = new Map<number, number>();
+  const poorFitEmbeddings: CompanyEmbedding[] = [];
+  const centroids = nicheCentroids.map((n) => n.centroid);
+
+  for (const ce of batchEmbeddings) {
+    let bestSim = -Infinity;
+    let bestIdx = 0;
+    for (let i = 0; i < centroids.length; i++) {
+      const sim = cosineSimilarity(ce.embedding, centroids[i]);
+      if (sim > bestSim) {
+        bestSim = sim;
+        bestIdx = i;
+      }
+    }
+
+    if (bestSim >= DISCOVERY_SIMILARITY_THRESHOLD) {
+      // Good fit — assign to nearest existing niche
+      assignments.set(ce.companyId, nicheCentroids[bestIdx].nicheId);
+    } else {
+      // Poor fit — collect for potential new niche discovery
+      poorFitEmbeddings.push(ce);
+      // Tentatively assign to nearest (will be overridden if new niche is formed)
+      assignments.set(ce.companyId, nicheCentroids[bestIdx].nicheId);
+    }
+  }
+
+  const newClusters: NicheCluster[] = [];
+
+  if (poorFitEmbeddings.length >= MIN_DISCOVERY_CLUSTER_SIZE) {
+    console.log(
+      `[Clustering] Expand: ${poorFitEmbeddings.length} poor-fit companies (sim < ${DISCOVERY_SIMILARITY_THRESHOLD}) — attempting new niche discovery`
+    );
+
+    try {
+      const companyMap = new Map(allCompanies.map((c) => [c.id, c]));
+      const poorFitCompanies = poorFitEmbeddings
+        .map((ce) => companyMap.get(ce.companyId))
+        .filter((c): c is Company => c !== undefined);
+
+      // Re-cluster the poor-fit companies
+      const discoveredClusters = await clusterCompanies(poorFitEmbeddings, poorFitCompanies);
+
+      for (const cluster of discoveredClusters) {
+        newClusters.push(cluster);
+        // Override assignments for companies in this new cluster
+        for (const companyId of cluster.companyIds) {
+          // Use a sentinel value (-cluster.clusterIndex - 1) so the caller
+          // can map them to newly created niche IDs after persisting
+          assignments.set(companyId, -(cluster.clusterIndex + 1));
+        }
+      }
+
+      console.log(`[Clustering] Expand: discovered ${discoveredClusters.length} new niches from poor-fit companies`);
+    } catch (e) {
+      console.warn("[Clustering] Expand: new niche discovery failed, falling back to proximity assignment:", e);
+      // Fall back: keep the tentative proximity assignments for poor-fit companies
+    }
+  } else if (poorFitEmbeddings.length > 0) {
+    console.log(
+      `[Clustering] Expand: ${poorFitEmbeddings.length} poor-fit companies (below min ${MIN_DISCOVERY_CLUSTER_SIZE} for discovery) — assigned to nearest centroid`
+    );
+  }
+
+  return { assignments, newClusters };
+}

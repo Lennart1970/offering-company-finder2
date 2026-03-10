@@ -1492,3 +1492,18 @@
 - [x] Add "Expand Sample (+500)" button in Market Segments UI (shown when unassigned > 0 and niches exist)
 - [x] Show progress/result banner for expand sample operation
 - [x] 316 tests passing (no new tests needed — expand uses same assignRemainingByProximity already tested)
+
+## Two-Level Segment Hierarchy (Sub-cluster)
+- [x] Add parentNicheId INT column to niches table (nullable FK to niches.id), run migration
+- [x] Add subClusterNiche tRPC mutation: scoped to companies with nicheId = parentId, runs full Phase 1 clustering, saves child niches with parentNicheId set
+- [x] Add getChildNiches tRPC query: returns niches where parentNicheId = given id
+- [x] Add "Sub-cluster" button to each top-level segment card in NicheReview
+- [x] Show child niches as indented cards beneath their parent segment card
+- [x] Show sub-cluster progress/result banner
+- [x] 316 tests passing
+
+## Fix Expand Sample: Online Clustering (discover new niches)
+- [x] Add expandWithDiscovery function to clusteringService: assign by proximity, collect poor-fit companies (cosine similarity < threshold), re-cluster them into new niches
+- [x] Update expandClusterSample procedure to use expandWithDiscovery and persist any new niches found
+- [x] Return newNichesCreated count in expand result
+- [x] Update expand result banner to show new niches discovered (if any)

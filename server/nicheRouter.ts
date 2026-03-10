@@ -18,6 +18,8 @@ import { TRPCError } from "@trpc/server";
 import {
   createNiche,
   getNichesBySearchId,
+  getNichesByParentId,
+  deleteNichesByParentId,
   getNichesByUserId,
   getNicheById,
   updateNiche,
@@ -27,7 +29,7 @@ import {
 } from "./db";
 import { scoreNicheFit, NicheClusterInput } from "./nicheFitScorer";
 import { generateEmbeddings } from "./embeddingService";
-import { clusterCompanies, assignRemainingByProximity } from "./clusteringService";
+import { clusterCompanies, assignRemainingByProximity, expandWithDiscovery } from "./clusteringService";
 import { companies } from "../drizzle/schema";
 import { eq, isNull } from "drizzle-orm";
 import { getDb } from "./db";
@@ -519,35 +521,211 @@ export const nicheRouter = router({
       // 3. Generate embeddings for this batch
       const embeddings = await generateEmbeddings(unassigned);
 
-      // 4. Assign by proximity
-      const assignments = await assignRemainingByProximity(embeddings, nicheCentroids);
+      // 4. Assign by proximity WITH discovery of new niches for poor-fit companies
+      const { assignments: rawAssignments, newClusters } = await expandWithDiscovery(
+        embeddings,
+        allCompanies,
+        nicheCentroids
+      );
 
-      // 5. Update companies.nicheId in DB
-      let assigned = 0;
-      for (const [companyId, nicheId] of Array.from(assignments)) {
-        await updateCompany(companyId, { nicheId });
-        assigned++;
+      // 5. Persist any newly discovered niches and build clusterIndex → nicheId map
+      const newClusterToNicheId = new Map<number, number>(); // sentinel index → real nicheId
+      for (const cluster of newClusters) {
+        const newNicheId = await createNiche({
+          userId: ctx.user.id,
+          searchId: input.searchId,
+          brainId: null,
+          parentNicheId: null,
+          name: cluster.name,
+          description: cluster.description,
+          companyCount: cluster.companyIds.length,
+          topKeywords: JSON.stringify(cluster.topKeywords),
+          sampleCompanies: JSON.stringify(cluster.sampleCompanies),
+          companyIds: JSON.stringify(cluster.companyIds),
+          centroid: JSON.stringify(cluster.centroid),
+          rationale: null,
+        });
+        // Sentinel: -(clusterIndex + 1)
+        newClusterToNicheId.set(-(cluster.clusterIndex + 1), newNicheId);
       }
 
-      // 6. Update companyCount on each niche
+      // 6. Resolve sentinel values to real niche IDs and write to DB
+      let assigned = 0;
+      for (const [companyId, nicheIdOrSentinel] of Array.from(rawAssignments)) {
+        const resolvedNicheId = nicheIdOrSentinel < 0
+          ? newClusterToNicheId.get(nicheIdOrSentinel) ?? null
+          : nicheIdOrSentinel;
+        if (resolvedNicheId !== null) {
+          await updateCompany(companyId, { nicheId: resolvedNicheId });
+          assigned++;
+        }
+      }
+
+      // 7. Update companyCount on each niche (existing + new)
       const nicheCounts = new Map<number, number>();
-      for (const company of allCompanies) {
-        const nId = assignments.get(company.id) ?? company.nicheId;
-        if (nId) nicheCounts.set(nId, (nicheCounts.get(nId) ?? 0) + 1);
+      const updatedAllCompanies = await db.select().from(companies).where(eq(companies.searchId, input.searchId));
+      for (const company of updatedAllCompanies) {
+        if (company.nicheId) nicheCounts.set(company.nicheId, (nicheCounts.get(company.nicheId) ?? 0) + 1);
       }
       for (const [nicheId, count] of Array.from(nicheCounts)) {
         await updateNiche(nicheId, { companyCount: count });
       }
 
       const remainingAfter = totalUnassigned - assigned;
-      console.log(`[nicheRouter] Expand Sample done: ${assigned} assigned, ${remainingAfter} still unassigned`);
+      console.log(`[nicheRouter] Expand Sample done: ${assigned} assigned, ${newClusters.length} new niches, ${remainingAfter} still unassigned`);
+
+      const newNichesMsg = newClusters.length > 0
+        ? ` Discovered ${newClusters.length} new segment${newClusters.length > 1 ? "s" : ""}: ${newClusters.map((c) => c.name).join(", ")}.`
+        : "";
 
       return {
         assigned,
         remaining: remainingAfter,
+        newNichesCreated: newClusters.length,
+        newNicheNames: newClusters.map((c) => c.name),
         nichesUpdated: nicheCounts.size,
-        message: `Assigned ${assigned} more companies. ${remainingAfter.toLocaleString()} still unassigned.`,
+        message: `Assigned ${assigned} more companies.${newNichesMsg} ${remainingAfter.toLocaleString()} still unassigned.`,
       };
+    }),
+
+  /**
+   * Sub-cluster a top-level segment into child niches.
+   * Scoped to only the companies already assigned to the given parentNicheId.
+   * Deletes any existing child niches for this parent before re-running.
+   */
+  subClusterNiche: protectedProcedure
+    .input(
+      z.object({
+        parentNicheId: z.number(),
+        autoScore: z.boolean().default(true),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.id;
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      // 1. Verify parent niche exists and belongs to this user
+      const parentNiche = await getNicheById(input.parentNicheId);
+      if (!parentNiche) throw new TRPCError({ code: "NOT_FOUND", message: "Parent segment not found" });
+      if (parentNiche.userId !== userId) throw new TRPCError({ code: "FORBIDDEN", message: "Not your segment" });
+
+      // 2. Load companies assigned to this parent niche
+      const allCompanies = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.nicheId, input.parentNicheId));
+
+      if (allCompanies.length < 9) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Need at least 9 companies in this segment to sub-cluster. This segment has ${allCompanies.length}.`,
+        });
+      }
+
+      console.log(`[nicheRouter] Sub-clustering segment "${parentNiche.name}" (${allCompanies.length} companies)`);
+
+      // 3. Delete existing child niches for this parent
+      await deleteNichesByParentId(input.parentNicheId);
+
+      // 4. Generate embeddings
+      const embeddings = await generateEmbeddings(allCompanies);
+
+      // 5. Cluster
+      const clusters = await clusterCompanies(embeddings, allCompanies);
+
+      // 6. Persist child niches
+      const childNicheIds: number[] = [];
+      const clusterIndexToNicheId = new Map<number, number>();
+      for (const cluster of clusters) {
+        const id = await createNiche({
+          userId,
+          searchId: parentNiche.searchId,
+          brainId: null,
+          parentNicheId: input.parentNicheId,
+          name: cluster.name,
+          description: cluster.description,
+          companyCount: cluster.companyIds.length,
+          topKeywords: JSON.stringify(cluster.topKeywords),
+          sampleCompanies: JSON.stringify(cluster.sampleCompanies),
+          companyIds: JSON.stringify(cluster.companyIds),
+          centroid: JSON.stringify(cluster.centroid),
+          rationale: null,
+        });
+        childNicheIds.push(id);
+        clusterIndexToNicheId.set(cluster.clusterIndex, id);
+      }
+
+      // 7. Update companies.nicheId to point to child niche
+      // (companies now belong to the child niche, not the parent)
+      for (const cluster of clusters) {
+        const childNicheId = clusterIndexToNicheId.get(cluster.clusterIndex);
+        if (!childNicheId) continue;
+        for (const companyId of cluster.companyIds) {
+          await updateCompany(companyId, { nicheId: childNicheId });
+        }
+      }
+
+      // 8. Optionally auto-score child niches against active Brain
+      let scoredCount = 0;
+      if (input.autoScore && parentNiche.searchId) {
+        const { getActiveBrain } = await import("./db");
+        const brain = await getActiveBrain(userId);
+        if (brain) {
+          for (const childId of childNicheIds) {
+            try {
+              const childNiche = await getNicheById(childId);
+              if (!childNiche) continue;
+              const nicheInput: NicheClusterInput = {
+                name: childNiche.name,
+                description: childNiche.description ?? "",
+                sampleCompanies: childNiche.sampleCompanies ? JSON.parse(childNiche.sampleCompanies) : [],
+                topKeywords: childNiche.topKeywords ? JSON.parse(childNiche.topKeywords) : [],
+                companyCount: childNiche.companyCount,
+              };
+              const score = await scoreNicheFit(nicheInput, userId);
+              await updateNiche(childId, {
+                fitScore: score.fitScore,
+                fitReasoning: score.fitReasoning,
+                scoreBreakdown: JSON.stringify(score.scoreBreakdown),
+                scoredAt: new Date(),
+                scoredWithBrainId: brain.id,
+              });
+              scoredCount++;
+            } catch (e) {
+              console.warn(`[nicheRouter] Sub-cluster auto-score failed for niche ${childId}:`, e);
+            }
+          }
+        }
+      }
+
+      console.log(`[nicheRouter] Sub-cluster done: ${clusters.length} child niches from ${allCompanies.length} companies`);
+
+      return {
+        parentNicheId: input.parentNicheId,
+        parentNicheName: parentNiche.name,
+        companiesProcessed: allCompanies.length,
+        childNichesCreated: clusters.length,
+        childNichesScored: scoredCount,
+        childNicheIds,
+        clusters: clusters.map((c) => ({
+          name: c.name,
+          description: c.description,
+          companyCount: c.companyIds.length,
+          sampleCompanies: c.sampleCompanies,
+          topKeywords: c.topKeywords,
+        })),
+      };
+    }),
+
+  /**
+   * Get child niches for a given parent niche ID.
+   */
+  getChildNiches: protectedProcedure
+    .input(z.object({ parentNicheId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const children = await getNichesByParentId(input.parentNicheId);
+      return children.map(parseNicheFields);
     }),
 });
 

@@ -526,3 +526,24 @@ export async function deleteNichesBySearchId(searchId: number): Promise<void> {
   if (!db) return;
   await db.delete(niches).where(eq(niches.searchId, searchId));
 }
+
+/**
+ * Get child niches for a given parent niche ID.
+ * Used for the two-level segment hierarchy (sub-clustering).
+ */
+export async function getNichesByParentId(parentNicheId: number): Promise<Niche[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(niches)
+    .where(eq(niches.parentNicheId, parentNicheId))
+    .orderBy(desc(niches.fitScore));
+}
+
+/**
+ * Delete all child niches for a given parent niche ID (before re-sub-clustering).
+ */
+export async function deleteNichesByParentId(parentNicheId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(niches).where(eq(niches.parentNicheId, parentNicheId));
+}

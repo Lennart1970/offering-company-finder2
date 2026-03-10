@@ -13,7 +13,7 @@
  */
 
 import { z } from "zod";
-import { protectedProcedure, router } from "./_core/trpc";
+import { protectedProcedure, adminProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import {
   createNiche,
@@ -42,7 +42,7 @@ export const nicheRouter = router({
    * Full pipeline: generate embeddings → k-means clustering → save niches → score against Brain.
    * Called automatically after CSV import completes.
    */
-  clusterAndSaveNiches: protectedProcedure
+  clusterAndSaveNiches: adminProcedure
     .input(
       z.object({
         searchId: z.number(),
@@ -171,7 +171,7 @@ export const nicheRouter = router({
    * Create a niche cluster (manual entry or from import pipeline).
    * Returns the new niche ID.
    */
-  create: protectedProcedure
+  create: adminProcedure
     .input(
       z.object({
         searchId: z.number().optional(),
@@ -205,7 +205,7 @@ export const nicheRouter = router({
    * Batch score all niches for a given searchId against the active Offering Brain.
    * Skips niches that were already scored with the current brain version.
    */
-  scoreNiches: protectedProcedure
+  scoreNiches: adminProcedure
     .input(
       z.object({
         searchId: z.number(),
@@ -280,7 +280,7 @@ export const nicheRouter = router({
   /**
    * Re-score a single niche against the active Offering Brain.
    */
-  rescoreNiche: protectedProcedure
+  rescoreNiche: adminProcedure
     .input(z.object({ nicheId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
@@ -342,7 +342,7 @@ export const nicheRouter = router({
   /**
    * Delete all niches for a search (e.g. before re-clustering).
    */
-  deleteBySearch: protectedProcedure
+  deleteBySearch: adminProcedure
     .input(z.object({ searchId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       // Verify the search belongs to this user
@@ -383,7 +383,7 @@ export const nicheRouter = router({
    *   4. Assign each to nearest centroid by cosine similarity
    *   5. Update companies.nicheId and niches.companyCount
    */
-  assignRemainingCompanies: protectedProcedure
+  assignRemainingCompanies: adminProcedure
     .input(z.object({ searchId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -468,7 +468,7 @@ export const nicheRouter = router({
    * only a batch of EXPAND_BATCH_SIZE at a time so the user can inspect results
    * incrementally.
    */
-  expandClusterSample: protectedProcedure
+  expandClusterSample: adminProcedure
     .input(
       z.object({
         searchId: z.number(),
@@ -599,7 +599,7 @@ export const nicheRouter = router({
    * Scoped to only the companies already assigned to the given parentNicheId.
    * Deletes any existing child niches for this parent before re-running.
    */
-  subClusterNiche: protectedProcedure
+  subClusterNiche: adminProcedure
     .input(
       z.object({
         parentNicheId: z.number(),
@@ -744,7 +744,7 @@ export const nicheRouter = router({
    * preserving all enrichment data so the full pipeline can run on the subset.
    * Only allowed when fitScore >= 70.
    */
-  createCampaignFromNiche: protectedProcedure
+  createCampaignFromNiche: adminProcedure
     .input(
       z.object({
         nicheId: z.number(),

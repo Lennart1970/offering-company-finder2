@@ -1532,3 +1532,10 @@
 
 ## Make Expand Chevron More Prominent
 - [x] Redesign expand/collapse button as labeled text button ("View Details" / "Hide Details") with chevron
+
+## Team Read-Only Access for Market Segments
+- [x] Understand owner/admin identification in auth model (OWNER_OPEN_ID env vs user.role)
+- [x] Gate Cluster, Re-score, Sub-cluster, Launch Campaign buttons behind isAdmin in NicheReview UI
+- [x] Ensure all mutating tRPC procedures in nicheRouter use adminProcedure
+- [x] Read-only queries (getNiches, getAllNiches, getUnassignedCount, getChildNiches) remain protectedProcedure
+- [x] TypeScript 0 errors, backend guards in place

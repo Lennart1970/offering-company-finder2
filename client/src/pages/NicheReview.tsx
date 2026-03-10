@@ -12,9 +12,10 @@
  *   5. User can create test niches manually (for development/testing)
  */
 
-import { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
+import { useAuth } from "@/_core/hooks/useAuth";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -489,6 +490,8 @@ function CreateNicheDialog({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function NicheReview() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const [location, navigate] = useLocation();
   const [selectedSearchId, setSelectedSearchId] = useState<number | null>(() => {
     // Auto-select searchId from URL param ?searchId=X
@@ -790,6 +793,9 @@ export default function NicheReview() {
               </SelectContent>
             </Select>
 
+            {/* Admin-only action buttons */}
+            {isAdmin && (
+            <div className="flex items-center gap-3 flex-wrap">
             {/* PRIMARY: Cluster Companies (Phase 1) — with target group size input */}
             <div className="flex items-center border-2 border-black overflow-hidden">
               <Button
@@ -881,6 +887,8 @@ export default function NicheReview() {
               )}
               Re-score All
             </Button>
+            </div>
+            )}
           </div>
         </div>
 

@@ -1523,3 +1523,6 @@
 - [x] Show loading state and success toast with link to new campaign on Search Results page
 - [x] Navigate user to Search Results page filtered to new campaign after creation
 - [x] 315/316 tests passing (1 pre-existing flaky LLM test in codeSelection.test.ts, unrelated to this feature)
+
+## Fix: Create Campaign button on child niche cards
+- [x] Add onCreateCampaign and creatingCampaign props to child NicheCard render in NicheReview

@@ -1066,6 +1066,8 @@ export default function NicheReview() {
                             onRescore={handleRescore}
                             rescoring={rescoringId === child.id}
                             isChild
+                            onCreateCampaign={handleCreateCampaign}
+                            creatingCampaign={creatingCampaignId === child.id}
                           />
                         ))}
                       </div>

@@ -34,7 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Network, RefreshCw, Plus, ChevronDown, ChevronUp, Loader2, Brain, Cpu, GitBranch, Layers, ChevronRight } from "lucide-react";
+import { Network, RefreshCw, Plus, ChevronDown, ChevronUp, Loader2, Brain, Cpu, GitBranch, Layers, ChevronRight, Rocket } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -132,6 +132,8 @@ function NicheCard({
   isChild,
   subClusterTargetSize,
   onSubClusterTargetSizeChange,
+  onCreateCampaign,
+  creatingCampaign,
 }: {
   niche: NicheItem;
   rank: number;
@@ -142,6 +144,8 @@ function NicheCard({
   isChild?: boolean;
   subClusterTargetSize?: number;
   onSubClusterTargetSizeChange?: (size: number) => void;
+  onCreateCampaign?: (id: number) => void;
+  creatingCampaign?: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasScore = niche.fitScore !== null && niche.fitScore !== undefined;
@@ -240,6 +244,23 @@ function NicheCard({
                     </div>
                   )}
                 </div>
+              )}
+              {/* Create Campaign button — only when fitScore >= 70 */}
+              {onCreateCampaign && hasScore && score >= 70 && (
+                <Button
+                  size="sm"
+                  className="h-7 text-xs font-black bg-green-700 text-white hover:bg-green-800 border-0 px-2"
+                  onClick={() => onCreateCampaign(niche.id)}
+                  disabled={creatingCampaign}
+                  title={`Create a scoped campaign with all ${niche.companyCount} companies in this segment`}
+                >
+                  {creatingCampaign ? (
+                    <Loader2 className="w-3 h-3 animate-spin" />
+                  ) : (
+                    <Rocket className="w-3 h-3" />
+                  )}
+                  <span className="ml-1">Create Campaign</span>
+                </Button>
               )}
               <Button
                 variant="ghost"
@@ -454,7 +475,7 @@ function CreateNicheDialog({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function NicheReview() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const [selectedSearchId, setSelectedSearchId] = useState<number | null>(() => {
     // Auto-select searchId from URL param ?searchId=X
     const params = new URLSearchParams(window.location.search);
@@ -475,6 +496,7 @@ export default function NicheReview() {
   const [assignResult, setAssignResult] = useState<{ assigned: number; total: number } | null>(null);
   const [expandResult, setExpandResult] = useState<{ assigned: number; remaining: number; newNichesCreated?: number; newNicheNames?: string[] } | null>(null);
   const [subClusterResults, setSubClusterResults] = useState<Map<number, { childNichesCreated: number; companiesProcessed: number }>>(new Map());
+  const [creatingCampaignId, setCreatingCampaignId] = useState<number | null>(null);
 
   // Fetch all searches for the selector
   const { data: searches } = trpc.companyFinder.getSearchHistory.useQuery();
@@ -636,6 +658,28 @@ export default function NicheReview() {
     setExpanding(true);
     setExpandResult(null);
     expandMutation.mutate({ searchId: selectedSearchId, batchSize: 500 });
+  };
+
+  // Create Campaign from Niche
+  const createCampaignMutation = trpc.niche.createCampaignFromNiche.useMutation({
+    onSuccess: (data) => {
+      setCreatingCampaignId(null);
+      toast.success(
+        `Campaign "${data.campaignName}" created with ${data.companiesCopied} companies. Opening...`,
+        { duration: 4000 }
+      );
+      // Navigate to Search Results filtered to the new campaign
+      setTimeout(() => navigate(`/search-results?searchId=${data.searchId}`), 1200);
+    },
+    onError: (e) => {
+      setCreatingCampaignId(null);
+      toast.error(e.message);
+    },
+  });
+
+  const handleCreateCampaign = (nicheId: number) => {
+    setCreatingCampaignId(nicheId);
+    createCampaignMutation.mutate({ nicheId });
   };
 
   // Batch score all
@@ -987,6 +1031,8 @@ export default function NicheReview() {
                       subClustering={subClusteringId === niche.id}
                       subClusterTargetSize={subClusterTargetSize}
                       onSubClusterTargetSizeChange={setSubClusterTargetSize}
+                      onCreateCampaign={handleCreateCampaign}
+                      creatingCampaign={creatingCampaignId === niche.id}
                     />
                     {/* Sub-cluster progress banner */}
                     {subClusteringId === niche.id && (

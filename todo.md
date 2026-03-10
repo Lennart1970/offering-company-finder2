@@ -1515,3 +1515,11 @@
 - [x] Add targetGroupSize input field next to "Cluster Seed Sample" button in NicheReview
 - [x] Add targetGroupSize input field next to "Sub-cluster" button on each NicheCard
 - [x] Show computed K in tooltip ("will create ~N sub-niches of ~X companies each")
+
+## Create Campaign from Niche Cluster
+- [x] Understand search/company data model: how companies link to searches, what fields a search needs
+- [x] Add createCampaignFromNiche tRPC procedure: creates new search record named after the niche, copies all niche companies into it (new rows with new searchId), sets nicheId on copied companies
+- [x] Add "Create Campaign" button to NicheCard when fitScore >= 70 (green button, rocket icon)
+- [x] Show loading state and success toast with link to new campaign on Search Results page
+- [x] Navigate user to Search Results page filtered to new campaign after creation
+- [x] 315/316 tests passing (1 pre-existing flaky LLM test in codeSelection.test.ts, unrelated to this feature)

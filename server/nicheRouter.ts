@@ -26,6 +26,9 @@ import {
   deleteNichesBySearchId,
   getCompaniesBySearchId,
   updateCompany,
+  createSearch,
+  getSearchById,
+  createCompanies,
 } from "./db";
 import { scoreNicheFit, NicheClusterInput } from "./nicheFitScorer";
 import { generateEmbeddings } from "./embeddingService";
@@ -733,6 +736,90 @@ export const nicheRouter = router({
     .query(async ({ ctx, input }) => {
       const children = await getNichesByParentId(input.parentNicheId);
       return children.map(parseNicheFields);
+    }),
+
+  /**
+   * Create a scoped Import Campaign from a niche cluster.
+   * Copies all companies assigned to the niche into a new search record,
+   * preserving all enrichment data so the full pipeline can run on the subset.
+   * Only allowed when fitScore >= 70.
+   */
+  createCampaignFromNiche: protectedProcedure
+    .input(
+      z.object({
+        nicheId: z.number(),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const userId = ctx.user.id;
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+
+      // 1. Load and validate the niche
+      const niche = await getNicheById(input.nicheId);
+      if (!niche) throw new TRPCError({ code: "NOT_FOUND", message: "Niche not found" });
+      if (niche.userId !== userId) throw new TRPCError({ code: "FORBIDDEN", message: "Not your niche" });
+      if ((niche.fitScore ?? 0) < 70) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: `Fit score must be ≥ 70 to create a campaign. This niche scored ${niche.fitScore ?? 0}.`,
+        });
+      }
+
+      // 2. Load the parent search to copy its offering metadata
+      const parentSearch = niche.searchId ? await getSearchById(niche.searchId) : null;
+
+      // 3. Create a new search record named after the niche
+      const campaignName = `[Niche] ${niche.name}`;
+      const newSearchId = await createSearch({
+        userId,
+        companyWebsite: parentSearch?.companyWebsite ?? "",
+        location: parentSearch?.location ?? "",
+        offeringName: campaignName,
+        offeringDescription: niche.description ?? parentSearch?.offeringDescription ?? null,
+        targetMarket: parentSearch?.targetMarket ?? null,
+        valueProposition: parentSearch?.valueProposition ?? null,
+        keywords: parentSearch?.keywords ?? null,
+        status: "completed",
+      });
+
+      // 4. Load all companies assigned to this niche
+      const nicheCompanies = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.nicheId, input.nicheId));
+
+      if (nicheCompanies.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No companies assigned to this niche yet. Run Phase 2 assignment first.",
+        });
+      }
+
+      // 5. Copy companies into the new search (strip id + searchId, keep all enrichment)
+      const BATCH_SIZE = 100;
+      let copied = 0;
+      for (let i = 0; i < nicheCompanies.length; i += BATCH_SIZE) {
+        const batch = nicheCompanies.slice(i, i + BATCH_SIZE).map((c) => {
+          const { id, searchId, ...rest } = c;
+          return {
+            ...rest,
+            searchId: newSearchId,
+            nicheId: input.nicheId, // keep niche reference on copied companies
+          };
+        });
+        await createCompanies(batch);
+        copied += batch.length;
+      }
+
+      console.log(`[nicheRouter] Created campaign "${campaignName}" (searchId=${newSearchId}) with ${copied} companies from niche ${input.nicheId}`);
+
+      return {
+        searchId: newSearchId,
+        campaignName,
+        companiesCopied: copied,
+        nicheId: input.nicheId,
+      };
     }),
 });
 

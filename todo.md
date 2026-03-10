@@ -1526,3 +1526,6 @@
 
 ## Fix: Create Campaign button on child niche cards
 - [x] Add onCreateCampaign and creatingCampaign props to child NicheCard render in NicheReview
+
+## Create Campaign Button: Make More Prominent
+- [x] Redesign Create Campaign as full-width CTA at bottom of qualifying niche cards with pulse/glow effect

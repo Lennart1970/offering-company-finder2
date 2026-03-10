@@ -245,23 +245,7 @@ function NicheCard({
                   )}
                 </div>
               )}
-              {/* Create Campaign button — only when fitScore >= 70 */}
-              {onCreateCampaign && hasScore && score >= 70 && (
-                <Button
-                  size="sm"
-                  className="h-7 text-xs font-black bg-green-700 text-white hover:bg-green-800 border-0 px-2"
-                  onClick={() => onCreateCampaign(niche.id)}
-                  disabled={creatingCampaign}
-                  title={`Create a scoped campaign with all ${niche.companyCount} companies in this segment`}
-                >
-                  {creatingCampaign ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Rocket className="w-3 h-3" />
-                  )}
-                  <span className="ml-1">Create Campaign</span>
-                </Button>
-              )}
+
               <Button
                 variant="ghost"
                 size="sm"
@@ -293,6 +277,32 @@ function NicheCard({
           )}
         </div>
       </div>
+
+      {/* Prominent Create Campaign CTA — full width, shown when fitScore >= 70 */}
+      {onCreateCampaign && hasScore && score >= 70 && (
+        <div className="px-4 pb-4 pt-2">
+          <button
+            onClick={() => onCreateCampaign(niche.id)}
+            disabled={creatingCampaign}
+            className={`w-full flex items-center justify-center gap-3 py-3 px-6 font-black text-sm uppercase tracking-widest text-white transition-all duration-200
+              ${creatingCampaign
+                ? "bg-green-600 cursor-wait opacity-80"
+                : "bg-green-700 hover:bg-green-800 shadow-lg hover:shadow-green-700/40 hover:shadow-xl animate-pulse-slow"
+              }`}
+            style={creatingCampaign ? {} : { boxShadow: "0 0 20px 2px rgba(21,128,61,0.35)" }}
+          >
+            {creatingCampaign ? (
+              <Loader2 className="w-5 h-5 animate-spin" />
+            ) : (
+              <Rocket className="w-5 h-5" />
+            )}
+            {creatingCampaign
+              ? `Creating campaign for ${niche.companyCount} companies...`
+              : `▶ Launch Campaign — ${niche.companyCount} companies`
+            }
+          </button>
+        </div>
+      )}
 
       {/* Expanded: score breakdown + reasoning */}
       {expanded && (

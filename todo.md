@@ -1507,3 +1507,11 @@
 - [x] Update expandClusterSample procedure to use expandWithDiscovery and persist any new niches found
 - [x] Return newNichesCreated count in expand result
 - [x] Update expand result banner to show new niches discovered (if any)
+
+## Target Group Size Control (Phase 1 + Sub-cluster)
+- [x] Update clusterCompanies() to accept optional explicit K override parameter
+- [x] Update clusterAndSaveNiches procedure to accept targetGroupSize (default 300), derive K = ceil(seedCount / targetGroupSize)
+- [x] Update subClusterNiche procedure to accept targetGroupSize (default 300), derive K = ceil(companyCount / targetGroupSize)
+- [x] Add targetGroupSize input field next to "Cluster Seed Sample" button in NicheReview
+- [x] Add targetGroupSize input field next to "Sub-cluster" button on each NicheCard
+- [x] Show computed K in tooltip ("will create ~N sub-niches of ~X companies each")

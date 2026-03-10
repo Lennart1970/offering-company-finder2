@@ -44,6 +44,7 @@ export const nicheRouter = router({
       z.object({
         searchId: z.number(),
         autoScore: z.boolean().default(true), // score niches against active Brain after clustering
+        targetGroupSize: z.number().min(50).max(2000).optional(), // target companies per cluster (derives K)
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -74,8 +75,10 @@ export const nicheRouter = router({
       const embeddings = await generateEmbeddings(allCompanies);
 
       // 4. Cluster
-      console.log(`[nicheRouter] Running k-means clustering...`);
-      const clusters = await clusterCompanies(embeddings, allCompanies);
+      console.log(`[nicheRouter] Running k-means clustering (targetGroupSize=${input.targetGroupSize ?? 'auto'})...`);
+      const clusters = await clusterCompanies(embeddings, allCompanies, {
+        targetGroupSize: input.targetGroupSize,
+      });
 
       // 5. Persist niches
       console.log(`[nicheRouter] Saving ${clusters.length} niches...`);
@@ -598,6 +601,7 @@ export const nicheRouter = router({
       z.object({
         parentNicheId: z.number(),
         autoScore: z.boolean().default(true),
+        targetGroupSize: z.number().min(50).max(2000).optional(), // target companies per sub-cluster (derives K)
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -631,8 +635,11 @@ export const nicheRouter = router({
       // 4. Generate embeddings
       const embeddings = await generateEmbeddings(allCompanies);
 
-      // 5. Cluster
-      const clusters = await clusterCompanies(embeddings, allCompanies);
+      // 5. Cluster (use all companies as seed — no stratified sampling for sub-clusters)
+      const clusters = await clusterCompanies(embeddings, allCompanies, {
+        targetGroupSize: input.targetGroupSize ?? 300,
+        seedSampleSize: allCompanies.length, // use ALL assigned companies, not just 500
+      });
 
       // 6. Persist child niches
       const childNicheIds: number[] = [];

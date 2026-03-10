@@ -130,6 +130,8 @@ function NicheCard({
   onSubCluster,
   subClustering,
   isChild,
+  subClusterTargetSize,
+  onSubClusterTargetSizeChange,
 }: {
   niche: NicheItem;
   rank: number;
@@ -138,6 +140,8 @@ function NicheCard({
   onSubCluster?: (id: number) => void;
   subClustering?: boolean;
   isChild?: boolean;
+  subClusterTargetSize?: number;
+  onSubClusterTargetSizeChange?: (size: number) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasScore = niche.fitScore !== null && niche.fitScore !== undefined;
@@ -202,21 +206,40 @@ function NicheCard({
               </Button>
               {/* Sub-cluster button — only for top-level segments */}
               {!isChild && onSubCluster && (
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="h-7 text-xs font-bold border-purple-400 text-purple-700 hover:bg-purple-50"
-                  onClick={() => onSubCluster(niche.id)}
-                  disabled={subClustering || niche.companyCount < 9}
-                  title={niche.companyCount < 9 ? "Need at least 9 assigned companies to sub-cluster" : `Split into sub-niches (~${Math.round(niche.companyCount / 5)} per group)`}
-                >
-                  {subClustering ? (
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                  ) : (
-                    <Layers className="w-3 h-3" />
+                <div className="flex items-center border border-purple-400 overflow-hidden">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 text-xs font-bold text-purple-700 hover:bg-purple-50 rounded-none border-0 px-2"
+                    onClick={() => onSubCluster(niche.id)}
+                    disabled={subClustering || niche.companyCount < 9}
+                    title={niche.companyCount < 9 ? "Need at least 9 assigned companies to sub-cluster" : `Will create ~${Math.ceil(niche.companyCount / (subClusterTargetSize ?? 300))} sub-niches of ~${subClusterTargetSize ?? 300} companies each`}
+                  >
+                    {subClustering ? (
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                    ) : (
+                      <Layers className="w-3 h-3" />
+                    )}
+                    <span className="ml-1">Sub-cluster</span>
+                  </Button>
+                  {onSubClusterTargetSizeChange && (
+                    <div className="flex items-center gap-0.5 px-1.5 bg-purple-50 border-l border-purple-400 h-7">
+                      <span className="text-[9px] font-black text-purple-500">~</span>
+                      <input
+                        type="number"
+                        value={subClusterTargetSize ?? 300}
+                        onChange={(e) => onSubClusterTargetSizeChange(Math.max(50, Math.min(2000, parseInt(e.target.value) || 300)))}
+                        className="w-12 text-[10px] font-black text-center bg-transparent border-0 outline-none text-purple-700"
+                        min={50}
+                        max={2000}
+                        step={50}
+                        disabled={subClustering}
+                        title="Target companies per sub-niche"
+                      />
+                      <span className="text-[9px] font-black text-purple-500">co</span>
+                    </div>
                   )}
-                  <span className="ml-1">Sub-cluster</span>
-                </Button>
+                </div>
               )}
               <Button
                 variant="ghost"
@@ -444,6 +467,10 @@ export default function NicheReview() {
   const [assigning, setAssigning] = useState(false);
   const [expanding, setExpanding] = useState(false);
   const [subClusteringId, setSubClusteringId] = useState<number | null>(null);
+  // Target group size for Phase 1 clustering (derives K = ceil(seedCount / targetGroupSize))
+  const [targetGroupSize, setTargetGroupSize] = useState<number>(300);
+  // Per-niche target group size for sub-clustering
+  const [subClusterTargetSize, setSubClusterTargetSize] = useState<number>(300);
   const [clusterResult, setClusterResult] = useState<{ nichesCreated: number; nichesScored: number; seedCount: number; totalCompanies: number } | null>(null);
   const [assignResult, setAssignResult] = useState<{ assigned: number; total: number } | null>(null);
   const [expandResult, setExpandResult] = useState<{ assigned: number; remaining: number; newNichesCreated?: number; newNicheNames?: string[] } | null>(null);
@@ -536,7 +563,7 @@ export default function NicheReview() {
     setClustering(true);
     setClusterResult(null);
     setAssignResult(null);
-    clusterMutation.mutate({ searchId: selectedSearchId, autoScore: true });
+    clusterMutation.mutate({ searchId: selectedSearchId, autoScore: true, targetGroupSize });
   };
 
   const handleAssignRemaining = () => {
@@ -598,7 +625,7 @@ export default function NicheReview() {
 
   const handleSubCluster = (parentNicheId: number) => {
     setSubClusteringId(parentNicheId);
-    subClusterMutation.mutate({ parentNicheId, autoScore: true });
+    subClusterMutation.mutate({ parentNicheId, autoScore: true, targetGroupSize: subClusterTargetSize });
   };
 
   const handleExpandSample = () => {
@@ -705,20 +732,37 @@ export default function NicheReview() {
               </SelectContent>
             </Select>
 
-            {/* PRIMARY: Cluster Companies (Phase 1) */}
-            <Button
-              size="sm"
-              className="font-black bg-black text-white hover:bg-gray-800 border-2 border-black"
-              onClick={handleCluster}
-              disabled={clustering || assigning || !selectedSearchId}
-            >
-              {clustering ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <Cpu className="w-4 h-4 mr-2" />
-              )}
-              {clustering ? "Clustering..." : "Cluster Seed Sample"}
-            </Button>
+            {/* PRIMARY: Cluster Companies (Phase 1) — with target group size input */}
+            <div className="flex items-center border-2 border-black overflow-hidden">
+              <Button
+                size="sm"
+                className="font-black bg-black text-white hover:bg-gray-800 border-0 rounded-none h-9"
+                onClick={handleCluster}
+                disabled={clustering || assigning || !selectedSearchId}
+              >
+                {clustering ? (
+                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                ) : (
+                  <Cpu className="w-4 h-4 mr-2" />
+                )}
+                {clustering ? "Clustering..." : "Cluster Seed Sample"}
+              </Button>
+              <div className="flex items-center gap-1 px-2 bg-gray-100 border-l-2 border-black h-9">
+                <span className="text-[10px] font-black text-gray-600 whitespace-nowrap">~</span>
+                <input
+                  type="number"
+                  value={targetGroupSize}
+                  onChange={(e) => setTargetGroupSize(Math.max(50, Math.min(2000, parseInt(e.target.value) || 300)))}
+                  className="w-14 text-xs font-black text-center bg-transparent border-0 outline-none"
+                  min={50}
+                  max={2000}
+                  step={50}
+                  title="Target companies per segment (derives number of clusters automatically)"
+                  disabled={clustering}
+                />
+                <span className="text-[10px] font-black text-gray-600 whitespace-nowrap">co/seg</span>
+              </div>
+            </div>
 
             {/* PHASE 2: Expand Sample (+500) — iterative batch assignment */}
             {selectedSearchId && sortedNiches.length > 0 && unassignedData && unassignedData.unassigned > 0 && (
@@ -941,6 +985,8 @@ export default function NicheReview() {
                       rescoring={rescoringId === niche.id}
                       onSubCluster={handleSubCluster}
                       subClustering={subClusteringId === niche.id}
+                      subClusterTargetSize={subClusterTargetSize}
+                      onSubClusterTargetSizeChange={setSubClusterTargetSize}
                     />
                     {/* Sub-cluster progress banner */}
                     {subClusteringId === niche.id && (

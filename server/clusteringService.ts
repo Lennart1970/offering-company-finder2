@@ -319,7 +319,15 @@ async function nameCluster(
  */
 export async function clusterCompanies(
   companyEmbeddings: CompanyEmbedding[],
-  allCompanies: Company[]
+  allCompanies: Company[],
+  options?: {
+    /** Target number of companies per cluster. Derives K = ceil(sampleSize / targetGroupSize). */
+    targetGroupSize?: number;
+    /** Explicit K override — takes precedence over targetGroupSize and auto-K. */
+    explicitK?: number;
+    /** Seed sample size override (default SEED_SAMPLE_SIZE). */
+    seedSampleSize?: number;
+  }
 ): Promise<NicheCluster[]> {
   if (companyEmbeddings.length < MIN_K * MIN_COMPANIES_PER_CLUSTER) {
     throw new Error(
@@ -327,14 +335,40 @@ export async function clusterCompanies(
     );
   }
 
-  // Use stratified sample for seeding if we have more than SEED_SAMPLE_SIZE
-  const { sample } = stratifiedSample(companyEmbeddings, allCompanies, SEED_SAMPLE_SIZE);
+  const seedSize = options?.seedSampleSize ?? SEED_SAMPLE_SIZE;
+
+  // Use stratified sample for seeding if we have more than seedSize
+  const { sample } = stratifiedSample(companyEmbeddings, allCompanies, seedSize);
 
   const companyMap = new Map(allCompanies.map((c) => [c.id, c]));
   const embeddings = sample.map((e) => e.embedding);
 
-  console.log(`[Clustering] Phase 1: k-means++ on ${embeddings.length} seed companies (k=${MIN_K}–${MAX_K})`);
-  const { k, assignments, centroids } = selectOptimalK(embeddings, MIN_K, MAX_K);
+  // Derive K: explicit > target-size-derived > auto silhouette
+  let resolvedK: number | undefined;
+  if (options?.explicitK) {
+    resolvedK = Math.max(MIN_K, Math.min(options.explicitK, Math.floor(embeddings.length / MIN_COMPANIES_PER_CLUSTER)));
+  } else if (options?.targetGroupSize && options.targetGroupSize > 0) {
+    resolvedK = Math.max(MIN_K, Math.ceil(sample.length / options.targetGroupSize));
+    resolvedK = Math.min(resolvedK, Math.floor(embeddings.length / MIN_COMPANIES_PER_CLUSTER));
+  }
+
+  let k: number;
+  let assignments: number[];
+  let centroids: number[][];
+
+  if (resolvedK !== undefined) {
+    console.log(`[Clustering] Phase 1: k-means++ on ${embeddings.length} seed companies (k=${resolvedK}, target-size-driven)`);
+    const result = kMeansPlusPlus(embeddings, resolvedK);
+    k = resolvedK;
+    assignments = result.assignments;
+    centroids = result.centroids;
+  } else {
+    console.log(`[Clustering] Phase 1: k-means++ on ${embeddings.length} seed companies (k=${MIN_K}–${MAX_K}, auto silhouette)`);
+    const result = selectOptimalK(embeddings, MIN_K, MAX_K);
+    k = result.k;
+    assignments = result.assignments;
+    centroids = result.centroids;
+  }
 
   const clusters: NicheCluster[] = [];
   for (let c = 0; c < k; c++) {

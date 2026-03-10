@@ -1443,3 +1443,10 @@
 - [x] Map Apollo columns directly to companies table — skip all Apollo API enrichment calls
 - [x] Update ExcelImport.tsx UI to reflect instant import (no Apollo progress messages)
 - [x] Keep fallback: non-Apollo files (name + website only) also accepted, headers matched case-insensitively
+
+## Feature: Cluster Companies button on Market Segments page
+- [x] Add "Cluster Companies" button to Market Segments page header
+- [x] Wire button to niche.clusterAndSaveNiches tRPC procedure
+- [x] Show progress feedback (embedding → clustering → naming → scoring) during the pipeline
+- [x] Auto-select searchId from URL param (?searchId=X) when arriving from Excel Import
+- [x] Refresh niche list after clustering completes

@@ -12,7 +12,8 @@
  *   5. User can create test niches manually (for development/testing)
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -33,7 +34,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Network, RefreshCw, Plus, ChevronDown, ChevronUp, Loader2, Brain } from "lucide-react";
+import { Network, RefreshCw, Plus, ChevronDown, ChevronUp, Loader2, Brain, Cpu } from "lucide-react";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -405,9 +406,17 @@ function CreateNicheDialog({
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function NicheReview() {
-  const [selectedSearchId, setSelectedSearchId] = useState<number | null>(null);
+  const [location] = useLocation();
+  const [selectedSearchId, setSelectedSearchId] = useState<number | null>(() => {
+    // Auto-select searchId from URL param ?searchId=X
+    const params = new URLSearchParams(window.location.search);
+    const sid = params.get("searchId");
+    return sid ? parseInt(sid) : null;
+  });
   const [rescoringId, setRescoringId] = useState<number | null>(null);
   const [scoringAll, setScoringAll] = useState(false);
+  const [clustering, setClustering] = useState(false);
+  const [clusterResult, setClusterResult] = useState<{ nichesCreated: number; nichesScored: number; companiesProcessed: number } | null>(null);
 
   // Fetch all searches for the selector
   const { data: searches } = trpc.companyFinder.getSearchHistory.useQuery();
@@ -442,6 +451,37 @@ export default function NicheReview() {
   }, [displayNiches]);
 
   const utils = trpc.useUtils();
+
+  // Cluster companies into niches
+  const clusterMutation = trpc.niche.clusterAndSaveNiches.useMutation({
+    onSuccess: (data) => {
+      setClustering(false);
+      setClusterResult({
+        nichesCreated: data.nichesCreated,
+        nichesScored: data.nichesScored,
+        companiesProcessed: data.companiesProcessed,
+      });
+      toast.success(
+        `Clustered ${data.companiesProcessed} companies into ${data.nichesCreated} segments — ${data.nichesScored} scored`
+      );
+      if (selectedSearchId) refetchSearch();
+      else refetch();
+    },
+    onError: (e) => {
+      setClustering(false);
+      toast.error(e.message);
+    },
+  });
+
+  const handleCluster = () => {
+    if (!selectedSearchId) {
+      toast.error("Select a campaign first");
+      return;
+    }
+    setClustering(true);
+    setClusterResult(null);
+    clusterMutation.mutate({ searchId: selectedSearchId, autoScore: true });
+  };
 
   // Batch score all
   const scoreAllMutation = trpc.niche.scoreNiches.useMutation({
@@ -537,6 +577,21 @@ export default function NicheReview() {
               </SelectContent>
             </Select>
 
+            {/* PRIMARY: Cluster Companies */}
+            <Button
+              size="sm"
+              className="font-black bg-black text-white hover:bg-gray-800 border-2 border-black"
+              onClick={handleCluster}
+              disabled={clustering || !selectedSearchId}
+            >
+              {clustering ? (
+                <Loader2 className="w-4 h-4 animate-spin mr-2" />
+              ) : (
+                <Cpu className="w-4 h-4 mr-2" />
+              )}
+              {clustering ? "Clustering..." : "Cluster Companies"}
+            </Button>
+
             <CreateNicheDialog
               searchId={selectedSearchId ?? undefined}
               onCreated={() => {
@@ -547,7 +602,8 @@ export default function NicheReview() {
 
             <Button
               size="sm"
-              className="font-black bg-black text-white hover:bg-gray-800"
+              variant="outline"
+              className="font-black border-2 border-black"
               onClick={handleScoreAll}
               disabled={scoringAll || !selectedSearchId || sortedNiches.length === 0}
             >
@@ -556,7 +612,7 @@ export default function NicheReview() {
               ) : (
                 <Brain className="w-4 h-4 mr-2" />
               )}
-              Score All Niches
+              Re-score All
             </Button>
           </div>
         </div>
@@ -590,20 +646,51 @@ export default function NicheReview() {
 
       {/* Content */}
       <div className="p-6">
+        {/* Clustering progress banner */}
+        {clustering && (
+          <div className="mb-4 border-4 border-black bg-black text-white px-6 py-4 flex items-center gap-4">
+            <Loader2 className="w-6 h-6 animate-spin shrink-0" />
+            <div>
+              <p className="font-black">Clustering in progress...</p>
+              <p className="text-sm opacity-70">
+                Generating embeddings → k-means clustering → naming segments → scoring against Offering Brain.
+                This takes 30–120 seconds depending on company count.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {/* Cluster result summary */}
+        {clusterResult && !clustering && (
+          <div className="mb-4 border-4 border-green-600 bg-green-50 px-6 py-4">
+            <p className="font-black text-green-800">
+              Clustering complete — {clusterResult.companiesProcessed} companies grouped into {clusterResult.nichesCreated} segments, {clusterResult.nichesScored} scored.
+            </p>
+          </div>
+        )}
+
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 animate-spin text-muted-foreground" />
           </div>
-        ) : sortedNiches.length === 0 ? (
+        ) : sortedNiches.length === 0 && !clustering ? (
           <div className="text-center py-20 border-4 border-dashed border-gray-200">
             <Network className="w-12 h-12 text-muted-foreground mx-auto mb-4" />
-            <h2 className="text-lg font-black mb-2">No niches yet</h2>
+            <h2 className="text-lg font-black mb-2">No segments yet</h2>
             <p className="text-sm text-muted-foreground mb-4 max-w-md mx-auto">
-              Niches are created automatically when you run the import pipeline
-              (Import Campaign → Step 4: Cluster &amp; Score). You can also add
-              niches manually below to test scoring against your Offering Brain.
+              Select a campaign above and click <strong>Cluster Companies</strong> to automatically
+              group your imported companies into market segments using k-means clustering,
+              then score each segment against your active Offering Brain.
             </p>
             <div className="flex items-center justify-center gap-3 flex-wrap">
+              <Button
+                className="font-black bg-black text-white border-2 border-black"
+                onClick={handleCluster}
+                disabled={!selectedSearchId || clustering}
+              >
+                <Cpu className="w-4 h-4 mr-2" />
+                Cluster Companies
+              </Button>
               <CreateNicheDialog
                 searchId={selectedSearchId ?? undefined}
                 onCreated={() => {

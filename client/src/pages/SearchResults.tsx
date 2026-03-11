@@ -234,6 +234,14 @@ export default function SearchResults() {
     toast.success(`${highUrgencyNotCalled.length} high-urgency companies added to Call Today`);
   };
 
+  // Remaining work = pending + no-brief + no-approach (must be before early returns)
+  const remainingWork = useMemo(() => {
+    if (!searchData?.companies) return 0;
+    return searchData.companies.filter(
+      (c: any) => c.enrichmentStatus === "pending" || !c.briefData || !c.salesApproachData
+    ).length;
+  }, [searchData?.companies]);
+
   // Search selector mode
   if (isSelectMode) {
     return (
@@ -345,13 +353,6 @@ export default function SearchResults() {
   }
 
   const enrichmentStats = searchData.enrichmentStats;
-  // Remaining work = pending + no-brief + no-approach
-  const remainingWork = useMemo(() => {
-    if (!searchData?.companies) return 0;
-    return searchData.companies.filter(
-      (c: any) => c.enrichmentStatus === "pending" || !c.briefData || !c.salesApproachData
-    ).length;
-  }, [searchData?.companies]);
 
   // Dynamic hero sentence — the main message for sales reps
   const sourceType = searchData.search.location || "import";

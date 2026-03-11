@@ -253,6 +253,83 @@ export const companyFinderRouter = router({
       return { enriched, failed, message: `Enriched ${enriched} companies, ${failed} failed` };
     }),
 
+  // ---------------------------------------------------------------------------
+  // doNext10 — enrich + research + approach the next N companies in one shot
+  // Priority: pending (unenriched) first, then enriched-but-no-brief, then brief-but-no-approach
+  // ---------------------------------------------------------------------------
+  doNext10: protectedProcedure
+    .input(z.object({ searchId: z.number(), limit: z.number().optional().default(10) }))
+    .mutation(async ({ ctx, input }) => {
+      const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
+      const { generateSalesApproach } = await import("./salesApproachGenerator");
+
+      await assertSearchAccess(input.searchId, ctx.user.id);
+      const all = await getCompaniesBySearchId(input.searchId);
+      const limit = input.limit;
+
+      // Build the work queue: pending → no-brief → no-approach (up to `limit` total)
+      const pending = all.filter((c) => c.enrichmentStatus === "pending" && !!c.apolloId);
+      const needsBrief = all.filter((c) => c.enrichmentStatus === "enriched" && !c.briefData);
+      const needsApproach = all.filter((c) => c.enrichmentStatus === "enriched" && !!c.briefData && !c.salesApproachData);
+
+      const queue = [...pending, ...needsBrief, ...needsApproach].slice(0, limit);
+
+      const stats = { enriched: 0, researched: 0, approached: 0, failed: 0, total: queue.length };
+      console.log(`[doNext10] searchId=${input.searchId} — ${queue.length} companies queued (limit=${limit})`);
+
+      for (const company of queue) {
+        try {
+          // Step 1: Enrich if still pending
+          if (company.enrichmentStatus === "pending") {
+            const details = await enrichCompanyDetails(company.apolloId!);
+            await updateCompany(company.id, {
+              city: details.city || null,
+              state: details.state || null,
+              country: details.country || null,
+              streetAddress: details.street_address || null,
+              rawAddress: details.raw_address || null,
+              enrichmentStatus: "enriched",
+            });
+            stats.enriched++;
+            console.log(`[doNext10] ✓ Enriched: ${company.name}`);
+          }
+          // Step 2: Research brief if missing
+          if (!company.briefData) {
+            const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id);
+            await updateCompany(company.id, {
+              urgencyScore: brief.urgencyScore,
+              briefData: JSON.stringify(brief),
+              briefGeneratedAt: new Date(),
+            });
+            stats.researched++;
+            console.log(`[doNext10] ✓ Researched: ${company.name}`);
+          }
+          // Step 3: Sales approach if missing
+          if (!company.salesApproachData) {
+            const approach = await generateSalesApproach(company.id, ctx.user.id);
+            await updateCompany(company.id, {
+              salesApproachData: JSON.stringify(approach),
+              salesApproachGeneratedAt: new Date(),
+            });
+            stats.approached++;
+            console.log(`[doNext10] ✓ Approached: ${company.name}`);
+          }
+        } catch (err: any) {
+          stats.failed++;
+          console.error(`[doNext10] ✗ ${company.name}:`, err.message);
+        }
+      }
+
+      // Recalculate remaining work after this batch
+      const refreshed = await getCompaniesBySearchId(input.searchId);
+      const remainingWork = refreshed.filter(
+        (c) => c.enrichmentStatus === "pending" || !c.briefData || !c.salesApproachData
+      ).length;
+
+      console.log(`[doNext10] Done — enriched:${stats.enriched} researched:${stats.researched} approached:${stats.approached} failed:${stats.failed} remaining:${remainingWork}`);
+      return { ...stats, remaining: remainingWork };
+    }),
+
   // Export companies as CSV
   enrichSingle: protectedProcedure
     .input(z.object({ companyId: z.number() }))

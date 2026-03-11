@@ -1559,8 +1559,8 @@
 - [x] Campaigns created from niches auto-shared (sharedWithTeam=true)
 
 ## Bug: Research & Outreach "Unexpected token '<'" Error
-- [ ] Diagnose why Research & Outreach returns HTML instead of JSON (server crash / missing route / unhandled error)
-- [ ] Fix the procedure and verify it returns valid JSON
+- [x] Diagnose why Research & Outreach returns HTML instead of JSON (server crash / missing route / unhandled error)
+- [x] Fix the procedure and verify it returns valid JSON
 
 ## Prompt-Contracts Fixes (from audit Mar 11 2026)
 - [x] Shared types contract — SalesIntelligenceBrief, SalesApproach, FitScoreResult moved to shared/contractTypes.ts
@@ -1569,3 +1569,17 @@
 - [x] Field-name normalisation shim — briefData useMemo in CompanyDetail now maps productsServices→productsAndServices and derives companyOverview from executiveSummary
 - [x] Strict json_schema enforcement — added SALES_APPROACH_SCHEMA to salesApproachGenerator.ts (replaces json_object mode)
 - [x] OfferingData type moved to shared/contractTypes.ts — offeringExtractor.ts now imports from shared and re-exports for backward compat
+
+## Bug: Search Results page tRPC returns HTML instead of JSON (Mar 11 2026)
+- [x] Diagnose which tRPC query on /search-results/1110002 returns HTML (server crash / unhandled error)
+- [x] Fix the root cause and verify JSON is returned (replaced bulk batch with DO 10 - no more URL size overflow)
+
+## UX: Remove Bulk Batch Actions from Search Results (Mar 11 2026)
+- [x] Remove "Enrich All" bulk button and its mutation/state from SearchResults.tsx
+- [x] Remove "Research & Outreach All" bulk button and its mutation/state from SearchResults.tsx
+- [x] Remove batch progress bar / status display tied to those actions
+- [x] Keep per-company individual Enrich, Research, and Approach buttons intact
+- [x] Replace bulk buttons with single "DO 10" button (doNext10 procedure: enrich → research → approach, up to 10 companies per click)
+- [x] Add remainingWork counter to show how many companies still need processing
+- [x] Update all hero sentence inline [RESEARCH & OUTREACH] links to [DO 10]
+- [x] Add progress banner for DO 10 running state

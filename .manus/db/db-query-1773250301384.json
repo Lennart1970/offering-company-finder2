@@ -1,0 +1,118 @@
+{
+  "query": "SELECT id, name, websiteUrl, primaryDomain, urgencyScore, briefData IS NOT NULL as hasBriefData, LENGTH(briefData) as briefDataLen, salesApproachData IS NOT NULL as hasSalesApproach, enrichmentStatus, createdAt FROM companies WHERE name LIKE '%Central Sanitaria%' OR name LIKE '%Sanitaria%' LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, name, websiteUrl, primaryDomain, urgencyScore, briefData IS NOT NULL as hasBriefData, LENGTH(briefData) as briefDataLen, salesApproachData IS NOT NULL as hasSalesApproach, enrichmentStatus, createdAt FROM companies WHERE name LIKE '%Central Sanitaria%' OR name LIKE '%Sanitaria%' LIMIT 10;",
+  "rows": [
+    {
+      "id": "990230",
+      "name": "Central Sanitaria",
+      "websiteUrl": "http://www.centralsanitaria.com",
+      "primaryDomain": "centralsanitaria.com",
+      "urgencyScore": "NULL",
+      "hasBriefData": "0",
+      "briefDataLen": "NULL",
+      "hasSalesApproach": "0",
+      "enrichmentStatus": "pending",
+      "createdAt": "2026-03-11 07:40:59"
+    },
+    {
+      "id": "991865",
+      "name": "Iniciativas Salgado - Soluciones Sanitarias",
+      "websiteUrl": "http://www.iniciativassm.com",
+      "primaryDomain": "iniciativassm.com",
+      "urgencyScore": "NULL",
+      "hasBriefData": "0",
+      "briefDataLen": "NULL",
+      "hasSalesApproach": "0",
+      "enrichmentStatus": "pending",
+      "createdAt": "2026-03-11 07:41:00"
+    },
+    {
+      "id": "992195",
+      "name": "Laboratorio dental DNM ArtesanÃ­a Sanitaria",
+      "websiteUrl": "http://www.dnmdental.com",
+      "primaryDomain": "dnmdental.com",
+      "urgencyScore": "NULL",
+      "hasBriefData": "0",
+      "briefDataLen": "NULL",
+      "hasSalesApproach": "0",
+      "enrichmentStatus": "pending",
+      "createdAt": "2026-03-11 07:41:00"
+    },
+    {
+      "id": "992478",
+      "name": "Orgar ProtecciÃ³n Sanitaria",
+      "websiteUrl": "http://www.orgarproteccionsanitaria.com",
+      "primaryDomain": "orgarproteccionsanitaria.com",
+      "urgencyScore": "NULL",
+      "hasBriefData": "0",
+      "briefDataLen": "NULL",
+      "hasSalesApproach": "0",
+      "enrichmentStatus": "pending",
+      "createdAt": "2026-03-11 07:41:00"
+    },
+    {
+      "id": "992886",
+      "name": "Distribuciones Biosanitarias LiÃ©tor",
+      "websiteUrl": "http://www.dtbiosanitariaslietor.es",
+      "primaryDomain": "dtbiosanitariaslietor.es",
+      "urgencyScore": "NULL",
+      "hasBriefData": "0",
+      "briefDataLen": "NULL",
+      "hasSalesApproach": "0",
+      "enrichmentStatus": "pending",
+      "createdAt": "2026-03-11 07:41:01"
+    },
+    {
+      "id": "995175",
+      "name": "Sanittii - Industrias Sanitarias",
+      "websiteUrl": "http://www.sanittii.com",
+      "primaryDomain": "sanittii.com",
+      "urgencyScore": "NULL",
+      "hasBriefData": "0",
+      "briefDataLen": "NULL",
+      "hasSalesApproach": "0",
+      "enrichmentStatus": "pending",
+      "createdAt": "2026-03-11 07:41:02"
+    },
+    {
+      "id": "995730",
+      "name": "COORDINACIO LOGISTICA SANITARIA AIE",
+      "websiteUrl": "NULL",
+      "primaryDomain": "NULL",
+      "urgencyScore": "NULL",
+      "hasBriefData": "0",
+      "briefDataLen": "NULL",
+      "hasSalesApproach": "0",
+      "enrichmentStatus": "pending",
+      "createdAt": "2026-03-11 07:41:02"
+    },
+    {
+      "id": "995802",
+      "name": "FABRICACION DE EMERGENCIAS SANITARIAS SL",
+      "websiteUrl": "http://www.fesa-fabricante.com",
+      "primaryDomain": "fesa-fabricante.com",
+      "urgencyScore": "NULL",
+      "hasBriefData": "0",
+      "briefDataLen": "NULL",
+      "hasSalesApproach": "0",
+      "enrichmentStatus": "pending",
+      "createdAt": "2026-03-11 07:41:02"
+    },
+    {
+      "id": "995992",
+      "name": "Central Sanitaria",
+      "websiteUrl": "http://www.centralsanitaria.com",
+      "primaryDomain": "centralsanitaria.com",
+      "urgencyScore": "NULL",
+      "hasBriefData": "0",
+      "briefDataLen": "NULL",
+      "hasSalesApproach": "0",
+      "enrichmentStatus": "enriched",
+      "createdAt": "2026-03-11 07:40:59"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\twebsiteUrl\tprimaryDomain\turgencyScore\thasBriefData\tbriefDataLen\thasSalesApproach\tenrichmentStatus\tcreatedAt\n990230\tCentral Sanitaria\thttp://www.centralsanitaria.com\tcentralsanitaria.com\tNULL\t0\tNULL\t0\tpending\t2026-03-11 07:40:59\n991865\tIniciativas Salgado - Soluciones Sanitarias\thttp://www.iniciativassm.com\tiniciativassm.com\tNULL\t0\tNULL\t0\tpending\t2026-03-11 07:41:00\n992195\tLaboratorio dental DNM ArtesanÃ­a Sanitaria\thttp://www.dnmdental.com\tdnmdental.com\tNULL\t0\tNULL\t0\tpending\t2026-03-11 07:41:00\n992478\tOrgar ProtecciÃ³n Sanitaria\thttp://www.orgarproteccionsanitaria.com\torgarproteccionsanitaria.com\tNULL\t0\tNULL\t0\tpending\t2026-03-11 07:41:00\n992886\tDistribuciones Biosanitarias LiÃ©tor\thttp://www.dtbiosanitariaslietor.es\tdtbiosanitariaslietor.es\tNULL\t0\tNULL\t0\tpending\t2026-03-11 07:41:01\n995175\tSanittii - Industrias Sanitarias\thttp://www.sanittii.com\tsanittii.com\tNULL\t0\tNULL\t0\tpending\t2026-03-11 07:41:02\n995730\tCOORDINACIO LOGISTICA SANITARIA AIE\tNULL\tNULL\tNULL\t0\tNULL\t0\tpending\t2026-03-11 07:41:02\n995802\tFABRICACION DE EMERGENCIAS SANITARIAS SL\thttp://www.fesa-fabricante.com\tfesa-fabricante.com\tNULL\t0\tNULL\t0\tpending\t2026-03-11 07:41:02\n995992\tCentral Sanitaria\thttp://www.centralsanitaria.com\tcentralsanitaria.com\tNULL\t0\tNULL\t0\tenriched\t2026-03-11 07:40:59\n",
+  "stderr": "",
+  "execution_time_ms": 394
+}

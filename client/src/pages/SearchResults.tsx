@@ -76,48 +76,22 @@ export default function SearchResults() {
     }
   }, [searchData?.search.excludedSectors]);
 
-  const enrichAllMutation = trpc.companyFinder.enrichAll.useMutation({
+  const doNext10Mutation = trpc.companyFinder.doNext10.useMutation({
     onSuccess: (data) => {
-      toast.success(data.message);
+      const parts: string[] = [];
+      if (data.enriched > 0) parts.push(`${data.enriched} enriched`);
+      if (data.researched > 0) parts.push(`${data.researched} researched`);
+      if (data.approached > 0) parts.push(`${data.approached} approached`);
+      if (data.failed > 0) parts.push(`${data.failed} failed`);
+      const summary = parts.length > 0 ? parts.join(" · ") : "Nothing to do";
+      const remaining = data.remaining > 0 ? ` — ${data.remaining} still pending` : " — all done!";
+      toast.success(`DO 10: ${summary}${remaining}`);
       if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
     },
     onError: (error) => {
-      toast.error(`Enrichment failed: ${error.message}`);
+      toast.error(`DO 10 failed: ${error.message}`);
     },
   });
-
-  const batchResearchAndOutreachMutation = trpc.companyFinder.batchResearchAndOutreach.useMutation({
-    onSuccess: (data) => {
-      const r = data.research;
-      const a = data.approach;
-      const msg = `Research & Outreach complete — Research: ${r.completed}/${r.total}${
-        r.failed > 0 ? ` (${r.failed} failed)` : ""
-      } · Approaches: ${a.completed}/${a.total}${
-        a.failed > 0 ? ` (${a.failed} failed)` : ""
-      }`;
-      toast.success(msg);
-      if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
-    },
-    onError: (error) => {
-      toast.error(`Research & Outreach failed: ${error.message}`);
-    },
-  });
-
-  const completeMissingApproachMutation = trpc.companyFinder.completeMissingApproach.useMutation({
-    onSuccess: (data) => {
-      toast.success(`Approach complete — ${data.completed}/${data.total} done${data.failed > 0 ? ` (${data.failed} failed)` : ""}`);
-      if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
-      if (searchId) utils.companyFinder.getBatchStatus.invalidate({ searchId });
-    },
-    onError: (error) => {
-      toast.error(`Complete approach failed: ${error.message}`);
-    },
-  });
-
-  const { data: batchStatus } = trpc.companyFinder.getBatchStatus.useQuery(
-    { searchId: searchId! },
-    { enabled: !!searchId }
-  );
 
   const submitDecisionMutation = trpc.companyFinder.submitDecision.useMutation({
     onSuccess: () => {
@@ -125,15 +99,7 @@ export default function SearchResults() {
     },
   });
 
-  const nameEnrichMutation = trpc.companyFinder.nameEnrichCampaign.useMutation({
-    onSuccess: (data) => {
-      toast.success(`Re-enriched ${data.enriched} companies by name. ${data.failed} not found in Apollo.`);
-      if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
-    },
-    onError: (error) => {
-      toast.error(`Name enrichment failed: ${error.message}`);
-    },
-  });
+
 
   const exportCsvQuery = trpc.companyFinder.exportCsv.useQuery(
     { searchId: searchId! },
@@ -379,7 +345,13 @@ export default function SearchResults() {
   }
 
   const enrichmentStats = searchData.enrichmentStats;
-  const hasPendingCompanies = enrichmentStats && enrichmentStats.pending > 0;
+  // Remaining work = pending + no-brief + no-approach
+  const remainingWork = useMemo(() => {
+    if (!searchData?.companies) return 0;
+    return searchData.companies.filter(
+      (c: any) => c.enrichmentStatus === "pending" || !c.briefData || !c.salesApproachData
+    ).length;
+  }, [searchData?.companies]);
 
   // Dynamic hero sentence — the main message for sales reps
   const sourceType = searchData.search.location || "import";
@@ -406,24 +378,22 @@ export default function SearchResults() {
           <>
             <strong>{enrichedCount} companies</strong> from <strong>{campaignName}</strong> found in Apollo —{" "}
             <strong>{researchedCount}</strong> already have a research brief.
-            {" "}Press{" "}
-            <strong
+            {" "}Press <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
-              onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
-            >[RESEARCH &amp; OUTREACH]</strong>{" "}
-            to compile research reports and outreach scripts for the rest.
+              onClick={() => doNext10Mutation.mutate({ searchId: searchId! })}
+            >[DO 10]</strong>{" "}
+            to process the next 10 companies.
           </>
         );
       }
       return (
         <>
           <strong>{enrichedCount} companies</strong> from <strong>{campaignName}</strong> found in Apollo and ready to work.
-          {" "}Press{" "}
-            <strong
+          {" "}Press <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
-              onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
-            >[RESEARCH &amp; OUTREACH]</strong>{" "}
-            to compile a research report and personalized outreach script for each one.
+              onClick={() => doNext10Mutation.mutate({ searchId: searchId! })}
+            >[DO 10]</strong>{" "}
+            to research and write outreach scripts for the next 10.
         </>
       );
     }
@@ -431,7 +401,11 @@ export default function SearchResults() {
       return (
         <>
           <strong>{enrichmentStats?.pending ?? 0} companies</strong> were not found in Apollo yet.
-          {" "}Press <strong>[ENRICH ALL]</strong> to retry, or <strong>[RE-ENRICH BY NAME]</strong> for conference and Excel imports.
+          {" "}Press <strong
+              className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
+              onClick={() => doNext10Mutation.mutate({ searchId: searchId! })}
+            >[DO 10]</strong>{" "}
+            to enrich the next 10 companies.
         </>
       );
     }
@@ -443,9 +417,9 @@ export default function SearchResults() {
           {" "}Press <span className="cursor-pointer underline decoration-dotted hover:opacity-70 transition-opacity font-black" onClick={() => setEnrichmentFilter("outreach")}>OUTREACH READY</span> to go straight to your scripts, or press{" "}
             <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
-              onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
-            >[RESEARCH &amp; OUTREACH]</strong>{" "}
-            to compile reports for the remaining companies.
+              onClick={() => doNext10Mutation.mutate({ searchId: searchId! })}
+            >[DO 10]</strong>{" "}
+            to process the next 10 remaining companies.
         </>
       );
     }
@@ -456,9 +430,9 @@ export default function SearchResults() {
           {" "}Press <strong>ENRICHED</strong> to see them, then hit{" "}
             <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
-              onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
-            >[RESEARCH &amp; OUTREACH]</strong>{" "}
-            to compile research reports and outreach scripts.
+              onClick={() => doNext10Mutation.mutate({ searchId: searchId! })}
+            >[DO 10]</strong>{" "}
+            to research and write outreach scripts for the next 10.
         </>
       );
     }
@@ -633,67 +607,25 @@ export default function SearchResults() {
               </div>
             </div>
             <div className="flex items-center gap-3">
-              {hasPendingCompanies && (
-                <Button
-                  onClick={() => enrichAllMutation.mutate({ searchId: searchId! })}
-                  disabled={enrichAllMutation.isPending}
-                  className="text-lg px-6 py-4 font-black border-2 border-black bg-black text-white"
-                >
-                  {enrichAllMutation.isPending
-                    ? "[ENRICHING...]"
-                    : `[ENRICH ALL — ${enrichmentStats?.pending}]`}
-                </Button>
-              )}
-              {(enrichmentStats?.enriched ?? 0) > 0 && (
+              {remainingWork > 0 && (
                 <TooltipProvider>
                   <Tooltip>
                     <TooltipTrigger asChild>
                       <Button
-                        onClick={() => batchResearchAndOutreachMutation.mutate({ searchId: searchId! })}
-                        disabled={batchResearchAndOutreachMutation.isPending}
-                        className="text-lg px-6 py-4 font-black border-2 border-gray-900 bg-gray-900 text-white"
+                        onClick={() => doNext10Mutation.mutate({ searchId: searchId! })}
+                        disabled={doNext10Mutation.isPending}
+                        className="text-lg px-6 py-4 font-black border-2 border-black bg-black text-white"
                       >
-                        {batchResearchAndOutreachMutation.isPending
-                          ? "[RUNNING...]"
-                          : `[RESEARCH & OUTREACH — ${enrichmentStats?.enriched}]`}
+                        {doNext10Mutation.isPending
+                          ? "[WORKING...]"
+                          : `[DO 10 — ${remainingWork} LEFT]`}
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent side="bottom" className="max-w-xs text-sm">
-                      Generates a deep company brief (market position, pain points, recent news) + a personalized email, LinkedIn message, and call script for each enriched company.
+                      Processes the next 10 companies in sequence: enrich → deep research → sales approach. {remainingWork} companies still need processing.
                     </TooltipContent>
                   </Tooltip>
                 </TooltipProvider>
-              )}
-              {(batchStatus?.missingApproach ?? 0) > 0 && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={() => completeMissingApproachMutation.mutate({ searchId: searchId! })}
-                        disabled={completeMissingApproachMutation.isPending}
-                        className="text-lg px-6 py-4 font-black border-2 border-orange-600 bg-orange-600 text-white"
-                      >
-                        {completeMissingApproachMutation.isPending
-                          ? "[COMPLETING...]"
-                          : `[COMPLETE APPROACH — ${batchStatus?.missingApproach} MISSING]`}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs text-sm">
-                      {batchStatus?.missingApproach} companies have deep research but no sales approach yet. Click to generate the missing outreach scripts.
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-              )}
-              {(enrichmentStats?.nameOnly ?? 0) > 0 && (
-                <Button
-                  onClick={() => nameEnrichMutation.mutate({ searchId: searchId!, limit: 500, concurrency: 3 })}
-                  disabled={nameEnrichMutation.isPending}
-                  className="text-lg px-6 py-4 font-black border-2 border-gray-700 bg-gray-700 text-white"
-                >
-                  {nameEnrichMutation.isPending
-                    ? "[RE-ENRICHING...]"
-                    : `[RE-ENRICH BY NAME — ${enrichmentStats?.nameOnly}]`}
-                </Button>
               )}
               <Button
                 onClick={handleExportCsv}
@@ -706,28 +638,11 @@ export default function SearchResults() {
           </div>
 
           {/* Enrichment Progress */}
-          {enrichAllMutation.isPending && (
+          {doNext10Mutation.isPending && (
             <div className="border-2 border-gray-300 bg-gray-50 p-6 mb-6 animate-pulse">
-              <div className="text-xl font-black text-gray-700">→ ENRICHING COMPANY DETAILS...</div>
+              <div className="text-xl font-black text-gray-700">→ DO 10 RUNNING...</div>
               <div className="text-sm font-bold mt-2">
-                Fetching addresses, SIC/NAICS codes for {enrichmentStats?.pending} companies.
-              </div>
-            </div>
-          )}
-          {batchResearchAndOutreachMutation.isPending && (
-            <div className="border-2 border-gray-300 bg-gray-50 p-6 mb-6 animate-pulse">
-              <div className="text-xl font-black text-gray-700">→ RESEARCH & OUTREACH RUNNING...</div>
-              <div className="text-sm font-bold mt-2">
-                Phase 1: Generating deep research briefs — Phase 2: Creating personalized sales approaches.
-                Each company takes ~30s. This runs in the background for all {enrichmentStats?.enriched} enriched companies.
-              </div>
-            </div>
-          )}
-          {nameEnrichMutation.isPending && (
-            <div className="border-2 border-gray-300 bg-gray-50 p-6 mb-6 animate-pulse">
-              <div className="text-xl font-black text-gray-700">→ RE-ENRICHING BY NAME...</div>
-              <div className="text-sm font-bold mt-2">
-                Searching Apollo by company name for {enrichmentStats?.nameOnly} conference exhibitors. This may take a few minutes.
+                Processing next 10 companies: enrich → deep research → sales approach. Each takes ~30s.
               </div>
             </div>
           )}

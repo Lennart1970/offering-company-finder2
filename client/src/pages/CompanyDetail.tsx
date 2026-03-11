@@ -23,7 +23,7 @@ type ApproachSub = "conversation-starters" | "email-draft" | "linkedin-message" 
 
 const CHAPTERS: { id: Chapter; label: string; color: string; activeColor: string }[] = [
   { id: "overview",  label: "OVERVIEW",         color: "border-black text-black",           activeColor: "bg-black text-white border-black" },
-  { id: "urgency",   label: "⚡ URGENCY",        color: "border-red-600 text-red-600",        activeColor: "bg-red-600 text-white border-red-600" },
+  { id: "urgency",   label: "⚡ INTEL",          color: "border-red-600 text-red-600",        activeColor: "bg-red-600 text-white border-red-600" },
   { id: "research",  label: "🔬 RESEARCH",       color: "border-blue-600 text-blue-600",      activeColor: "bg-blue-600 text-white border-blue-600" },
   { id: "approach",  label: "💬 APPROACH",       color: "border-green-600 text-green-600",    activeColor: "bg-green-600 text-white border-green-600" },
   { id: "contacts",  label: "👤 CONTACTS",       color: "border-purple-600 text-purple-600",  activeColor: "bg-purple-600 text-white border-purple-600" },
@@ -824,7 +824,7 @@ export default function CompanyDetail() {
                   className={`p-4 border-4 text-left cursor-pointer transition-colors ${
                     briefData ? "border-red-600 hover:bg-red-50" : "border-gray-200 opacity-40 cursor-default"
                   }`}>
-                  <div className="text-[10px] font-black text-red-600 mb-1">⚡ URGENCY</div>
+                  <div className="text-[10px] font-black text-red-600 mb-1">⚡ INTEL</div>
                   {briefData ? (
                     <><div className="text-3xl font-black text-red-600">{briefData.urgencyScore}/100</div>
                     <div className="text-xs font-bold text-muted-foreground mt-1">Click to view breakdown →</div></>
@@ -927,7 +927,7 @@ export default function CompanyDetail() {
                     {/* Section label */}
                     <div className="flex items-center justify-between mb-4">
                       <div className="flex items-center gap-3">
-                        <span className="text-[11px] font-black tracking-[0.2em] uppercase border-b-2 border-black pb-0.5">Intelligence Briefing</span>
+                        <span className="text-[11px] font-black tracking-[0.2em] uppercase border-b-2 border-black pb-0.5">Company Briefing</span>
                         {urgencyImagesLoading && <span className="text-[10px] text-gray-400 font-bold animate-pulse">Loading images...</span>}
                       </div>
                       <div className="flex items-center gap-2">
@@ -1050,9 +1050,9 @@ export default function CompanyDetail() {
                               target="_blank"
                               rel="noopener noreferrer"
                               className="flex-shrink-0"
-                              style={{ width: "140px" }}
+                              style={{ width: "200px" }}
                             >
-                              <div className="overflow-hidden bg-gray-100" style={{ height: "88px" }}>
+                              <div className="overflow-hidden bg-gray-100" style={{ height: "160px" }}>
                                 <img
                                   src={img.thumbnailUrl || img.imageUrl}
                                   alt={img.title}

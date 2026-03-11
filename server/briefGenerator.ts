@@ -11,6 +11,7 @@
  */
 
 import { getCompanyById, getActiveBrain } from "./db";
+import type { VerifiedSource, SalesIntelligenceBrief, FitScoreResult } from "../shared/contractTypes";
 
 const XAI_API_KEY = process.env.XAI_API_KEY;
 const XAI_BASE_URL = "https://api.x.ai/v1";
@@ -53,14 +54,12 @@ async function getBrainContext(userId: number): Promise<string> {
   }
 }
 
-export interface VerifiedSource {
-  url: string;
-  title: string;
-  snippet: string;
-  dateAccessed: string;
-}
+// Types moved to shared/contractTypes.ts — imported above
+// Re-export for backward compatibility with any existing consumers
+export type { VerifiedSource, SalesIntelligenceBrief, FitScoreResult } from "../shared/contractTypes";
 
-export interface SalesIntelligenceBrief {
+/** @deprecated Use SalesIntelligenceBrief from shared/contractTypes.ts */
+interface _SalesIntelligenceBrief_LEGACY {
   companyName: string;
   generatedAt: string;
   urgencyScore: number;
@@ -117,10 +116,23 @@ export interface SalesIntelligenceBrief {
   rawGrokIntelligence?: string;
 }
 
+// Helper: get today's date as a readable string for prompt injection
+function todayString(): string {
+  return new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+
 /**
- * Call xAI Responses API with explicit web_search tool
+ * Call xAI Responses API with explicit web_search tool.
+ * Pass a json_schema object to enforce strict structured output.
  */
-async function callGrokWithWebSearch(input: string): Promise<string> {
+async function callGrokWithWebSearch(
+  input: string,
+  jsonSchema?: Record<string, unknown>
+): Promise<string> {
+  const responseFormat = jsonSchema
+    ? { type: "json_schema", json_schema: { name: "output", strict: true, schema: jsonSchema } }
+    : { type: "json_object" };
+
   const response = await fetch(`${XAI_BASE_URL}/responses`, {
     method: "POST",
     headers: {
@@ -131,7 +143,7 @@ async function callGrokWithWebSearch(input: string): Promise<string> {
       model: "grok-4-1-fast-reasoning",
       tools: [{ type: "web_search" }],  // Explicit web_search tool
       input,
-      response_format: { type: "json_object" },
+      response_format: responseFormat,
     }),
   });
 
@@ -190,9 +202,136 @@ export async function generateSalesIntelligenceBrief(
     console.log(`[Brief Generator] Brain context loaded — will inform fit/urgency evaluation`);
   }
 
+  // JSON schemas for strict output enforcement (Fix 3 — prompt-contracts-audit.md)
+  const URGENCY_SCHEMA = {
+    type: "object",
+    properties: {
+      urgencyScore: { type: "number" },
+      urgencyBreakdown: {
+        type: "object",
+        properties: {
+          companyContext: { type: "number" },
+          marketSignals: { type: "number" },
+          recentActivity: { type: "number" },
+        },
+        required: ["companyContext", "marketSignals", "recentActivity"],
+        additionalProperties: false,
+      },
+      recentDevelopments: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            text: { type: "string" },
+            date: { type: "string" },
+            sourceUrl: { type: "string" },
+            snippet: { type: "string" },
+          },
+          required: ["text", "date", "sourceUrl", "snippet"],
+          additionalProperties: false,
+        },
+      },
+      urgencySignals: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            category: { type: "string" },
+            type: { type: "string" },
+            description: { type: "string" },
+            weight: { type: "number" },
+            sourceUrl: { type: "string" },
+            snippet: { type: "string" },
+            detectedAt: { type: "string" },
+          },
+          required: ["category", "type", "description", "weight", "sourceUrl", "snippet", "detectedAt"],
+          additionalProperties: false,
+        },
+      },
+      sources: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            url: { type: "string" },
+            title: { type: "string" },
+            snippet: { type: "string" },
+            dateAccessed: { type: "string" },
+          },
+          required: ["url", "title", "snippet", "dateAccessed"],
+          additionalProperties: false,
+        },
+      },
+      searchNotes: { type: "string" },
+    },
+    required: ["urgencyScore", "urgencyBreakdown", "recentDevelopments", "urgencySignals", "sources", "searchNotes"],
+    additionalProperties: false,
+  };
+
+  const INTELLIGENCE_SCHEMA = {
+    type: "object",
+    properties: {
+      productsServices: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            category: { type: "string" },
+            description: { type: "string" },
+            sourceUrl: { type: "string" },
+          },
+          required: ["category", "description", "sourceUrl"],
+          additionalProperties: false,
+        },
+      },
+      keyTechnologies: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            description: { type: "string" },
+            sourceUrl: { type: "string" },
+          },
+          required: ["name", "description", "sourceUrl"],
+          additionalProperties: false,
+        },
+      },
+      targetMarkets: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            segment: { type: "string" },
+            description: { type: "string" },
+          },
+          required: ["segment", "description"],
+          additionalProperties: false,
+        },
+      },
+      industryKeywords: { type: "array", items: { type: "string" } },
+      sources: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            url: { type: "string" },
+            title: { type: "string" },
+            snippet: { type: "string" },
+            dateAccessed: { type: "string" },
+          },
+          required: ["url", "title", "snippet", "dateAccessed"],
+          additionalProperties: false,
+        },
+      },
+    },
+    required: ["productsServices", "keyTechnologies", "targetMarkets", "industryKeywords", "sources"],
+    additionalProperties: false,
+  };
+
   // Phase 1: Detect urgency signals with verified sources
   console.log(`[Brief Generator] Phase 1: Detecting urgency signals with source verification...`);
-  const urgencyPrompt = `You are a B2B sales intelligence analyst. Today is February 25, 2026. Your goal is to provide verifiable answers with traceable sources from the most recent content available.
+  const urgencyPrompt = `You are a B2B sales intelligence analyst. Today is ${todayString()}. Your goal is to provide verifiable answers with traceable sources from the most recent content available.
 ${brainContext ? `${brainContext}
 **Use the Offering Brain intelligence above to:**
 - Assess how well this prospect fits the seller's ICP
@@ -251,14 +390,14 @@ ${brainContext ? `${brainContext}
   "searchNotes": "Any caveats about source availability or search limitations"
 }`;
 
-  const urgencyRaw = await callGrokWithWebSearch(urgencyPrompt);
+  const urgencyRaw = await callGrokWithWebSearch(urgencyPrompt, URGENCY_SCHEMA);
   const urgencyData = JSON.parse(urgencyRaw);
   console.log(`[Brief Generator] Urgency score: ${urgencyData.urgencyScore}`);
   console.log(`[Brief Generator] Sources found: ${urgencyData.sources?.length || 0}`);
 
   // Phase 2: Gather company intelligence with verified sources
   console.log(`[Brief Generator] Phase 2: Gathering company intelligence with source verification...`);
-  const intelligencePrompt = `You are a B2B sales intelligence analyst. Today is February 25, 2026. Your goal is to provide verifiable company intelligence with traceable sources.
+  const intelligencePrompt = `You are a B2B sales intelligence analyst. Today is ${todayString()}. Your goal is to provide verifiable company intelligence with traceable sources.
 ${brainContext ? `${brainContext}
 **Use the Offering Brain intelligence above to:**
 - Focus on products/services that overlap with the seller's capabilities
@@ -306,7 +445,7 @@ ${brainContext ? `${brainContext}
   ]
 }`;
 
-  const intelligenceRaw = await callGrokWithWebSearch(intelligencePrompt);
+  const intelligenceRaw = await callGrokWithWebSearch(intelligencePrompt, INTELLIGENCE_SCHEMA);
   const intelligenceData = JSON.parse(intelligenceRaw);
   console.log(
     `[Brief Generator] Found ${intelligenceData.productsServices?.length || 0} product categories`
@@ -433,21 +572,7 @@ function inferIndustryFromNAICS(naicsCodes: string[]): string {
 // FIT SCORING — Grok-powered ICP match analysis
 // ============================================================================
 
-export interface FitScoreResult {
-  fitScore: number; // 0-100
-  scoredAt: string;
-  companyName: string;
-  brainName: string;
-  breakdown: {
-    industryFit: { score: number; max: number; rationale: string };
-    sizeFit: { score: number; max: number; rationale: string };
-    mustHavesFit: { score: number; max: number; rationale: string; matched: string[]; missing: string[] };
-    disqualifiers: { triggered: boolean; reasons: string[] };
-    buyingSignalsFit: { score: number; max: number; rationale: string };
-  };
-  overallRationale: string;
-  rawGrokFit?: string;
-}
+// FitScoreResult is now defined in shared/contractTypes.ts and imported at the top
 
 /**
  * Score a company's fit against the active Brain's ICP criteria.

@@ -98,7 +98,7 @@ export async function researchOfferingBrain(
 
   console.log(`[Brain Research] Starting deep offering research for ${displayName} (${domain})`);
 
-  const prompt = `You are a B2B sales intelligence analyst specializing in deep company analysis. Today is February 25, 2026.
+  const prompt = `You are a B2B sales intelligence analyst specializing in deep company analysis. Today is ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}.
 
 **Task:** Conduct a thorough analysis of "${displayName}" (website: ${companyWebsite}) to build a complete understanding of their offering, ideal customer profile, and competitive positioning.
 

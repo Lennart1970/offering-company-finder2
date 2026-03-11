@@ -23,7 +23,7 @@ export interface OfferingData {
 const XAI_API_KEY = process.env.XAI_API_KEY;
 const XAI_BASE_URL = "https://api.x.ai/v1";
 
-const OFFERING_EXTRACTION_PROMPT = `You are an expert B2B sales strategist and business analyst. Today is February 23, 2026. Your goal is to analyze a company's website with verifiable, traceable sources.
+const OFFERING_EXTRACTION_PROMPT = `You are an expert B2B sales strategist and business analyst. Today is ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}. Your goal is to analyze a company's website with verifiable, traceable sources.
 
 Your job is to determine:
 1. What this company offers (their product/service)

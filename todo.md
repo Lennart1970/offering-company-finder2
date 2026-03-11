@@ -1561,3 +1561,9 @@
 ## Bug: Research & Outreach "Unexpected token '<'" Error
 - [ ] Diagnose why Research & Outreach returns HTML instead of JSON (server crash / missing route / unhandled error)
 - [ ] Fix the procedure and verify it returns valid JSON
+
+## Prompt-Contracts Fixes (from audit Mar 11 2026)
+- [x] Shared types contract — SalesIntelligenceBrief, SalesApproach, FitScoreResult moved to shared/contractTypes.ts
+- [x] Dynamic date injection — replaced hardcoded "February 25, 2026" with todayString() in all 5 research prompts (briefGenerator, brainResearchService, offeringExtractor, salesApproachGenerator)
+- [x] Strict json_schema enforcement — added URGENCY_SCHEMA and INTELLIGENCE_SCHEMA to Brief Generator phases 1 and 2
+- [x] Field-name normalisation shim — briefData useMemo in CompanyDetail now maps productsServices→productsAndServices and derives companyOverview from executiveSummary

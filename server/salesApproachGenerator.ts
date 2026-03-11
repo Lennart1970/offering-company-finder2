@@ -175,7 +175,7 @@ export async function generateSalesApproach(
     .join("\n");
 
   // Generate comprehensive sales approach
-  const approachPrompt = `You are a B2B sales expert. Today is February 25, 2026. You are crafting a complete sales approach for ${sellerName}.
+  const approachPrompt = `You are a B2B sales expert. Today is ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}. You are crafting a complete sales approach for ${sellerName}.
 ${brainInfo.context ? `${brainInfo.context}
 **Use the seller intelligence above to tailor all outreach materials to the seller's specific capabilities and value propositions.**
 ` : ""}

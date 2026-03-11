@@ -71,7 +71,9 @@ export default function CompanyDetail() {
   const goToQueueIndex = (newIndex: number) => {
     const nextId = queueIds[newIndex];
     if (!nextId) return;
-    navigate(`/company/${nextId}?from=${fromParam}&queue=${queueParam}&qi=${newIndex}`);
+    // Preserve the active chapter when stepping through the queue
+    const chParam = chapter !== "overview" ? `&chapter=${chapter}` : "";
+    navigate(`/company/${nextId}?from=${fromParam}&queue=${queueParam}&qi=${newIndex}${chParam}`);
   };
 
   const [chapter, setChapter] = useState<Chapter>(initialChapter);
@@ -400,7 +402,7 @@ export default function CompanyDetail() {
             {(fromParam === "call-today" || fromParam.startsWith("call-today/")) ? "CALL TODAY" : fromParam.startsWith("search/") ? "SEARCH RESULTS" : "BACK"} / {company.name.toUpperCase()}
           </span>
         </div>
-        {/* Prev/Next queue navigator — only shown when arriving from Call Today queue */}
+        {/* Prev/Next queue navigator — shown when arriving from Call Today or Search Results with a queue */}
         {queueIds.length > 0 && (
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-muted-foreground">

@@ -806,6 +806,7 @@ export default function SearchResults() {
                 company={company}
                 index={index}
                 searchId={searchId!}
+                queueIds={displayedCompanies.slice(0, 500).map((c: any) => c.id)}
                 onViewResearch={(id) => { setQuickViewCompanyId(id); setQuickViewMode("research"); }}
                 onViewApproach={(id) => { setQuickViewCompanyId(id); setQuickViewMode("approach"); }}
               />
@@ -952,14 +953,25 @@ export default function SearchResults() {
 // ============================================================================
 // Company Card — Compact Layout
 // ============================================================================
-function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach }: {
+function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach, queueIds }: {
   company: any;
   index: number;
   searchId: number;
   onViewResearch?: (companyId: number) => void;
   onViewApproach?: (companyId: number) => void;
+  queueIds?: number[];
 }) {
   const [, navigate] = useLocation();
+  // Build a URL to this company's detail page, optionally with a chapter and the full queue for PREV/NEXT nav
+  const buildCompanyUrl = (chapter?: string) => {
+    let url = `/company/${company.id}?from=search/${searchId}`;
+    if (queueIds && queueIds.length > 1) {
+      const qi = queueIds.indexOf(company.id);
+      url += `&queue=${queueIds.join(",")}&qi=${qi}`;
+    }
+    if (chapter) url += `&chapter=${chapter}`;
+    return url;
+  };
   const hasSicCodes = !!(company.sicCodes && JSON.parse(company.sicCodes).length > 0);
   const hasNaicsCodes = !!(company.naicsCodes && JSON.parse(company.naicsCodes).length > 0);
 
@@ -983,7 +995,7 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
               )}
               {company.urgencyScore > 0 && (
                 <button
-                  onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}?chapter=urgency&from=search/${searchId}`); }}
+                  onClick={(e) => { e.stopPropagation(); navigate(buildCompanyUrl("urgency")); }}
                   className={`text-[10px] font-bold px-2 py-0.5 cursor-pointer hover:opacity-80 transition-opacity rounded-sm ${
                     company.urgencyScore >= 70 ? "bg-red-600 text-white" :
                     company.urgencyScore >= 50 ? "bg-amber-500 text-white" :
@@ -1018,7 +1030,7 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
           {/* SALES BRIEF — prominent right-side CTA */}
           <div className="shrink-0">
             <button
-              onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}?from=search/${searchId}`); }}
+              onClick={(e) => { e.stopPropagation(); navigate(buildCompanyUrl()); }}
               className="flex flex-col items-center justify-center gap-0.5 border-2 border-gray-900 bg-gray-900 text-white hover:bg-gray-700 transition-colors px-4 py-3 min-w-[90px]"
             >
               <span className="text-[10px] font-medium tracking-widest uppercase text-gray-300">Sales</span>
@@ -1072,7 +1084,7 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
               ].filter(Boolean) as string[];
               return (
                 <button
-                  onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}?chapter=research&from=search/${searchId}`); }}
+                  onClick={(e) => { e.stopPropagation(); navigate(buildCompanyUrl("research")); }}
                   className="flex-1 border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors p-3 text-left cursor-pointer"
                 >
                   <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Research</div>
@@ -1104,7 +1116,7 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
               ].filter(Boolean) as string[];
               return (
                 <button
-                  onClick={(e) => { e.stopPropagation(); navigate(`/company/${company.id}?chapter=approach&from=search/${searchId}`); }}
+                  onClick={(e) => { e.stopPropagation(); navigate(buildCompanyUrl("approach")); }}
                   className="flex-1 border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors p-3 text-left cursor-pointer"
                 >
                   <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Approach</div>

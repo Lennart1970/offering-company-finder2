@@ -1557,3 +1557,7 @@
 - [x] Add "Copy invite link" option to user profile dropdown (admin only)
 - [x] Copies window.location.origin with a toast confirmation
 - [x] Campaigns created from niches auto-shared (sharedWithTeam=true)
+
+## Bug: Research & Outreach "Unexpected token '<'" Error
+- [ ] Diagnose why Research & Outreach returns HTML instead of JSON (server crash / missing route / unhandled error)
+- [ ] Fix the procedure and verify it returns valid JSON

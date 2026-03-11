@@ -177,7 +177,20 @@ export default function CompanyDetail() {
 
   const briefData = useMemo(() => {
     if (!company?.briefData) return null;
-    try { return typeof company.briefData === "string" ? JSON.parse(company.briefData) : company.briefData; }
+    try {
+      const raw = typeof company.briefData === "string" ? JSON.parse(company.briefData) : company.briefData;
+      if (!raw) return null;
+      // Normalise: brief generator uses productsServices, UI expects productsAndServices
+      if (!raw.productsAndServices && raw.productsServices) {
+        raw.productsAndServices = raw.productsServices;
+      }
+      // Normalise: derive companyOverview from executiveSummary if missing
+      if (!raw.companyOverview && raw.executiveSummary) {
+        const es = raw.executiveSummary;
+        raw.companyOverview = [es.company, es.industry !== 'Unknown' ? es.industry : null, es.revenue !== 'Unknown' ? `Revenue: ${es.revenue}` : null].filter(Boolean).join(' · ');
+      }
+      return raw;
+    }
     catch { return null; }
   }, [company?.briefData]);
 

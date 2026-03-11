@@ -1,0 +1,60 @@
+{
+  "query": "SELECT id, name, websiteUrl, enrichmentStatus, urgencyScore, briefGeneratedAt, LENGTH(briefData) as briefLen, LEFT(briefData, 200) as briefStart FROM companies WHERE name LIKE '%SEED%' OR websiteUrl LIKE '%wseed%' OR name LIKE '%Endoscopia%' LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, name, websiteUrl, enrichmentStatus, urgencyScore, briefGeneratedAt, LENGTH(briefData) as briefLen, LEFT(briefData, 200) as briefStart FROM companies WHERE name LIKE '%SEED%' OR websiteUrl LIKE '%wseed%' OR name LIKE '%Endoscopia%' LIMIT 5;",
+  "rows": [
+    {
+      "id": "632125",
+      "name": "Dataseeds",
+      "websiteUrl": "http://www.data-seeds.com",
+      "enrichmentStatus": "enriched",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefLen": "NULL",
+      "briefStart": "NULL"
+    },
+    {
+      "id": "901581",
+      "name": "Dataseeds",
+      "websiteUrl": "http://www.data-seeds.com",
+      "enrichmentStatus": "pending",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefLen": "NULL",
+      "briefStart": "NULL"
+    },
+    {
+      "id": "990098",
+      "name": "SEED, Sociedad EspaÃ±ola Endoscopia Digestiva",
+      "websiteUrl": "http://www.wseed.org",
+      "enrichmentStatus": "pending",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefLen": "NULL",
+      "briefStart": "NULL"
+    },
+    {
+      "id": "990324",
+      "name": "Seedwind",
+      "websiteUrl": "http://www.seedwind.eu",
+      "enrichmentStatus": "pending",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefLen": "NULL",
+      "briefStart": "NULL"
+    },
+    {
+      "id": "994736",
+      "name": "ST Endoscopia",
+      "websiteUrl": "http://www.st-endoscopia.es",
+      "enrichmentStatus": "pending",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefLen": "NULL",
+      "briefStart": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\twebsiteUrl\tenrichmentStatus\turgencyScore\tbriefGeneratedAt\tbriefLen\tbriefStart\n632125\tDataseeds\thttp://www.data-seeds.com\tenriched\tNULL\tNULL\tNULL\tNULL\n901581\tDataseeds\thttp://www.data-seeds.com\tpending\tNULL\tNULL\tNULL\tNULL\n990098\tSEED, Sociedad EspaÃ±ola Endoscopia Digestiva\thttp://www.wseed.org\tpending\tNULL\tNULL\tNULL\tNULL\n990324\tSeedwind\thttp://www.seedwind.eu\tpending\tNULL\tNULL\tNULL\tNULL\n994736\tST Endoscopia\thttp://www.st-endoscopia.es\tpending\tNULL\tNULL\tNULL\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 395
+}

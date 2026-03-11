@@ -1,0 +1,15 @@
+{
+  "query": "SELECT id, name, LEFT(briefData, 500) as briefDataStart FROM companies WHERE name LIKE '%SEED%' AND briefData IS NOT NULL LIMIT 3;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, name, LEFT(briefData, 500) as briefDataStart FROM companies WHERE name LIKE '%SEED%' AND briefData IS NOT NULL LIMIT 3;",
+  "rows": [
+    {
+      "id": "995970",
+      "name": "SEED, Sociedad EspaÃ±ola Endoscopia Digestiva",
+      "briefDataStart": "{\"companyName\":\"SEED, Sociedad EspaÃ±ola Endoscopia Digestiva\",\"generatedAt\":\"2026-03-11T08:09:58.597Z\",\"urgencyScore\":12,\"urgencyBreakdown\":{\"companyContext\":5,\"marketSignals\":2,\"recentActivity\":5},\"executiveSummary\":{\"company\":\"SEED, Sociedad EspaÃ±ola Endoscopia Digestiva\",\"industry\":\"Unknown\",\"employees\":\"Unknown\",\"revenue\":\"Unknown\",\"domain\":\"wseed.org\",\"linkedin\":\"http://www.linkedin.com/company/seed-sociedad-espa%c3%b1ola-de-endoscopia-digestiva\"},\"verifiedContacts\":{\"website\":{\"value\":\"w"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tbriefDataStart\n995970\tSEED, Sociedad EspaÃ±ola Endoscopia Digestiva\t{\"companyName\":\"SEED, Sociedad EspaÃ±ola Endoscopia Digestiva\",\"generatedAt\":\"2026-03-11T08:09:58.597Z\",\"urgencyScore\":12,\"urgencyBreakdown\":{\"companyContext\":5,\"marketSignals\":2,\"recentActivity\":5},\"executiveSummary\":{\"company\":\"SEED, Sociedad EspaÃ±ola Endoscopia Digestiva\",\"industry\":\"Unknown\",\"employees\":\"Unknown\",\"revenue\":\"Unknown\",\"domain\":\"wseed.org\",\"linkedin\":\"http://www.linkedin.com/company/seed-sociedad-espa%c3%b1ola-de-endoscopia-digestiva\"},\"verifiedContacts\":{\"website\":{\"value\":\"w\n",
+  "stderr": "",
+  "execution_time_ms": 444
+}

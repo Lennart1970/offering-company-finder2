@@ -1,0 +1,58 @@
+{
+  "query": "SELECT id, name, websiteUrl, LENGTH(briefData) as briefLen FROM companies WHERE id IN (995967, 995972, 995975, 995976, 995977, 995981, 995983, 995985) ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, name, websiteUrl, LENGTH(briefData) as briefLen FROM companies WHERE id IN (995967, 995972, 995975, 995976, 995977, 995981, 995983, 995985) ORDER BY id;",
+  "rows": [
+    {
+      "id": "995967",
+      "name": "Vermeiren IbÃ©rica S.L.U.",
+      "websiteUrl": "http://www.vermeiren.es",
+      "briefLen": "16411"
+    },
+    {
+      "id": "995972",
+      "name": "Surgival",
+      "websiteUrl": "http://www.surgival.com",
+      "briefLen": "16901"
+    },
+    {
+      "id": "995975",
+      "name": "Mas Medical Aesthetic Systems",
+      "websiteUrl": "http://www.mas-med.es",
+      "briefLen": "19540"
+    },
+    {
+      "id": "995976",
+      "name": "Alma Lasers MÃ©dica",
+      "websiteUrl": "http://www.almalasersmedica.es",
+      "briefLen": "18801"
+    },
+    {
+      "id": "995977",
+      "name": "Karma Mobility EspaÃ±a",
+      "websiteUrl": "http://www.karmamobility.es",
+      "briefLen": "19950"
+    },
+    {
+      "id": "995981",
+      "name": "Novatech Medical",
+      "websiteUrl": "http://www.novatechmedical.es",
+      "briefLen": "12556"
+    },
+    {
+      "id": "995983",
+      "name": "Teoxane EspaÃ±a",
+      "websiteUrl": "http://www.teoxane.es",
+      "briefLen": "16262"
+    },
+    {
+      "id": "995985",
+      "name": "Llambrich",
+      "websiteUrl": "http://www.llambrich.com",
+      "briefLen": "14007"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\twebsiteUrl\tbriefLen\n995967\tVermeiren IbÃ©rica S.L.U.\thttp://www.vermeiren.es\t16411\n995972\tSurgival\thttp://www.surgival.com\t16901\n995975\tMas Medical Aesthetic Systems\thttp://www.mas-med.es\t19540\n995976\tAlma Lasers MÃ©dica\thttp://www.almalasersmedica.es\t18801\n995977\tKarma Mobility EspaÃ±a\thttp://www.karmamobility.es\t19950\n995981\tNovatech Medical\thttp://www.novatechmedical.es\t12556\n995983\tTeoxane EspaÃ±a\thttp://www.teoxane.es\t16262\n995985\tLlambrich\thttp://www.llambrich.com\t14007\n",
+  "stderr": "",
+  "execution_time_ms": 351
+}

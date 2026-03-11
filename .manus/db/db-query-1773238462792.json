@@ -1,0 +1,80 @@
+{
+  "query": "SELECT id, name, websiteUrl, searchId, enrichmentStatus, urgencyScore, briefGeneratedAt, CASE WHEN briefData IS NULL THEN 'NULL' WHEN briefData = '' THEN 'EMPTY' ELSE CONCAT('HAS DATA (', LENGTH(briefData), ' chars)') END as briefStatus FROM companies WHERE name LIKE '%SEED%' OR name LIKE '%Endoscop%' ORDER BY briefGeneratedAt DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, name, websiteUrl, searchId, enrichmentStatus, urgencyScore, briefGeneratedAt, CASE WHEN briefData IS NULL THEN 'NULL' WHEN briefData = '' THEN 'EMPTY' ELSE CONCAT('HAS DATA (', LENGTH(briefData), ' chars)') END as briefStatus FROM companies WHERE name LIKE '%SEED%' OR name LIKE '%Endoscop%' ORDER BY briefGeneratedAt DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "995970",
+      "name": "SEED, Sociedad EspaÃ±ola Endoscopia Digestiva",
+      "websiteUrl": "http://www.wseed.org",
+      "searchId": "1110002",
+      "enrichmentStatus": "enriched",
+      "urgencyScore": "12",
+      "briefGeneratedAt": "2026-03-11 08:09:59",
+      "briefStatus": "HAS DATA (12482 chars)"
+    },
+    {
+      "id": "901581",
+      "name": "Dataseeds",
+      "websiteUrl": "http://www.data-seeds.com",
+      "searchId": "1020006",
+      "enrichmentStatus": "pending",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefStatus": "NULL"
+    },
+    {
+      "id": "994736",
+      "name": "ST Endoscopia",
+      "websiteUrl": "http://www.st-endoscopia.es",
+      "searchId": "1110001",
+      "enrichmentStatus": "pending",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefStatus": "NULL"
+    },
+    {
+      "id": "990324",
+      "name": "Seedwind",
+      "websiteUrl": "http://www.seedwind.eu",
+      "searchId": "1110001",
+      "enrichmentStatus": "pending",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefStatus": "NULL"
+    },
+    {
+      "id": "990098",
+      "name": "SEED, Sociedad EspaÃ±ola Endoscopia Digestiva",
+      "websiteUrl": "http://www.wseed.org",
+      "searchId": "1110001",
+      "enrichmentStatus": "pending",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefStatus": "NULL"
+    },
+    {
+      "id": "996316",
+      "name": "ST Endoscopia",
+      "websiteUrl": "http://www.st-endoscopia.es",
+      "searchId": "1110002",
+      "enrichmentStatus": "enriched",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefStatus": "NULL"
+    },
+    {
+      "id": "632125",
+      "name": "Dataseeds",
+      "websiteUrl": "http://www.data-seeds.com",
+      "searchId": "750001",
+      "enrichmentStatus": "enriched",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefStatus": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\twebsiteUrl\tsearchId\tenrichmentStatus\turgencyScore\tbriefGeneratedAt\tbriefStatus\n995970\tSEED, Sociedad EspaÃ±ola Endoscopia Digestiva\thttp://www.wseed.org\t1110002\tenriched\t12\t2026-03-11 08:09:59\tHAS DATA (12482 chars)\n901581\tDataseeds\thttp://www.data-seeds.com\t1020006\tpending\tNULL\tNULL\tNULL\n994736\tST Endoscopia\thttp://www.st-endoscopia.es\t1110001\tpending\tNULL\tNULL\tNULL\n990324\tSeedwind\thttp://www.seedwind.eu\t1110001\tpending\tNULL\tNULL\tNULL\n990098\tSEED, Sociedad EspaÃ±ola Endoscopia Digestiva\thttp://www.wseed.org\t1110001\tpending\tNULL\tNULL\tNULL\n996316\tST Endoscopia\thttp://www.st-endoscopia.es\t1110002\tenriched\tNULL\tNULL\tNULL\n632125\tDataseeds\thttp://www.data-seeds.com\t750001\tenriched\tNULL\tNULL\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 1286
+}

@@ -1,0 +1,55 @@
+{
+  "query": "SELECT id, name, enrichmentStatus, urgencyScore, briefGeneratedAt, LENGTH(briefData) as briefDataLen, LEFT(briefData, 100) as briefDataPreview FROM companies WHERE name LIKE '%SEED%' OR name LIKE '%Endoscopia%' LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, name, enrichmentStatus, urgencyScore, briefGeneratedAt, LENGTH(briefData) as briefDataLen, LEFT(briefData, 100) as briefDataPreview FROM companies WHERE name LIKE '%SEED%' OR name LIKE '%Endoscopia%' LIMIT 5;",
+  "rows": [
+    {
+      "id": "632125",
+      "name": "Dataseeds",
+      "enrichmentStatus": "enriched",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefDataLen": "NULL",
+      "briefDataPreview": "NULL"
+    },
+    {
+      "id": "901581",
+      "name": "Dataseeds",
+      "enrichmentStatus": "pending",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefDataLen": "NULL",
+      "briefDataPreview": "NULL"
+    },
+    {
+      "id": "990098",
+      "name": "SEED, Sociedad EspaÃ±ola Endoscopia Digestiva",
+      "enrichmentStatus": "pending",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefDataLen": "NULL",
+      "briefDataPreview": "NULL"
+    },
+    {
+      "id": "990324",
+      "name": "Seedwind",
+      "enrichmentStatus": "pending",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefDataLen": "NULL",
+      "briefDataPreview": "NULL"
+    },
+    {
+      "id": "994736",
+      "name": "ST Endoscopia",
+      "enrichmentStatus": "pending",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefDataLen": "NULL",
+      "briefDataPreview": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tenrichmentStatus\turgencyScore\tbriefGeneratedAt\tbriefDataLen\tbriefDataPreview\n632125\tDataseeds\tenriched\tNULL\tNULL\tNULL\tNULL\n901581\tDataseeds\tpending\tNULL\tNULL\tNULL\tNULL\n990098\tSEED, Sociedad EspaÃ±ola Endoscopia Digestiva\tpending\tNULL\tNULL\tNULL\tNULL\n990324\tSeedwind\tpending\tNULL\tNULL\tNULL\tNULL\n994736\tST Endoscopia\tpending\tNULL\tNULL\tNULL\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 455
+}

@@ -1,0 +1,50 @@
+{
+  "query": "SELECT id, name, enrichmentStatus, urgencyScore, briefGeneratedAt, LENGTH(briefData) as briefDataLen FROM companies WHERE name LIKE '%SEED%' OR websiteUrl LIKE '%wseed%' LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, name, enrichmentStatus, urgencyScore, briefGeneratedAt, LENGTH(briefData) as briefDataLen FROM companies WHERE name LIKE '%SEED%' OR websiteUrl LIKE '%wseed%' LIMIT 5;",
+  "rows": [
+    {
+      "id": "632125",
+      "name": "Dataseeds",
+      "enrichmentStatus": "enriched",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefDataLen": "NULL"
+    },
+    {
+      "id": "901581",
+      "name": "Dataseeds",
+      "enrichmentStatus": "pending",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefDataLen": "NULL"
+    },
+    {
+      "id": "990098",
+      "name": "SEED, Sociedad EspaÃ±ola Endoscopia Digestiva",
+      "enrichmentStatus": "pending",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefDataLen": "NULL"
+    },
+    {
+      "id": "990324",
+      "name": "Seedwind",
+      "enrichmentStatus": "pending",
+      "urgencyScore": "NULL",
+      "briefGeneratedAt": "NULL",
+      "briefDataLen": "NULL"
+    },
+    {
+      "id": "995970",
+      "name": "SEED, Sociedad EspaÃ±ola Endoscopia Digestiva",
+      "enrichmentStatus": "enriched",
+      "urgencyScore": "12",
+      "briefGeneratedAt": "2026-03-11 08:09:59",
+      "briefDataLen": "12482"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tenrichmentStatus\turgencyScore\tbriefGeneratedAt\tbriefDataLen\n632125\tDataseeds\tenriched\tNULL\tNULL\tNULL\n901581\tDataseeds\tpending\tNULL\tNULL\tNULL\n990098\tSEED, Sociedad EspaÃ±ola Endoscopia Digestiva\tpending\tNULL\tNULL\tNULL\n990324\tSeedwind\tpending\tNULL\tNULL\tNULL\n995970\tSEED, Sociedad EspaÃ±ola Endoscopia Digestiva\tenriched\t12\t2026-03-11 08:09:59\t12482\n",
+  "stderr": "",
+  "execution_time_ms": 422
+}

@@ -78,19 +78,28 @@ export interface SalesApproach {
  * Call xAI Responses API with explicit web_search tool
  */
 async function callGrokWithWebSearch(input: string): Promise<string> {
-  const response = await fetch(`${XAI_BASE_URL}/responses`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${XAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "grok-4-1-fast-reasoning",
-      tools: [{ type: "web_search" }],  // Explicit web_search tool
-      input,
-      response_format: { type: "json_object" },
-    }),
-  });
+  // 120-second timeout — Grok with web search can take 60-90 s
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 120_000);
+  let response: Response;
+  try {
+    response = await fetch(`${XAI_BASE_URL}/responses`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${XAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "grok-4-1-fast-reasoning",
+        tools: [{ type: "web_search" }],  // Explicit web_search tool
+        input,
+        response_format: { type: "json_object" },
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const error = await response.text();

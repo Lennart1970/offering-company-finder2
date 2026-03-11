@@ -1152,7 +1152,35 @@ export default function CompanyDetail() {
           {chapter === "approach" && (
             <div className="p-6">
               {!salesApproach ? (
-                <div className="text-center py-16 text-muted-foreground font-bold">No sales approach generated yet. Run Create Approach first.</div>
+                <div className="flex flex-col items-center justify-center py-16 gap-4">
+                  <p className="text-sm font-bold text-muted-foreground">
+                    {company.briefData ? "Deep research is ready — generate your personalised sales approach." : "Run Deep Research first, then come back to generate the sales approach."}
+                  </p>
+                  {company.briefData && (
+                    <button
+                      onClick={() => { setReApproachLoading(true); reApproachMutation.mutate({ companyId }); }}
+                      disabled={reApproachLoading}
+                      className="flex items-center gap-2 border-2 border-green-700 bg-green-700 text-white font-black px-6 py-3 hover:bg-green-800 transition-colors disabled:opacity-50 disabled:cursor-wait"
+                    >
+                      {reApproachLoading ? (
+                        <>
+                          <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                          GENERATING APPROACH...
+                        </>
+                      ) : (
+                        "💬 CREATE SALES APPROACH"
+                      )}
+                    </button>
+                  )}
+                  {!company.briefData && (
+                    <button
+                      onClick={() => setChapter("research")}
+                      className="border-2 border-blue-600 text-blue-600 font-black px-6 py-3 hover:bg-blue-50 transition-colors"
+                    >
+                      🔬 GO TO RESEARCH
+                    </button>
+                  )}
+                </div>
               ) : (
                 <div>
                   <CacheBanner

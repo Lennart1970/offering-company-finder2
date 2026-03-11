@@ -66,6 +66,10 @@ async function startServer() {
     console.log(`Port ${preferredPort} is busy, using port ${port} instead`);
   }
 
+  // Extend HTTP server timeout to 3 minutes to accommodate long-running LLM calls
+  // (Grok web-search-augmented generation can take 60-120 s)
+  server.timeout = 180_000;
+  server.keepAliveTimeout = 185_000;
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
   });

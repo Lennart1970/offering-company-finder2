@@ -284,6 +284,13 @@ export default function CompanyDetail() {
   );
   const urgencyImages: Array<{ imageUrl: string; thumbnailUrl: string; title: string; source: string; domain: string; link: string }> = urgencyImagesData?.images ?? [];
 
+  // Fall back to product images when no news images are available (and loading is complete)
+  const urgencyImagesFetched = urgencyImagesData !== undefined; // query has resolved
+  const displayImages = urgencyImages.length > 0
+    ? urgencyImages
+    : (!urgencyImagesLoading && urgencyImagesFetched ? productImages : []);
+  const usingProductImageFallback = urgencyImages.length === 0 && displayImages.length > 0;
+
   const fetchUrgencyImagesMutation = trpc.companyFinder.fetchUrgencyImages.useMutation({
     onSuccess: () => {
       setUrgencyImagesLoading(false);
@@ -914,15 +921,20 @@ export default function CompanyDetail() {
                         <span className="text-[11px] font-black tracking-[0.2em] uppercase border-b-2 border-black pb-0.5">Intelligence Briefing</span>
                         {urgencyImagesLoading && <span className="text-[10px] text-gray-400 font-bold animate-pulse">Loading images...</span>}
                       </div>
-                      {urgencyImages.length > 0 && (
-                        <button
-                          onClick={() => { setUrgencyImagesLoading(true); fetchUrgencyImagesMutation.mutate({ companyId, force: true }); }}
-                          disabled={urgencyImagesLoading}
-                          className="text-[10px] font-black text-gray-400 border border-gray-200 px-2 py-0.5 disabled:opacity-40"
-                        >
-                          {urgencyImagesLoading ? "REFRESHING..." : "↺ REFRESH IMAGES"}
-                        </button>
-                      )}
+                      <div className="flex items-center gap-2">
+                        {usingProductImageFallback && (
+                          <span className="text-[10px] font-black text-orange-500 border border-orange-300 bg-orange-50 px-2 py-0.5">PRODUCT IMAGES</span>
+                        )}
+                        {(displayImages.length > 0 || urgencyImagesLoading) && (
+                          <button
+                            onClick={() => { setUrgencyImagesLoading(true); fetchUrgencyImagesMutation.mutate({ companyId, force: true }); }}
+                            disabled={urgencyImagesLoading}
+                            className="text-[10px] font-black text-gray-400 border border-gray-200 px-2 py-0.5 disabled:opacity-40"
+                          >
+                            {urgencyImagesLoading ? "REFRESHING..." : "↺ REFRESH IMAGES"}
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Main editorial grid: hero image left + signal stack right */}
@@ -931,22 +943,22 @@ export default function CompanyDetail() {
 
                         {/* HERO: first image or skeleton */}
                         <div className="lg:col-span-1 border-r border-gray-200">
-                          {urgencyImagesLoading && urgencyImages.length === 0 ? (
+                          {urgencyImagesLoading && displayImages.length === 0 ? (
                             <div className="w-full bg-gray-100 animate-pulse" style={{ height: "280px" }} />
-                          ) : urgencyImages[0] ? (
-                            <a href={urgencyImages[0].link || urgencyImages[0].imageUrl} target="_blank" rel="noopener noreferrer" className="block">
+                          ) : displayImages[0] ? (
+                            <a href={displayImages[0].link || displayImages[0].imageUrl} target="_blank" rel="noopener noreferrer" className="block">
                               <div className="overflow-hidden bg-gray-100" style={{ height: "280px" }}>
                                 <img
-                                  src={urgencyImages[0].thumbnailUrl || urgencyImages[0].imageUrl}
-                                  alt={urgencyImages[0].title}
+                                  src={displayImages[0].thumbnailUrl || displayImages[0].imageUrl}
+                                  alt={displayImages[0].title}
                                   className="w-full h-full object-cover"
                                   onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.background = "#f3f4f6"; }}
                                 />
                               </div>
                               <div className="p-3 border-t border-gray-200 bg-white">
-                                <p className="text-[10px] font-black text-gray-400 tracking-widest mb-1">IN THE NEWS</p>
-                                {urgencyImages[0].title && <p className="text-sm font-bold leading-snug line-clamp-3">{urgencyImages[0].title}</p>}
-                                {urgencyImages[0].domain && <p className="text-[10px] text-gray-400 mt-1">{urgencyImages[0].domain}</p>}
+                                <p className="text-[10px] font-black text-gray-400 tracking-widest mb-1">{usingProductImageFallback ? "PRODUCT" : "IN THE NEWS"}</p>
+                                {displayImages[0].title && <p className="text-sm font-bold leading-snug line-clamp-3">{displayImages[0].title}</p>}
+                                {displayImages[0].domain && <p className="text-[10px] text-gray-400 mt-1">{displayImages[0].domain}</p>}
                               </div>
                             </a>
                           ) : (
@@ -959,7 +971,7 @@ export default function CompanyDetail() {
                         {/* SIGNAL STACK: urgency signals as story cards */}
                         <div className="lg:col-span-2 divide-y divide-gray-200">
                           {briefData.urgencySignals.map((s: any, i: number) => {
-                            const img = urgencyImages[i + 1]; // offset by 1 (hero used index 0)
+                            const img = displayImages[i + 1]; // offset by 1 (hero used index 0)
                             return (
                               <div key={i} className="flex gap-0">
                                 {/* Thumbnail (if available) */}
@@ -1011,11 +1023,11 @@ export default function CompanyDetail() {
                     )}
 
                     {/* SECONDARY IMAGE ROW: remaining images below the grid */}
-                    {urgencyImages.length > 1 && (
+                    {displayImages.length > 1 && (
                       <div className="mt-4">
-                        <div className="text-[10px] font-black text-gray-400 tracking-widest mb-2">MORE FROM THE NEWS</div>
+                        <div className="text-[10px] font-black text-gray-400 tracking-widest mb-2">{usingProductImageFallback ? "MORE PRODUCTS" : "MORE FROM THE NEWS"}</div>
                         <div className="flex gap-3 overflow-x-auto pb-1">
-                          {urgencyImages.slice(1).map((img, i) => (
+                          {displayImages.slice(1).map((img, i) => (
                             <a
                               key={i}
                               href={img.link || img.imageUrl}

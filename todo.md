@@ -1567,3 +1567,5 @@
 - [x] Dynamic date injection — replaced hardcoded "February 25, 2026" with todayString() in all 5 research prompts (briefGenerator, brainResearchService, offeringExtractor, salesApproachGenerator)
 - [x] Strict json_schema enforcement — added URGENCY_SCHEMA and INTELLIGENCE_SCHEMA to Brief Generator phases 1 and 2
 - [x] Field-name normalisation shim — briefData useMemo in CompanyDetail now maps productsServices→productsAndServices and derives companyOverview from executiveSummary
+- [x] Strict json_schema enforcement — added SALES_APPROACH_SCHEMA to salesApproachGenerator.ts (replaces json_object mode)
+- [x] OfferingData type moved to shared/contractTypes.ts — offeringExtractor.ts now imports from shared and re-exports for backward compat

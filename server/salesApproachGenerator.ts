@@ -8,9 +8,17 @@
  * - Email draft (personalized cold outreach)
  * - LinkedIn message (connection request + follow-up)
  * - Call script (structured talking points for phone/video call)
+ *
+ * Prompt-contract: uses strict json_schema mode to enforce SalesApproach interface.
+ * Type is defined in shared/contractTypes.ts — single source of truth.
  */
 
 import { getCompanyById, getActiveBrain } from "./db";
+import type { SalesApproach } from "../shared/contractTypes";
+
+// SalesApproach type is defined in shared/contractTypes.ts and imported above.
+// Re-export for backward compatibility with any consumers that import from this file.
+export type { SalesApproach } from "../shared/contractTypes";
 
 const XAI_API_KEY = process.env.XAI_API_KEY;
 const XAI_BASE_URL = "https://api.x.ai/v1";
@@ -44,38 +52,74 @@ async function getBrainContextForApproach(userId: number): Promise<{ context: st
   }
 }
 
-export interface SalesApproach {
-  companyName: string;
-  generatedAt: string;
-  conversationStarters: Array<{
-    opener: string;
-    sourceUrl: string;
-    basedOn: string;
-  }>;
-  engagementStrategy: {
-    whyThisProspectMatters: string[];
-    recommendedApproach: string[];
-    keyTalkingPoints: string[];
-  };
-  emailDraft: {
-    subject: string;
-    body: string;
-    referencedSources: string[];
-  };
-  linkedinMessage: {
-    connectionRequest: string;
-    followUp: string;
-  };
-  callScript: {
-    opening: string;
-    discoveryQuestions: string[];
-    valueProposition: string;
-    callToAction: string;
-  };
-}
+// ---------------------------------------------------------------------------
+// JSON Schema — strict structured output contract, mirrors SalesApproach interface
+// Governance: any field change here MUST also be reflected in shared/contractTypes.ts
+// ---------------------------------------------------------------------------
+const SALES_APPROACH_SCHEMA = {
+  type: "object",
+  properties: {
+    conversationStarters: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          opener: { type: "string" },
+          sourceUrl: { type: "string" },
+          basedOn: { type: "string" },
+        },
+        required: ["opener", "sourceUrl", "basedOn"],
+        additionalProperties: false,
+      },
+    },
+    engagementStrategy: {
+      type: "object",
+      properties: {
+        whyThisProspectMatters: { type: "array", items: { type: "string" } },
+        recommendedApproach: { type: "array", items: { type: "string" } },
+        keyTalkingPoints: { type: "array", items: { type: "string" } },
+      },
+      required: ["whyThisProspectMatters", "recommendedApproach", "keyTalkingPoints"],
+      additionalProperties: false,
+    },
+    emailDraft: {
+      type: "object",
+      properties: {
+        subject: { type: "string" },
+        body: { type: "string" },
+        referencedSources: { type: "array", items: { type: "string" } },
+      },
+      required: ["subject", "body", "referencedSources"],
+      additionalProperties: false,
+    },
+    linkedinMessage: {
+      type: "object",
+      properties: {
+        connectionRequest: { type: "string" },
+        followUp: { type: "string" },
+      },
+      required: ["connectionRequest", "followUp"],
+      additionalProperties: false,
+    },
+    callScript: {
+      type: "object",
+      properties: {
+        opening: { type: "string" },
+        discoveryQuestions: { type: "array", items: { type: "string" } },
+        valueProposition: { type: "string" },
+        callToAction: { type: "string" },
+      },
+      required: ["opening", "discoveryQuestions", "valueProposition", "callToAction"],
+      additionalProperties: false,
+    },
+  },
+  required: ["conversationStarters", "engagementStrategy", "emailDraft", "linkedinMessage", "callScript"],
+  additionalProperties: false,
+};
 
 /**
- * Call xAI Responses API with explicit web_search tool
+ * Call xAI Responses API with explicit web_search tool.
+ * Uses strict json_schema mode to enforce the SalesApproach contract.
  */
 async function callGrokWithWebSearch(input: string): Promise<string> {
   // 120-second timeout — Grok with web search can take 60-90 s
@@ -93,7 +137,14 @@ async function callGrokWithWebSearch(input: string): Promise<string> {
         model: "grok-4-1-fast-reasoning",
         tools: [{ type: "web_search" }],  // Explicit web_search tool
         input,
-        response_format: { type: "json_object" },
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "sales_approach",
+            strict: true,
+            schema: SALES_APPROACH_SCHEMA,
+          },
+        },
       }),
       signal: controller.signal,
     });
@@ -174,8 +225,11 @@ export async function generateSalesApproach(
     .map((s: any) => `- ${s.title || "Source"}: ${s.url}`)
     .join("\n");
 
+  // Today's date — dynamic, never hardcoded
+  const todayStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+
   // Generate comprehensive sales approach
-  const approachPrompt = `You are a B2B sales expert. Today is ${new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })}. You are crafting a complete sales approach for ${sellerName}.
+  const approachPrompt = `You are a B2B sales expert. Today is ${todayStr}. You are crafting a complete sales approach for ${sellerName}.
 ${brainInfo.context ? `${brainInfo.context}
 **Use the seller intelligence above to tailor all outreach materials to the seller's specific capabilities and value propositions.**
 ` : ""}
@@ -200,91 +254,31 @@ ${verifiedSources || "No verified sources available."}
 3. The email draft should reference at least one specific, verified development
 4. Only use verified data from your searches — do NOT hallucinate URLs or facts
 
-**Generate a complete sales approach including:**
-1. Conversation starters (3 specific openers, each tied to a verified source URL)
-2. Engagement strategy (why this prospect matters, recommended approach, key talking points)
-3. Personalized outreach materials (email, LinkedIn, call script)
-
-Return JSON only:
-{
-  "conversationStarters": [
-    {
-      "opener": "I saw that you recently launched X - are you evaluating manufacturing partners to scale production?",
-      "sourceUrl": "https://verified.source.com/article",
-      "basedOn": "Brief description of the verified development this references"
-    }
-  ],
-  "engagementStrategy": {
-    "whyThisProspectMatters": [
-      "Strong fit with ConnectGroup's IoT manufacturing capabilities",
-      "Growing market presence indicates scaling needs"
-    ],
-    "recommendedApproach": [
-      "Lead with design-to-product capabilities for their expansion",
-      "Highlight our experience in similar projects"
-    ],
-    "keyTalkingPoints": [
-      "Our PCB assembly capabilities support complex designs",
-      "We've helped similar companies scale from prototype to production"
-    ]
-  },
-  "emailDraft": {
-    "subject": "Brief, specific subject line referencing a verified recent development",
-    "body": "3-paragraph email:\\n1. Hook (reference specific verified development with implicit source knowledge)\\n2. Value prop (how ConnectGroup solves their specific challenge)\\n3. CTA (request 15-min call)\\n\\nTone: Professional, consultative, not salesy. Use 'you/your' not 'we/our'.",
-    "referencedSources": ["https://source-url-referenced-in-email.com"]
-  },
-  "linkedinMessage": {
-    "connectionRequest": "Short connection request (max 200 chars) mentioning shared industry/interest",
-    "followUp": "Follow-up message after connection accepted (2-3 sentences, reference verified development, soft CTA)"
-  },
-  "callScript": {
-    "opening": "30-second opening statement (introduce self, reference verified trigger event, state purpose)",
-    "discoveryQuestions": [
-      "Question 1 about their current manufacturing process",
-      "Question 2 about pain points or challenges",
-      "Question 3 about growth plans or new products"
-    ],
-    "valueProposition": "2-3 sentence value prop tailored to their specific situation",
-    "callToAction": "Specific next step (demo, facility tour, technical discussion)"
-  }
-}`;
+**Generate a complete sales approach. Return JSON matching the required schema:**
+- conversationStarters: 3 specific openers, each tied to a verified source URL
+- engagementStrategy: why this prospect matters, recommended approach, key talking points
+- emailDraft: personalized cold email with subject, body (3 paragraphs), and referenced sources
+- linkedinMessage: connection request (max 200 chars) and follow-up message
+- callScript: 30-second opening, 3 discovery questions, value proposition, call to action`;
 
   const approachRaw = await callGrokWithWebSearch(approachPrompt);
   const approachData = JSON.parse(approachRaw);
 
-  // Normalize conversation starters (handle both old and new format)
-  const normalizedStarters = (approachData.conversationStarters || []).map((starter: any) => {
-    if (typeof starter === "string") {
-      return { opener: starter, sourceUrl: "", basedOn: "" };
-    }
-    return {
-      opener: starter.opener || starter,
-      sourceUrl: starter.sourceUrl || "",
-      basedOn: starter.basedOn || "",
-    };
-  });
-
-  // Normalize email draft
-  const normalizedEmail = approachData.emailDraft || {
-    subject: "Exploring EMS partnership opportunities",
-    body: "Email generation failed. Please try again.",
-    referencedSources: [],
-  };
-  if (!normalizedEmail.referencedSources) {
-    normalizedEmail.referencedSources = [];
-  }
-
-  // Assemble final sales approach
+  // Assemble final sales approach — with strict json_schema, fields are guaranteed present
   const salesApproach: SalesApproach = {
     companyName: company.name,
     generatedAt: new Date().toISOString(),
-    conversationStarters: normalizedStarters,
+    conversationStarters: approachData.conversationStarters || [],
     engagementStrategy: approachData.engagementStrategy || {
       whyThisProspectMatters: [],
       recommendedApproach: [],
       keyTalkingPoints: [],
     },
-    emailDraft: normalizedEmail,
+    emailDraft: approachData.emailDraft || {
+      subject: "Exploring partnership opportunities",
+      body: "Email generation failed. Please try again.",
+      referencedSources: [],
+    },
     linkedinMessage: approachData.linkedinMessage || {
       connectionRequest: "Connection request generation failed.",
       followUp: "Follow-up message generation failed.",
@@ -297,7 +291,7 @@ Return JSON only:
     },
   };
 
-  console.log(`[Sales Approach] Personalized outreach generated for ${company.name} with ${normalizedStarters.length} source-backed conversation starters`);
+  console.log(`[Sales Approach] Personalized outreach generated for ${company.name} with ${salesApproach.conversationStarters.length} source-backed conversation starters`);
 
   return salesApproach;
 }

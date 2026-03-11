@@ -3,22 +3,15 @@
  * 
  * Extracts company offering data using xAI Grok Responses API with explicit web_search tool.
  * Analyzes company websites to determine what they offer and who their ideal customers are.
+ *
+ * Prompt-contract: OfferingData type is defined in shared/contractTypes.ts — single source of truth.
  */
 
-export interface OfferingData {
-  name: string;
-  description: string;
-  targetMarket: string;
-  valueProposition: string;
-  keywords: string[];
-  targetMarketKeywordTags: string[];
-  crossBorderIndicators?: string;
-  sources?: Array<{
-    url: string;
-    title: string;
-    snippet: string;
-  }>;
-}
+import type { OfferingData } from "../shared/contractTypes";
+
+// OfferingData type is defined in shared/contractTypes.ts and imported above.
+// Re-export for backward compatibility with any consumers that import from this file.
+export type { OfferingData } from "../shared/contractTypes";
 
 const XAI_API_KEY = process.env.XAI_API_KEY;
 const XAI_BASE_URL = "https://api.x.ai/v1";

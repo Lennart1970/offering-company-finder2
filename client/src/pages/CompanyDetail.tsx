@@ -865,117 +865,166 @@ export default function CompanyDetail() {
 
           {/* URGENCY */}
           {chapter === "urgency" && (
-            <div className="p-6">
+            <div className="p-0">
               {!briefData ? (
-                <div className="text-center py-16 text-muted-foreground font-bold">No research data available. Run Deep Research first.</div>
+                <div className="text-center py-16 text-muted-foreground font-bold p-6">No research data available. Run Deep Research first.</div>
               ) : (
                 <>
-                  <CacheBanner
-                    cachedAt={company.briefGeneratedAt}
-                    label="Urgency analysis"
-                    onRefresh={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: true }); }}
-                    loading={reResearchLoading}
-                  />
-                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                  {/* Left: Score + breakdown */}
-                  <div>
-                    <div className="p-5 border-4 border-red-600 mb-5">
-                      <div className="text-5xl font-black text-red-600 mb-1">{briefData.urgencyScore}<span className="text-2xl">/100</span></div>
-                      <div className="text-sm font-bold text-muted-foreground">Urgency Score</div>
+                  {/* ── MASTHEAD: score bar — full-width newspaper header ── */}
+                  <div className="border-b-4 border-black px-6 pt-4 pb-3">
+                    <div className="flex items-end justify-between flex-wrap gap-4">
+                      <div className="flex items-baseline gap-3">
+                        <span className="text-6xl font-black text-red-600 leading-none">{briefData.urgencyScore}</span>
+                        <span className="text-2xl font-black text-gray-400">/100</span>
+                        <span className="text-xs font-black text-gray-500 uppercase tracking-widest ml-2">Urgency Score</span>
+                      </div>
                       {briefData.urgencyBreakdown && (
-                        <div className="grid grid-cols-3 gap-4 mt-4 text-sm border-t-2 border-red-200 pt-4">
-                          <div>
-                            <div className="text-[10px] font-black text-muted-foreground">COMPANY CONTEXT</div>
-                            <div className="text-xl font-black">{briefData.urgencyBreakdown.companyContext}<span className="text-xs font-bold text-muted-foreground">/40</span></div>
+                        <div className="flex gap-6 text-sm">
+                          <div className="text-center">
+                            <div className="text-[10px] font-black text-gray-400 tracking-widest">COMPANY</div>
+                            <div className="text-xl font-black">{briefData.urgencyBreakdown.companyContext}<span className="text-xs text-gray-400">/40</span></div>
                           </div>
-                          <div>
-                            <div className="text-[10px] font-black text-muted-foreground">MARKET SIGNALS</div>
-                            <div className="text-xl font-black">{briefData.urgencyBreakdown.marketSignals}<span className="text-xs font-bold text-muted-foreground">/35</span></div>
+                          <div className="text-center">
+                            <div className="text-[10px] font-black text-gray-400 tracking-widest">MARKET</div>
+                            <div className="text-xl font-black">{briefData.urgencyBreakdown.marketSignals}<span className="text-xs text-gray-400">/35</span></div>
                           </div>
-                          <div>
-                            <div className="text-[10px] font-black text-muted-foreground">RECENT ACTIVITY</div>
-                            <div className="text-xl font-black">{briefData.urgencyBreakdown.recentActivity}<span className="text-xs font-bold text-muted-foreground">/25</span></div>
+                          <div className="text-center">
+                            <div className="text-[10px] font-black text-gray-400 tracking-widest">ACTIVITY</div>
+                            <div className="text-xl font-black">{briefData.urgencyBreakdown.recentActivity}<span className="text-xs text-gray-400">/25</span></div>
                           </div>
                         </div>
                       )}
+                      <div className="flex items-center gap-2">
+                        <CacheBanner
+                          cachedAt={company.briefGeneratedAt}
+                          label="Urgency"
+                          onRefresh={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: true }); }}
+                          loading={reResearchLoading}
+                        />
+                      </div>
                     </div>
-
-                    {briefData.whyNow && (
-                      <div className="p-4 border-2 border-red-200 bg-red-50 mb-5">
-                        <h3 className="text-base font-black text-red-700 mb-2">Why Now</h3>
-                        <p className="text-sm leading-relaxed">{briefData.whyNow}</p>
-                      </div>
-                    )}
-
-                    {briefData.engagementStrategy && (
-                      <div className="p-4 border-2 border-orange-200 bg-orange-50">
-                        <h3 className="text-base font-black text-orange-700 mb-2">Engagement Strategy</h3>
-                        <p className="text-sm leading-relaxed">{briefData.engagementStrategy}</p>
-                      </div>
-                    )}
                   </div>
 
-                  {/* Right: Urgency Signals */}
-                  <div>
-                    <h3 className="text-base font-black mb-3">Urgency Signals</h3>
-                    {briefData.urgencySignals?.length > 0 ? (
-                      <div className="space-y-3">
-                        {briefData.urgencySignals.map((s: any, i: number) => (
-                          <div key={i} className="p-4 bg-yellow-50 border-2 border-yellow-300">
-                            <div className="flex items-center gap-2 mb-1 flex-wrap">
-                              <span className="text-xs font-black bg-yellow-400 px-1.5 py-0.5">{s.category}</span>
-                              <span className="text-xs font-bold text-muted-foreground">{s.type}</span>
-                            </div>
-                            <p className="text-sm">{s.description}</p>
-                            {s.snippet && (
-                              <blockquote className="text-xs text-gray-600 italic mt-2 border-l-4 border-yellow-400 pl-3">"{s.snippet}"</blockquote>
-                            )}
-                            {s.sourceUrl && (
-                              <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline mt-1 inline-block">Source →</a>
-                            )}
-                          </div>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="text-sm text-muted-foreground font-bold">No urgency signals recorded.</div>
-                    )}
-                  </div>
-                  </div>
+                  {/* ── EDITORIAL GRID ── */}
+                  <div className="px-6 pt-5">
 
-                  {/* Urgency Images Strip — editorial/news style */}
-                  {(urgencyImages.length > 0 || urgencyImagesLoading) && (
-                    <div className="mt-6">
-                      <div className="flex items-center justify-between mb-3">
-                        <span className="text-[10px] font-black text-muted-foreground tracking-widest">IN THE NEWS</span>
+                    {/* Section label */}
+                    <div className="flex items-center justify-between mb-4">
+                      <div className="flex items-center gap-3">
+                        <span className="text-[11px] font-black tracking-[0.2em] uppercase border-b-2 border-black pb-0.5">Intelligence Briefing</span>
+                        {urgencyImagesLoading && <span className="text-[10px] text-gray-400 font-bold animate-pulse">Loading images...</span>}
+                      </div>
+                      {urgencyImages.length > 0 && (
                         <button
                           onClick={() => { setUrgencyImagesLoading(true); fetchUrgencyImagesMutation.mutate({ companyId, force: true }); }}
                           disabled={urgencyImagesLoading}
-                          className="text-[10px] font-black text-muted-foreground border border-gray-300 px-2 py-0.5 hover:bg-gray-50 disabled:opacity-40"
+                          className="text-[10px] font-black text-gray-400 border border-gray-200 px-2 py-0.5 disabled:opacity-40"
                         >
-                          {urgencyImagesLoading ? "LOADING..." : "↺ REFRESH"}
+                          {urgencyImagesLoading ? "REFRESHING..." : "↺ REFRESH IMAGES"}
                         </button>
-                      </div>
-                      {urgencyImagesLoading && urgencyImages.length === 0 ? (
-                        <div className="flex gap-3 overflow-x-auto pb-2">
-                          {[1,2,3,4].map(i => (
-                            <div key={i} className="flex-shrink-0 w-40 h-28 bg-gray-100 animate-pulse rounded" />
-                          ))}
+                      )}
+                    </div>
+
+                    {/* Main editorial grid: hero image left + signal stack right */}
+                    {briefData.urgencySignals?.length > 0 ? (
+                      <div className="grid grid-cols-1 lg:grid-cols-3 gap-0 border border-gray-200">
+
+                        {/* HERO: first image or skeleton */}
+                        <div className="lg:col-span-1 border-r border-gray-200">
+                          {urgencyImagesLoading && urgencyImages.length === 0 ? (
+                            <div className="w-full bg-gray-100 animate-pulse" style={{ height: "280px" }} />
+                          ) : urgencyImages[0] ? (
+                            <a href={urgencyImages[0].link || urgencyImages[0].imageUrl} target="_blank" rel="noopener noreferrer" className="block">
+                              <div className="overflow-hidden bg-gray-100" style={{ height: "280px" }}>
+                                <img
+                                  src={urgencyImages[0].thumbnailUrl || urgencyImages[0].imageUrl}
+                                  alt={urgencyImages[0].title}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.background = "#f3f4f6"; }}
+                                />
+                              </div>
+                              <div className="p-3 border-t border-gray-200 bg-white">
+                                <p className="text-[10px] font-black text-gray-400 tracking-widest mb-1">IN THE NEWS</p>
+                                {urgencyImages[0].title && <p className="text-sm font-bold leading-snug line-clamp-3">{urgencyImages[0].title}</p>}
+                                {urgencyImages[0].domain && <p className="text-[10px] text-gray-400 mt-1">{urgencyImages[0].domain}</p>}
+                              </div>
+                            </a>
+                          ) : (
+                            <div className="flex items-center justify-center h-full min-h-[200px] bg-gray-50">
+                              <span className="text-xs text-gray-400 font-bold">No image available</span>
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <div className="flex gap-3 overflow-x-auto pb-2">
-                          {urgencyImages.map((img, i) => (
+
+                        {/* SIGNAL STACK: urgency signals as story cards */}
+                        <div className="lg:col-span-2 divide-y divide-gray-200">
+                          {briefData.urgencySignals.map((s: any, i: number) => {
+                            const img = urgencyImages[i + 1]; // offset by 1 (hero used index 0)
+                            return (
+                              <div key={i} className="flex gap-0">
+                                {/* Thumbnail (if available) */}
+                                {img ? (
+                                  <a href={img.link || img.imageUrl} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                                    <div className="overflow-hidden bg-gray-100" style={{ width: "90px", height: "72px" }}>
+                                      <img
+                                        src={img.thumbnailUrl || img.imageUrl}
+                                        alt={img.title}
+                                        className="w-full h-full object-cover"
+                                        onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.background = "#f3f4f6"; }}
+                                      />
+                                    </div>
+                                  </a>
+                                ) : (
+                                  <div className="flex-shrink-0 bg-gray-50 flex items-center justify-center" style={{ width: "90px", height: "72px" }}>
+                                    <span className="text-[18px]">
+                                      {s.category === "Growth" ? "📈" :
+                                       s.category === "Product Launch" ? "🚀" :
+                                       s.category === "R&D" ? "🔬" :
+                                       s.category === "Expansion" ? "🌍" :
+                                       s.category === "Awards" ? "🏆" :
+                                       s.category === "Funding" ? "💰" :
+                                       s.category === "Partnership" ? "🤝" : "⚡"}
+                                    </span>
+                                  </div>
+                                )}
+                                {/* Signal text */}
+                                <div className="flex-1 p-3">
+                                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                    <span className="text-[10px] font-black bg-yellow-400 px-1.5 py-0.5 leading-none">{s.category}</span>
+                                    <span className="text-[10px] font-bold text-gray-500">{s.type}</span>
+                                  </div>
+                                  <p className="text-sm font-bold leading-snug">{s.description}</p>
+                                  {s.snippet && (
+                                    <p className="text-[11px] text-gray-500 italic mt-1 line-clamp-1">“{s.snippet}”</p>
+                                  )}
+                                  {s.sourceUrl && (
+                                    <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 underline mt-1 inline-block">Source →</a>
+                                  )}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-muted-foreground font-bold py-8 text-center">No urgency signals recorded.</div>
+                    )}
+
+                    {/* SECONDARY IMAGE ROW: remaining images below the grid */}
+                    {urgencyImages.length > 1 && (
+                      <div className="mt-4">
+                        <div className="text-[10px] font-black text-gray-400 tracking-widest mb-2">MORE FROM THE NEWS</div>
+                        <div className="flex gap-3 overflow-x-auto pb-1">
+                          {urgencyImages.slice(1).map((img, i) => (
                             <a
                               key={i}
                               href={img.link || img.imageUrl}
                               target="_blank"
                               rel="noopener noreferrer"
-                              className="flex-shrink-0 group relative"
-                              style={{ width: i === 0 ? "260px" : "160px" }}
+                              className="flex-shrink-0"
+                              style={{ width: "140px" }}
                             >
-                              <div
-                                className="overflow-hidden bg-gray-100"
-                                style={{ height: i === 0 ? "160px" : "100px" }}
-                              >
+                              <div className="overflow-hidden bg-gray-100" style={{ height: "88px" }}>
                                 <img
                                   src={img.thumbnailUrl || img.imageUrl}
                                   alt={img.title}
@@ -983,18 +1032,33 @@ export default function CompanyDetail() {
                                   onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
                                 />
                               </div>
-                              {img.title && (
-                                <p className="text-[10px] text-muted-foreground mt-1 leading-tight line-clamp-2">{img.title}</p>
-                              )}
-                              {img.domain && (
-                                <p className="text-[9px] text-gray-400 mt-0.5">{img.domain}</p>
-                              )}
+                              {img.title && <p className="text-[10px] text-gray-600 mt-1 leading-tight line-clamp-2">{img.title}</p>}
+                              {img.domain && <p className="text-[9px] text-gray-400 mt-0.5">{img.domain}</p>}
                             </a>
                           ))}
                         </div>
-                      )}
-                    </div>
-                  )}
+                      </div>
+                    )}
+
+                    {/* WHY NOW + ENGAGEMENT STRATEGY */}
+                    {(briefData.whyNow || briefData.engagementStrategy) && (
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mt-5 mb-5">
+                        {briefData.whyNow && (
+                          <div className="p-4 border-l-4 border-red-600 bg-red-50">
+                            <p className="text-[10px] font-black text-red-600 tracking-widest mb-1">WHY NOW</p>
+                            <p className="text-sm leading-relaxed">{briefData.whyNow}</p>
+                          </div>
+                        )}
+                        {briefData.engagementStrategy && (
+                          <div className="p-4 border-l-4 border-orange-500 bg-orange-50">
+                            <p className="text-[10px] font-black text-orange-600 tracking-widest mb-1">ENGAGEMENT STRATEGY</p>
+                            <p className="text-sm leading-relaxed">{briefData.engagementStrategy}</p>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                  </div>
                 </>
               )}
             </div>

@@ -1934,10 +1934,50 @@ export const companyFinderRouter = router({
           domain: img.domain ?? "",
           link: img.link ?? "",
         }));
+       // If news query returned nothing, fall back to the company's own website domain
+      if (images.length === 0) {
+        const websiteUrl = company.websiteUrl || company.primaryDomain;
+        if (websiteUrl) {
+          try {
+            const rawDomain = websiteUrl
+              .replace(/^https?:\/\//i, "")
+              .replace(/^www\./i, "")
+              .split("/")[0]
+              .split("?")[0]
+              .toLowerCase();
+            if (rawDomain) {
+              const websiteResponse = await fetch("https://google.serper.dev/images", {
+                method: "POST",
+                headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+                body: JSON.stringify({ q: `site:${rawDomain}`, num: 12 }),
+              });
+              if (websiteResponse.ok) {
+                const websiteData = await websiteResponse.json() as { images?: any[] };
+                const websiteImages = (websiteData.images ?? [])
+                  .filter((img: any) => img.imageUrl)
+                  .slice(0, 8)
+                  .map((img: any) => ({
+                    imageUrl: img.imageUrl ?? "",
+                    thumbnailUrl: img.thumbnailUrl ?? "",
+                    title: img.title ?? "",
+                    source: img.source ?? img.domain ?? "",
+                    domain: img.domain ?? "",
+                    link: img.link ?? "",
+                    _fallback: "website",
+                  }));
+                if (websiteImages.length > 0) {
+                  await updateCompany(input.companyId, { urgencyImages: JSON.stringify(websiteImages) });
+                  return { images: websiteImages, cached: false, fallback: "website" as const };
+                }
+              }
+            }
+          } catch { /* ignore website fallback errors */ }
+        }
+      }
+
       await updateCompany(input.companyId, { urgencyImages: JSON.stringify(images) });
       return { images, cached: false };
     }),
-
   getUrgencyImages: protectedProcedure
     .input(z.object({ companyId: z.number() }))
     .query(async ({ ctx, input }) => {

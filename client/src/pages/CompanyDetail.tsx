@@ -284,12 +284,21 @@ export default function CompanyDetail() {
   );
   const urgencyImages: Array<{ imageUrl: string; thumbnailUrl: string; title: string; source: string; domain: string; link: string }> = urgencyImagesData?.images ?? [];
 
-  // Fall back to product images when no news images are available (and loading is complete)
+  // Three-level fallback: 1) news images, 2) product images, 3) website images (marked with _fallback)
   const urgencyImagesFetched = urgencyImagesData !== undefined; // query has resolved
-  const displayImages = urgencyImages.length > 0
-    ? urgencyImages
-    : (!urgencyImagesLoading && urgencyImagesFetched ? productImages : []);
-  const usingProductImageFallback = urgencyImages.length === 0 && displayImages.length > 0;
+  const usingWebsiteFallback = urgencyImages.length > 0 && (urgencyImages[0] as any)._fallback === "website";
+  const trueNewsImages = usingWebsiteFallback ? [] : urgencyImages;
+  const displayImages = trueNewsImages.length > 0
+    ? trueNewsImages
+    : usingWebsiteFallback
+      ? urgencyImages
+      : (!urgencyImagesLoading && urgencyImagesFetched ? productImages : []);
+  const usingProductImageFallback = !usingWebsiteFallback && trueNewsImages.length === 0 && displayImages.length > 0 && displayImages === productImages;
+  const imageFallbackType: "news" | "product" | "website" | "none" =
+    usingWebsiteFallback ? "website"
+    : usingProductImageFallback ? "product"
+    : trueNewsImages.length > 0 ? "news"
+    : "none";
 
   const fetchUrgencyImagesMutation = trpc.companyFinder.fetchUrgencyImages.useMutation({
     onSuccess: () => {
@@ -922,8 +931,11 @@ export default function CompanyDetail() {
                         {urgencyImagesLoading && <span className="text-[10px] text-gray-400 font-bold animate-pulse">Loading images...</span>}
                       </div>
                       <div className="flex items-center gap-2">
-                        {usingProductImageFallback && (
+                        {imageFallbackType === "product" && (
                           <span className="text-[10px] font-black text-orange-500 border border-orange-300 bg-orange-50 px-2 py-0.5">PRODUCT IMAGES</span>
+                        )}
+                        {imageFallbackType === "website" && (
+                          <span className="text-[10px] font-black text-white border border-red-600 bg-red-600 px-2 py-0.5 tracking-widest animate-pulse">⚡ COMPANY WEBSITE</span>
                         )}
                         {(displayImages.length > 0 || urgencyImagesLoading) && (
                           <button
@@ -956,7 +968,9 @@ export default function CompanyDetail() {
                                 />
                               </div>
                               <div className="p-3 border-t border-gray-200 bg-white">
-                                <p className="text-[10px] font-black text-gray-400 tracking-widest mb-1">{usingProductImageFallback ? "PRODUCT" : "IN THE NEWS"}</p>
+                                <p className="text-[10px] font-black text-gray-400 tracking-widest mb-1">
+                                  {imageFallbackType === "website" ? "FROM WEBSITE" : imageFallbackType === "product" ? "PRODUCT" : "IN THE NEWS"}
+                                </p>
                                 {displayImages[0].title && <p className="text-sm font-bold leading-snug line-clamp-3">{displayImages[0].title}</p>}
                                 {displayImages[0].domain && <p className="text-[10px] text-gray-400 mt-1">{displayImages[0].domain}</p>}
                               </div>
@@ -1025,7 +1039,9 @@ export default function CompanyDetail() {
                     {/* SECONDARY IMAGE ROW: remaining images below the grid */}
                     {displayImages.length > 1 && (
                       <div className="mt-4">
-                        <div className="text-[10px] font-black text-gray-400 tracking-widest mb-2">{usingProductImageFallback ? "MORE PRODUCTS" : "MORE FROM THE NEWS"}</div>
+                        <div className="text-[10px] font-black text-gray-400 tracking-widest mb-2">
+                          {imageFallbackType === "website" ? "MORE FROM WEBSITE" : imageFallbackType === "product" ? "MORE PRODUCTS" : "MORE FROM THE NEWS"}
+                        </div>
                         <div className="flex gap-3 overflow-x-auto pb-1">
                           {displayImages.slice(1).map((img, i) => (
                             <a

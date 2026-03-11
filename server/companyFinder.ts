@@ -1891,6 +1891,67 @@ export const companyFinderRouter = router({
     }),
 
   // ---------------------------------------------------------------------------
+  // fetchUrgencyImages — editorial/news images for the Urgency tab (Serper)
+  // ---------------------------------------------------------------------------
+  fetchUrgencyImages: protectedProcedure
+    .input(z.object({ companyId: z.number(), force: z.boolean().optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const company = await assertCompanyAccess(input.companyId, ctx.user.id);
+      // Return cached images unless force-refresh requested
+      if (!input.force && company.urgencyImages) {
+        try {
+          const cached = JSON.parse(company.urgencyImages);
+          if (Array.isArray(cached) && cached.length > 0) {
+            return { images: cached, cached: true };
+          }
+        } catch { /* fall through to re-fetch */ }
+      }
+      const apiKey = process.env.SERPER_API_KEY;
+      if (!apiKey) throw new Error("SERPER_API_KEY is not configured");
+      // Editorial/news-style query — not product-focused
+      const query = `"${company.name}" news 2025 2026 -site:amazon.com -site:pinterest.com -site:shutterstock.com -site:gettyimages.com`;
+      const response = await fetch("https://google.serper.dev/images", {
+        method: "POST",
+        headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+        body: JSON.stringify({ q: query, num: 12 }),
+      });
+      if (!response.ok) throw new Error(`Serper Images API error: ${response.status}`);
+      const data = await response.json() as { images?: any[] };
+      const BLOCKED = new Set(["amazon.com","ebay.com","alibaba.com","pinterest.com",
+        "shutterstock.com","gettyimages.com","istockphoto.com","dreamstime.com",
+        "alamy.com","depositphotos.com","123rf.com","google.com","bing.com"]);
+      const images = (data.images ?? [])
+        .filter((img: any) => {
+          const d = (img.domain ?? "").replace(/^www\./, "").toLowerCase();
+          return img.imageUrl && !BLOCKED.has(d);
+        })
+        .slice(0, 8)
+        .map((img: any) => ({
+          imageUrl: img.imageUrl ?? "",
+          thumbnailUrl: img.thumbnailUrl ?? "",
+          title: img.title ?? "",
+          source: img.source ?? img.domain ?? "",
+          domain: img.domain ?? "",
+          link: img.link ?? "",
+        }));
+      await updateCompany(input.companyId, { urgencyImages: JSON.stringify(images) });
+      return { images, cached: false };
+    }),
+
+  getUrgencyImages: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      const company = await assertCompanyAccess(input.companyId, ctx.user.id);
+      if (!company.urgencyImages) return { images: [] };
+      try {
+        const images = JSON.parse(company.urgencyImages);
+        return { images: Array.isArray(images) ? images : [] };
+      } catch {
+        return { images: [] };
+      }
+    }),
+
+  // ---------------------------------------------------------------------------
   // getBatchStatus — returns per-company research/approach status for a search
   // ---------------------------------------------------------------------------
   getBatchStatus: protectedProcedure

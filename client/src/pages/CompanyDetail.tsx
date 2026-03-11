@@ -1,6 +1,6 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { useLocation, useParams } from "wouter";
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
@@ -274,6 +274,33 @@ export default function CompanyDetail() {
     },
     onError: () => { setProductImagesLoading(false); toast.error("Could not fetch product images"); },
   });
+
+  // Urgency images (editorial/news style)
+  const [urgencyImagesLoading, setUrgencyImagesLoading] = useState(false);
+  const urgencyImagesUtils = trpc.useUtils();
+  const { data: urgencyImagesData } = trpc.companyFinder.getUrgencyImages.useQuery(
+    { companyId },
+    { enabled: !!companyId && !isNaN(companyId) }
+  );
+  const urgencyImages: Array<{ imageUrl: string; thumbnailUrl: string; title: string; source: string; domain: string; link: string }> = urgencyImagesData?.images ?? [];
+
+  const fetchUrgencyImagesMutation = trpc.companyFinder.fetchUrgencyImages.useMutation({
+    onSuccess: () => {
+      setUrgencyImagesLoading(false);
+      urgencyImagesUtils.companyFinder.getUrgencyImages.invalidate({ companyId });
+    },
+    onError: () => { setUrgencyImagesLoading(false); toast.error("Could not fetch urgency images"); },
+  });
+
+  // Auto-fetch urgency images when entering urgency tab (if not already cached)
+  const urgencyImagesFetchedRef = useRef(false);
+  useEffect(() => {
+    if (chapter === "urgency" && briefData && !urgencyImagesLoading && urgencyImages.length === 0 && !urgencyImagesFetchedRef.current) {
+      urgencyImagesFetchedRef.current = true;
+      setUrgencyImagesLoading(true);
+      fetchUrgencyImagesMutation.mutate({ companyId });
+    }
+  }, [chapter, briefData]);
 
   // Top contact (first enriched contact with email, else first contact)
   const topContact = useMemo(() => {
@@ -914,6 +941,60 @@ export default function CompanyDetail() {
                     )}
                   </div>
                   </div>
+
+                  {/* Urgency Images Strip — editorial/news style */}
+                  {(urgencyImages.length > 0 || urgencyImagesLoading) && (
+                    <div className="mt-6">
+                      <div className="flex items-center justify-between mb-3">
+                        <span className="text-[10px] font-black text-muted-foreground tracking-widest">IN THE NEWS</span>
+                        <button
+                          onClick={() => { setUrgencyImagesLoading(true); fetchUrgencyImagesMutation.mutate({ companyId, force: true }); }}
+                          disabled={urgencyImagesLoading}
+                          className="text-[10px] font-black text-muted-foreground border border-gray-300 px-2 py-0.5 hover:bg-gray-50 disabled:opacity-40"
+                        >
+                          {urgencyImagesLoading ? "LOADING..." : "↺ REFRESH"}
+                        </button>
+                      </div>
+                      {urgencyImagesLoading && urgencyImages.length === 0 ? (
+                        <div className="flex gap-3 overflow-x-auto pb-2">
+                          {[1,2,3,4].map(i => (
+                            <div key={i} className="flex-shrink-0 w-40 h-28 bg-gray-100 animate-pulse rounded" />
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="flex gap-3 overflow-x-auto pb-2">
+                          {urgencyImages.map((img, i) => (
+                            <a
+                              key={i}
+                              href={img.link || img.imageUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="flex-shrink-0 group relative"
+                              style={{ width: i === 0 ? "260px" : "160px" }}
+                            >
+                              <div
+                                className="overflow-hidden bg-gray-100"
+                                style={{ height: i === 0 ? "160px" : "100px" }}
+                              >
+                                <img
+                                  src={img.thumbnailUrl || img.imageUrl}
+                                  alt={img.title}
+                                  className="w-full h-full object-cover"
+                                  onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }}
+                                />
+                              </div>
+                              {img.title && (
+                                <p className="text-[10px] text-muted-foreground mt-1 leading-tight line-clamp-2">{img.title}</p>
+                              )}
+                              {img.domain && (
+                                <p className="text-[9px] text-gray-400 mt-0.5">{img.domain}</p>
+                              )}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </>
               )}
             </div>

@@ -744,7 +744,7 @@ export const nicheRouter = router({
    * Create a scoped Import Campaign from a niche cluster.
    * Copies all companies assigned to the niche into a new search record,
    * preserving all enrichment data so the full pipeline can run on the subset.
-   * Only allowed when fitScore >= 70.
+   * Only allowed when fitScore >= 40 (Moderate Fit or better).
    */
   createCampaignFromNiche: adminProcedure
     .input(
@@ -761,10 +761,10 @@ export const nicheRouter = router({
       const niche = await getNicheById(input.nicheId);
       if (!niche) throw new TRPCError({ code: "NOT_FOUND", message: "Niche not found" });
       if (niche.userId !== userId) throw new TRPCError({ code: "FORBIDDEN", message: "Not your niche" });
-      if ((niche.fitScore ?? 0) < 70) {
+      if ((niche.fitScore ?? 0) < 40) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: `Fit score must be ≥ 70 to create a campaign. This niche scored ${niche.fitScore ?? 0}.`,
+          message: `Fit score must be ≥ 40 (Moderate Fit) to create a campaign. This niche scored ${niche.fitScore ?? 0}.`,
         });
       }
 

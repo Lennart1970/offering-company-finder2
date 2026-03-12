@@ -1109,7 +1109,16 @@ export default function CompanyDetail() {
           {chapter === "research" && (
             <div className="p-6">
               {!briefData ? (
-                <div className="text-center py-16 text-muted-foreground font-bold">No research data available. Run Deep Research first.</div>
+                <div className="text-center py-16 flex flex-col items-center gap-4">
+                  <p className="text-muted-foreground font-bold text-lg">No research data available yet.</p>
+                  <Button
+                    onClick={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: false }); }}
+                    disabled={reResearchLoading}
+                    className="px-6 py-3 bg-blue-600 text-white font-black text-sm uppercase tracking-widest border-2 border-black shadow-[4px_4px_0_black] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all disabled:opacity-50"
+                  >
+                    {reResearchLoading ? "Running Deep Research…" : "🔬 Run Deep Research"}
+                  </Button>
+                </div>
               ) : (
                 <>
                   <CacheBanner

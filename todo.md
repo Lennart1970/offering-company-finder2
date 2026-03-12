@@ -1583,3 +1583,37 @@
 - [x] Add remainingWork counter to show how many companies still need processing
 - [x] Update all hero sentence inline [RESEARCH & OUTREACH] links to [DO 10]
 - [x] Add progress banner for DO 10 running state
+
+## Future Plans: News-First Architecture (Strategic Direction)
+
+### Foundation: Signal Table
+- [ ] Extract urgencySignals from briefData JSON blob into a dedicated `signals` table (companyId, type, headline, sourceUrl, publishedAt, relevanceScore, conversationStarter)
+- [ ] Backfill signals table from existing briefData JSON for all companies with research
+- [ ] Add signal type taxonomy: funding / expansion / leadership / product_launch / regulatory / hiring
+- [ ] Index signals by companyId + publishedAt for fast feed queries
+
+### Signals Feed View
+- [ ] Build a "Signals Feed" page showing the 20 most recent signals across all campaigns, sorted by recency
+- [ ] Add signal type filter chips (Funding, Leadership, Expansion, etc.)
+- [ ] Show company name, signal headline, source URL, date, and relevance score per row
+- [ ] Link each signal row directly to the company's INTEL tab
+- [ ] Make the Signals Feed the default landing view after login (above Search Results in sidebar)
+
+### Scheduled Ingestion (Watch Zone)
+- [ ] Replace one-shot campaign search with a continuous "Watch Zone" subscription model
+- [ ] Add watchlist table (userId, naicsCodes[], geographies[], companySizeRange, active)
+- [ ] Build scheduled job (daily) that scans watch zones and ingests new signals via noiseDetector skill
+- [ ] Surface new signals as notifications (badge count on Signals Feed nav item)
+- [ ] Allow user to pause/resume a watch zone without deleting it
+
+### Event-Anchored Outreach
+- [ ] Update salesApproachGenerator prompt to receive the triggering signal as primary input
+- [ ] Generate outreach that opens with the specific event ("I saw you just appointed a new CTO...")
+- [ ] Store signal_id on each salesApproach record so the outreach is traceable to its trigger
+- [ ] Add "Why now" sentence to email/LinkedIn/call templates that references the signal headline
+
+### UI Hierarchy Inversion
+- [ ] Redesign company card to lead with the most recent signal (headline + date) rather than company name
+- [ ] Move INTEL tab to first position in company detail tabs (currently second after Overview)
+- [ ] Add "Signal → Research → Outreach" breadcrumb to company detail header to reinforce the flow
+- [ ] Show signal recency badge (e.g. "3 days ago") on company cards in search results list

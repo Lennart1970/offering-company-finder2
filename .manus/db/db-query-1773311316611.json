@@ -1,0 +1,9 @@
+{
+  "query": "DELETE FROM searches WHERE id IN (1170002, 1170003) AND (SELECT COUNT(*) FROM companies WHERE searchId = searches.id) = 0 AND offeringName LIKE '[Niche]%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute DELETE FROM searches WHERE id IN (1170002, 1170003) AND (SELECT COUNT(*) FROM companies WHERE searchId = searches.id) = 0 AND offeringName LIKE '[Niche]%';",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 354
+}

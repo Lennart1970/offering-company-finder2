@@ -817,19 +817,38 @@ export const nicheRouter = router({
       }
 
       // 5. Copy companies into the new search (strip id + searchId, keep all enrichment)
+      // Wrapped in try/catch: if the copy fails, delete the new search to prevent orphan records.
       const BATCH_SIZE = 100;
       let copied = 0;
-      for (let i = 0; i < nicheCompanies.length; i += BATCH_SIZE) {
-        const batch = nicheCompanies.slice(i, i + BATCH_SIZE).map((c) => {
-          const { id, searchId, ...rest } = c;
-          return {
-            ...rest,
-            searchId: newSearchId,
-            nicheId: input.nicheId, // keep niche reference on copied companies
-          };
+      try {
+        for (let i = 0; i < nicheCompanies.length; i += BATCH_SIZE) {
+          const batch = nicheCompanies.slice(i, i + BATCH_SIZE).map((c) => {
+            const { id, searchId, ...rest } = c;
+            return {
+              ...rest,
+              searchId: newSearchId,
+              nicheId: input.nicheId, // keep niche reference on copied companies
+            };
+          });
+          await createCompanies(batch);
+          copied += batch.length;
+        }
+      } catch (copyErr: any) {
+        // Rollback: delete the empty search record so it doesn't appear as a ghost campaign
+        try { await db.delete(searches).where(eq(searches.id, newSearchId)); } catch {}
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to copy companies into campaign: ${copyErr.message}`,
         });
-        await createCompanies(batch);
-        copied += batch.length;
+      }
+
+      if (copied === 0) {
+        // Safety net: if nothing was copied, roll back
+        try { await db.delete(searches).where(eq(searches.id, newSearchId)); } catch {}
+        throw new TRPCError({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Campaign creation failed: 0 companies were copied. Please try again.`,
+        });
       }
 
       // 6. Update the new search to record its source niche and share with team

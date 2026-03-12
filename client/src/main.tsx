@@ -42,7 +42,8 @@ const trpcClient = trpc.createClient({
     httpBatchStreamLink({
       url: "/api/trpc",
       transformer: superjson,
-      // POST avoids 414 URI Too Large errors on large search result pages
+      // Force POST for all queries to avoid 414 URI Too Large on large search result pages
+      methodOverride: "POST",
       fetch(input, init) {
         return globalThis.fetch(input, {
           ...(init ?? {}),

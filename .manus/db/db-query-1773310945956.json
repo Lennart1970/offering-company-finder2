@@ -1,0 +1,21 @@
+{
+  "query": "\nSELECT id, name, companyCount, searchId, fitScore,\n  CASE WHEN companyIds IS NOT NULL THEN LEFT(companyIds, 100) ELSE 'NULL' END as companyIds_preview\nFROM niches WHERE id = 90004;\n\nSELECT COUNT(*) as companies_with_this_niche FROM companies WHERE nicheId = 90004;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT id, name, companyCount, searchId, fitScore,\n  CASE WHEN companyIds IS NOT NULL THEN LEFT(companyIds, 100) ELSE 'NULL' END as companyIds_preview\nFROM niches WHERE id = 90004;\n\nSELECT COUNT(*) as companies_with_this_niche FROM companies WHERE nicheId = 90004;\n",
+  "rows": [
+    {
+      "id": "90004",
+      "name": "Automotive Wiring & Components",
+      "companyCount": "83",
+      "searchId": "1170001",
+      "fitScore": "60",
+      "companyIds_preview": "[1050001,1050013,1050025,1050035,1050042,1050052,1050054,1050067,1050076,1050091,1050095,1050113,105"
+    }
+  ],
+  "messages": [
+    "companies_with_this_niche",
+    "0"
+  ],
+  "stdout": "id\tname\tcompanyCount\tsearchId\tfitScore\tcompanyIds_preview\n90004\tAutomotive Wiring & Components\t83\t1170001\t60\t[1050001,1050013,1050025,1050035,1050042,1050052,1050054,1050067,1050076,1050091,1050095,1050113,105\ncompanies_with_this_niche\n0\n",
+  "stderr": "",
+  "execution_time_ms": 536
+}

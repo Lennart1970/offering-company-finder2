@@ -1,0 +1,15 @@
+{
+  "query": "\nSELECT \n  COUNT(*) as total,\n  SUM(CASE WHEN nicheId IS NOT NULL THEN 1 ELSE 0 END) as with_niche,\n  SUM(CASE WHEN nicheId IS NULL THEN 1 ELSE 0 END) as without_niche\nFROM companies;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  COUNT(*) as total,\n  SUM(CASE WHEN nicheId IS NOT NULL THEN 1 ELSE 0 END) as with_niche,\n  SUM(CASE WHEN nicheId IS NULL THEN 1 ELSE 0 END) as without_niche\nFROM companies;\n",
+  "rows": [
+    {
+      "total": "25562",
+      "with_niche": "17403",
+      "without_niche": "8159"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\twith_niche\twithout_niche\n25562\t17403\t8159\n",
+  "stderr": "",
+  "execution_time_ms": 393
+}

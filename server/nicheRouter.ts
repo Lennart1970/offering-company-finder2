@@ -36,7 +36,7 @@ import { scoreNicheFit, NicheClusterInput } from "./nicheFitScorer";
 import { generateEmbeddings } from "./embeddingService";
 import { clusterCompanies, assignRemainingByProximity, expandWithDiscovery } from "./clusteringService";
 import { companies, searches } from "../drizzle/schema";
-import { eq, isNull } from "drizzle-orm";
+import { eq, isNull, inArray } from "drizzle-orm";
 import { getDb } from "./db";
 
 export const nicheRouter = router({
@@ -785,16 +785,34 @@ export const nicheRouter = router({
         status: "completed",
       });
 
-      // 4. Load all companies assigned to this niche
-      const nicheCompanies = await db
+      // 4. Load all companies assigned to this niche.
+      // Primary: query by nicheId column (set after Phase 2 assignment).
+      // Fallback: use the companyIds JSON array stored on the niche itself
+      //           (populated during Phase 1 clustering, before Phase 2 runs).
+      let nicheCompanies = await db
         .select()
         .from(companies)
         .where(eq(companies.nicheId, input.nicheId));
 
+      if (nicheCompanies.length === 0 && niche.companyIds) {
+        // Fall back to the companyIds JSON stored on the niche
+        let ids: number[] = [];
+        try { ids = JSON.parse(niche.companyIds as string); } catch {}
+        if (ids.length > 0) {
+          // Load in batches of 1000 to avoid IN clause limits
+          const CHUNK = 1000;
+          for (let i = 0; i < ids.length; i += CHUNK) {
+            const chunk = ids.slice(i, i + CHUNK);
+            const rows = await db.select().from(companies).where(inArray(companies.id, chunk));
+            nicheCompanies = nicheCompanies.concat(rows);
+          }
+        }
+      }
+
       if (nicheCompanies.length === 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "No companies assigned to this niche yet. Run Phase 2 assignment first.",
+          message: `No companies found for niche "${niche.name}". The niche has ${niche.companyCount} companies recorded but none could be loaded. Please re-run clustering for this search.`,
         });
       }
 

@@ -1,0 +1,27 @@
+{
+  "query": "\nSELECT \n  COUNT(*) as total,\n  SUM(CASE WHEN nicheId IS NOT NULL THEN 1 ELSE 0 END) as with_niche,\n  SUM(CASE WHEN nicheId IS NULL THEN 1 ELSE 0 END) as without_niche\nFROM companies;\n\nSELECT id, name, companyCount, \n  CASE WHEN companyIds IS NOT NULL THEN 'has_ids' ELSE 'no_ids' END as has_company_ids,\n  fitScore\nFROM niches \nORDER BY fitScore DESC \nLIMIT 10;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  COUNT(*) as total,\n  SUM(CASE WHEN nicheId IS NOT NULL THEN 1 ELSE 0 END) as with_niche,\n  SUM(CASE WHEN nicheId IS NULL THEN 1 ELSE 0 END) as without_niche\nFROM companies;\n\nSELECT id, name, companyCount, \n  CASE WHEN companyIds IS NOT NULL THEN 'has_ids' ELSE 'no_ids' END as has_company_ids,\n  fitScore\nFROM niches \nORDER BY fitScore DESC \nLIMIT 10;\n",
+  "rows": [
+    {
+      "total": "25562",
+      "with_niche": "17403",
+      "without_niche": "8159"
+    }
+  ],
+  "messages": [
+    "id\tname\tcompanyCount\thas_company_ids\tfitScore",
+    "60005\tMedical Device Suppliers\t438\thas_ids\t100",
+    "60003\tMedical Device Manufacturers\t1387\thas_ids\t95",
+    "60014\tDefense, Aerospace & Security Solutions\t103\thas_ids\t95",
+    "60008\tAdvanced Medical Technology & Devices\t254\thas_ids\t90",
+    "60011\tDefense and Space Sector\t247\thas_ids\t90",
+    "60016\tAerospace Engineering & Manufacturing\t312\thas_ids\t90",
+    "60004\tMedical Device Suppliers\t289\thas_ids\t90",
+    "60001\tAerospace & Drone Services\t2160\thas_ids\t88",
+    "60006\tOphthalmic & Audiology Devices\t117\thas_ids\t85",
+    "30004\tIndustrial Automation & Mechatronics\t551\thas_ids\t85"
+  ],
+  "stdout": "total\twith_niche\twithout_niche\n25562\t17403\t8159\nid\tname\tcompanyCount\thas_company_ids\tfitScore\n60005\tMedical Device Suppliers\t438\thas_ids\t100\n60003\tMedical Device Manufacturers\t1387\thas_ids\t95\n60014\tDefense, Aerospace & Security Solutions\t103\thas_ids\t95\n60008\tAdvanced Medical Technology & Devices\t254\thas_ids\t90\n60011\tDefense and Space Sector\t247\thas_ids\t90\n60016\tAerospace Engineering & Manufacturing\t312\thas_ids\t90\n60004\tMedical Device Suppliers\t289\thas_ids\t90\n60001\tAerospace & Drone Services\t2160\thas_ids\t88\n60006\tOphthalmic & Audiology Devices\t117\thas_ids\t85\n30004\tIndustrial Automation & Mechatronics\t551\thas_ids\t85\n",
+  "stderr": "",
+  "execution_time_ms": 824
+}

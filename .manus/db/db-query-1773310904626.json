@@ -1,0 +1,70 @@
+{
+  "query": "SELECT nicheId, COUNT(*) as cnt FROM companies GROUP BY nicheId ORDER BY cnt DESC LIMIT 15;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT nicheId, COUNT(*) as cnt FROM companies GROUP BY nicheId ORDER BY cnt DESC LIMIT 15;",
+  "rows": [
+    {
+      "nicheId": "NULL",
+      "cnt": "8159"
+    },
+    {
+      "nicheId": "30004",
+      "cnt": "4408"
+    },
+    {
+      "nicheId": "2",
+      "cnt": "2954"
+    },
+    {
+      "nicheId": "60002",
+      "cnt": "2413"
+    },
+    {
+      "nicheId": "60005",
+      "cnt": "876"
+    },
+    {
+      "nicheId": "3",
+      "cnt": "721"
+    },
+    {
+      "nicheId": "30005",
+      "cnt": "527"
+    },
+    {
+      "nicheId": "60009",
+      "cnt": "482"
+    },
+    {
+      "nicheId": "30002",
+      "cnt": "439"
+    },
+    {
+      "nicheId": "30001",
+      "cnt": "433"
+    },
+    {
+      "nicheId": "60015",
+      "cnt": "406"
+    },
+    {
+      "nicheId": "30003",
+      "cnt": "375"
+    },
+    {
+      "nicheId": "90003",
+      "cnt": "346"
+    },
+    {
+      "nicheId": "60016",
+      "cnt": "312"
+    },
+    {
+      "nicheId": "60004",
+      "cnt": "289"
+    }
+  ],
+  "messages": [],
+  "stdout": "nicheId\tcnt\nNULL\t8159\n30004\t4408\n2\t2954\n60002\t2413\n60005\t876\n3\t721\n30005\t527\n60009\t482\n30002\t439\n30001\t433\n60015\t406\n30003\t375\n90003\t346\n60016\t312\n60004\t289\n",
+  "stderr": "",
+  "execution_time_ms": 419
+}

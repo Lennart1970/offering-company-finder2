@@ -320,6 +320,31 @@ function NicheCard({
         </div>
       )}
 
+      {/* Secondary Add to Campaign CTA — for MODERATE FIT niches (score 40–69) */}
+      {onCreateCampaign && hasScore && score >= 40 && score < 70 && (
+        <div className="px-4 pb-4 pt-2">
+          <button
+            onClick={() => onCreateCampaign(niche.id)}
+            disabled={creatingCampaign}
+            className={`w-full flex items-center justify-center gap-3 py-2.5 px-6 font-black text-sm uppercase tracking-widest transition-all duration-200 border-2
+              ${creatingCampaign
+                ? "bg-orange-50 border-orange-400 text-orange-700 cursor-wait opacity-80"
+                : "bg-white border-orange-500 text-orange-700 hover:bg-orange-50 hover:border-orange-600"
+              }`}
+          >
+            {creatingCampaign ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : (
+              <Rocket className="w-4 h-4" />
+            )}
+            {creatingCampaign
+              ? `Adding ${niche.companyCount} companies to campaign...`
+              : `+ Add to Campaign — ${niche.companyCount} companies (moderate fit)`
+            }
+          </button>
+        </div>
+      )}
+
       {/* Expanded: score breakdown + reasoning */}
       {expanded && (
         <div className="border-t-2 border-current border-opacity-20 p-4 bg-white bg-opacity-60">

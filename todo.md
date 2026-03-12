@@ -1617,3 +1617,11 @@
 - [ ] Move INTEL tab to first position in company detail tabs (currently second after Overview)
 - [ ] Add "Signal → Research → Outreach" breadcrumb to company detail header to reinforce the flow
 - [ ] Show signal recency badge (e.g. "3 days ago") on company cards in search results list
+
+## Feature: Add Moderate Fit Niches to Campaigns (Mar 12 2026)
+- [ ] Identify where GOOD FIT niches have "Add to Campaign" / "N co." button on niche review page
+- [ ] Add "Add to Campaign" button to MODERATE FIT niche cards (currently only GOOD FIT has this)
+- [ ] Ensure the button triggers the same campaign-creation/search flow as GOOD FIT niches
+- [ ] Optionally show a visual indicator that the niche is moderate fit when added (e.g. badge on campaign)
+- [x] Add "Add to Campaign" button to MODERATE FIT niche cards (score 40-69) — orange outlined button, same createCampaignFromNiche backend as GOOD FIT
+- [x] GOOD FIT (>=70) keeps green filled "Launch Campaign" button; MODERATE FIT (40-69) gets orange outlined "+ Add to Campaign" button

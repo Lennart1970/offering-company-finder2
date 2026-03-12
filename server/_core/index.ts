@@ -50,6 +50,9 @@ async function startServer() {
     createExpressMiddleware({
       router: appRouter,
       createContext,
+      // Allow POST for query procedures so the client methodOverride: 'POST'
+      // avoids 414 Request-URI Too Large on large batches
+      allowMethodOverride: true,
     })
   );
   // development mode uses Vite, production mode uses static files

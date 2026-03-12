@@ -294,8 +294,8 @@ function NicheCard({
         </div>
       </div>
 
-      {/* Prominent Create Campaign CTA — full width, shown when fitScore >= 70 */}
-      {onCreateCampaign && hasScore && score >= 70 && (
+      {/* Prominent Create Campaign CTA — full width, shown when fitScore >= 60 (Good Fit or better) */}
+      {onCreateCampaign && hasScore && score >= 60 && (
         <div className="px-4 pb-4 pt-2">
           <button
             onClick={() => onCreateCampaign(niche.id)}

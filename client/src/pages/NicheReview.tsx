@@ -320,8 +320,8 @@ function NicheCard({
         </div>
       )}
 
-      {/* Secondary Add to Campaign CTA — for MODERATE FIT niches (score 40–69) */}
-      {onCreateCampaign && hasScore && score >= 40 && score < 70 && (
+      {/* Secondary Add to Campaign CTA — for MODERATE FIT niches (score 40–59, matching scoreLabel) */}
+      {onCreateCampaign && hasScore && score >= 40 && score < 60 && (
         <div className="px-4 pb-4 pt-2">
           <button
             onClick={() => onCreateCampaign(niche.id)}

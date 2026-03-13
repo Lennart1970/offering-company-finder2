@@ -1630,3 +1630,13 @@
 - [x] Add getAdjacentCompany procedure to return prev/next company ID from searchId + current position
 - [x] Update CompanyDetail PREV/NEXT to use server-side lookup instead of URL queue parameter
 - [x] Update SearchResults to build clean URLs: /company/:id?from=search/:searchId (no queue param)
+
+## Feature: DB-Persisted DO 10 Job State
+- [x] Add batch_jobs table to drizzle/schema.ts (id, searchId, userId, status, stats JSON, currentCompany, progress, createdAt, updatedAt)
+- [x] Generate and apply SQL migration for batch_jobs table
+- [x] Create db.ts helpers: createBatchJob, updateBatchJob, getBatchJob
+- [x] Replace in-memory jobs Map in companyFinder.ts with DB-backed helpers
+- [x] Update doNext10 to persist job state to DB on every step
+- [x] Update getJobStatus to read from DB instead of in-memory Map
+- [x] Handle stale "running" jobs on server restart (mark as failed if updatedAt > 5 min ago)
+- [x] Write vitest tests for batch job persistence helpers

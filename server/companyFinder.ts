@@ -4,25 +4,9 @@ import { z } from "zod";
 import { randomUUID } from "crypto";
 
 // ---------------------------------------------------------------------------
-// In-memory job store for fire-and-forget doNext10 jobs
+// DB-backed job store for fire-and-forget doNext10 jobs
+// In-memory Map is intentionally removed; all state lives in batch_jobs table.
 // ---------------------------------------------------------------------------
-type JobStatus = {
-  searchId: number;
-  status: "running" | "done" | "error";
-  current: string | null;
-  progress: number; // 0-100
-  stats: { enriched: number; researched: number; approached: number; failed: number; total: number; remaining: number };
-  error?: string;
-  startedAt: number;
-};
-const jobStore = new Map<string, JobStatus>();
-// Clean up jobs older than 1 hour
-setInterval(() => {
-  const cutoff = Date.now() - 60 * 60 * 1000;
-  for (const [id, job] of Array.from(jobStore.entries())) {
-    if (job.startedAt < cutoff) jobStore.delete(id);
-  }
-}, 10 * 60 * 1000).unref();
 import {
   createSearch,
   updateSearch,
@@ -47,6 +31,10 @@ import {
   createContact,
   getContactByCompanyId,
   getCallTodayCompanies,
+  createBatchJob,
+  getBatchJob,
+  updateBatchJob,
+  getLatestBatchJobForSearch,
 } from "./db";
 // Brain and contacts-by-company imports are above with brainResearchService
 import { searchApolloContacts, searchApolloContacts as searchApolloContactsSingle, trickleDownSearch, getAllPersonnel, enrichPerson, SENIORITY_TIERS } from "./apolloPeopleSearch";
@@ -279,21 +267,29 @@ export const companyFinderRouter = router({
   // doNext10 — enrich + research + approach the next N companies in one shot
   // Priority: pending (unenriched) first, then enriched-but-no-brief, then brief-but-no-approach
   // ---------------------------------------------------------------------------
-  // fire-and-forget: returns jobId immediately, runs in background
+  // fire-and-forget: returns jobId immediately, runs in background.
+  // Job state is persisted to batch_jobs table so it survives server restarts.
   doNext10: protectedProcedure
     .input(z.object({ searchId: z.number(), limit: z.number().optional().default(10) }))
     .mutation(async ({ ctx, input }) => {
       await assertSearchAccess(input.searchId, ctx.user.id);
       const jobId = randomUUID();
-      const job: JobStatus = {
+
+      // Persist initial job row immediately so the client can start polling
+      await createBatchJob({
+        id: jobId,
         searchId: input.searchId,
+        userId: ctx.user.id,
         status: "running",
-        current: null,
         progress: 0,
-        stats: { enriched: 0, researched: 0, approached: 0, failed: 0, total: 0, remaining: 0 },
-        startedAt: Date.now(),
-      };
-      jobStore.set(jobId, job);
+        currentCompany: null,
+        totalCompanies: 0,
+        enriched: 0,
+        researched: 0,
+        approached: 0,
+        failed: 0,
+        remaining: 0,
+      });
 
       // Run in background — NOT awaited
       (async () => {
@@ -306,13 +302,16 @@ export const companyFinderRouter = router({
           const needsBrief = all.filter((c) => c.enrichmentStatus === "enriched" && !c.briefData);
           const needsApproach = all.filter((c) => c.enrichmentStatus === "enriched" && !!c.briefData && !c.salesApproachData);
           const queue = [...pending, ...needsBrief, ...needsApproach].slice(0, limit);
-          job.stats.total = queue.length;
+
+          await updateBatchJob(jobId, { totalCompanies: queue.length });
           console.log(`[doNext10] jobId=${jobId} searchId=${input.searchId} — ${queue.length} companies queued`);
+
+          let enriched = 0, researched = 0, approached = 0, failed = 0;
 
           for (let i = 0; i < queue.length; i++) {
             const company = queue[i];
-            job.current = company.name || null;
-            job.progress = Math.round((i / queue.length) * 100);
+            const progress = Math.round((i / queue.length) * 100);
+            await updateBatchJob(jobId, { currentCompany: company.name || null, progress, enriched, researched, approached, failed });
             try {
               if (company.enrichmentStatus === "pending") {
                 const details = await enrichCompanyDetails(company.apolloId!);
@@ -324,7 +323,7 @@ export const companyFinderRouter = router({
                   rawAddress: details.raw_address || null,
                   enrichmentStatus: "enriched",
                 });
-                job.stats.enriched++;
+                enriched++;
                 console.log(`[doNext10] ✓ Enriched: ${company.name}`);
               }
               if (!company.briefData) {
@@ -334,7 +333,7 @@ export const companyFinderRouter = router({
                   briefData: JSON.stringify(brief),
                   briefGeneratedAt: new Date(),
                 });
-                job.stats.researched++;
+                researched++;
                 console.log(`[doNext10] ✓ Researched: ${company.name}`);
               }
               if (!company.salesApproachData) {
@@ -343,26 +342,32 @@ export const companyFinderRouter = router({
                   salesApproachData: JSON.stringify(approach),
                   salesApproachGeneratedAt: new Date(),
                 });
-                job.stats.approached++;
+                approached++;
                 console.log(`[doNext10] ✓ Approached: ${company.name}`);
               }
             } catch (err: any) {
-              job.stats.failed++;
+              failed++;
               console.error(`[doNext10] ✗ ${company.name}:`, err.message);
             }
           }
 
           const refreshed = await getCompaniesBySearchId(input.searchId);
-          job.stats.remaining = refreshed.filter(
+          const remaining = refreshed.filter(
             (c) => c.enrichmentStatus === "pending" || !c.briefData || !c.salesApproachData
           ).length;
-          job.progress = 100;
-          job.current = null;
-          job.status = "done";
-          console.log(`[doNext10] Done — enriched:${job.stats.enriched} researched:${job.stats.researched} approached:${job.stats.approached} failed:${job.stats.failed} remaining:${job.stats.remaining}`);
+          await updateBatchJob(jobId, {
+            status: "completed",
+            progress: 100,
+            currentCompany: null,
+            enriched,
+            researched,
+            approached,
+            failed,
+            remaining,
+          });
+          console.log(`[doNext10] Done — enriched:${enriched} researched:${researched} approached:${approached} failed:${failed} remaining:${remaining}`);
         } catch (err: any) {
-          job.status = "error";
-          job.error = err.message;
+          await updateBatchJob(jobId, { status: "failed", errorMessage: err.message }).catch(() => {});
           console.error(`[doNext10] Fatal:`, err.message);
         }
       })();
@@ -374,15 +379,44 @@ export const companyFinderRouter = router({
   getJobStatus: protectedProcedure
     .input(z.object({ jobId: z.string() }))
     .query(async ({ input }) => {
-      const job = jobStore.get(input.jobId);
+      const job = await getBatchJob(input.jobId);
       if (!job) return null;
+      // Map DB status to the legacy client-side status strings
+      const clientStatus = job.status === "completed" ? "done" : job.status === "failed" ? "error" : "running";
       return {
-        status: job.status,
-        current: job.current,
+        status: clientStatus as "running" | "done" | "error",
+        current: job.currentCompany ?? null,
         progress: job.progress,
-        stats: job.stats,
-        error: job.error ?? null,
+        stats: {
+          enriched: job.enriched,
+          researched: job.researched,
+          approached: job.approached,
+          failed: job.failed,
+          total: job.totalCompanies,
+          remaining: job.remaining,
+        },
+        error: job.errorMessage ?? null,
       };
+    }),
+
+  // Returns the most recent batch job for a search so the client can resume
+  // polling after a page reload without losing visibility into a running job.
+  getLatestJob: protectedProcedure
+    .input(z.object({ searchId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      await assertSearchAccess(input.searchId, ctx.user.id);
+      const job = await getLatestBatchJobForSearch(input.searchId);
+      if (!job) return null;
+      // Treat stale "running" jobs (no update in >10 min) as failed — the server restarted
+      if (job.status === "running") {
+        const staleCutoff = new Date(Date.now() - 10 * 60 * 1000);
+        if (job.updatedAt < staleCutoff) {
+          await updateBatchJob(job.id, { status: "failed", errorMessage: "Job interrupted by server restart" });
+          return null; // Don't resume a stale job
+        }
+      }
+      if (job.status !== "running") return null; // Only resume actively running jobs
+      return { jobId: job.id };
     }),
 
   // Returns prev/next company IDs for a given company within a search (server-side queue navigation)

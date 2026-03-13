@@ -1,6 +1,6 @@
 import { eq, and, or } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche } from "../drizzle/schema";
+import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -577,4 +577,56 @@ export async function deleteNichesByParentId(parentNicheId: number): Promise<voi
   const db = await getDb();
   if (!db) return;
   await db.delete(niches).where(eq(niches.parentNicheId, parentNicheId));
+}
+
+// ---------------------------------------------------------------------------
+// Batch Job helpers (DO 10 persistence)
+// ---------------------------------------------------------------------------
+
+/**
+ * Create a new batch job row and return it.
+ */
+export async function createBatchJob(data: InsertBatchJob): Promise<BatchJob> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(batchJobs).values(data);
+  const [job] = await db.select().from(batchJobs).where(eq(batchJobs.id, data.id)).limit(1);
+  return job;
+}
+
+/**
+ * Fetch a batch job by its UUID.
+ * Returns null if the job does not exist.
+ */
+export async function getBatchJob(id: string): Promise<BatchJob | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const [job] = await db.select().from(batchJobs).where(eq(batchJobs.id, id)).limit(1);
+  return job ?? null;
+}
+
+/**
+ * Partial-update a batch job row.
+ * Called on every processing step to keep progress current.
+ */
+export async function updateBatchJob(id: string, updates: Partial<InsertBatchJob>): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(batchJobs).set(updates).where(eq(batchJobs.id, id));
+}
+
+/**
+ * Return the most recent batch job for a given search.
+ * Used to resume polling after a page reload.
+ */
+export async function getLatestBatchJobForSearch(searchId: number): Promise<BatchJob | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const [job] = await db
+    .select()
+    .from(batchJobs)
+    .where(eq(batchJobs.searchId, searchId))
+    .orderBy(desc(batchJobs.createdAt))
+    .limit(1);
+  return job ?? null;
 }

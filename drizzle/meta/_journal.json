@@ -211,6 +211,13 @@
       "when": 1773227545568,
       "tag": "0029_youthful_adam_warlock",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "5",
+      "when": 1773412583929,
+      "tag": "0030_cloudy_black_cat",
+      "breakpoints": true
     }
   ]
 }

@@ -294,3 +294,28 @@ export type InsertNiche = typeof niches.$inferInsert;
  *   ...
  * ]
  */
+
+/**
+ * Persists DO 10 batch-processing job state so jobs survive server restarts.
+ * One row per doNext10 invocation; polled by the frontend every 3 seconds.
+ */
+export const batchJobs = mysqlTable("batch_jobs", {
+  id: varchar("id", { length: 36 }).primaryKey(), // UUID job ID
+  searchId: int("searchId").notNull().references(() => searches.id, { onDelete: "cascade" }),
+  userId: int("userId").notNull().references(() => users.id),
+  status: mysqlEnum("status", ["running", "completed", "failed"]).default("running").notNull(),
+  progress: int("progress").default(0).notNull(),          // 0-100 percentage
+  currentCompany: varchar("currentCompany", { length: 512 }), // Name of company currently processing
+  totalCompanies: int("totalCompanies").default(0).notNull(), // Total companies in this job's queue
+  enriched: int("enriched").default(0).notNull(),
+  researched: int("researched").default(0).notNull(),
+  approached: int("approached").default(0).notNull(),
+  failed: int("failed").default(0).notNull(),
+  remaining: int("remaining").default(0).notNull(),        // Companies still needing work after this job
+  errorMessage: text("errorMessage"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type BatchJob = typeof batchJobs.$inferSelect;
+export type InsertBatchJob = typeof batchJobs.$inferInsert;

@@ -78,6 +78,19 @@ export default function SearchResults() {
 
   // Fire-and-forget doNext10: returns jobId immediately, we poll for progress
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
+
+  // On page load, check if there's an actively running job for this search so
+  // we can resume polling without losing visibility after a page reload.
+  const latestJobQuery = trpc.companyFinder.getLatestJob.useQuery(
+    { searchId: searchId! },
+    { enabled: !!searchId && !activeJobId }
+  );
+  useEffect(() => {
+    if (latestJobQuery.data?.jobId && !activeJobId) {
+      setActiveJobId(latestJobQuery.data.jobId);
+    }
+  }, [latestJobQuery.data?.jobId]);
+
   const jobStatusQuery = trpc.companyFinder.getJobStatus.useQuery(
     { jobId: activeJobId! },
     {

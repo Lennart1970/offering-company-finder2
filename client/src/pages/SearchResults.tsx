@@ -76,22 +76,52 @@ export default function SearchResults() {
     }
   }, [searchData?.search.excludedSectors]);
 
+  // Fire-and-forget doNext10: returns jobId immediately, we poll for progress
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
+  const jobStatusQuery = trpc.companyFinder.getJobStatus.useQuery(
+    { jobId: activeJobId! },
+    {
+      enabled: !!activeJobId,
+      refetchInterval: (query) => {
+        const data = query.state.data;
+        if (!data || data.status === "running") return 3000;
+        return false; // stop polling when done or error
+      },
+    }
+  );
+
+  // When job completes, show toast and refresh
+  useEffect(() => {
+    const job = jobStatusQuery.data;
+    if (!job) return;
+    if (job.status === "done") {
+      const s = job.stats;
+      const parts: string[] = [];
+      if (s.enriched > 0) parts.push(`${s.enriched} enriched`);
+      if (s.researched > 0) parts.push(`${s.researched} researched`);
+      if (s.approached > 0) parts.push(`${s.approached} approached`);
+      if (s.failed > 0) parts.push(`${s.failed} failed`);
+      const summary = parts.length > 0 ? parts.join(" · ") : "Nothing to do";
+      const remaining = s.remaining > 0 ? ` — ${s.remaining} still pending` : " — all done!";
+      toast.success(`DO 10: ${summary}${remaining}`);
+      setActiveJobId(null);
+      if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
+    } else if (job.status === "error") {
+      toast.error(`DO 10 failed: ${job.error ?? "Unknown error"}`);
+      setActiveJobId(null);
+    }
+  }, [jobStatusQuery.data?.status]);
+
   const doNext10Mutation = trpc.companyFinder.doNext10.useMutation({
     onSuccess: (data) => {
-      const parts: string[] = [];
-      if (data.enriched > 0) parts.push(`${data.enriched} enriched`);
-      if (data.researched > 0) parts.push(`${data.researched} researched`);
-      if (data.approached > 0) parts.push(`${data.approached} approached`);
-      if (data.failed > 0) parts.push(`${data.failed} failed`);
-      const summary = parts.length > 0 ? parts.join(" · ") : "Nothing to do";
-      const remaining = data.remaining > 0 ? ` — ${data.remaining} still pending` : " — all done!";
-      toast.success(`DO 10: ${summary}${remaining}`);
-      if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
+      setActiveJobId(data.jobId);
     },
     onError: (error) => {
       toast.error(`DO 10 failed: ${error.message}`);
     },
   });
+
+  const isDoNext10Running = doNext10Mutation.isPending || (!!activeJobId && jobStatusQuery.data?.status === "running");
 
   const submitDecisionMutation = trpc.companyFinder.submitDecision.useMutation({
     onSuccess: () => {
@@ -614,10 +644,10 @@ export default function SearchResults() {
                     <TooltipTrigger asChild>
                       <Button
                         onClick={() => doNext10Mutation.mutate({ searchId: searchId! })}
-                        disabled={doNext10Mutation.isPending}
+                        disabled={isDoNext10Running}
                         className="text-lg px-6 py-4 font-black border-2 border-black bg-black text-white"
                       >
-                        {doNext10Mutation.isPending
+                        {isDoNext10Running
                           ? "[WORKING...]"
                           : `[DO 10 — ${remainingWork} LEFT]`}
                       </Button>
@@ -639,11 +669,24 @@ export default function SearchResults() {
           </div>
 
           {/* Enrichment Progress */}
-          {doNext10Mutation.isPending && (
-            <div className="border-2 border-gray-300 bg-gray-50 p-6 mb-6 animate-pulse">
+          {isDoNext10Running && (
+            <div className="border-2 border-gray-300 bg-gray-50 p-6 mb-6">
               <div className="text-xl font-black text-gray-700">→ DO 10 RUNNING...</div>
-              <div className="text-sm font-bold mt-2">
-                Processing next 10 companies: enrich → deep research → sales approach. Each takes ~30s.
+              {jobStatusQuery.data?.current && (
+                <div className="text-sm font-bold mt-2 text-gray-600">
+                  Processing: <span className="text-black">{jobStatusQuery.data.current}</span>
+                  {jobStatusQuery.data.stats.total > 0 && (
+                    <span className="ml-2 text-gray-400">
+                      ({Math.round((jobStatusQuery.data.progress ?? 0))}% — {jobStatusQuery.data.stats.enriched + jobStatusQuery.data.stats.researched + jobStatusQuery.data.stats.approached}/{jobStatusQuery.data.stats.total * 3} steps)
+                    </span>
+                  )}
+                </div>
+              )}
+              <div className="mt-3 h-2 bg-gray-200 rounded">
+                <div
+                  className="h-2 bg-black rounded transition-all duration-500"
+                  style={{ width: `${jobStatusQuery.data?.progress ?? 0}%` }}
+                />
               </div>
             </div>
           )}

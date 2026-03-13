@@ -1,6 +1,28 @@
 import { protectedProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { randomUUID } from "crypto";
+
+// ---------------------------------------------------------------------------
+// In-memory job store for fire-and-forget doNext10 jobs
+// ---------------------------------------------------------------------------
+type JobStatus = {
+  searchId: number;
+  status: "running" | "done" | "error";
+  current: string | null;
+  progress: number; // 0-100
+  stats: { enriched: number; researched: number; approached: number; failed: number; total: number; remaining: number };
+  error?: string;
+  startedAt: number;
+};
+const jobStore = new Map<string, JobStatus>();
+// Clean up jobs older than 1 hour
+setInterval(() => {
+  const cutoff = Date.now() - 60 * 60 * 1000;
+  for (const [id, job] of Array.from(jobStore.entries())) {
+    if (job.startedAt < cutoff) jobStore.delete(id);
+  }
+}, 10 * 60 * 1000).unref();
 import {
   createSearch,
   updateSearch,
@@ -257,77 +279,110 @@ export const companyFinderRouter = router({
   // doNext10 — enrich + research + approach the next N companies in one shot
   // Priority: pending (unenriched) first, then enriched-but-no-brief, then brief-but-no-approach
   // ---------------------------------------------------------------------------
+  // fire-and-forget: returns jobId immediately, runs in background
   doNext10: protectedProcedure
     .input(z.object({ searchId: z.number(), limit: z.number().optional().default(10) }))
     .mutation(async ({ ctx, input }) => {
-      const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
-      const { generateSalesApproach } = await import("./salesApproachGenerator");
-
       await assertSearchAccess(input.searchId, ctx.user.id);
-      const all = await getCompaniesBySearchId(input.searchId);
-      const limit = input.limit;
+      const jobId = randomUUID();
+      const job: JobStatus = {
+        searchId: input.searchId,
+        status: "running",
+        current: null,
+        progress: 0,
+        stats: { enriched: 0, researched: 0, approached: 0, failed: 0, total: 0, remaining: 0 },
+        startedAt: Date.now(),
+      };
+      jobStore.set(jobId, job);
 
-      // Build the work queue: pending → no-brief → no-approach (up to `limit` total)
-      const pending = all.filter((c) => c.enrichmentStatus === "pending" && !!c.apolloId);
-      const needsBrief = all.filter((c) => c.enrichmentStatus === "enriched" && !c.briefData);
-      const needsApproach = all.filter((c) => c.enrichmentStatus === "enriched" && !!c.briefData && !c.salesApproachData);
-
-      const queue = [...pending, ...needsBrief, ...needsApproach].slice(0, limit);
-
-      const stats = { enriched: 0, researched: 0, approached: 0, failed: 0, total: queue.length };
-      console.log(`[doNext10] searchId=${input.searchId} — ${queue.length} companies queued (limit=${limit})`);
-
-      for (const company of queue) {
+      // Run in background — NOT awaited
+      (async () => {
         try {
-          // Step 1: Enrich if still pending
-          if (company.enrichmentStatus === "pending") {
-            const details = await enrichCompanyDetails(company.apolloId!);
-            await updateCompany(company.id, {
-              city: details.city || null,
-              state: details.state || null,
-              country: details.country || null,
-              streetAddress: details.street_address || null,
-              rawAddress: details.raw_address || null,
-              enrichmentStatus: "enriched",
-            });
-            stats.enriched++;
-            console.log(`[doNext10] ✓ Enriched: ${company.name}`);
+          const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
+          const { generateSalesApproach } = await import("./salesApproachGenerator");
+          const all = await getCompaniesBySearchId(input.searchId);
+          const limit = input.limit;
+          const pending = all.filter((c) => c.enrichmentStatus === "pending" && !!c.apolloId);
+          const needsBrief = all.filter((c) => c.enrichmentStatus === "enriched" && !c.briefData);
+          const needsApproach = all.filter((c) => c.enrichmentStatus === "enriched" && !!c.briefData && !c.salesApproachData);
+          const queue = [...pending, ...needsBrief, ...needsApproach].slice(0, limit);
+          job.stats.total = queue.length;
+          console.log(`[doNext10] jobId=${jobId} searchId=${input.searchId} — ${queue.length} companies queued`);
+
+          for (let i = 0; i < queue.length; i++) {
+            const company = queue[i];
+            job.current = company.name || null;
+            job.progress = Math.round((i / queue.length) * 100);
+            try {
+              if (company.enrichmentStatus === "pending") {
+                const details = await enrichCompanyDetails(company.apolloId!);
+                await updateCompany(company.id, {
+                  city: details.city || null,
+                  state: details.state || null,
+                  country: details.country || null,
+                  streetAddress: details.street_address || null,
+                  rawAddress: details.raw_address || null,
+                  enrichmentStatus: "enriched",
+                });
+                job.stats.enriched++;
+                console.log(`[doNext10] ✓ Enriched: ${company.name}`);
+              }
+              if (!company.briefData) {
+                const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id);
+                await updateCompany(company.id, {
+                  urgencyScore: brief.urgencyScore,
+                  briefData: JSON.stringify(brief),
+                  briefGeneratedAt: new Date(),
+                });
+                job.stats.researched++;
+                console.log(`[doNext10] ✓ Researched: ${company.name}`);
+              }
+              if (!company.salesApproachData) {
+                const approach = await generateSalesApproach(company.id, ctx.user.id);
+                await updateCompany(company.id, {
+                  salesApproachData: JSON.stringify(approach),
+                  salesApproachGeneratedAt: new Date(),
+                });
+                job.stats.approached++;
+                console.log(`[doNext10] ✓ Approached: ${company.name}`);
+              }
+            } catch (err: any) {
+              job.stats.failed++;
+              console.error(`[doNext10] ✗ ${company.name}:`, err.message);
+            }
           }
-          // Step 2: Research brief if missing
-          if (!company.briefData) {
-            const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id);
-            await updateCompany(company.id, {
-              urgencyScore: brief.urgencyScore,
-              briefData: JSON.stringify(brief),
-              briefGeneratedAt: new Date(),
-            });
-            stats.researched++;
-            console.log(`[doNext10] ✓ Researched: ${company.name}`);
-          }
-          // Step 3: Sales approach if missing
-          if (!company.salesApproachData) {
-            const approach = await generateSalesApproach(company.id, ctx.user.id);
-            await updateCompany(company.id, {
-              salesApproachData: JSON.stringify(approach),
-              salesApproachGeneratedAt: new Date(),
-            });
-            stats.approached++;
-            console.log(`[doNext10] ✓ Approached: ${company.name}`);
-          }
+
+          const refreshed = await getCompaniesBySearchId(input.searchId);
+          job.stats.remaining = refreshed.filter(
+            (c) => c.enrichmentStatus === "pending" || !c.briefData || !c.salesApproachData
+          ).length;
+          job.progress = 100;
+          job.current = null;
+          job.status = "done";
+          console.log(`[doNext10] Done — enriched:${job.stats.enriched} researched:${job.stats.researched} approached:${job.stats.approached} failed:${job.stats.failed} remaining:${job.stats.remaining}`);
         } catch (err: any) {
-          stats.failed++;
-          console.error(`[doNext10] ✗ ${company.name}:`, err.message);
+          job.status = "error";
+          job.error = err.message;
+          console.error(`[doNext10] Fatal:`, err.message);
         }
-      }
+      })();
 
-      // Recalculate remaining work after this batch
-      const refreshed = await getCompaniesBySearchId(input.searchId);
-      const remainingWork = refreshed.filter(
-        (c) => c.enrichmentStatus === "pending" || !c.briefData || !c.salesApproachData
-      ).length;
+      return { jobId };
+    }),
 
-      console.log(`[doNext10] Done — enriched:${stats.enriched} researched:${stats.researched} approached:${stats.approached} failed:${stats.failed} remaining:${remainingWork}`);
-      return { ...stats, remaining: remainingWork };
+  // Poll job status (lightweight, called every 3s by client while job runs)
+  getJobStatus: protectedProcedure
+    .input(z.object({ jobId: z.string() }))
+    .query(async ({ input }) => {
+      const job = jobStore.get(input.jobId);
+      if (!job) return null;
+      return {
+        status: job.status,
+        current: job.current,
+        progress: job.progress,
+        stats: job.stats,
+        error: job.error ?? null,
+      };
     }),
 
   // Export companies as CSV

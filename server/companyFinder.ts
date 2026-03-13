@@ -2055,16 +2055,35 @@ export const companyFinderRouter = router({
         } catch { /* fall through to re-fetch */ }
       }
       const apiKey = process.env.SERPER_API_KEY;
-      if (!apiKey) throw new Error("SERPER_API_KEY is not configured");
+      if (!apiKey) {
+        console.warn("[fetchUrgencyImages] SERPER_API_KEY not configured — returning empty images");
+        return { images: [], cached: false };
+      }
       // Editorial/news-style query — not product-focused
       const query = `"${company.name}" news 2025 2026 -site:amazon.com -site:pinterest.com -site:shutterstock.com -site:gettyimages.com`;
-      const response = await fetch("https://google.serper.dev/images", {
-        method: "POST",
-        headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-        body: JSON.stringify({ q: query, num: 12 }),
-      });
-      if (!response.ok) throw new Error(`Serper Images API error: ${response.status}`);
-      const data = await response.json() as { images?: any[] };
+      let data: { images?: any[] } = {};
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 10_000);
+        let response: Response;
+        try {
+          response = await fetch("https://google.serper.dev/images", {
+            method: "POST",
+            headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+            body: JSON.stringify({ q: query, num: 12 }),
+            signal: controller.signal,
+          });
+        } finally {
+          clearTimeout(timeoutId);
+        }
+        if (response.ok) {
+          data = await response.json() as { images?: any[] };
+        } else {
+          console.warn(`[fetchUrgencyImages] Serper news query returned ${response.status} — falling back to empty`);
+        }
+      } catch (err: any) {
+        console.warn(`[fetchUrgencyImages] Serper news query failed: ${err.message} — falling back to empty`);
+      }
       const BLOCKED = new Set(["amazon.com","ebay.com","alibaba.com","pinterest.com",
         "shutterstock.com","gettyimages.com","istockphoto.com","dreamstime.com",
         "alamy.com","depositphotos.com","123rf.com","google.com","bing.com"]);
@@ -2094,12 +2113,22 @@ export const companyFinderRouter = router({
               .split("?")[0]
               .toLowerCase();
             if (rawDomain) {
-              const websiteResponse = await fetch("https://google.serper.dev/images", {
-                method: "POST",
-                headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
-                body: JSON.stringify({ q: `site:${rawDomain}`, num: 12 }),
-              });
-              if (websiteResponse.ok) {
+              const wsController = new AbortController();
+              const wsTimeoutId = setTimeout(() => wsController.abort(), 10_000);
+              let websiteResponse: Response | null = null;
+              try {
+                websiteResponse = await fetch("https://google.serper.dev/images", {
+                  method: "POST",
+                  headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+                  body: JSON.stringify({ q: `site:${rawDomain}`, num: 12 }),
+                  signal: wsController.signal,
+                });
+              } catch (wsErr: any) {
+                console.warn(`[fetchUrgencyImages] Serper website fallback failed: ${wsErr.message}`);
+              } finally {
+                clearTimeout(wsTimeoutId);
+              }
+              if (websiteResponse?.ok) {
                 const websiteData = await websiteResponse.json() as { images?: any[] };
                 const websiteImages = (websiteData.images ?? [])
                   .filter((img: any) => img.imageUrl)

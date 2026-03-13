@@ -133,19 +133,28 @@ async function callGrokWithWebSearch(
     ? { type: "json_schema", json_schema: { name: "output", strict: true, schema: jsonSchema } }
     : { type: "json_object" };
 
-  const response = await fetch(`${XAI_BASE_URL}/responses`, {
-    method: "POST",
-    headers: {
-      "Authorization": `Bearer ${XAI_API_KEY}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({
-      model: "grok-4-1-fast-reasoning",
-      tools: [{ type: "web_search" }],  // Explicit web_search tool
-      input,
-      response_format: responseFormat,
-    }),
-  });
+  // 180-second timeout — Grok with web search can take 60-120 s
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 180_000);
+  let response: Response;
+  try {
+    response = await fetch(`${XAI_BASE_URL}/responses`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${XAI_API_KEY}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        model: "grok-4-1-fast-reasoning",
+        tools: [{ type: "web_search" }],  // Explicit web_search tool
+        input,
+        response_format: responseFormat,
+      }),
+      signal: controller.signal,
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!response.ok) {
     const error = await response.text();

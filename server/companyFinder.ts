@@ -385,6 +385,22 @@ export const companyFinderRouter = router({
       };
     }),
 
+  // Returns prev/next company IDs for a given company within a search (server-side queue navigation)
+  getAdjacentCompany: protectedProcedure
+    .input(z.object({ searchId: z.number(), companyId: z.number() }))
+    .query(async ({ ctx, input }) => {
+      await assertSearchAccess(input.searchId, ctx.user.id);
+      const all = await getCompaniesBySearchId(input.searchId);
+      const idx = all.findIndex((c) => c.id === input.companyId);
+      if (idx === -1) return null;
+      return {
+        position: idx + 1,
+        total: all.length,
+        prevId: idx > 0 ? all[idx - 1].id : null,
+        nextId: idx < all.length - 1 ? all[idx + 1].id : null,
+      };
+    }),
+
   // Export companies as CSV
   enrichSingle: protectedProcedure
     .input(z.object({ companyId: z.number() }))

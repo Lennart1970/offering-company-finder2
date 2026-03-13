@@ -52,28 +52,31 @@ export default function CompanyDetail() {
   const params = useParams<{ companyId: string }>();
   const companyId = parseInt(params.companyId, 10);
 
-  // Parse ?chapter=, ?from=, ?queue=, ?qi= from URL
+  // Parse ?chapter=, ?from= from URL (queue is now server-side)
   const urlParams = new URLSearchParams(window.location.search);
   const initialChapter = (urlParams.get("chapter") as Chapter) || "overview";
   const fromParam = urlParams.get("from") || "";
-  const queueParam = urlParams.get("queue") || "";
-  const queueIndex = parseInt(urlParams.get("qi") || "-1", 10);
 
-  // Parse the queue of company IDs when arriving from Call Today
-  const queueIds = useMemo(() => {
-    if (!queueParam) return [];
-    return queueParam.split(",").map(Number).filter(Boolean);
-  }, [queueParam]);
+  // Extract searchId from fromParam (e.g. "search/1260001")
+  const fromSearchId = useMemo(() => {
+    const m = fromParam.match(/search\/(\d+)/);
+    return m ? parseInt(m[1], 10) : null;
+  }, [fromParam]);
 
-  const hasPrev = queueIds.length > 0 && queueIndex > 0;
-  const hasNext = queueIds.length > 0 && queueIndex < queueIds.length - 1;
+  // Server-side adjacent company lookup — replaces URL queue
+  const adjacentQuery = trpc.companyFinder.getAdjacentCompany.useQuery(
+    { searchId: fromSearchId!, companyId },
+    { enabled: !!fromSearchId && !!companyId }
+  );
+  const adjacent = adjacentQuery.data;
 
-  const goToQueueIndex = (newIndex: number) => {
-    const nextId = queueIds[newIndex];
-    if (!nextId) return;
-    // Preserve the active chapter when stepping through the queue
+  const hasPrev = !!(adjacent?.prevId);
+  const hasNext = !!(adjacent?.nextId);
+
+  const goToAdjacent = (targetId: number | null | undefined) => {
+    if (!targetId) return;
     const chParam = chapter !== "overview" ? `&chapter=${chapter}` : "";
-    navigate(`/company/${nextId}?from=${fromParam}&queue=${queueParam}&qi=${newIndex}${chParam}`);
+    navigate(`/company/${targetId}?from=${fromParam}${chParam}`);
   };
 
   const [chapter, setChapter] = useState<Chapter>(initialChapter);
@@ -458,21 +461,21 @@ export default function CompanyDetail() {
             {(fromParam === "call-today" || fromParam.startsWith("call-today/")) ? "CALL TODAY" : fromParam.startsWith("search/") ? "SEARCH RESULTS" : "BACK"} / {company.name.toUpperCase()}
           </span>
         </div>
-        {/* Prev/Next queue navigator — shown when arriving from Call Today or Search Results with a queue */}
-        {queueIds.length > 0 && (
+        {/* Prev/Next queue navigator — server-side lookup, shown when arriving from a search */}
+        {fromSearchId && (
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-muted-foreground">
-              {queueIndex + 1} / {queueIds.length}
+              {adjacent ? `${adjacent.position} / ${adjacent.total}` : "— / —"}
             </span>
             <button
-              onClick={() => goToQueueIndex(queueIndex - 1)}
+              onClick={() => goToAdjacent(adjacent?.prevId)}
               disabled={!hasPrev}
               className="text-xs font-black border-2 border-black px-3 py-1.5 disabled:opacity-30 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:cursor-default"
             >
               ← PREV
             </button>
             <button
-              onClick={() => goToQueueIndex(queueIndex + 1)}
+              onClick={() => goToAdjacent(adjacent?.nextId)}
               disabled={!hasNext}
               className="text-xs font-black border-2 border-black px-3 py-1.5 disabled:opacity-30 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:cursor-default"
             >

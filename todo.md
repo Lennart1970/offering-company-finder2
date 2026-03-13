@@ -1625,3 +1625,8 @@
 - [ ] Optionally show a visual indicator that the niche is moderate fit when added (e.g. badge on campaign)
 - [x] Add "Add to Campaign" button to MODERATE FIT niche cards (score 40-69) — orange outlined button, same createCampaignFromNiche backend as GOOD FIT
 - [x] GOOD FIT (>=70) keeps green filled "Launch Campaign" button; MODERATE FIT (40-69) gets orange outlined "+ Add to Campaign" button
+
+## Feature: Server-side queue navigation (clean URLs)
+- [x] Add getAdjacentCompany procedure to return prev/next company ID from searchId + current position
+- [x] Update CompanyDetail PREV/NEXT to use server-side lookup instead of URL queue parameter
+- [x] Update SearchResults to build clean URLs: /company/:id?from=search/:searchId (no queue param)

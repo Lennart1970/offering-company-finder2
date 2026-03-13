@@ -765,7 +765,7 @@ export default function SearchResults() {
                 company={company}
                 index={index}
                 searchId={searchId!}
-                queueIds={displayedCompanies.slice(0, 500).map((c: any) => c.id)}
+
                 onViewResearch={(id) => { setQuickViewCompanyId(id); setQuickViewMode("research"); }}
                 onViewApproach={(id) => { setQuickViewCompanyId(id); setQuickViewMode("approach"); }}
               />
@@ -912,22 +912,17 @@ export default function SearchResults() {
 // ============================================================================
 // Company Card — Compact Layout
 // ============================================================================
-function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach, queueIds }: {
+function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach }: {
   company: any;
   index: number;
   searchId: number;
   onViewResearch?: (companyId: number) => void;
   onViewApproach?: (companyId: number) => void;
-  queueIds?: number[];
 }) {
   const [, navigate] = useLocation();
   // Build a URL to this company's detail page, optionally with a chapter and the full queue for PREV/NEXT nav
   const buildCompanyUrl = (chapter?: string) => {
     let url = `/company/${company.id}?from=search/${searchId}`;
-    if (queueIds && queueIds.length > 1) {
-      const qi = queueIds.indexOf(company.id);
-      url += `&queue=${queueIds.join(",")}&qi=${qi}`;
-    }
     if (chapter) url += `&chapter=${chapter}`;
     return url;
   };

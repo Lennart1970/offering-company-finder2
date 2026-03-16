@@ -1665,3 +1665,8 @@
 ## Fix: Signal→Response Card Visual Grouping
 - [x] Wrap each signal + its approach in a single bordered card container so they read as one unit
 - [x] Remove the divide-y pattern that makes approaches look like they belong to the next signal
+
+## Fix: Signal→Approach Matching (Content-Based, Not Index-Based)
+- [x] Inspect salesApproachGenerator prompt to see how starters reference signals
+- [x] Replace index-based matching with basedOn fuzzy match against signal description/snippet
+- [x] Fallback to index if no basedOn match found

@@ -1002,11 +1002,34 @@ export default function CompanyDetail() {
                         <div className="lg:col-span-2 flex flex-col gap-0 divide-y-0">
                           {briefData.urgencySignals.map((s: any, i: number) => {
                             const img = displayImages[i + 1]; // offset by 1 (hero used index 0)
-                            const starterRaw = salesApproach?.conversationStarters?.[i];
-                            const starter = starterRaw
-                              ? (typeof starterRaw === "string"
-                                  ? { opener: starterRaw, basedOn: null }
-                                  : starterRaw)
+
+                            // ── Content-based matching: find the starter whose basedOn text
+                            // best overlaps with this signal's description or snippet.
+                            // Falls back to index if no good match is found.
+                            const starters: any[] = salesApproach?.conversationStarters ?? [];
+                            const tokenize = (str: string) =>
+                              str.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
+                            const overlap = (a: string, b: string) => {
+                              const ta = new Set(tokenize(a));
+                              return tokenize(b).filter(t => ta.has(t)).length;
+                            };
+                            const signalText = `${s.description ?? ""} ${s.snippet ?? ""}`;
+                            let bestIdx = -1;
+                            let bestScore = 0;
+                            starters.forEach((st: any, idx: number) => {
+                              const basedOn = typeof st === "string" ? st : (st.basedOn ?? "");
+                              const score = overlap(signalText, basedOn);
+                              if (score > bestScore) { bestScore = score; bestIdx = idx; }
+                            });
+                            // Require at least 2 token matches to accept the content match;
+                            // otherwise fall back to same-index starter (if it exists).
+                            const matchedRaw = bestScore >= 2
+                              ? starters[bestIdx]
+                              : starters[i];
+                            const starter = matchedRaw
+                              ? (typeof matchedRaw === "string"
+                                  ? { opener: matchedRaw, basedOn: null }
+                                  : matchedRaw)
                               : null;
                             return (
                               // Each card is a self-contained bordered unit — signal on top, approach below

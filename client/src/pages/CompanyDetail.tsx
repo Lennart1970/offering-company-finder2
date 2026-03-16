@@ -998,12 +998,10 @@ export default function CompanyDetail() {
                           )}
                         </div>
 
-                        {/* SIGNAL STACK: urgency signals as story cards, each with its conversation starter */}
-                        <div className="lg:col-span-2 divide-y divide-gray-200">
+                        {/* SIGNAL STACK: each signal + its approach wrapped as one card unit */}
+                        <div className="lg:col-span-2 flex flex-col gap-0 divide-y-0">
                           {briefData.urgencySignals.map((s: any, i: number) => {
                             const img = displayImages[i + 1]; // offset by 1 (hero used index 0)
-                            // Match conversation starter by index — the approach generator produces
-                            // one starter per signal in the same order.
                             const starterRaw = salesApproach?.conversationStarters?.[i];
                             const starter = starterRaw
                               ? (typeof starterRaw === "string"
@@ -1011,10 +1009,12 @@ export default function CompanyDetail() {
                                   : starterRaw)
                               : null;
                             return (
-                              <div key={i} className="flex flex-col gap-0">
-                                {/* Signal row: thumbnail + text */}
+                              // Each card is a self-contained bordered unit — signal on top, approach below
+                              <div key={i} className={`flex flex-col border-b border-gray-200 ${starter ? "pb-0" : ""}`}>
+
+                                {/* ── TOP HALF: news signal ── */}
                                 <div className="flex gap-0">
-                                  {/* Thumbnail (if available) */}
+                                  {/* Thumbnail */}
                                   {img ? (
                                     <a href={img.link || img.imageUrl} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
                                       <div className="overflow-hidden bg-gray-100" style={{ width: "90px", height: "72px" }}>
@@ -1055,16 +1055,20 @@ export default function CompanyDetail() {
                                   </div>
                                 </div>
 
-                                {/* ── PROPOSED APPROACH: conversation starter anchored to this signal ── */}
+                                {/* ── BOTTOM HALF: proposed approach — visually attached, separated by a thin amber rule ── */}
                                 {starter && (
-                                  <div className="mx-3 mb-3 border-l-4 border-amber-400 bg-amber-50 px-3 py-2">
-                                    <div className="text-[9px] font-black text-amber-600 tracking-[0.15em] uppercase mb-1">→ Proposed Approach</div>
-                                    <p className="text-[12px] font-bold leading-snug text-gray-900">{starter.opener}</p>
-                                    {starter.basedOn && (
-                                      <p className="text-[10px] text-gray-500 mt-1">Based on: {starter.basedOn}</p>
-                                    )}
+                                  <div className="border-t border-amber-300 bg-amber-50 px-4 py-2.5 flex gap-2 items-start">
+                                    <span className="text-amber-500 font-black text-[11px] mt-0.5 shrink-0">→</span>
+                                    <div className="flex-1">
+                                      <div className="text-[9px] font-black text-amber-600 tracking-[0.15em] uppercase mb-1">Proposed Approach</div>
+                                      <p className="text-[12px] font-bold leading-snug text-gray-900">{starter.opener}</p>
+                                      {starter.basedOn && (
+                                        <p className="text-[10px] text-gray-500 mt-1">Based on: {starter.basedOn}</p>
+                                      )}
+                                    </div>
                                   </div>
                                 )}
+
                               </div>
                             );
                           })}

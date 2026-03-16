@@ -1661,3 +1661,7 @@
 - [x] Redesign urgency signal cards to embed the matched conversation starter directly below the news snippet
 - [x] Match each signal to its conversation starter by index or by signal type/keyword
 - [x] Style: signal badge + headline + quote on top; conversation starter in a highlighted block below (no separator page)
+
+## Fix: Signal→Response Card Visual Grouping
+- [x] Wrap each signal + its approach in a single bordered card container so they read as one unit
+- [x] Remove the divide-y pattern that makes approaches look like they belong to the next signal

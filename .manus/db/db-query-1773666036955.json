@@ -1,0 +1,28 @@
+{
+  "query": "SELECT \n  enrichmentStatus,\n  CASE WHEN briefData IS NOT NULL THEN 'has_brief' ELSE 'no_brief' END as brief_status,\n  CASE WHEN salesApproachData IS NOT NULL THEN 'has_approach' ELSE 'no_approach' END as approach_status,\n  COUNT(*) as count\nFROM companies \nWHERE searchId = 1110002\nGROUP BY enrichmentStatus, brief_status, approach_status\nORDER BY count DESC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT \n  enrichmentStatus,\n  CASE WHEN briefData IS NOT NULL THEN 'has_brief' ELSE 'no_brief' END as brief_status,\n  CASE WHEN salesApproachData IS NOT NULL THEN 'has_approach' ELSE 'no_approach' END as approach_status,\n  COUNT(*) as count\nFROM companies \nWHERE searchId = 1110002\nGROUP BY enrichmentStatus, brief_status, approach_status\nORDER BY count DESC;",
+  "rows": [
+    {
+      "enrichmentStatus": "enriched",
+      "brief_status": "no_brief",
+      "approach_status": "no_approach",
+      "count": "406"
+    },
+    {
+      "enrichmentStatus": "enriched",
+      "brief_status": "has_brief",
+      "approach_status": "has_approach",
+      "count": "30"
+    },
+    {
+      "enrichmentStatus": "enriched",
+      "brief_status": "has_brief",
+      "approach_status": "no_approach",
+      "count": "2"
+    }
+  ],
+  "messages": [],
+  "stdout": "enrichmentStatus\tbrief_status\tapproach_status\tcount\nenriched\tno_brief\tno_approach\t406\nenriched\thas_brief\thas_approach\t30\nenriched\thas_brief\tno_approach\t2\n",
+  "stderr": "",
+  "execution_time_ms": 367
+}

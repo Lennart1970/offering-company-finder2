@@ -339,7 +339,6 @@ export async function generateSalesIntelligenceBrief(
   };
 
   // Phase 1: Detect urgency signals with verified sources
-  console.log(`[Brief Generator] Phase 1: Detecting urgency signals with source verification...`);
   const urgencyPrompt = `You are a B2B sales intelligence analyst. Today is ${todayString()}. Your goal is to provide verifiable answers with traceable sources from the most recent content available.
 ${brainContext ? `${brainContext}
 **Use the Offering Brain intelligence above to:**
@@ -399,13 +398,7 @@ ${brainContext ? `${brainContext}
   "searchNotes": "Any caveats about source availability or search limitations"
 }`;
 
-  const urgencyRaw = await callGrokWithWebSearch(urgencyPrompt, URGENCY_SCHEMA);
-  const urgencyData = JSON.parse(urgencyRaw);
-  console.log(`[Brief Generator] Urgency score: ${urgencyData.urgencyScore}`);
-  console.log(`[Brief Generator] Sources found: ${urgencyData.sources?.length || 0}`);
-
-  // Phase 2: Gather company intelligence with verified sources
-  console.log(`[Brief Generator] Phase 2: Gathering company intelligence with source verification...`);
+  // Phase 2: Company intelligence prompt (runs concurrently with Phase 1 via Promise.all below)
   const intelligencePrompt = `You are a B2B sales intelligence analyst. Today is ${todayString()}. Your goal is to provide verifiable company intelligence with traceable sources.
 ${brainContext ? `${brainContext}
 **Use the Offering Brain intelligence above to:**
@@ -454,8 +447,16 @@ ${brainContext ? `${brainContext}
   ]
 }`;
 
-  const intelligenceRaw = await callGrokWithWebSearch(intelligencePrompt, INTELLIGENCE_SCHEMA);
+  // Run both Grok web-search phases concurrently — they are fully independent
+  console.log(`[Brief Generator] Phase 1: Detecting urgency signals with source verification...`);
+  const [urgencyRaw, intelligenceRaw] = await Promise.all([
+    callGrokWithWebSearch(urgencyPrompt, URGENCY_SCHEMA),
+    callGrokWithWebSearch(intelligencePrompt, INTELLIGENCE_SCHEMA),
+  ]);
+  const urgencyData = JSON.parse(urgencyRaw);
   const intelligenceData = JSON.parse(intelligenceRaw);
+  console.log(`[Brief Generator] Urgency score: ${urgencyData.urgencyScore}`);
+  console.log(`[Brief Generator] Sources found: ${urgencyData.sources?.length || 0}`);
   console.log(
     `[Brief Generator] Found ${intelligenceData.productsServices?.length || 0} product categories`
   );

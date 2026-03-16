@@ -1680,3 +1680,7 @@
 - [x] Update urgency tab: each signal card independently calls generateSignalApproach and shows its own opener
 - [x] Remove old index/fuzzy matching logic from CompanyDetail.tsx
 - [x] Cache generated openers in component state so they don't re-fire on re-render
+
+## Fix: Parallel Brief Generation (Phase 1 + Phase 2 concurrent)
+- [x] Run urgency phase and intelligence phase with Promise.all() in briefGenerator.ts
+- [x] Verify no data dependency between the two phases

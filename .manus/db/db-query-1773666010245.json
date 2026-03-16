@@ -1,0 +1,44 @@
+{
+  "query": "SELECT id, searchId, status, jobType, progress, currentCompany, totalCompanies, enriched, researched, approached, failed, remaining, errorMessage, createdAt, updatedAt FROM batch_jobs WHERE searchId = 1110002 ORDER BY createdAt DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, searchId, status, jobType, progress, currentCompany, totalCompanies, enriched, researched, approached, failed, remaining, errorMessage, createdAt, updatedAt FROM batch_jobs WHERE searchId = 1110002 ORDER BY createdAt DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "0c03cac5-e6c8-4e89-a405-e07f28ec51fa",
+      "searchId": "1110002",
+      "status": "running",
+      "jobType": "do10",
+      "progress": "10",
+      "currentCompany": "Grupo LIBCOM",
+      "totalCompanies": "10",
+      "enriched": "0",
+      "researched": "1",
+      "approached": "1",
+      "failed": "0",
+      "remaining": "0",
+      "errorMessage": "NULL",
+      "createdAt": "2026-03-16 12:57:15",
+      "updatedAt": "2026-03-16 12:59:15"
+    },
+    {
+      "id": "24575bee-93d4-4716-9952-b9490ec1e19d",
+      "searchId": "1110002",
+      "status": "failed",
+      "jobType": "do10",
+      "progress": "20",
+      "currentCompany": "Arthrex EspaÃ±a",
+      "totalCompanies": "10",
+      "enriched": "0",
+      "researched": "2",
+      "approached": "2",
+      "failed": "0",
+      "remaining": "0",
+      "errorMessage": "Job interrupted by server restart",
+      "createdAt": "2026-03-16 10:17:34",
+      "updatedAt": "2026-03-16 12:25:58"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tsearchId\tstatus\tjobType\tprogress\tcurrentCompany\ttotalCompanies\tenriched\tresearched\tapproached\tfailed\tremaining\terrorMessage\tcreatedAt\tupdatedAt\n0c03cac5-e6c8-4e89-a405-e07f28ec51fa\t1110002\trunning\tdo10\t10\tGrupo LIBCOM\t10\t0\t1\t1\t0\t0\tNULL\t2026-03-16 12:57:15\t2026-03-16 12:59:15\n24575bee-93d4-4716-9952-b9490ec1e19d\t1110002\tfailed\tdo10\t20\tArthrex EspaÃ±a\t10\t0\t2\t2\t0\t0\tJob interrupted by server restart\t2026-03-16 10:17:34\t2026-03-16 12:25:58\n",
+  "stderr": "",
+  "execution_time_ms": 373
+}

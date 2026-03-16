@@ -86,6 +86,8 @@ export default function SearchResults() {
     { enabled: !!searchId && !activeJobId }
   );
   useEffect(() => {
+    // Server-side getLatestJob already filters to running-only jobs
+    // so any returned jobId is safe to resume polling
     if (latestJobQuery.data?.jobId && !activeJobId) {
       setActiveJobId(latestJobQuery.data.jobId);
     }
@@ -95,10 +97,13 @@ export default function SearchResults() {
     { jobId: activeJobId! },
     {
       enabled: !!activeJobId,
+      // Keep polling at 3s while running; slow to 1s after a terminal status
+      // so the useEffect always gets one more tick to clear activeJobId.
       refetchInterval: (query) => {
         const data = query.state.data;
         if (!data || data.status === "running") return 3000;
-        return false; // stop polling when done or error
+        // Terminal status — one more fast tick then the useEffect clears activeJobId
+        return 1000;
       },
     }
   );
@@ -125,6 +130,10 @@ export default function SearchResults() {
       setActiveJobId(null);
     } else if (job.status === "cancelled") {
       toast.info(`${label} cancelled`);
+      setActiveJobId(null);
+      if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
+    } else if ((job.status as string) === "failed") {
+      // Job was killed by a server restart — clear state so the button re-enables
       setActiveJobId(null);
       if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
     }

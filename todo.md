@@ -1684,3 +1684,14 @@
 ## Fix: Parallel Brief Generation (Phase 1 + Phase 2 concurrent)
 - [x] Run urgency phase and intelligence phase with Promise.all() in briefGenerator.ts
 - [x] Verify no data dependency between the two phases
+
+## Fix: Stale Job UI State After Server Restart
+- [ ] When getJobStatus returns status=failed/cancelled, clear the local jobId state so DO 10 button re-enables
+- [ ] Prevent UI from showing "DO 10 RUNNING" for a job that is already failed/cancelled in DB
+
+## Fix: Batch Processing Reliability (DO 10 / DO ALL)
+- [x] Add per-company 4-minute hard timeout via Promise.race() in doNext10 loop
+- [x] Add per-company 4-minute hard timeout via Promise.race() in doAll loop
+- [x] Fix refetchInterval to keep polling at 1s after terminal status so useEffect always fires
+- [x] Verify Direx (previously stuck company) now completes in ~43s with new timeout code
+- [x] Confirm full DO 10 batch: 10 researched, 10 approached, 0 failed, 387 remaining

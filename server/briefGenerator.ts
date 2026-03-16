@@ -133,12 +133,14 @@ async function callGrokWithWebSearch(
     ? { type: "json_schema", json_schema: { name: "output", strict: true, schema: jsonSchema } }
     : { type: "json_object" };
 
-  // 180-second timeout — Grok with web search can take 60-120 s
+  // 180-second timeout wraps the ENTIRE call including body read.
+  // The controller must NOT be cleared until after response.json() completes
+  // — clearing it in a finally after fetch() only covers headers, not the body stream.
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 180_000);
-  let response: Response;
+
   try {
-    response = await fetch(`${XAI_BASE_URL}/responses`, {
+    const response = await fetch(`${XAI_BASE_URL}/responses`, {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${XAI_API_KEY}`,
@@ -152,38 +154,38 @@ async function callGrokWithWebSearch(
       }),
       signal: controller.signal,
     });
-  } finally {
-    clearTimeout(timeoutId);
-  }
 
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Grok API error: ${response.status} - ${error}`);
-  }
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Grok API error: ${response.status} - ${error}`);
+    }
 
-  const data = await response.json();
-  
-  // Responses API returns output in nested array structure:
-  // response.output[] contains tool calls and content items
-  // The actual text output is in items with content[].text where content[].type === "output_text"
-  if (data.output && Array.isArray(data.output)) {
-    // Find the output item that contains content (not tool calls)
-    for (const item of data.output) {
-      if (item.content && Array.isArray(item.content)) {
-        const textContent = item.content.find((c: any) => c.type === "output_text");
-        if (textContent?.text) {
-          return textContent.text;
+    const data = await response.json();
+
+    // Responses API returns output in nested array structure:
+    // response.output[] contains tool calls and content items
+    // The actual text output is in items with content[].text where content[].type === "output_text"
+    if (data.output && Array.isArray(data.output)) {
+      // Find the output item that contains content (not tool calls)
+      for (const item of data.output) {
+        if (item.content && Array.isArray(item.content)) {
+          const textContent = item.content.find((c: any) => c.type === "output_text");
+          if (textContent?.text) {
+            return textContent.text;
+          }
         }
       }
     }
+
+    // Fallback: check for direct text field (older format)
+    if (data.text) {
+      return data.text;
+    }
+
+    throw new Error("Unexpected Responses API format: no output text found in response.output[].content[]");
+  } finally {
+    clearTimeout(timeoutId);
   }
-  
-  // Fallback: check for direct text field (older format)
-  if (data.text) {
-    return data.text;
-  }
-  
-  throw new Error("Unexpected Responses API format: no output text found in response.output[].content[]");
 }
 
 /**

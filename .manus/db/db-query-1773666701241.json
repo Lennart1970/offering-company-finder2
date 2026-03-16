@@ -1,0 +1,55 @@
+{
+  "query": "SELECT id, searchId, status, jobType, progress, currentCompany, updatedAt FROM batch_jobs ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, searchId, status, jobType, progress, currentCompany, updatedAt FROM batch_jobs ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "e1f71ea7-484c-463c-b605-9f522820da94",
+      "searchId": "1260002",
+      "status": "completed",
+      "jobType": "do10",
+      "progress": "100",
+      "currentCompany": "NULL",
+      "updatedAt": "2026-03-16 07:25:03"
+    },
+    {
+      "id": "e079d7b0-9161-4e05-a285-d738c3fd9805",
+      "searchId": "1350004",
+      "status": "completed",
+      "jobType": "do10",
+      "progress": "100",
+      "currentCompany": "NULL",
+      "updatedAt": "2026-03-16 11:57:01"
+    },
+    {
+      "id": "d41cf5f5-0f6f-40f0-b0b9-681bca72c82f",
+      "searchId": "1260001",
+      "status": "completed",
+      "jobType": "do10",
+      "progress": "100",
+      "currentCompany": "NULL",
+      "updatedAt": "2026-03-13 16:42:14"
+    },
+    {
+      "id": "a575fbdc-d725-457a-8adf-9bc15f806eb5",
+      "searchId": "1260001",
+      "status": "failed",
+      "jobType": "do10",
+      "progress": "10",
+      "currentCompany": "Kubota Agriculture",
+      "updatedAt": "2026-03-13 15:59:44"
+    },
+    {
+      "id": "42a1b4d1-a639-4a71-b5a1-159d1f263896",
+      "searchId": "1260001",
+      "status": "completed",
+      "jobType": "do10",
+      "progress": "100",
+      "currentCompany": "NULL",
+      "updatedAt": "2026-03-13 16:21:35"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tsearchId\tstatus\tjobType\tprogress\tcurrentCompany\tupdatedAt\ne1f71ea7-484c-463c-b605-9f522820da94\t1260002\tcompleted\tdo10\t100\tNULL\t2026-03-16 07:25:03\ne079d7b0-9161-4e05-a285-d738c3fd9805\t1350004\tcompleted\tdo10\t100\tNULL\t2026-03-16 11:57:01\nd41cf5f5-0f6f-40f0-b0b9-681bca72c82f\t1260001\tcompleted\tdo10\t100\tNULL\t2026-03-13 16:42:14\na575fbdc-d725-457a-8adf-9bc15f806eb5\t1260001\tfailed\tdo10\t10\tKubota Agriculture\t2026-03-13 15:59:44\n42a1b4d1-a639-4a71-b5a1-159d1f263896\t1260001\tcompleted\tdo10\t100\tNULL\t2026-03-13 16:21:35\n",
+  "stderr": "",
+  "execution_time_ms": 363
+}

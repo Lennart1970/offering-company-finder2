@@ -308,43 +308,55 @@ export const companyFinderRouter = router({
 
           let enriched = 0, researched = 0, approached = 0, failed = 0;
 
+          // Per-company hard timeout: 4 minutes. If a single company takes longer
+          // (e.g. Grok body stream stalls), we skip it and continue with the next.
+          const PER_COMPANY_TIMEOUT_MS = 4 * 60 * 1000;
+
           for (let i = 0; i < queue.length; i++) {
             const company = queue[i];
             const progress = Math.round((i / queue.length) * 100);
             await updateBatchJob(jobId, { currentCompany: company.name || null, progress, enriched, researched, approached, failed });
             try {
-              if (company.enrichmentStatus === "pending") {
-                const details = await enrichCompanyDetails(company.apolloId!);
-                await updateCompany(company.id, {
-                  city: details.city || null,
-                  state: details.state || null,
-                  country: details.country || null,
-                  streetAddress: details.street_address || null,
-                  rawAddress: details.raw_address || null,
-                  enrichmentStatus: "enriched",
-                });
-                enriched++;
-                console.log(`[doNext10] ✓ Enriched: ${company.name}`);
-              }
-              if (!company.briefData) {
-                const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id);
-                await updateCompany(company.id, {
-                  urgencyScore: brief.urgencyScore,
-                  briefData: JSON.stringify(brief),
-                  briefGeneratedAt: new Date(),
-                });
-                researched++;
-                console.log(`[doNext10] ✓ Researched: ${company.name}`);
-              }
-              if (!company.salesApproachData) {
-                const approach = await generateSalesApproach(company.id, ctx.user.id);
-                await updateCompany(company.id, {
-                  salesApproachData: JSON.stringify(approach),
-                  salesApproachGeneratedAt: new Date(),
-                });
-                approached++;
-                console.log(`[doNext10] ✓ Approached: ${company.name}`);
-              }
+              const companyWork = async () => {
+                if (company.enrichmentStatus === "pending") {
+                  const details = await enrichCompanyDetails(company.apolloId!);
+                  await updateCompany(company.id, {
+                    city: details.city || null,
+                    state: details.state || null,
+                    country: details.country || null,
+                    streetAddress: details.street_address || null,
+                    rawAddress: details.raw_address || null,
+                    enrichmentStatus: "enriched",
+                  });
+                  enriched++;
+                  console.log(`[doNext10] ✓ Enriched: ${company.name}`);
+                }
+                if (!company.briefData) {
+                  const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id);
+                  await updateCompany(company.id, {
+                    urgencyScore: brief.urgencyScore,
+                    briefData: JSON.stringify(brief),
+                    briefGeneratedAt: new Date(),
+                  });
+                  researched++;
+                  console.log(`[doNext10] ✓ Researched: ${company.name}`);
+                }
+                if (!company.salesApproachData) {
+                  const approach = await generateSalesApproach(company.id, ctx.user.id);
+                  await updateCompany(company.id, {
+                    salesApproachData: JSON.stringify(approach),
+                    salesApproachGeneratedAt: new Date(),
+                  });
+                  approached++;
+                  console.log(`[doNext10] ✓ Approached: ${company.name}`);
+                }
+              };
+
+              const timeoutGuard = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error(`Per-company timeout after ${PER_COMPANY_TIMEOUT_MS / 1000}s`)), PER_COMPANY_TIMEOUT_MS)
+              );
+
+              await Promise.race([companyWork(), timeoutGuard]);
             } catch (err: any) {
               failed++;
               console.error(`[doNext10] ✗ ${company.name}:`, err.message);
@@ -466,6 +478,10 @@ export const companyFinderRouter = router({
 
           let enriched = 0, researched = 0, approached = 0, failed = 0;
 
+          // Per-company hard timeout: 4 minutes. If a single company takes longer
+          // (e.g. Grok body stream stalls), we skip it and continue with the next.
+          const PER_COMPANY_TIMEOUT_MS = 4 * 60 * 1000;
+
           for (let i = 0; i < queue.length; i++) {
             // Check for cancellation before each company
             const currentJob = await getBatchJob(jobId);
@@ -478,38 +494,46 @@ export const companyFinderRouter = router({
             const progress = Math.round((i / queue.length) * 100);
             await updateBatchJob(jobId, { currentCompany: company.name || null, progress, enriched, researched, approached, failed });
             try {
-              if (company.enrichmentStatus === "pending") {
-                const details = await enrichCompanyDetails(company.apolloId!);
-                await updateCompany(company.id, {
-                  city: details.city || null,
-                  state: details.state || null,
-                  country: details.country || null,
-                  streetAddress: details.street_address || null,
-                  rawAddress: details.raw_address || null,
-                  enrichmentStatus: "enriched",
-                });
-                enriched++;
-                console.log(`[doAll] ✓ Enriched: ${company.name}`);
-              }
-              if (!company.briefData) {
-                const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id);
-                await updateCompany(company.id, {
-                  urgencyScore: brief.urgencyScore,
-                  briefData: JSON.stringify(brief),
-                  briefGeneratedAt: new Date(),
-                });
-                researched++;
-                console.log(`[doAll] ✓ Researched: ${company.name}`);
-              }
-              if (!company.salesApproachData) {
-                const approach = await generateSalesApproach(company.id, ctx.user.id);
-                await updateCompany(company.id, {
-                  salesApproachData: JSON.stringify(approach),
-                  salesApproachGeneratedAt: new Date(),
-                });
-                approached++;
-                console.log(`[doAll] ✓ Approached: ${company.name}`);
-              }
+              const companyWork = async () => {
+                if (company.enrichmentStatus === "pending") {
+                  const details = await enrichCompanyDetails(company.apolloId!);
+                  await updateCompany(company.id, {
+                    city: details.city || null,
+                    state: details.state || null,
+                    country: details.country || null,
+                    streetAddress: details.street_address || null,
+                    rawAddress: details.raw_address || null,
+                    enrichmentStatus: "enriched",
+                  });
+                  enriched++;
+                  console.log(`[doAll] ✓ Enriched: ${company.name}`);
+                }
+                if (!company.briefData) {
+                  const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id);
+                  await updateCompany(company.id, {
+                    urgencyScore: brief.urgencyScore,
+                    briefData: JSON.stringify(brief),
+                    briefGeneratedAt: new Date(),
+                  });
+                  researched++;
+                  console.log(`[doAll] ✓ Researched: ${company.name}`);
+                }
+                if (!company.salesApproachData) {
+                  const approach = await generateSalesApproach(company.id, ctx.user.id);
+                  await updateCompany(company.id, {
+                    salesApproachData: JSON.stringify(approach),
+                    salesApproachGeneratedAt: new Date(),
+                  });
+                  approached++;
+                  console.log(`[doAll] ✓ Approached: ${company.name}`);
+                }
+              };
+
+              const timeoutGuard = new Promise<never>((_, reject) =>
+                setTimeout(() => reject(new Error(`Per-company timeout after ${PER_COMPANY_TIMEOUT_MS / 1000}s`)), PER_COMPANY_TIMEOUT_MS)
+              );
+
+              await Promise.race([companyWork(), timeoutGuard]);
             } catch (err: any) {
               failed++;
               console.error(`[doAll] ✗ ${company.name}:`, err.message);

@@ -1640,3 +1640,8 @@
 - [x] Update getJobStatus to read from DB instead of in-memory Map
 - [x] Handle stale "running" jobs on server restart (mark as failed if updatedAt > 5 min ago)
 - [x] Write vitest tests for batch job persistence helpers
+
+## Feature: Product Vision
+- [x] Write VISION.md as canonical reference document for the product vision
+- [x] Surface tagline "Know who to call. Know why. Know when." on Cockpit home screen
+- [x] Add vision statement and three-pillar breakdown to Cockpit home screen

@@ -1670,3 +1670,13 @@
 - [x] Inspect salesApproachGenerator prompt to see how starters reference signals
 - [x] Replace index-based matching with basedOn fuzzy match against signal description/snippet
 - [x] Fallback to index if no basedOn match found
+
+## Fix: Signal→Approach Exclusive Assignment (No Reuse)
+- [ ] Replace per-signal greedy search with a pre-pass assignment map so each starter is used at most once
+
+## Feature: Per-Signal Approach Generator (Sub-Agent)
+- [x] Add generateSignalApproach tRPC mutation: takes companyId + one signal object, returns one opener string
+- [x] Use invokeLLM (fast, no web search) with Offering Brain context + signal details
+- [x] Update urgency tab: each signal card independently calls generateSignalApproach and shows its own opener
+- [x] Remove old index/fuzzy matching logic from CompanyDetail.tsx
+- [x] Cache generated openers in component state so they don't re-fire on re-render

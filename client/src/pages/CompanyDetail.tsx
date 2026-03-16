@@ -334,6 +334,47 @@ export default function CompanyDetail() {
     }
   }, [chapter, briefData]);
 
+  // ── Per-signal approach sub-agent ──────────────────────────────────────────
+  // Map of signal index → opener string (cached in component state)
+  const [signalOpeners, setSignalOpeners] = useState<Record<number, string | null>>({});
+  const [signalOpenerLoading, setSignalOpenerLoading] = useState<Record<number, boolean>>({});
+
+  const generateSignalApproachMutation = trpc.companyFinder.generateSignalApproach.useMutation({
+    onError: (err, vars) => {
+      // vars is the input — find the index from the signal description
+      toast.error("Could not generate opener");
+    },
+  });
+
+  const generateOpenerForSignal = (signal: any, index: number) => {
+    if (signalOpeners[index] !== undefined || signalOpenerLoading[index]) return;
+    setSignalOpenerLoading(prev => ({ ...prev, [index]: true }));
+    generateSignalApproachMutation.mutate(
+      { companyId, signal: { category: signal.category ?? "", type: signal.type, description: signal.description ?? "", snippet: signal.snippet, sourceUrl: signal.sourceUrl } },
+      {
+        onSuccess: (data) => {
+          setSignalOpeners(prev => ({ ...prev, [index]: data.opener }));
+          setSignalOpenerLoading(prev => ({ ...prev, [index]: false }));
+        },
+        onError: () => {
+          setSignalOpeners(prev => ({ ...prev, [index]: null }));
+          setSignalOpenerLoading(prev => ({ ...prev, [index]: false }));
+        },
+      }
+    );
+  };
+
+  // Auto-generate openers for all signals when urgency tab is active and briefData is ready
+  const signalOpenersFiredRef = useRef(false);
+  useEffect(() => {
+    if (chapter === "urgency" && briefData?.urgencySignals?.length > 0 && !signalOpenersFiredRef.current) {
+      signalOpenersFiredRef.current = true;
+      briefData.urgencySignals.forEach((signal: any, index: number) => {
+        generateOpenerForSignal(signal, index);
+      });
+    }
+  }, [chapter, briefData]);
+
   // Top contact (first enriched contact with email, else first contact)
   const topContact = useMemo(() => {
     const withEmail = rawContacts.find((c: any) => c.email);
@@ -1003,37 +1044,12 @@ export default function CompanyDetail() {
                           {briefData.urgencySignals.map((s: any, i: number) => {
                             const img = displayImages[i + 1]; // offset by 1 (hero used index 0)
 
-                            // ── Content-based matching: find the starter whose basedOn text
-                            // best overlaps with this signal's description or snippet.
-                            // Falls back to index if no good match is found.
-                            const starters: any[] = salesApproach?.conversationStarters ?? [];
-                            const tokenize = (str: string) =>
-                              str.toLowerCase().replace(/[^a-z0-9 ]/g, " ").split(/\s+/).filter(Boolean);
-                            const overlap = (a: string, b: string) => {
-                              const ta = new Set(tokenize(a));
-                              return tokenize(b).filter(t => ta.has(t)).length;
-                            };
-                            const signalText = `${s.description ?? ""} ${s.snippet ?? ""}`;
-                            let bestIdx = -1;
-                            let bestScore = 0;
-                            starters.forEach((st: any, idx: number) => {
-                              const basedOn = typeof st === "string" ? st : (st.basedOn ?? "");
-                              const score = overlap(signalText, basedOn);
-                              if (score > bestScore) { bestScore = score; bestIdx = idx; }
-                            });
-                            // Require at least 2 token matches to accept the content match;
-                            // otherwise fall back to same-index starter (if it exists).
-                            const matchedRaw = bestScore >= 2
-                              ? starters[bestIdx]
-                              : starters[i];
-                            const starter = matchedRaw
-                              ? (typeof matchedRaw === "string"
-                                  ? { opener: matchedRaw, basedOn: null }
-                                  : matchedRaw)
-                              : null;
+                            // ── Per-signal opener from sub-agent (no matching, no reuse) ──
+                            const openerText = signalOpeners[i] ?? null;
+                            const openerLoading = signalOpenerLoading[i] ?? false;
                             return (
                               // Each card is a self-contained bordered unit — signal on top, approach below
-                              <div key={i} className={`flex flex-col border-b border-gray-200 ${starter ? "pb-0" : ""}`}>
+                              <div key={i} className={`flex flex-col border-b border-gray-200 ${openerText || openerLoading ? "pb-0" : ""}`}>
 
                                 {/* ── TOP HALF: news signal ── */}
                                 <div className="flex gap-0">
@@ -1078,15 +1094,19 @@ export default function CompanyDetail() {
                                   </div>
                                 </div>
 
-                                {/* ── BOTTOM HALF: proposed approach — visually attached, separated by a thin amber rule ── */}
-                                {starter && (
+                                {/* ── BOTTOM HALF: proposed approach — per-signal sub-agent, no matching ── */}
+                                {(openerLoading || openerText !== null) && (
                                   <div className="border-t border-amber-300 bg-amber-50 px-4 py-2.5 flex gap-2 items-start">
                                     <span className="text-amber-500 font-black text-[11px] mt-0.5 shrink-0">→</span>
                                     <div className="flex-1">
                                       <div className="text-[9px] font-black text-amber-600 tracking-[0.15em] uppercase mb-1">Proposed Approach</div>
-                                      <p className="text-[12px] font-bold leading-snug text-gray-900">{starter.opener}</p>
-                                      {starter.basedOn && (
-                                        <p className="text-[10px] text-gray-500 mt-1">Based on: {starter.basedOn}</p>
+                                      {openerLoading ? (
+                                        <div className="flex items-center gap-2">
+                                          <div className="w-3 h-3 border-2 border-amber-400 border-t-transparent rounded-full animate-spin" />
+                                          <span className="text-[11px] text-amber-600">Generating opener...</span>
+                                        </div>
+                                      ) : (
+                                        <p className="text-[12px] font-bold leading-snug text-gray-900">{openerText}</p>
                                       )}
                                     </div>
                                   </div>

@@ -2400,6 +2400,85 @@ export const companyFinderRouter = router({
 
       return { success: true, total: toApproach.length, completed, failed, errors: errors.slice(0, 10) };
     }),
+
+  // ── Per-signal approach sub-agent ──────────────────────────────────────────
+  // Takes one urgency signal + companyId, returns one targeted conversation
+  // starter grounded in that specific signal. Fast (no web search), uses
+  // invokeLLM with Offering Brain context injected.
+  generateSignalApproach: protectedProcedure
+    .input(
+      z.object({
+        companyId: z.number(),
+        signal: z.object({
+          category: z.string(),
+          type: z.string().optional(),
+          description: z.string(),
+          snippet: z.string().optional(),
+          sourceUrl: z.string().optional(),
+        }),
+      })
+    )
+    .mutation(async ({ input, ctx }) => {
+      const { invokeLLM } = await import("./_core/llm");
+      const { getActiveBrain, getCompanyById } = await import("./db");
+
+      const company = await getCompanyById(input.companyId);
+      if (!company) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+
+      // Load Offering Brain for seller context
+      let brainContext = "";
+      let sellerName = "ConnectGroup";
+      try {
+        const brain = await getActiveBrain(ctx.user.id);
+        if (brain && brain.status === "completed") {
+          sellerName = brain.companyName || sellerName;
+          const capabilities = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
+          const valueProps = brain.valuePropositions ? JSON.parse(brain.valuePropositions) : [];
+          const painPoints = brain.icpPainPoints ? JSON.parse(brain.icpPainPoints) : [];
+          brainContext = `
+YOU ARE A SALES REP FOR: ${brain.companyName}
+Offering Summary: ${brain.offeringSummary}
+Core Capabilities: ${capabilities.join("; ")}
+Value Propositions: ${valueProps.map((vp: any) => `${vp.proposition} (for: ${vp.targetAudience})`).join("; ")}
+Pain Points We Solve: ${painPoints.join("; ")}
+`;
+        }
+      } catch (_) { /* use defaults */ }
+
+      const { signal } = input;
+      const prompt = `${brainContext}
+You are crafting ONE sharp, specific B2B conversation opener for a sales rep at ${sellerName}.
+
+TARGET COMPANY: ${company.name}
+
+URGENCY SIGNAL:
+- Category: ${signal.category}${signal.type ? ` / ${signal.type}` : ""}
+- What happened: ${signal.description}
+${signal.snippet ? `- Quote: "${signal.snippet}"` : ""}
+${signal.sourceUrl ? `- Source: ${signal.sourceUrl}` : ""}
+
+INSTRUCTIONS:
+1. Write exactly ONE conversation opener (2-3 sentences max)
+2. Reference the specific signal above — do NOT be generic
+3. Connect the signal to a concrete pain point or opportunity ${sellerName} can address
+4. End with a soft, open question
+5. Tone: peer-to-peer, not salesy
+
+Return ONLY the opener text. No labels, no JSON, no preamble.`;
+
+      const response = await invokeLLM({
+        messages: [
+          { role: "system", content: "You are a precise B2B sales writing assistant. Return only the requested text, nothing else." },
+          { role: "user", content: prompt },
+        ],
+      });
+
+      const rawContent = response?.choices?.[0]?.message?.content;
+      const opener = (typeof rawContent === "string" ? rawContent : "").trim();
+      if (!opener) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "LLM returned empty opener" });
+
+      return { opener };
+    }),
 });
 
 // Background search function for hardcoded ConnectGroup offering (skip extraction)

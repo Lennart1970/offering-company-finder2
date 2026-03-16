@@ -1645,3 +1645,19 @@
 - [x] Write VISION.md as canonical reference document for the product vision
 - [x] Surface tagline "Know who to call. Know why. Know when." on Cockpit home screen
 - [x] Add vision statement and three-pillar breakdown to Cockpit home screen
+
+## Feature: DO ALL — Full Niche Background Processing
+- [ ] Add doAll tRPC procedure: processes ALL remaining companies in a search in a single background job (no limit)
+- [ ] Add cancelJob tRPC procedure: sets job status to "cancelled" so the background loop exits cleanly
+- [ ] Update batch_jobs schema to support "cancelled" status
+- [ ] Add [DO ALL] button to SearchResults UI next to [DO 10]
+- [ ] Show unified progress bar for both DO 10 and DO ALL jobs
+- [ ] Add Cancel button while a job is running
+- [ ] Resume-on-reload works for DO ALL jobs (already covered by getLatestJob)
+- [ ] Write vitest tests for doAll and cancelJob logic
+
+## Feature: Signal → Response Card (Urgency Tab)
+- [x] Identify the data shape of urgency signals and conversation starters in briefData / salesApproachData
+- [x] Redesign urgency signal cards to embed the matched conversation starter directly below the news snippet
+- [x] Match each signal to its conversation starter by index or by signal type/keyword
+- [x] Style: signal badge + headline + quote on top; conversation starter in a highlighted block below (no separator page)

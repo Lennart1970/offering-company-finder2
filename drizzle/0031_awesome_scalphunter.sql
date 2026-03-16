@@ -1,0 +1,2 @@
+ALTER TABLE `batch_jobs` MODIFY COLUMN `status` enum('running','completed','failed','cancelled') NOT NULL DEFAULT 'running';--> statement-breakpoint
+ALTER TABLE `batch_jobs` ADD `jobType` enum('do10','doAll') DEFAULT 'do10' NOT NULL;

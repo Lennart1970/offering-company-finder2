@@ -998,51 +998,73 @@ export default function CompanyDetail() {
                           )}
                         </div>
 
-                        {/* SIGNAL STACK: urgency signals as story cards */}
+                        {/* SIGNAL STACK: urgency signals as story cards, each with its conversation starter */}
                         <div className="lg:col-span-2 divide-y divide-gray-200">
                           {briefData.urgencySignals.map((s: any, i: number) => {
                             const img = displayImages[i + 1]; // offset by 1 (hero used index 0)
+                            // Match conversation starter by index — the approach generator produces
+                            // one starter per signal in the same order.
+                            const starterRaw = salesApproach?.conversationStarters?.[i];
+                            const starter = starterRaw
+                              ? (typeof starterRaw === "string"
+                                  ? { opener: starterRaw, basedOn: null }
+                                  : starterRaw)
+                              : null;
                             return (
-                              <div key={i} className="flex gap-0">
-                                {/* Thumbnail (if available) */}
-                                {img ? (
-                                  <a href={img.link || img.imageUrl} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
-                                    <div className="overflow-hidden bg-gray-100" style={{ width: "90px", height: "72px" }}>
-                                      <img
-                                        src={img.thumbnailUrl || img.imageUrl}
-                                        alt={img.title}
-                                        className="w-full h-full object-cover"
-                                        onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.background = "#f3f4f6"; }}
-                                      />
+                              <div key={i} className="flex flex-col gap-0">
+                                {/* Signal row: thumbnail + text */}
+                                <div className="flex gap-0">
+                                  {/* Thumbnail (if available) */}
+                                  {img ? (
+                                    <a href={img.link || img.imageUrl} target="_blank" rel="noopener noreferrer" className="flex-shrink-0">
+                                      <div className="overflow-hidden bg-gray-100" style={{ width: "90px", height: "72px" }}>
+                                        <img
+                                          src={img.thumbnailUrl || img.imageUrl}
+                                          alt={img.title}
+                                          className="w-full h-full object-cover"
+                                          onError={(e) => { (e.target as HTMLImageElement).parentElement!.style.background = "#f3f4f6"; }}
+                                        />
+                                      </div>
+                                    </a>
+                                  ) : (
+                                    <div className="flex-shrink-0 bg-gray-50 flex items-center justify-center" style={{ width: "90px", height: "72px" }}>
+                                      <span className="text-[18px]">
+                                        {s.category === "Growth" ? "📈" :
+                                         s.category === "Product Launch" ? "🚀" :
+                                         s.category === "R&D" ? "🔬" :
+                                         s.category === "Expansion" ? "🌍" :
+                                         s.category === "Awards" ? "🏆" :
+                                         s.category === "Funding" ? "💰" :
+                                         s.category === "Partnership" ? "🤝" : "⚡"}
+                                      </span>
                                     </div>
-                                  </a>
-                                ) : (
-                                  <div className="flex-shrink-0 bg-gray-50 flex items-center justify-center" style={{ width: "90px", height: "72px" }}>
-                                    <span className="text-[18px]">
-                                      {s.category === "Growth" ? "📈" :
-                                       s.category === "Product Launch" ? "🚀" :
-                                       s.category === "R&D" ? "🔬" :
-                                       s.category === "Expansion" ? "🌍" :
-                                       s.category === "Awards" ? "🏆" :
-                                       s.category === "Funding" ? "💰" :
-                                       s.category === "Partnership" ? "🤝" : "⚡"}
-                                    </span>
+                                  )}
+                                  {/* Signal text */}
+                                  <div className="flex-1 p-3">
+                                    <div className="flex items-center gap-1.5 mb-1 flex-wrap">
+                                      <span className="text-[10px] font-black bg-yellow-400 px-1.5 py-0.5 leading-none">{s.category}</span>
+                                      <span className="text-[10px] font-bold text-gray-500">{s.type}</span>
+                                    </div>
+                                    <p className="text-sm font-bold leading-snug">{s.description}</p>
+                                    {s.snippet && (
+                                      <p className="text-[11px] text-gray-500 italic mt-1 line-clamp-1">"{s.snippet}"</p>
+                                    )}
+                                    {s.sourceUrl && (
+                                      <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 underline mt-1 inline-block">Source →</a>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {/* ── PROPOSED APPROACH: conversation starter anchored to this signal ── */}
+                                {starter && (
+                                  <div className="mx-3 mb-3 border-l-4 border-amber-400 bg-amber-50 px-3 py-2">
+                                    <div className="text-[9px] font-black text-amber-600 tracking-[0.15em] uppercase mb-1">→ Proposed Approach</div>
+                                    <p className="text-[12px] font-bold leading-snug text-gray-900">{starter.opener}</p>
+                                    {starter.basedOn && (
+                                      <p className="text-[10px] text-gray-500 mt-1">Based on: {starter.basedOn}</p>
+                                    )}
                                   </div>
                                 )}
-                                {/* Signal text */}
-                                <div className="flex-1 p-3">
-                                  <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-                                    <span className="text-[10px] font-black bg-yellow-400 px-1.5 py-0.5 leading-none">{s.category}</span>
-                                    <span className="text-[10px] font-bold text-gray-500">{s.type}</span>
-                                  </div>
-                                  <p className="text-sm font-bold leading-snug">{s.description}</p>
-                                  {s.snippet && (
-                                    <p className="text-[11px] text-gray-500 italic mt-1 line-clamp-1">“{s.snippet}”</p>
-                                  )}
-                                  {s.sourceUrl && (
-                                    <a href={s.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-[10px] text-blue-600 underline mt-1 inline-block">Source →</a>
-                                  )}
-                                </div>
                               </div>
                             );
                           })}

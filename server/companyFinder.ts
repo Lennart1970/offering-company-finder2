@@ -381,10 +381,15 @@ export const companyFinderRouter = router({
     .query(async ({ input }) => {
       const job = await getBatchJob(input.jobId);
       if (!job) return null;
-      // Map DB status to the legacy client-side status strings
-      const clientStatus = job.status === "completed" ? "done" : job.status === "failed" ? "error" : "running";
+      // Map DB status to client-side status strings
+      const clientStatus =
+        job.status === "completed" ? "done" :
+        job.status === "failed" ? "error" :
+        job.status === "cancelled" ? "cancelled" :
+        "running";
       return {
-        status: clientStatus as "running" | "done" | "error",
+        status: clientStatus as "running" | "done" | "error" | "cancelled",
+        jobType: job.jobType as "do10" | "doAll",
         current: job.currentCompany ?? null,
         progress: job.progress,
         stats: {
@@ -417,6 +422,137 @@ export const companyFinderRouter = router({
       }
       if (job.status !== "running") return null; // Only resume actively running jobs
       return { jobId: job.id };
+    }),
+
+  // ---------------------------------------------------------------------------
+  // doAll — process ALL remaining companies in a search in one background job
+  // Same logic as doNext10 but no limit and checks for cancellation each step.
+  // ---------------------------------------------------------------------------
+  doAll: protectedProcedure
+    .input(z.object({ searchId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await assertSearchAccess(input.searchId, ctx.user.id);
+      const jobId = randomUUID();
+
+      await createBatchJob({
+        id: jobId,
+        searchId: input.searchId,
+        userId: ctx.user.id,
+        status: "running",
+        jobType: "doAll",
+        progress: 0,
+        currentCompany: null,
+        totalCompanies: 0,
+        enriched: 0,
+        researched: 0,
+        approached: 0,
+        failed: 0,
+        remaining: 0,
+      });
+
+      // Run in background — NOT awaited
+      (async () => {
+        try {
+          const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
+          const { generateSalesApproach } = await import("./salesApproachGenerator");
+          const all = await getCompaniesBySearchId(input.searchId);
+          const pending = all.filter((c) => c.enrichmentStatus === "pending" && !!c.apolloId);
+          const needsBrief = all.filter((c) => c.enrichmentStatus === "enriched" && !c.briefData);
+          const needsApproach = all.filter((c) => c.enrichmentStatus === "enriched" && !!c.briefData && !c.salesApproachData);
+          const queue = [...pending, ...needsBrief, ...needsApproach]; // NO slice — process everything
+
+          await updateBatchJob(jobId, { totalCompanies: queue.length });
+          console.log(`[doAll] jobId=${jobId} searchId=${input.searchId} — ${queue.length} companies queued`);
+
+          let enriched = 0, researched = 0, approached = 0, failed = 0;
+
+          for (let i = 0; i < queue.length; i++) {
+            // Check for cancellation before each company
+            const currentJob = await getBatchJob(jobId);
+            if (currentJob?.status === "cancelled") {
+              console.log(`[doAll] Cancelled at company ${i + 1}/${queue.length}`);
+              return;
+            }
+
+            const company = queue[i];
+            const progress = Math.round((i / queue.length) * 100);
+            await updateBatchJob(jobId, { currentCompany: company.name || null, progress, enriched, researched, approached, failed });
+            try {
+              if (company.enrichmentStatus === "pending") {
+                const details = await enrichCompanyDetails(company.apolloId!);
+                await updateCompany(company.id, {
+                  city: details.city || null,
+                  state: details.state || null,
+                  country: details.country || null,
+                  streetAddress: details.street_address || null,
+                  rawAddress: details.raw_address || null,
+                  enrichmentStatus: "enriched",
+                });
+                enriched++;
+                console.log(`[doAll] ✓ Enriched: ${company.name}`);
+              }
+              if (!company.briefData) {
+                const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id);
+                await updateCompany(company.id, {
+                  urgencyScore: brief.urgencyScore,
+                  briefData: JSON.stringify(brief),
+                  briefGeneratedAt: new Date(),
+                });
+                researched++;
+                console.log(`[doAll] ✓ Researched: ${company.name}`);
+              }
+              if (!company.salesApproachData) {
+                const approach = await generateSalesApproach(company.id, ctx.user.id);
+                await updateCompany(company.id, {
+                  salesApproachData: JSON.stringify(approach),
+                  salesApproachGeneratedAt: new Date(),
+                });
+                approached++;
+                console.log(`[doAll] ✓ Approached: ${company.name}`);
+              }
+            } catch (err: any) {
+              failed++;
+              console.error(`[doAll] ✗ ${company.name}:`, err.message);
+            }
+          }
+
+          const refreshed = await getCompaniesBySearchId(input.searchId);
+          const remaining = refreshed.filter(
+            (c) => c.enrichmentStatus === "pending" || !c.briefData || !c.salesApproachData
+          ).length;
+          await updateBatchJob(jobId, {
+            status: "completed",
+            progress: 100,
+            currentCompany: null,
+            enriched,
+            researched,
+            approached,
+            failed,
+            remaining,
+          });
+          console.log(`[doAll] Done — enriched:${enriched} researched:${researched} approached:${approached} failed:${failed} remaining:${remaining}`);
+        } catch (err: any) {
+          await updateBatchJob(jobId, { status: "failed", errorMessage: err.message }).catch(() => {});
+          console.error(`[doAll] Fatal:`, err.message);
+        }
+      })();
+
+      return { jobId };
+    }),
+
+  // Cancel a running job — sets DB status to "cancelled".
+  // The doAll background loop checks this flag before each company and exits cleanly.
+  cancelJob: protectedProcedure
+    .input(z.object({ jobId: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const job = await getBatchJob(input.jobId);
+      if (!job) throw new TRPCError({ code: "NOT_FOUND", message: "Job not found" });
+      // Only the job owner can cancel it
+      if (job.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "Not your job" });
+      if (job.status !== "running") return { cancelled: false, reason: "Job is not running" };
+      await updateBatchJob(input.jobId, { status: "cancelled", errorMessage: "Cancelled by user" });
+      console.log(`[cancelJob] jobId=${input.jobId} cancelled by user ${ctx.user.id}`);
+      return { cancelled: true };
     }),
 
   // Returns prev/next company IDs for a given company within a search (server-side queue navigation)

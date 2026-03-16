@@ -103,10 +103,11 @@ export default function SearchResults() {
     }
   );
 
-  // When job completes, show toast and refresh
+  // When job completes/cancels, show toast and refresh
   useEffect(() => {
     const job = jobStatusQuery.data;
     if (!job) return;
+    const label = job.jobType === "doAll" ? "DO ALL" : "DO 10";
     if (job.status === "done") {
       const s = job.stats;
       const parts: string[] = [];
@@ -116,12 +117,16 @@ export default function SearchResults() {
       if (s.failed > 0) parts.push(`${s.failed} failed`);
       const summary = parts.length > 0 ? parts.join(" · ") : "Nothing to do";
       const remaining = s.remaining > 0 ? ` — ${s.remaining} still pending` : " — all done!";
-      toast.success(`DO 10: ${summary}${remaining}`);
+      toast.success(`${label}: ${summary}${remaining}`);
       setActiveJobId(null);
       if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
     } else if (job.status === "error") {
-      toast.error(`DO 10 failed: ${job.error ?? "Unknown error"}`);
+      toast.error(`${label} failed: ${job.error ?? "Unknown error"}`);
       setActiveJobId(null);
+    } else if (job.status === "cancelled") {
+      toast.info(`${label} cancelled`);
+      setActiveJobId(null);
+      if (searchId) utils.companyFinder.getSearch.invalidate({ searchId });
     }
   }, [jobStatusQuery.data?.status]);
 
@@ -134,7 +139,29 @@ export default function SearchResults() {
     },
   });
 
-  const isDoNext10Running = doNext10Mutation.isPending || (!!activeJobId && jobStatusQuery.data?.status === "running");
+  const doAllMutation = trpc.companyFinder.doAll.useMutation({
+    onSuccess: (data) => {
+      setActiveJobId(data.jobId);
+      toast.info("DO ALL started — processing all remaining companies in the background");
+    },
+    onError: (error) => {
+      toast.error(`DO ALL failed: ${error.message}`);
+    },
+  });
+
+  const cancelJobMutation = trpc.companyFinder.cancelJob.useMutation({
+    onSuccess: () => {
+      // Status update handled by the polling effect above
+    },
+    onError: (error) => {
+      toast.error(`Cancel failed: ${error.message}`);
+    },
+  });
+
+  const isJobRunning = (doNext10Mutation.isPending || doAllMutation.isPending) ||
+    (!!activeJobId && jobStatusQuery.data?.status === "running");
+  // Keep the old name for compatibility with existing JSX references
+  const isDoNext10Running = isJobRunning;
 
   const submitDecisionMutation = trpc.companyFinder.submitDecision.useMutation({
     onSuccess: () => {
@@ -650,26 +677,59 @@ export default function SearchResults() {
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2 flex-wrap">
               {remainingWork > 0 && (
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <Button
-                        onClick={() => doNext10Mutation.mutate({ searchId: searchId! })}
-                        disabled={isDoNext10Running}
-                        className="text-lg px-6 py-4 font-black border-2 border-black bg-black text-white"
-                      >
-                        {isDoNext10Running
-                          ? "[WORKING...]"
-                          : `[DO 10 — ${remainingWork} LEFT]`}
-                      </Button>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom" className="max-w-xs text-sm">
-                      Processes the next 10 companies in sequence: enrich → deep research → sales approach. {remainingWork} companies still need processing.
-                    </TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
+                <>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={() => doNext10Mutation.mutate({ searchId: searchId! })}
+                          disabled={isJobRunning}
+                          className="text-lg px-6 py-4 font-black border-2 border-black bg-black text-white"
+                        >
+                          {doNext10Mutation.isPending
+                            ? "[WORKING...]"
+                            : `[DO 10 — ${remainingWork} LEFT]`}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs text-sm">
+                        Processes the next 10 companies: enrich → deep research → sales approach.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <Button
+                          onClick={() => doAllMutation.mutate({ searchId: searchId! })}
+                          disabled={isJobRunning}
+                          className="text-lg px-6 py-4 font-black border-2 border-black bg-black text-white"
+                        >
+                          {doAllMutation.isPending
+                            ? "[STARTING...]"
+                            : `[DO ALL — ${remainingWork}]`}
+                        </Button>
+                      </TooltipTrigger>
+                      <TooltipContent side="bottom" className="max-w-xs text-sm">
+                        Processes ALL {remainingWork} remaining companies in the background. You can navigate away — the job continues and resumes on page reload.
+                      </TooltipContent>
+                    </Tooltip>
+                  </TooltipProvider>
+
+                  {/* Cancel button — only shown while a job is actively running */}
+                  {isJobRunning && activeJobId && (
+                    <Button
+                      onClick={() => cancelJobMutation.mutate({ jobId: activeJobId })}
+                      disabled={cancelJobMutation.isPending}
+                      variant="outline"
+                      className="text-lg px-4 py-4 font-black border-2 border-red-600 text-red-600 hover:bg-red-50"
+                    >
+                      {cancelJobMutation.isPending ? "CANCELLING..." : "[CANCEL]"}
+                    </Button>
+                  )}
+                </>
               )}
               <Button
                 onClick={handleExportCsv}
@@ -681,12 +741,26 @@ export default function SearchResults() {
             </div>
           </div>
 
-          {/* Enrichment Progress */}
-          {isDoNext10Running && (
+          {/* Background Job Progress Bar */}
+          {isJobRunning && (
             <div className="border-2 border-gray-300 bg-gray-50 p-6 mb-6">
-              <div className="text-xl font-black text-gray-700">→ DO 10 RUNNING...</div>
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xl font-black text-gray-700">
+                  {jobStatusQuery.data?.jobType === "doAll"
+                    ? `→ DO ALL RUNNING — ${jobStatusQuery.data?.stats?.total ?? "?"} COMPANIES`
+                    : "→ DO 10 RUNNING..."}
+                </div>
+                {jobStatusQuery.data?.stats && (
+                  <div className="text-xs font-bold text-gray-500 text-right">
+                    {jobStatusQuery.data.stats.researched} researched · {jobStatusQuery.data.stats.approached} approached
+                    {jobStatusQuery.data.stats.failed > 0 && (
+                      <span className="text-red-500 ml-1">· {jobStatusQuery.data.stats.failed} failed</span>
+                    )}
+                  </div>
+                )}
+              </div>
               {jobStatusQuery.data?.current && (
-                <div className="text-sm font-bold mt-2 text-gray-600">
+                <div className="text-sm font-bold mt-1 text-gray-600">
                   Processing: <span className="text-black">{jobStatusQuery.data.current}</span>
                   {jobStatusQuery.data.stats.total > 0 && (
                     <span className="ml-2 text-gray-400">

@@ -218,6 +218,13 @@
       "when": 1773412583929,
       "tag": "0030_cloudy_black_cat",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "5",
+      "when": 1773653990670,
+      "tag": "0031_awesome_scalphunter",
+      "breakpoints": true
     }
   ]
 }

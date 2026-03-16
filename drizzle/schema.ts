@@ -303,7 +303,8 @@ export const batchJobs = mysqlTable("batch_jobs", {
   id: varchar("id", { length: 36 }).primaryKey(), // UUID job ID
   searchId: int("searchId").notNull().references(() => searches.id, { onDelete: "cascade" }),
   userId: int("userId").notNull().references(() => users.id),
-  status: mysqlEnum("status", ["running", "completed", "failed"]).default("running").notNull(),
+  status: mysqlEnum("status", ["running", "completed", "failed", "cancelled"]).default("running").notNull(),
+  jobType: mysqlEnum("jobType", ["do10", "doAll"]).default("do10").notNull(), // do10 = limited batch, doAll = full niche
   progress: int("progress").default(0).notNull(),          // 0-100 percentage
   currentCompany: varchar("currentCompany", { length: 512 }), // Name of company currently processing
   totalCompanies: int("totalCompanies").default(0).notNull(), // Total companies in this job's queue

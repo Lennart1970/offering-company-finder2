@@ -2502,7 +2502,25 @@ Return ONLY the profile description.`;
       const profile = (typeof rawContent === "string" ? rawContent : "").trim();
       if (!profile) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "LLM returned empty profile" });
 
+      // Persist to DB
+      await updateCompany(input.companyId, {
+        salesRepProfile: profile,
+        salesRepProfileGeneratedAt: new Date(),
+      });
+
       return { profile };
+    }),
+
+  // Load persisted sales rep profile for a company
+  getSalesRepProfile: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .query(async ({ input }) => {
+      const company = await getCompanyById(input.companyId);
+      if (!company) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+      return {
+        profile: company.salesRepProfile ?? null,
+        generatedAt: company.salesRepProfileGeneratedAt ?? null,
+      };
     }),
 
   generateSignalApproach: protectedProcedure

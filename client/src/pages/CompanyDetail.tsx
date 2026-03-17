@@ -371,6 +371,19 @@ export default function CompanyDetail() {
   const [repProfile, setRepProfile] = useState<string | null>(null);
   const [repProfileLoading, setRepProfileLoading] = useState(false);
 
+  // Load persisted rep profile from DB
+  const { data: persistedRepProfile } = trpc.companyFinder.getSalesRepProfile.useQuery(
+    { companyId },
+    { enabled: !isNaN(companyId) }
+  );
+
+  // Populate state from DB once loaded
+  useEffect(() => {
+    if (persistedRepProfile?.profile && !repProfile) {
+      setRepProfile(persistedRepProfile.profile);
+    }
+  }, [persistedRepProfile]);
+
   const generateRepProfileMutation = trpc.companyFinder.generateSalesRepProfile.useMutation({
     onSuccess: (data) => {
       setRepProfile(data.profile);

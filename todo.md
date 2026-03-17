@@ -1729,3 +1729,10 @@
 - [x] Add Archive button to each search run card on Search Results list
 - [x] Add "Show archived" toggle at top of Search Results list
 - [x] Archived runs shown with muted style + Unarchive button when toggle is on
+
+## Feature: Persistent Sales Rep Profile per Company
+- [x] Add salesRepProfile text column to companies table
+- [x] Update generateSalesRepProfile procedure to save result to DB
+- [x] Add getSalesRepProfile query procedure to load from DB
+- [x] CompanyDetail: auto-load persisted profile on Intel tab open (no button click needed if cached)
+- [x] REFRESH button regenerates and overwrites the stored profile

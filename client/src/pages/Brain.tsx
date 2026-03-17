@@ -247,17 +247,29 @@ export default function Brain() {
                       Created: {new Date(b.createdAt).toLocaleDateString()}
                     </div>
                     {(b.sicCodes || b.naceCodes) && (
-                      <div className="ml-8 mt-3 space-y-2">
-                        {b.sicCodes && (
-                          <div className="text-xs">
-                            <span className="font-black">SIC:</span> {b.sicCodes}
-                          </div>
-                        )}
-                        {b.naceCodes && (
-                          <div className="text-xs">
-                            <span className="font-black">NACE:</span> {b.naceCodes}
-                          </div>
-                        )}
+                      <div className="ml-8 mt-3 space-y-1">
+                        {b.sicCodes && (() => {
+                          try {
+                            const codes = JSON.parse(b.sicCodes) as { code: string; description: string }[];
+                            return (
+                              <div className="text-xs">
+                                <span className="font-black">SIC:</span>{" "}
+                                {codes.map(c => c.code).join(" · ")}
+                              </div>
+                            );
+                          } catch { return <div className="text-xs"><span className="font-black">SIC:</span> {b.sicCodes}</div>; }
+                        })()}
+                        {b.naceCodes && (() => {
+                          try {
+                            const codes = JSON.parse(b.naceCodes) as { code: string; description: string }[];
+                            return (
+                              <div className="text-xs">
+                                <span className="font-black">NACE:</span>{" "}
+                                {codes.map(c => c.code).join(" · ")}
+                              </div>
+                            );
+                          } catch { return <div className="text-xs"><span className="font-black">NACE:</span> {b.naceCodes}</div>; }
+                        })()}
                       </div>
                     )}
                   </div>

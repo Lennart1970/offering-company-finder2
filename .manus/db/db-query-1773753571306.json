@@ -1,0 +1,26 @@
+{
+  "query": "SELECT id, userId, brainName, companyName, status, isActive FROM offering_brain ORDER BY id DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, userId, brainName, companyName, status, isActive FROM offering_brain ORDER BY id DESC LIMIT 5;",
+  "rows": [
+    {
+      "id": "60001",
+      "userId": "1",
+      "brainName": "Connect Group EMS brain",
+      "companyName": "ConnectGroup",
+      "status": "completed",
+      "isActive": "1"
+    },
+    {
+      "id": "30001",
+      "userId": "600001",
+      "brainName": "",
+      "companyName": "ConnectGroup",
+      "status": "completed",
+      "isActive": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tuserId\tbrainName\tcompanyName\tstatus\tisActive\n60001\t1\tConnect Group EMS brain\tConnectGroup\tcompleted\t1\n30001\t600001\t\tConnectGroup\tcompleted\t1\n",
+  "stderr": "",
+  "execution_time_ms": 368
+}

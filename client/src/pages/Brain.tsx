@@ -21,6 +21,10 @@ export default function Brain() {
   const [editValue, setEditValue] = useState("");
   const [showCreateSection, setShowCreateSection] = useState(false);
   const [showEditSection, setShowEditSection] = useState(false);
+  // Excel upload state
+  const [createMode, setCreateMode] = useState<"website" | "excel">("website");
+  const [excelFile, setExcelFile] = useState<File | null>(null);
+  const [excelBrainName, setExcelBrainName] = useState("");
 
   const { data: brainData, isLoading } = trpc.companyFinder.getActiveBrain.useQuery();
   const { data: historyData } = trpc.companyFinder.getBrainHistory.useQuery();
@@ -117,6 +121,41 @@ export default function Brain() {
       companyWebsite: website.trim(),
       companyName: companyName.trim() || undefined,
       brainName: brainName.trim(),
+    });
+  };
+
+  const uploadExcelMutation = trpc.companyFinder.uploadBrainExcel.useMutation({
+    onSuccess: (data) => {
+      const warnings = data.warnings ?? [];
+      if (warnings.length > 0) {
+        toast.warning(`Brain created with ${warnings.length} warning(s): ${warnings[0]}`);
+      } else {
+        toast.success(`Brain created from Excel for ${data.brain?.companyName}`);
+      }
+      utils.companyFinder.getActiveBrain.invalidate();
+      utils.companyFinder.getBrainHistory.invalidate();
+      setExcelFile(null);
+      setExcelBrainName("");
+      setShowCreateSection(false);
+    },
+    onError: (error) => {
+      toast.error(`Excel upload failed: ${error.message}`);
+    },
+  });
+
+  const handleExcelUpload = async () => {
+    if (!excelFile) {
+      toast.error("Please select an Excel file");
+      return;
+    }
+    const arrayBuffer = await excelFile.arrayBuffer();
+    const bytes = new Uint8Array(arrayBuffer);
+    let binary = '';
+    for (let i = 0; i < bytes.byteLength; i++) binary += String.fromCharCode(bytes[i]);
+    const base64 = btoa(binary);
+    uploadExcelMutation.mutate({
+      fileBase64: base64,
+      brainName: excelBrainName.trim() || undefined,
     });
   };
 
@@ -277,52 +316,132 @@ export default function Brain() {
       {showCreateSection && (
       <div data-section="create-brain" className="border-4 border-black p-6 mb-8">
         <div className="text-lg font-black mb-4">CREATE NEW BRAIN</div>
-        <div className="grid md:grid-cols-2 gap-4 mb-4">
-          <div>
-            <label className="text-xs font-black block mb-1">COMPANY NAME</label>
-            <input
-              type="text"
-              value={companyName}
-              onChange={(e) => setCompanyName(e.target.value)}
-              placeholder="ConnectGroup"
-              className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
-            />
-          </div>
-          <div>
-            <label className="text-xs font-black block mb-1">WEBSITE URL</label>
-            <input
-              type="text"
-              value={website}
-              onChange={(e) => setWebsite(e.target.value)}
-              placeholder="https://www.connectgroup.com"
-              className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
-            />
-          </div>
+
+        {/* Mode toggle */}
+        <div className="flex gap-0 mb-6 border-4 border-black w-fit">
+          <button
+            onClick={() => setCreateMode("website")}
+            className={`px-5 py-2 text-sm font-black transition-colors ${
+              createMode === "website" ? "bg-black text-white" : "bg-white text-black hover:bg-gray-100"
+            }`}
+          >
+            🌐 WEBSITE URL
+          </button>
+          <button
+            onClick={() => setCreateMode("excel")}
+            className={`px-5 py-2 text-sm font-black transition-colors border-l-4 border-black ${
+              createMode === "excel" ? "bg-black text-white" : "bg-white text-black hover:bg-gray-100"
+            }`}
+          >
+            📊 UPLOAD EXCEL
+          </button>
         </div>
-        <div className="mb-4">
-          <label className="text-xs font-black block mb-1">BRAIN NAME</label>
-          <input
-            type="text"
-            value={brainName}
-            onChange={(e) => setBrainName(e.target.value)}
-            placeholder="ConnectGroup EMS Brain"
-            className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
-          />
-          <div className="text-xs font-bold text-muted-foreground mt-1">
-            Give this brain a memorable name (e.g., "ConnectGroup EMS Brain", "Acme Manufacturing Brain")
-          </div>
-        </div>
-        <Button
-          onClick={handleStartResearch}
-          disabled={researchMutation.isPending}
-          className="text-lg px-8 py-6 font-black border-4 border-black bg-black text-white w-full"
-        >
-          {researchMutation.isPending ? "[RESEARCHING... THIS TAKES ~30 SECONDS]" : "[RESEARCH & SAVE BRAIN →]"}
-        </Button>
-        {researchMutation.isPending && (
-          <div className="mt-4 text-sm font-bold text-muted-foreground animate-pulse">
-            Grok is analyzing the website, searching for capabilities, ICP, competitive positioning...
-          </div>
+
+        {createMode === "website" && (
+          <>
+            <div className="grid md:grid-cols-2 gap-4 mb-4">
+              <div>
+                <label className="text-xs font-black block mb-1">COMPANY NAME</label>
+                <input
+                  type="text"
+                  value={companyName}
+                  onChange={(e) => setCompanyName(e.target.value)}
+                  placeholder="ConnectGroup"
+                  className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-black block mb-1">WEBSITE URL</label>
+                <input
+                  type="text"
+                  value={website}
+                  onChange={(e) => setWebsite(e.target.value)}
+                  placeholder="https://www.connectgroup.com"
+                  className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
+                />
+              </div>
+            </div>
+            <div className="mb-4">
+              <label className="text-xs font-black block mb-1">BRAIN NAME</label>
+              <input
+                type="text"
+                value={brainName}
+                onChange={(e) => setBrainName(e.target.value)}
+                placeholder="ConnectGroup EMS Brain"
+                className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
+              />
+              <div className="text-xs font-bold text-muted-foreground mt-1">
+                Give this brain a memorable name (e.g., "ConnectGroup EMS Brain", "Acme Manufacturing Brain")
+              </div>
+            </div>
+            <Button
+              onClick={handleStartResearch}
+              disabled={researchMutation.isPending}
+              className="text-lg px-8 py-6 font-black border-4 border-black bg-black text-white w-full"
+            >
+              {researchMutation.isPending ? "[RESEARCHING... THIS TAKES ~30 SECONDS]" : "[RESEARCH & SAVE BRAIN →]"}
+            </Button>
+            {researchMutation.isPending && (
+              <div className="mt-4 text-sm font-bold text-muted-foreground animate-pulse">
+                Grok is analyzing the website, searching for capabilities, ICP, competitive positioning...
+              </div>
+            )}
+          </>
+        )}
+
+        {createMode === "excel" && (
+          <>
+            <div className="bg-slate-50 border-2 border-slate-200 rounded p-4 mb-5">
+              <div className="text-sm font-black mb-1">📥 STEP 1 — DOWNLOAD THE TEMPLATE</div>
+              <div className="text-xs text-muted-foreground mb-3">
+                Fill in your offering details across 6 sheets: Overview, Capabilities, Value Propositions, ICP, Fit Criteria, and Urgency Triggers.
+              </div>
+              <a
+                href="https://d2xsxph8kpxj0f.cloudfront.net/310419663030791262/jD7AgpCX9VGnkJhgqHKmjt/offering-brain-template_5eee52bf.xlsx"
+                download="offering-brain-template.xlsx"
+                className="inline-flex items-center gap-2 px-4 py-2 bg-white border-2 border-black text-sm font-black hover:bg-black hover:text-white transition-colors"
+              >
+                ⬇ DOWNLOAD OFFERING BRAIN TEMPLATE (.xlsx)
+              </a>
+            </div>
+
+            <div className="mb-4">
+              <div className="text-sm font-black mb-2">📤 STEP 2 — UPLOAD YOUR FILLED TEMPLATE</div>
+              <input
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={(e) => setExcelFile(e.target.files?.[0] ?? null)}
+                className="w-full px-4 py-3 border-4 border-black font-bold text-sm file:mr-4 file:py-1 file:px-3 file:border-0 file:font-black file:bg-black file:text-white cursor-pointer"
+              />
+              {excelFile && (
+                <div className="text-xs font-bold text-green-700 mt-1">✓ {excelFile.name} selected</div>
+              )}
+            </div>
+
+            <div className="mb-5">
+              <label className="text-xs font-black block mb-1">BRAIN NAME (optional — overrides the name in the file)</label>
+              <input
+                type="text"
+                value={excelBrainName}
+                onChange={(e) => setExcelBrainName(e.target.value)}
+                placeholder="e.g. ConnectGroup EMS Brain Q2 2026"
+                className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
+              />
+            </div>
+
+            <Button
+              onClick={handleExcelUpload}
+              disabled={uploadExcelMutation.isPending || !excelFile}
+              className="text-lg px-8 py-6 font-black border-4 border-black bg-black text-white w-full"
+            >
+              {uploadExcelMutation.isPending ? "[PROCESSING EXCEL... ~15 SECONDS]" : "[BUILD BRAIN FROM EXCEL →]"}
+            </Button>
+            {uploadExcelMutation.isPending && (
+              <div className="mt-4 text-sm font-bold text-muted-foreground animate-pulse">
+                Parsing your Excel and running LLM normalisation to fill any gaps...
+              </div>
+            )}
+          </>
         )}
       </div>
       )}

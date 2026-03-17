@@ -40,6 +40,7 @@ import {
 // Brain and contacts-by-company imports are above with brainResearchService
 import { searchApolloContacts, searchApolloContacts as searchApolloContactsSingle, trickleDownSearch, getAllPersonnel, enrichPerson, SENIORITY_TIERS } from "./apolloPeopleSearch";
 import { researchOfferingBrain } from "./brainResearchService";
+import { parseOfferingExcel, normaliseBrainFromExcel } from "./brainExcelService";
 import {
   createOfferingBrain,
   getActiveBrain,
@@ -1435,6 +1436,70 @@ export const companyFinderRouter = router({
           rawResearchData: JSON.stringify({ error: error.message }),
         });
         throw new Error(`Brain research failed: ${error.message}`);
+      }
+    }),
+
+  // Create brain from uploaded Excel file
+  uploadBrainExcel: protectedProcedure
+    .input(z.object({
+      fileBase64: z.string().min(1),  // base64-encoded xlsx file
+      brainName: z.string().optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Decode base64 → Buffer
+      const buffer = Buffer.from(input.fileBase64, "base64");
+
+      // Parse the Excel template
+      const { raw, brainName: parsedBrainName, warnings } = parseOfferingExcel(buffer);
+
+      const finalBrainName = input.brainName?.trim() || parsedBrainName;
+      const companyName = raw.companyName || "Unknown Company";
+      const companyWebsite = raw.companyWebsite || "";
+
+      console.log(`[Brain Excel] Parsed brain for ${companyName}, warnings: ${warnings.length}`);
+
+      // Create a brain record with "researching" status
+      const brainId = await createOfferingBrain({
+        userId: ctx.user.id,
+        brainName: finalBrainName,
+        companyName,
+        companyWebsite,
+        status: "researching",
+      });
+
+      try {
+        // Run LLM normalisation to fill gaps and clean phrasing
+        const result = await normaliseBrainFromExcel(raw);
+
+        // Store structured intelligence (same shape as website research path)
+        await updateOfferingBrain(brainId, {
+          companyName: result.companyName,
+          offeringSummary: result.offeringSummary,
+          coreCapabilities: JSON.stringify(result.coreCapabilities),
+          valuePropositions: JSON.stringify(result.valuePropositions),
+          competitiveAdvantages: result.competitiveAdvantages,
+          icpIndustries: JSON.stringify(result.icpIndustries),
+          icpCompanySize: result.icpCompanySize,
+          icpGeography: result.icpGeography,
+          icpPainPoints: JSON.stringify(result.icpPainPoints),
+          icpBuyingSignals: JSON.stringify(result.icpBuyingSignals),
+          fitCriteria: JSON.stringify(result.fitCriteria),
+          urgencyTriggers: JSON.stringify(result.urgencyTriggers),
+          rawResearchData: JSON.stringify(result),
+          status: "completed",
+        });
+
+        console.log(`[Brain Excel] ✓ Brain saved for ${companyName}`);
+
+        const brain = await getActiveBrain(ctx.user.id);
+        return { brain, isNew: true, warnings };
+      } catch (error: any) {
+        console.error(`[Brain Excel] Failed:`, error);
+        await updateOfferingBrain(brainId, {
+          status: "failed",
+          rawResearchData: JSON.stringify({ error: error.message }),
+        });
+        throw new Error(`Brain Excel upload failed: ${error.message}`);
       }
     }),
 

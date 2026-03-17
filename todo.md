@@ -1743,3 +1743,14 @@
 ## Brain Audit Fixes (2026-03-17)
 - [x] Strip Grok citation tags from all brain fields in brainResearchService.ts (prevents XML markup leaking into briefs/approaches)
 - [x] Clean existing active brain data in DB (removed citation tag from coreCapabilities of brain id 60001)
+
+## Feature: Excel Upload for Offering Brain Creation
+- [x] Read current brain creation flow (brainResearchService.ts + Brain.tsx)
+- [x] Design Excel template with 6 sheets (Overview, Capabilities, Value Props, ICP, Fit Criteria, Urgency Triggers)
+- [x] Add server-side Excel parse via brainExcelService.ts (parseOfferingExcel)
+- [x] Template uploaded to CDN for download link
+- [x] Add uploadBrainExcel tRPC procedure (base64 decode, parse, LLM normalise, save to DB)
+- [x] Add normaliseBrainFromExcel LLM step in brainExcelService.ts
+- [x] Add mode toggle (Website URL / Upload Excel) to CREATE NEW BRAIN section in Brain.tsx
+- [x] Warnings shown via toast if fields are missing
+- [x] Download template link in UI (CDN-hosted .xlsx)

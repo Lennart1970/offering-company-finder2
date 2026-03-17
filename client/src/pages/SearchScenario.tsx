@@ -36,7 +36,7 @@ export default function SearchScenario() {
   );
 
   // Fetch search history for the selector
-  const { data: searchHistory } = trpc.companyFinder.getSearchHistory.useQuery();
+  const { data: searchHistory } = trpc.companyFinder.getSearchHistory.useQuery({ showArchived: false });
 
   const utils = trpc.useUtils();
 

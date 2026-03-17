@@ -392,7 +392,7 @@ export default function DeepResearchDashboard() {
   });
 
   // Fetch all search history
-  const { data: searchHistory } = trpc.companyFinder.getSearchHistory.useQuery();
+  const { data: searchHistory } = trpc.companyFinder.getSearchHistory.useQuery({ showArchived: false });
 
   // Fetch search data for selected search
   const { data: searchData, isLoading: searchLoading } = trpc.companyFinder.getSearch.useQuery(

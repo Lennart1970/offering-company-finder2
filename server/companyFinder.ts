@@ -35,6 +35,7 @@ import {
   getBatchJob,
   updateBatchJob,
   getLatestBatchJobForSearch,
+  archiveSearch,
 } from "./db";
 // Brain and contacts-by-company imports are above with brainResearchService
 import { searchApolloContacts, searchApolloContacts as searchApolloContactsSingle, trickleDownSearch, getAllPersonnel, enrichPerson, SENIORITY_TIERS } from "./apolloPeopleSearch";
@@ -202,9 +203,19 @@ export const companyFinderRouter = router({
     }),
 
   // Get user's search history
-  getSearchHistory: protectedProcedure.query(async ({ ctx }) => {
-    return getUserSearches(ctx.user.id);
-  }),
+  getSearchHistory: protectedProcedure
+    .input(z.object({ showArchived: z.boolean().optional().default(false) }))
+    .query(async ({ ctx, input }) => {
+      return getUserSearches(ctx.user.id, input.showArchived);
+    }),
+
+  // Archive / unarchive a search run
+  archiveSearch: protectedProcedure
+    .input(z.object({ searchId: z.number(), archive: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      await archiveSearch(input.searchId, ctx.user.id, input.archive);
+      return { success: true };
+    }),
 
   // STEP 2: Batch enrich all pending companies for a search
   enrichAll: protectedProcedure

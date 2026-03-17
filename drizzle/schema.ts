@@ -49,6 +49,7 @@ export const searches = mysqlTable("searches", {
   status: mysqlEnum("status", ["pending", "extracting", "code_targeting", "searching", "completed", "failed"]).default("pending").notNull(),
   errorMessage: text("errorMessage"),
   sharedWithTeam: tinyint("sharedWithTeam").default(0).notNull(),
+  isArchived: tinyint("isArchived").default(0).notNull(),
   sourceNicheId: int("sourceNicheId"), // Set when campaign was created from a Market Segment niche
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),

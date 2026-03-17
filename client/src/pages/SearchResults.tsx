@@ -56,7 +56,12 @@ export default function SearchResults() {
     }
   );
 
-  const { data: searchHistory } = trpc.companyFinder.getSearchHistory.useQuery();
+  const [showArchived, setShowArchived] = useState(false);
+  const { data: searchHistory, refetch: refetchHistory } = trpc.companyFinder.getSearchHistory.useQuery({ showArchived });
+  const archiveSearchMutation = trpc.companyFinder.archiveSearch.useMutation({
+    onSuccess: () => { refetchHistory(); },
+    onError: (err) => toast.error(err.message),
+  });
   const { data: excludedCodes } = trpc.companyFinder.getExcludedCodes.useQuery();
 
   const [excludedSectors, setExcludedSectors] = useState<string[]>([]);
@@ -335,6 +340,23 @@ export default function SearchResults() {
           </p>
         </div>
 
+        {/* Show archived toggle */}
+        <div className="flex items-center justify-between mb-4">
+          <span className="text-xs font-bold text-muted-foreground">
+            {showArchived ? "Showing all including archived" : "Showing active runs"}
+          </span>
+          <button
+            onClick={() => setShowArchived(v => !v)}
+            className={`text-xs font-black border px-3 py-1 transition-colors ${
+              showArchived
+                ? "border-amber-500 text-amber-600 bg-amber-50"
+                : "border-gray-300 text-gray-500 hover:border-gray-500 hover:text-gray-700"
+            }`}
+          >
+            {showArchived ? "↑ HIDE ARCHIVED" : "↓ SHOW ARCHIVED"}
+          </button>
+        </div>
+
         {searchHistory && searchHistory.length > 0 ? (
           <div className="space-y-3">
             {searchHistory
@@ -355,6 +377,24 @@ export default function SearchResults() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
+                      {/* Archive button — only owner sees it */}
+                      {search.userId === user?.id && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            archiveSearchMutation.mutate({ searchId: search.id, archive: !search.isArchived });
+                          }}
+                          disabled={archiveSearchMutation.isPending}
+                          className={`text-xs font-black border px-3 py-1 transition-colors disabled:opacity-40 ${
+                            search.isArchived
+                              ? "border-amber-500 text-amber-600 bg-amber-50 hover:bg-amber-100"
+                              : "border-gray-300 text-gray-400 hover:border-amber-400 hover:text-amber-600"
+                          }`}
+                          title={search.isArchived ? "Archived — click to restore" : "Archive this run"}
+                        >
+                          {search.isArchived ? "↩ RESTORE" : "ARCHIVE"}
+                        </button>
+                      )}
                       {/* Share toggle — only owner sees it */}
                       {search.userId === user?.id && (
                         <button

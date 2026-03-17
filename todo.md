@@ -1721,3 +1721,11 @@
 - [x] Softer colours for the bar: replace black bg with light slate/indigo tones
 - [x] Remove Import Campaign and Conference Import from sidebar nav
 - [x] Fix "Generating opener..." stuck spinner — switched to independent async calls via trpcClient
+
+## Feature: Archive Search Runs
+- [x] Add isArchived boolean column to searches table (default false)
+- [x] Add archiveSearch tRPC mutation (toggle isArchived)
+- [x] Update getSearches procedure to filter out archived by default, accept showArchived param
+- [x] Add Archive button to each search run card on Search Results list
+- [x] Add "Show archived" toggle at top of Search Results list
+- [x] Archived runs shown with muted style + Unarchive button when toggle is on

@@ -115,16 +115,28 @@ export async function getSearchById(id: number) {
   return result[0];
 }
 
-export async function getUserSearches(userId: number) {
+export async function getUserSearches(userId: number, showArchived = false) {
   const db = await getDb();
   if (!db) return [];
   
+  const baseCondition = or(
+    eq(searches.userId, userId),
+    eq(searches.sharedWithTeam, 1)
+  );
+  const archiveCondition = showArchived ? undefined : eq(searches.isArchived, 0);
+  const whereClause = archiveCondition ? and(baseCondition, archiveCondition) : baseCondition;
+  
   return db.select().from(searches)
-    .where(or(
-      eq(searches.userId, userId),
-      eq(searches.sharedWithTeam, 1)
-    ))
+    .where(whereClause)
     .orderBy(desc(searches.createdAt));
+}
+
+export async function archiveSearch(searchId: number, userId: number, archive: boolean) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(searches)
+    .set({ isArchived: archive ? 1 : 0 })
+    .where(eq(searches.id, searchId));
 }
 
 export async function toggleShareSearch(searchId: number, ownerId: number, shared: boolean) {

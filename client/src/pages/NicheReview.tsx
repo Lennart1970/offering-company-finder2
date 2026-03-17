@@ -552,7 +552,7 @@ export default function NicheReview() {
   const [creatingCampaignId, setCreatingCampaignId] = useState<number | null>(null);
 
   // Fetch all searches for the selector
-  const { data: searches } = trpc.companyFinder.getSearchHistory.useQuery();
+  const { data: searches } = trpc.companyFinder.getSearchHistory.useQuery({ showArchived: false });
 
   // Fetch niches — either by search or all
   const {

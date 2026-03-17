@@ -5,7 +5,7 @@ import { formatDistanceToNow } from "date-fns";
 
 export default function SearchHistory() {
   const [, setLocation] = useLocation();
-  const { data: searches, isLoading } = trpc.companyFinder.getSearchHistory.useQuery();
+  const { data: searches, isLoading } = trpc.companyFinder.getSearchHistory.useQuery({ showArchived: false });
 
   if (isLoading) {
     return (

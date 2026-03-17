@@ -1736,3 +1736,6 @@
 - [x] Add getSalesRepProfile query procedure to load from DB
 - [x] CompanyDetail: auto-load persisted profile on Intel tab open (no button click needed if cached)
 - [x] REFRESH button regenerates and overwrites the stored profile
+
+## BUG: Contact Finder "no url" error
+- [x] Fix "no url" error on Contacts tab — now falls back to primaryDomain, shows clear message when neither is available

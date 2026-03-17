@@ -989,10 +989,11 @@ export const companyFinderRouter = router({
       }
 
       // Need company domain for Apollo People Search
+      // Prefer websiteUrl, fall back to primaryDomain
       const domain = company.websiteUrl
         ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
-        : null;
-      if (!domain) throw new Error("Company has no website URL for contact search");
+        : company.primaryDomain || null;
+      if (!domain) throw new TRPCError({ code: "BAD_REQUEST", message: "This company has no website URL. Please add one to enable contact search." });
 
       console.log(`[findContact] Searching for "${input.jobTitle}" at ${company.name} (${domain})`);
 
@@ -1545,8 +1546,8 @@ export const companyFinderRouter = router({
 
       const domain = company.websiteUrl
         ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
-        : null;
-      if (!domain) throw new Error("Company has no website URL for contact search");
+        : company.primaryDomain || null;
+      if (!domain) throw new TRPCError({ code: "BAD_REQUEST", message: "This company has no website URL. Please add one to enable contact search." });
 
       console.log(`[Trickle-Down] Starting trickle-down search at ${company.name} (${domain})`);
 
@@ -1632,8 +1633,8 @@ export const companyFinderRouter = router({
 
       const domain = company.websiteUrl
         ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
-        : null;
-      if (!domain) throw new Error("Company has no website URL for contact search");
+        : company.primaryDomain || null;
+      if (!domain) throw new TRPCError({ code: "BAD_REQUEST", message: "This company has no website URL. Please add one to enable contact search." });
 
       console.log(`[Get All Personnel] Starting search at ${company.name} (${domain}), seniorities: ${input.seniorities?.join(",") || "all"}, dept: ${input.department || "any"}`);
 
@@ -1707,8 +1708,8 @@ export const companyFinderRouter = router({
 
       const domain = company.websiteUrl
         ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
-        : null;
-      if (!domain) throw new Error("Company has no website URL for enrichment");
+        : company.primaryDomain || null;
+      if (!domain) throw new TRPCError({ code: "BAD_REQUEST", message: "This company has no website URL. Please add one to enable enrichment." });
 
       console.log(`[Enrich Contact] Enriching ${contact.fullName} at ${company.name}`);
 

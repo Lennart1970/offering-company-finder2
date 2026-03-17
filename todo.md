@@ -1709,3 +1709,15 @@
 - [x] Show LLM-generated rep profile description below the button after click
 - [x] Cache result in component state so it doesn't re-fire on re-render
 - [x] Layout order: Signal cards → RIGHT SALES REP block → WHY NOW / ENGAGEMENT STRATEGY
+
+## URGENT FIX: Sales Approach Button + RIGHT SALES REP Visibility
+- [ ] Fix Sales Approach button permanently disabled on all companies (structural cause)
+- [ ] Fix RIGHT SALES REP block not visible in Intel tab
+- [ ] Remove Import Campaign and Conference Import from sidebar
+
+## Intel Tab Redesign
+- [x] Move RIGHT SALES REP block to top of Intel tab (before signal cards)
+- [x] Move FIND CONTACTS button to top of Intel tab alongside RIGHT SALES REP
+- [x] Softer colours for the bar: replace black bg with light slate/indigo tones
+- [x] Remove Import Campaign and Conference Import from sidebar nav
+- [x] Fix "Generating opener..." stuck spinner — switched to independent async calls via trpcClient

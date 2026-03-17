@@ -29,8 +29,6 @@ import { Button } from "./ui/button";
 
 const menuItems = [
   { icon: BrainCircuit, label: "Offering Brain", path: "/brain" },
-  { icon: Upload, label: "Import Campaign", path: "/import-campaign" },
-  { icon: Building2, label: "Conference Import", path: "/conference-import" },
   { icon: FileSpreadsheet, label: "Excel Import", path: "/excel-import" },
   { icon: List, label: "Search Results", path: "/search-results" },
   { icon: Phone, label: "Call Today", path: "/call-today" },

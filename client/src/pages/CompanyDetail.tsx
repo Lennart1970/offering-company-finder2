@@ -339,29 +339,21 @@ export default function CompanyDetail() {
   const [signalOpeners, setSignalOpeners] = useState<Record<number, string | null>>({});
   const [signalOpenerLoading, setSignalOpenerLoading] = useState<Record<number, boolean>>({});
 
-  const generateSignalApproachMutation = trpc.companyFinder.generateSignalApproach.useMutation({
-    onError: (err, vars) => {
-      // vars is the input — find the index from the signal description
-      toast.error("Could not generate opener");
-    },
-  });
+  const trpcClient = trpc.useUtils().client;
 
-  const generateOpenerForSignal = (signal: any, index: number) => {
+  const generateOpenerForSignal = async (signal: any, index: number) => {
     if (signalOpeners[index] !== undefined || signalOpenerLoading[index]) return;
     setSignalOpenerLoading(prev => ({ ...prev, [index]: true }));
-    generateSignalApproachMutation.mutate(
-      { companyId, signal: { category: signal.category ?? "", type: signal.type, description: signal.description ?? "", snippet: signal.snippet, sourceUrl: signal.sourceUrl } },
-      {
-        onSuccess: (data) => {
-          setSignalOpeners(prev => ({ ...prev, [index]: data.opener }));
-          setSignalOpenerLoading(prev => ({ ...prev, [index]: false }));
-        },
-        onError: () => {
-          setSignalOpeners(prev => ({ ...prev, [index]: null }));
-          setSignalOpenerLoading(prev => ({ ...prev, [index]: false }));
-        },
-      }
-    );
+    try {
+      const data = await trpcClient.companyFinder.generateSignalApproach.mutate(
+        { companyId, signal: { category: signal.category ?? "", type: signal.type, description: signal.description ?? "", snippet: signal.snippet, sourceUrl: signal.sourceUrl } }
+      );
+      setSignalOpeners(prev => ({ ...prev, [index]: data.opener }));
+    } catch {
+      setSignalOpeners(prev => ({ ...prev, [index]: null }));
+    } finally {
+      setSignalOpenerLoading(prev => ({ ...prev, [index]: false }));
+    }
   };
 
   // Auto-generate openers for all signals when urgency tab is active and briefData is ready
@@ -993,6 +985,66 @@ export default function CompanyDetail() {
                     </div>
                   </div>
 
+                  {/* ── RIGHT SALES REP + CONTACTS ACTION BAR ── */}
+                  <div className="mx-6 mt-4 rounded-lg border border-indigo-200 bg-gradient-to-r from-indigo-50 to-slate-50">
+                    <div className="flex items-center justify-between gap-4 px-5 py-3 flex-wrap">
+                      {/* Left: Rep profile */}
+                      <div className="flex items-center gap-3">
+                        <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-600 text-sm">👤</div>
+                        <div>
+                          <span className="text-[10px] font-bold tracking-[0.15em] uppercase text-indigo-400">RIGHT SALES REP</span>
+                          <div className="text-xs font-bold text-slate-700">Decision-Maker Match</div>
+                        </div>
+                      </div>
+                      {/* Right: Buttons */}
+                      <div className="flex items-center gap-2">
+                        {!repProfile ? (
+                          <button
+                            onClick={() => { setRepProfileLoading(true); generateRepProfileMutation.mutate({ companyId }); }}
+                            disabled={repProfileLoading}
+                            className="flex items-center gap-2 rounded-md border border-indigo-300 bg-white text-indigo-700 font-bold text-xs px-4 py-2 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-wait"
+                          >
+                            {repProfileLoading ? (
+                              <><span className="animate-spin inline-block w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full" /> ANALYSING...</>
+                            ) : (
+                              "FIND BEST SALES REP"
+                            )}
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => { setRepProfile(null); setRepProfileLoading(true); generateRepProfileMutation.mutate({ companyId }); }}
+                            disabled={repProfileLoading}
+                            className="text-[10px] font-bold text-indigo-400 border border-indigo-200 rounded px-2 py-1 hover:border-indigo-500 hover:text-indigo-600 transition-colors disabled:opacity-40"
+                          >
+                            {repProfileLoading ? "..." : "↺ REFRESH"}
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setChapter("contacts")}
+                          className="flex items-center gap-1.5 rounded-md border border-purple-300 bg-white text-purple-700 font-bold text-xs px-4 py-2 hover:bg-purple-600 hover:text-white hover:border-purple-600 transition-colors"
+                        >
+                          👥 CONTACTS {rawContacts.length > 0 && <span className="bg-purple-100 text-purple-700 rounded-full px-1.5 text-[10px] font-black">{rawContacts.length}</span>}
+                        </button>
+                      </div>
+                    </div>
+                    {/* Expandable rep profile result */}
+                    {(repProfile || repProfileLoading) && (
+                      <div className="px-5 pb-4 pt-0">
+                        <div className="border-t border-indigo-100 pt-3">
+                          {repProfileLoading && !repProfile && (
+                            <div className="flex items-center gap-2">
+                              <div className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+                              <span className="text-xs font-bold text-slate-500">Analysing company profile and offering fit...</span>
+                            </div>
+                          )}
+                          {repProfile && (
+                            <p className="text-sm leading-relaxed text-slate-700">{repProfile}</p>
+                          )}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   {/* ── EDITORIAL GRID ── */}
                   <div className="px-6 pt-5">
 
@@ -1168,51 +1220,7 @@ export default function CompanyDetail() {
                       </div>
                     )}
 
-                    {/* RIGHT SALES REP */}
-                    <div className="mt-5 border-4 border-black">
-                      <div className="bg-black text-white px-4 py-2 flex items-center justify-between">
-                        <div>
-                          <span className="text-[10px] font-black tracking-[0.2em] uppercase text-gray-400">RIGHT SALES REP</span>
-                          <div className="text-sm font-black">Decision-Maker Match</div>
-                        </div>
-                        {!repProfile && (
-                          <button
-                            onClick={() => { setRepProfileLoading(true); generateRepProfileMutation.mutate({ companyId }); }}
-                            disabled={repProfileLoading}
-                            className="flex items-center gap-2 border-2 border-white text-white font-black text-xs px-4 py-2 hover:bg-white hover:text-black transition-colors disabled:opacity-50 disabled:cursor-wait"
-                          >
-                            {repProfileLoading ? (
-                              <><span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full" /> ANALYSING...</>
-                            ) : (
-                              "👤 FIND BEST SUITABLE SALES REP"
-                            )}
-                          </button>
-                        )}
-                        {repProfile && (
-                          <button
-                            onClick={() => { setRepProfile(null); setRepProfileLoading(true); generateRepProfileMutation.mutate({ companyId }); }}
-                            disabled={repProfileLoading}
-                            className="text-[10px] font-black text-gray-400 border border-gray-600 px-2 py-1 hover:border-white hover:text-white transition-colors disabled:opacity-40"
-                          >
-                            {repProfileLoading ? "..." : "↺ REFRESH"}
-                          </button>
-                        )}
-                      </div>
-                      <div className="p-4 bg-white">
-                        {!repProfile && !repProfileLoading && (
-                          <p className="text-xs text-muted-foreground font-bold">Click the button to get an AI-generated profile of the ideal sales rep for this account.</p>
-                        )}
-                        {repProfileLoading && (
-                          <div className="flex items-center gap-2 py-2">
-                            <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
-                            <span className="text-sm font-bold text-muted-foreground">Analysing company profile and offering fit...</span>
-                          </div>
-                        )}
-                        {repProfile && (
-                          <p className="text-sm leading-relaxed">{repProfile}</p>
-                        )}
-                      </div>
-                    </div>
+
 
                     {/* WHY NOW + ENGAGEMENT STRATEGY */}
                     {(briefData.whyNow || briefData.engagementStrategy) && (

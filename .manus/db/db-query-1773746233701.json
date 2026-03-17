@@ -1,0 +1,49 @@
+{
+  "query": "SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT TABLE_NAME FROM information_schema.TABLES WHERE TABLE_SCHEMA = DATABASE() ORDER BY TABLE_NAME;",
+  "rows": [
+    {
+      "TABLE_NAME": "__drizzle_migrations"
+    },
+    {
+      "TABLE_NAME": "batch_jobs"
+    },
+    {
+      "TABLE_NAME": "callOutcomes"
+    },
+    {
+      "TABLE_NAME": "code_descriptions"
+    },
+    {
+      "TABLE_NAME": "companies"
+    },
+    {
+      "TABLE_NAME": "companyDecisions"
+    },
+    {
+      "TABLE_NAME": "contacts"
+    },
+    {
+      "TABLE_NAME": "excludedCodes"
+    },
+    {
+      "TABLE_NAME": "niches"
+    },
+    {
+      "TABLE_NAME": "offering_brain"
+    },
+    {
+      "TABLE_NAME": "salesPackages"
+    },
+    {
+      "TABLE_NAME": "searches"
+    },
+    {
+      "TABLE_NAME": "users"
+    }
+  ],
+  "messages": [],
+  "stdout": "TABLE_NAME\n__drizzle_migrations\nbatch_jobs\ncallOutcomes\ncode_descriptions\ncompanies\ncompanyDecisions\ncontacts\nexcludedCodes\nniches\noffering_brain\nsalesPackages\nsearches\nusers\n",
+  "stderr": "",
+  "execution_time_ms": 405
+}

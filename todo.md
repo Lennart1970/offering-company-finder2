@@ -1739,3 +1739,7 @@
 
 ## BUG: Contact Finder "no url" error
 - [x] Fix "no url" error on Contacts tab — now falls back to primaryDomain, shows clear message when neither is available
+
+## Brain Audit Fixes (2026-03-17)
+- [x] Strip Grok citation tags from all brain fields in brainResearchService.ts (prevents XML markup leaking into briefs/approaches)
+- [x] Clean existing active brain data in DB (removed citation tag from coreCapabilities of brain id 60001)

@@ -83,6 +83,23 @@ async function callGrokWithWebSearch(input: string): Promise<string> {
 }
 
 /**
+ * Strip Grok citation tags and other XML artifacts from LLM output
+ * e.g. <grok:render type="render_inline_citation"><argument name="citation_id">60</argument></grok:render>
+ */
+function stripCitationTags(text: string): string {
+  if (!text) return text;
+  // Remove <grok:render ...>...</grok:render> blocks
+  return text
+    .replace(/<grok:[\s\S]*?<\/grok:[^>]*>/g, '')
+    .replace(/<[a-z]+:[^>]*\/>/g, '')
+    .trim();
+}
+
+function stripFromArray(arr: string[]): string[] {
+  return arr.map(stripCitationTags).filter(s => s.length > 0);
+}
+
+/**
  * Research a company's offering deeply using Grok web search
  */
 export async function researchOfferingBrain(
@@ -186,23 +203,28 @@ export async function researchOfferingBrain(
 
     // Validate and normalize the response
     const result: BrainResearchResult = {
-      companyName: parsed.companyName || displayName,
+      companyName: stripCitationTags(parsed.companyName || displayName),
       companyWebsite: parsed.companyWebsite || companyWebsite,
-      offeringSummary: parsed.offeringSummary || "",
-      coreCapabilities: Array.isArray(parsed.coreCapabilities) ? parsed.coreCapabilities : [],
-      valuePropositions: Array.isArray(parsed.valuePropositions) ? parsed.valuePropositions : [],
-      competitiveAdvantages: parsed.competitiveAdvantages || "",
-      icpIndustries: Array.isArray(parsed.icpIndustries) ? parsed.icpIndustries : [],
-      icpCompanySize: parsed.icpCompanySize || "",
-      icpGeography: parsed.icpGeography || "",
-      icpPainPoints: Array.isArray(parsed.icpPainPoints) ? parsed.icpPainPoints : [],
-      icpBuyingSignals: Array.isArray(parsed.icpBuyingSignals) ? parsed.icpBuyingSignals : [],
+      offeringSummary: stripCitationTags(parsed.offeringSummary || ""),
+      coreCapabilities: stripFromArray(Array.isArray(parsed.coreCapabilities) ? parsed.coreCapabilities : []),
+      valuePropositions: Array.isArray(parsed.valuePropositions)
+        ? parsed.valuePropositions.map((vp: any) => ({
+            proposition: stripCitationTags(vp.proposition || ""),
+            targetAudience: stripCitationTags(vp.targetAudience || ""),
+          }))
+        : [],
+      competitiveAdvantages: stripCitationTags(parsed.competitiveAdvantages || ""),
+      icpIndustries: stripFromArray(Array.isArray(parsed.icpIndustries) ? parsed.icpIndustries : []),
+      icpCompanySize: stripCitationTags(parsed.icpCompanySize || ""),
+      icpGeography: stripCitationTags(parsed.icpGeography || ""),
+      icpPainPoints: stripFromArray(Array.isArray(parsed.icpPainPoints) ? parsed.icpPainPoints : []),
+      icpBuyingSignals: stripFromArray(Array.isArray(parsed.icpBuyingSignals) ? parsed.icpBuyingSignals : []),
       fitCriteria: {
-        mustHave: Array.isArray(parsed.fitCriteria?.mustHave) ? parsed.fitCriteria.mustHave : [],
-        niceToHave: Array.isArray(parsed.fitCriteria?.niceToHave) ? parsed.fitCriteria.niceToHave : [],
-        disqualifiers: Array.isArray(parsed.fitCriteria?.disqualifiers) ? parsed.fitCriteria.disqualifiers : [],
+        mustHave: stripFromArray(Array.isArray(parsed.fitCriteria?.mustHave) ? parsed.fitCriteria.mustHave : []),
+        niceToHave: stripFromArray(Array.isArray(parsed.fitCriteria?.niceToHave) ? parsed.fitCriteria.niceToHave : []),
+        disqualifiers: stripFromArray(Array.isArray(parsed.fitCriteria?.disqualifiers) ? parsed.fitCriteria.disqualifiers : []),
       },
-      urgencyTriggers: Array.isArray(parsed.urgencyTriggers) ? parsed.urgencyTriggers : [],
+      urgencyTriggers: stripFromArray(Array.isArray(parsed.urgencyTriggers) ? parsed.urgencyTriggers : []),
     };
 
     console.log(`[Brain Research] ✓ Successfully parsed brain for ${result.companyName}`);

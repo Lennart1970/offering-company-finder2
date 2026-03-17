@@ -2429,6 +2429,71 @@ export const companyFinderRouter = router({
   // Takes one urgency signal + companyId, returns one targeted conversation
   // starter grounded in that specific signal. Fast (no web search), uses
   // invokeLLM with Offering Brain context injected.
+  generateSalesRepProfile: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      const { invokeLLM } = await import("./_core/llm");
+      const { getActiveBrain, getCompanyById } = await import("./db");
+
+      const company = await getCompanyById(input.companyId);
+      if (!company) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+
+      let brainContext = "";
+      let sellerName = "ConnectGroup";
+      try {
+        const brain = await getActiveBrain(ctx.user.id);
+        if (brain && brain.status === "completed") {
+          sellerName = brain.companyName || sellerName;
+          const capabilities = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
+          const valueProps = brain.valuePropositions ? JSON.parse(brain.valuePropositions) : [];
+          brainContext = `
+SELLER: ${brain.companyName}
+Offering: ${brain.offeringSummary}
+Core Capabilities: ${capabilities.join("; ")}
+Value Propositions: ${valueProps.map((vp: any) => vp.proposition).join("; ")}
+`;
+        }
+      } catch (_) { /* use defaults */ }
+
+      const briefData = company.briefData ? (typeof company.briefData === "string" ? JSON.parse(company.briefData) : company.briefData) : null;
+      const sliceMeta = company.sliceMetadata ? (() => { try { return JSON.parse(company.sliceMetadata as string); } catch { return {}; } })() : {};
+      const companyContext = briefData ? `
+COMPANY: ${company.name}
+Industry: ${sliceMeta.industry || "unknown"}
+Size: ${sliceMeta.employeeBand || "unknown"}
+Urgency Score: ${briefData.urgencyScore ?? "unknown"}
+Key Signals: ${(briefData.urgencySignals || []).slice(0, 3).map((s: any) => s.description).join("; ")}
+Engagement Strategy: ${briefData.engagementStrategy || ""}
+` : `
+COMPANY: ${company.name}
+Industry: ${sliceMeta.industry || "unknown"}
+`;
+
+      const prompt = `${brainContext}${companyContext}
+You are advising a sales manager at ${sellerName} on which type of sales rep to assign to this account.
+
+Based on the company profile and the seller's offering, describe the IDEAL SALES REP PROFILE for this specific account in 3-4 sentences. Cover:
+1. Personality and communication style that would resonate with this company's culture
+2. Background or domain knowledge that would build instant credibility
+3. One specific trait or skill that would make the difference in winning this account
+
+Be specific to this company — do NOT give generic advice. Write in plain prose, no bullet points, no headers.
+Return ONLY the profile description.`;
+
+      const response = await invokeLLM({
+        messages: [
+          { role: "system", content: "You are a precise B2B sales coaching assistant. Return only the requested text, nothing else." },
+          { role: "user", content: prompt },
+        ],
+      });
+
+      const rawContent = response?.choices?.[0]?.message?.content;
+      const profile = (typeof rawContent === "string" ? rawContent : "").trim();
+      if (!profile) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "LLM returned empty profile" });
+
+      return { profile };
+    }),
+
   generateSignalApproach: protectedProcedure
     .input(
       z.object({

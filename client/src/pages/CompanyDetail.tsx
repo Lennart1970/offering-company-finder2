@@ -375,6 +375,21 @@ export default function CompanyDetail() {
     }
   }, [chapter, briefData]);
 
+  // ── Sales Rep Profile ─────────────────────────────────────────────────────
+  const [repProfile, setRepProfile] = useState<string | null>(null);
+  const [repProfileLoading, setRepProfileLoading] = useState(false);
+
+  const generateRepProfileMutation = trpc.companyFinder.generateSalesRepProfile.useMutation({
+    onSuccess: (data) => {
+      setRepProfile(data.profile);
+      setRepProfileLoading(false);
+    },
+    onError: () => {
+      toast.error("Could not generate rep profile");
+      setRepProfileLoading(false);
+    },
+  });
+
   // Top contact (first enriched contact with email, else first contact)
   const topContact = useMemo(() => {
     const withEmail = rawContacts.find((c: any) => c.email);
@@ -1152,6 +1167,52 @@ export default function CompanyDetail() {
                         </div>
                       </div>
                     )}
+
+                    {/* RIGHT SALES REP */}
+                    <div className="mt-5 border-4 border-black">
+                      <div className="bg-black text-white px-4 py-2 flex items-center justify-between">
+                        <div>
+                          <span className="text-[10px] font-black tracking-[0.2em] uppercase text-gray-400">RIGHT SALES REP</span>
+                          <div className="text-sm font-black">Decision-Maker Match</div>
+                        </div>
+                        {!repProfile && (
+                          <button
+                            onClick={() => { setRepProfileLoading(true); generateRepProfileMutation.mutate({ companyId }); }}
+                            disabled={repProfileLoading}
+                            className="flex items-center gap-2 border-2 border-white text-white font-black text-xs px-4 py-2 hover:bg-white hover:text-black transition-colors disabled:opacity-50 disabled:cursor-wait"
+                          >
+                            {repProfileLoading ? (
+                              <><span className="animate-spin inline-block w-3 h-3 border-2 border-white border-t-transparent rounded-full" /> ANALYSING...</>
+                            ) : (
+                              "👤 FIND BEST SUITABLE SALES REP"
+                            )}
+                          </button>
+                        )}
+                        {repProfile && (
+                          <button
+                            onClick={() => { setRepProfile(null); setRepProfileLoading(true); generateRepProfileMutation.mutate({ companyId }); }}
+                            disabled={repProfileLoading}
+                            className="text-[10px] font-black text-gray-400 border border-gray-600 px-2 py-1 hover:border-white hover:text-white transition-colors disabled:opacity-40"
+                          >
+                            {repProfileLoading ? "..." : "↺ REFRESH"}
+                          </button>
+                        )}
+                      </div>
+                      <div className="p-4 bg-white">
+                        {!repProfile && !repProfileLoading && (
+                          <p className="text-xs text-muted-foreground font-bold">Click the button to get an AI-generated profile of the ideal sales rep for this account.</p>
+                        )}
+                        {repProfileLoading && (
+                          <div className="flex items-center gap-2 py-2">
+                            <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                            <span className="text-sm font-bold text-muted-foreground">Analysing company profile and offering fit...</span>
+                          </div>
+                        )}
+                        {repProfile && (
+                          <p className="text-sm leading-relaxed">{repProfile}</p>
+                        )}
+                      </div>
+                    </div>
 
                     {/* WHY NOW + ENGAGEMENT STRATEGY */}
                     {(briefData.whyNow || briefData.engagementStrategy) && (

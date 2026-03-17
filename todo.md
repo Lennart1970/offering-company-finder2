@@ -1701,3 +1701,11 @@
 - [x] Add "RIGHT SALES REP" fourth box to hero grid in Brain.tsx (change grid-cols-3 to grid-cols-4)
 - [x] Label: "RIGHT SALES REP", title: "Decision-Maker Match", description: matching the right contact to the right message
 >>>>>>> Stashed changes
+
+## Feature: Best Suitable Sales Rep Profile (Approach Tab)
+- [x] Add tRPC procedure generateSalesRepProfile: takes companyId, returns LLM-generated ideal rep description
+- [x] LLM prompt: use Offering Brain + company brief to describe ideal rep profile (personality, background, tone)
+- [x] Add "FIND BEST SUITABLE SALES REP" button to Intel tab, below signal cards
+- [x] Show LLM-generated rep profile description below the button after click
+- [x] Cache result in component state so it doesn't re-fire on re-render
+- [x] Layout order: Signal cards → RIGHT SALES REP block → WHY NOW / ENGAGEMENT STRATEGY

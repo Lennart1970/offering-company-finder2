@@ -1765,3 +1765,13 @@
 - [x] Register route in server/_core/index.ts
 - [x] Add "EXPORT TO SHAREPOINT" button on Search Results page
 - [x] Button triggers download of .xlsx file ready to upload to SharePoint document library
+
+## Feature: Batch Find Decision Makers (Urgency ≥ 50)
+- [x] Add batchFindDecisionMakers tRPC procedure in companyFinder.ts
+- [x] Filter companies by urgency score >= threshold (default 50) and having a domain
+- [x] Skip companies that already have contacts (cache-safe)
+- [x] Run trickle-down Apollo search per company with 800ms delay between calls
+- [x] Track progress via batch_jobs table (reuses existing polling infrastructure)
+- [x] Add "FIND ALL DECISION MAKERS (50+)" indigo button on Search Results page
+- [x] Progress bar label shows "FINDING DECISION MAKERS..." when contacts batch is running
+- [x] Progress bar stats show contacts found count

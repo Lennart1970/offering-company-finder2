@@ -2663,6 +2663,113 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
 
       return { opener };
     }),
+
+  // Batch find decision makers for all companies with urgency >= threshold in a search
+  batchFindDecisionMakers: protectedProcedure
+    .input(z.object({
+      searchId: z.number(),
+      minUrgencyScore: z.number().default(50),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      await assertSearchAccess(input.searchId, ctx.user.id);
+      const jobId = randomUUID();
+      await createBatchJob({
+        id: jobId,
+        searchId: input.searchId,
+        userId: ctx.user.id,
+        status: "running",
+        jobType: "doAll",
+        progress: 0,
+        currentCompany: null,
+        totalCompanies: 0,
+        enriched: 0,
+        researched: 0,
+        approached: 0,
+        failed: 0,
+        remaining: 0,
+      });
+      // Run in background — NOT awaited
+      (async () => {
+        try {
+          const all = await getCompaniesBySearchId(input.searchId);
+          // Filter: urgency >= threshold, has a domain, no contacts yet
+          const queue = all.filter((c) => {
+            const score = c.urgencyScore ?? 0;
+            const hasDomain = !!(c.primaryDomain || c.websiteUrl);
+            return score >= input.minUrgencyScore && hasDomain;
+          });
+          await updateBatchJob(jobId, { totalCompanies: queue.length });
+          console.log(`[BatchContacts] jobId=${jobId} — ${queue.length} companies with urgency>=${input.minUrgencyScore}`);
+          let found = 0, skipped = 0, failed = 0;
+          for (let i = 0; i < queue.length; i++) {
+            const currentJob = await getBatchJob(jobId);
+            if (currentJob?.status === "cancelled") {
+              console.log(`[BatchContacts] Cancelled at ${i + 1}/${queue.length}`);
+              return;
+            }
+            const company = queue[i];
+            const progress = Math.round((i / queue.length) * 100);
+            await updateBatchJob(jobId, { currentCompany: company.name || null, progress, enriched: found, failed });
+            try {
+              // Skip if contacts already exist
+              const existing = await getContactsByCompanyId(company.id);
+              if (existing.length > 0) {
+                skipped++;
+                console.log(`[BatchContacts] Skipped (cached): ${company.name}`);
+                continue;
+              }
+              const domain = (company.primaryDomain || company.websiteUrl || "")
+                .replace(/^https?:\/\//, "").replace(/\/.*$/, "");
+              if (!domain) { failed++; continue; }
+              const result = await trickleDownSearch(domain, company.name || "", 5, false);
+              const seenEmails = new Set<string>();
+              const seenNames = new Set<string>();
+              for (const contact of result.contacts) {
+                const email = contact.email?.toLowerCase();
+                const name = contact.name?.toLowerCase();
+                if ((email && seenEmails.has(email)) || (name && seenNames.has(name))) continue;
+                try {
+                  await createContact({
+                    companyId: company.id,
+                    apolloPersonId: contact.id,
+                    firstName: contact.firstName,
+                    lastName: contact.lastName,
+                    fullName: contact.name,
+                    title: contact.title,
+                    email: contact.email || null,
+                    phone: contact.phone || null,
+                    linkedinUrl: contact.linkedinUrl || null,
+                    searchedTitle: `Tier ${result.tierFound}: ${result.tierLabel}`,
+                  });
+                  if (email) seenEmails.add(email);
+                  if (name) seenNames.add(name);
+                } catch { /* duplicate — ignore */ }
+              }
+              found++;
+              console.log(`[BatchContacts] ✓ ${company.name}: ${result.contacts.length} contacts (Tier ${result.tierFound})`);
+            } catch (err: any) {
+              failed++;
+              console.error(`[BatchContacts] ✗ ${company.name}:`, err.message);
+            }
+            // Small delay to avoid Apollo rate limits
+            await new Promise(r => setTimeout(r, 800));
+          }
+          await updateBatchJob(jobId, {
+            status: "completed",
+            progress: 100,
+            enriched: found,
+            failed,
+            remaining: skipped,
+            currentCompany: null,
+          });
+          console.log(`[BatchContacts] Done — ${found} found, ${skipped} skipped, ${failed} failed`);
+        } catch (err: any) {
+          await updateBatchJob(jobId, { status: "failed", errorMessage: err.message }).catch(() => {});
+          console.error(`[BatchContacts] Fatal error:`, err);
+        }
+      })();
+      return { jobId };
+    }),
 });
 
 // Background search function for hardcoded ConnectGroup offering (skip extraction)

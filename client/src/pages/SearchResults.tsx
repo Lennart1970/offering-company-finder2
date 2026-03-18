@@ -163,6 +163,16 @@ export default function SearchResults() {
     },
   });
 
+  const batchContactsMutation = trpc.companyFinder.batchFindDecisionMakers.useMutation({
+    onSuccess: (data) => {
+      setActiveJobId(data.jobId);
+      toast.info("Finding decision makers for all companies with urgency ≥ 50 — running in background");
+    },
+    onError: (error) => {
+      toast.error(`Batch contacts failed: ${error.message}`);
+    },
+  });
+
   const cancelJobMutation = trpc.companyFinder.cancelJob.useMutation({
     onSuccess: () => {
       // Status update handled by the polling effect above
@@ -172,7 +182,7 @@ export default function SearchResults() {
     },
   });
 
-  const isJobRunning = (doNext10Mutation.isPending || doAllMutation.isPending) ||
+  const isJobRunning = (doNext10Mutation.isPending || doAllMutation.isPending || batchContactsMutation.isPending) ||
     (!!activeJobId && jobStatusQuery.data?.status === "running");
   // Keep the old name for compatibility with existing JSX references
   const isDoNext10Running = isJobRunning;
@@ -800,6 +810,13 @@ export default function SearchResults() {
                 </>
               )}
               <Button
+                onClick={() => batchContactsMutation.mutate({ searchId: searchId!, minUrgencyScore: 50 })}
+                disabled={isJobRunning}
+                className="text-lg px-6 py-4 font-black bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
+              >
+                {batchContactsMutation.isPending ? "STARTING..." : "👤 FIND ALL DECISION MAKERS (50+)"}
+              </Button>
+              <Button
                 onClick={handleExportCsv}
                 variant="outline"
                 className="text-lg px-6 py-4 font-black border-2 border-black"
@@ -821,12 +838,15 @@ export default function SearchResults() {
             <div className="border-2 border-gray-300 bg-gray-50 p-6 mb-6">
               <div className="flex items-center justify-between mb-2">
                 <div className="text-xl font-black text-gray-700">
-                  {jobStatusQuery.data?.jobType === "doAll"
+                  {batchContactsMutation.isPending
+                    ? "→ FINDING DECISION MAKERS..."
+                    : jobStatusQuery.data?.jobType === "doAll"
                     ? `→ DO ALL RUNNING — ${jobStatusQuery.data?.stats?.total ?? "?"} COMPANIES`
                     : "→ DO 10 RUNNING..."}
                 </div>
                 {jobStatusQuery.data?.stats && (
                   <div className="text-xs font-bold text-gray-500 text-right">
+                    {jobStatusQuery.data.stats.enriched > 0 && <span>{jobStatusQuery.data.stats.enriched} contacts found · </span>}
                     {jobStatusQuery.data.stats.researched} researched · {jobStatusQuery.data.stats.approached} approached
                     {jobStatusQuery.data.stats.failed > 0 && (
                       <span className="text-red-500 ml-1">· {jobStatusQuery.data.stats.failed} failed</span>

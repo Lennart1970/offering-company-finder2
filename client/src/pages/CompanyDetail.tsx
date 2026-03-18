@@ -1015,7 +1015,7 @@ export default function CompanyDetail() {
                           <button
                             onClick={() => { setRepProfileLoading(true); generateRepProfileMutation.mutate({ companyId }); }}
                             disabled={repProfileLoading}
-                            className="flex items-center gap-2 rounded-md border border-indigo-300 bg-white text-indigo-700 font-bold text-xs px-4 py-2 hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-colors disabled:opacity-50 disabled:cursor-wait"
+                            className="flex items-center gap-2 rounded-md bg-indigo-600 text-white font-bold text-xs px-5 py-2.5 hover:bg-indigo-700 shadow-sm transition-colors disabled:opacity-50 disabled:cursor-wait"
                           >
                             {repProfileLoading ? (
                               <><span className="animate-spin inline-block w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full" /> ANALYSING...</>

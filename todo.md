@@ -1754,3 +1754,14 @@
 - [x] Add mode toggle (Website URL / Upload Excel) to CREATE NEW BRAIN section in Brain.tsx
 - [x] Warnings shown via toast if fields are missing
 - [x] Download template link in UI (CDN-hosted .xlsx)
+
+## Feature: SharePoint / M365 Excel Export
+- [x] Create /api/export-excel REST endpoint (server/routes/exportExcel.ts)
+- [x] Export columns: Company, Domain, Industry, Revenue, Country, Urgency Score, Fit Score
+- [x] Include 3 signals per company: Type, Headline, Snippet, Source URL, Date
+- [x] Include Top Contact: Name, Title, LinkedIn, Email
+- [x] Sort by urgency score descending
+- [x] Column widths optimized for SharePoint/Excel readability
+- [x] Register route in server/_core/index.ts
+- [x] Add "EXPORT TO SHAREPOINT" button on Search Results page
+- [x] Button triggers download of .xlsx file ready to upload to SharePoint document library

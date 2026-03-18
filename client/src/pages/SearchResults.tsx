@@ -205,6 +205,25 @@ export default function SearchResults() {
     }
   };
 
+  const handleExportSharePoint = async () => {
+    if (!searchId) return;
+    toast.success("Preparing SharePoint export...");
+    try {
+      const res = await fetch(`/api/export-excel?searchId=${searchId}`);
+      if (!res.ok) throw new Error("Export failed");
+      const blob = await res.blob();
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `sales-intelligence-${new Date().toISOString().slice(0, 10)}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success("SharePoint Excel downloaded — ready to upload to your document library");
+    } catch {
+      toast.error("Export failed — please try again");
+    }
+  };
+
   const excludedSicSet = useMemo(() => {
     if (!excludedCodes) return new Set<string>();
     return new Set(excludedCodes.filter((c) => c.codeType === "sic").map((c) => c.code));
@@ -786,6 +805,13 @@ export default function SearchResults() {
                 className="text-lg px-6 py-4 font-black border-2 border-black"
               >
                 EXPORT CSV
+              </Button>
+              <Button
+                onClick={handleExportSharePoint}
+                variant="outline"
+                className="text-lg px-6 py-4 font-black border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors"
+              >
+                📊 EXPORT TO SHAREPOINT
               </Button>
             </div>
           </div>

@@ -9,6 +9,7 @@ import { createContext } from "./context";
 import apiRouter from "../routes/api";
 import conferenceImportRouter from "../routes/conferenceImport";
 import excelImportRouter from "../routes/excelImport";
+import exportExcelRouter from "../routes/exportExcel";
 import { serveStatic, setupVite } from "./vite";
 
 function isPortAvailable(port: number): Promise<boolean> {
@@ -44,6 +45,8 @@ async function startServer() {
   app.use("/api/conference-import", conferenceImportRouter);
   // Excel/CSV import endpoint (session-authenticated, streams NDJSON)
   app.use("/api/excel-import", excelImportRouter);
+  // SharePoint-ready Excel export
+  app.use("/api/export-excel", exportExcelRouter);
   // tRPC API
   app.use(
     "/api/trpc",

@@ -461,6 +461,13 @@ export default function SearchResults() {
                       <div className="text-sm font-bold text-muted-foreground mt-1">
                         {search.location} — {new Date(search.createdAt).toLocaleDateString()} — Run #{search.id}
                       </div>
+                      {(search as any).brainName && (
+                        <div className="mt-1.5">
+                          <span className="text-xs font-black border-2 border-purple-600 text-purple-700 bg-purple-50 px-2 py-0.5">
+                            🧠 {(search as any).brainName}
+                          </span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-3">
                       {/* Queue Research button — enqueue all unprocessed companies for background deep research */}

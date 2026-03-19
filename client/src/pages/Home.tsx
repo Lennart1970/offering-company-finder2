@@ -28,6 +28,7 @@ export default function Home() {
   const [isEditingCodes, setIsEditingCodes] = useState(false);
   const [editedSicCodes, setEditedSicCodes] = useState("");
   const [editedNaicsCodes, setEditedNaicsCodes] = useState("");
+  const [selectedBrainId, setSelectedBrainId] = useState<number | null>(null);
 
   // Check for searchId and companyId in URL parameters
   useEffect(() => {
@@ -55,6 +56,17 @@ export default function Home() {
       }, 500);
     }
   }, []);
+
+  // Fetch all brains for the brain selector
+  const { data: brainHistoryData } = trpc.companyFinder.getBrainHistory.useQuery();
+  const brainList = (brainHistoryData as any)?.history ?? brainHistoryData ?? [];
+  // Auto-select the active brain when brains load
+  useEffect(() => {
+    if (brainList && brainList.length > 0 && selectedBrainId === null) {
+      const activeBrain = brainList.find((b: any) => b.isActive === 1);
+      if (activeBrain) setSelectedBrainId(activeBrain.id);
+    }
+  }, [brainList]);
 
   // Check for previous offering when website URL is entered
   const { data: previousOfferingData } = trpc.companyFinder.checkPreviousOffering.useQuery(
@@ -237,9 +249,9 @@ export default function Home() {
 
     // If previous offering exists, use accept flow; otherwise extract new
     if (previousOfferingData?.hasPrevious) {
-      acceptPreviousOfferingMutation.mutate({ websiteUrl, location });
+      acceptPreviousOfferingMutation.mutate({ websiteUrl, location, ...(selectedBrainId ? { brainId: selectedBrainId } : {}) });
     } else {
-      extractOfferingMutation.mutate({ websiteUrl, location });
+      extractOfferingMutation.mutate({ websiteUrl, location, ...(selectedBrainId ? { brainId: selectedBrainId } : {}) });
     }
   };
 
@@ -559,6 +571,44 @@ export default function Home() {
                 />
               </div>
 
+              {/* [03] BRAIN SELECTOR */}
+              {brainList && brainList.length > 0 && (
+                <div className="space-y-4">
+                  <Label className="text-2xl font-black">[03] SELECT BRAIN</Label>
+                  <div className="text-sm font-bold text-muted-foreground mb-3">
+                    Choose which Offering Brain to run this campaign against.
+                  </div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    {brainList.map((brain: any) => (
+                      <button
+                        key={brain.id}
+                        type="button"
+                        onClick={() => setSelectedBrainId(brain.id)}
+                        className={`text-left p-4 border-4 transition-all ${
+                          selectedBrainId === brain.id
+                            ? "border-black bg-black text-white"
+                            : "border-gray-300 hover:border-gray-600 bg-white text-black"
+                        }`}
+                      >
+                        <div className="flex items-center justify-between mb-1">
+                          <span className="text-sm font-black truncate">{brain.name || "Unnamed Brain"}</span>
+                          {brain.isActive === 1 && (
+                            <span className={`text-xs font-black px-2 py-0.5 border-2 ml-2 shrink-0 ${
+                              selectedBrainId === brain.id ? "border-white text-white" : "border-green-600 text-green-600"
+                            }`}>ACTIVE</span>
+                          )}
+                        </div>
+                        {brain.offeringSummary && (
+                          <div className={`text-xs font-bold line-clamp-2 ${
+                            selectedBrainId === brain.id ? "text-gray-300" : "text-muted-foreground"
+                          }`}>{brain.offeringSummary}</div>
+                        )}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               {previousOfferingData?.hasPrevious ? (
                 <div className="flex flex-wrap gap-4">
                   <Button
@@ -573,7 +623,7 @@ export default function Home() {
                   <Button
                     type="button"
                     onClick={() => {
-                      extractOfferingMutation.mutate({ websiteUrl, location });
+                      extractOfferingMutation.mutate({ websiteUrl, location, ...(selectedBrainId ? { brainId: selectedBrainId } : {}) });
                     }}
                     disabled={extractOfferingMutation.isPending || acceptPreviousOfferingMutation.isPending}
                     variant="outline"

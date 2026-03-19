@@ -1864,3 +1864,10 @@
 - [x] Add ⚡ QUEUE RESEARCH button to each completed campaign card in SearchResults
 - [x] Add global queue status banner above campaign list (current company, pending count, estimated time)
 - [x] Write 11 unit tests for queue logic (all passing)
+
+## Feature: Brain-Campaign Wiring (UI)
+- [x] Brain selector in campaign creation flow (before confirming search)
+- [x] Wire brainId through createSearch / confirmAndSearch procedures
+- [x] Return brainId + brainName on getSearchHistory query (LEFT JOIN offering_brain)
+- [x] Display brain badge (purple 🧠) on each campaign card in Search Results
+- [x] Write 12 unit tests for brain-campaign wiring (all passing)

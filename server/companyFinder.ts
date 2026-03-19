@@ -1091,6 +1091,7 @@ export const companyFinderRouter = router({
     .input(z.object({
       websiteUrl: z.string().url(),
       location: z.string().min(1),
+      brainId: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const normalizedUrl = normalizeWebsiteUrl(input.websiteUrl);
@@ -1101,6 +1102,7 @@ export const companyFinderRouter = router({
         companyWebsite: normalizedUrl,
         location: input.location,
         status: "extracting",
+        ...(input.brainId ? { brainId: input.brainId } : {}),
       });
 
       try {
@@ -1133,6 +1135,7 @@ export const companyFinderRouter = router({
     .input(z.object({
       websiteUrl: z.string().url(),
       location: z.string().min(1),
+      brainId: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const normalizedUrl = normalizeWebsiteUrl(input.websiteUrl);
@@ -1154,6 +1157,7 @@ export const companyFinderRouter = router({
         keywords: previousSearch.keywords,
         crossBorderIndicators: previousSearch.crossBorderIndicators,
         status: "code_targeting",
+        ...(input.brainId ? { brainId: input.brainId } : {}),
       });
 
       const offering = {

@@ -124,9 +124,14 @@ export async function getUserSearches(userId: number, showArchived = false) {
   const archiveCondition = showArchived ? undefined : eq(searches.isArchived, 0);
   const whereClause = archiveCondition ? and(baseCondition, archiveCondition) : baseCondition;
   
-  return db.select().from(searches)
+  const rows = await db
+    .select({ search: searches, brainName: offeringBrain.brainName })
+    .from(searches)
+    .leftJoin(offeringBrain, eq(searches.brainId, offeringBrain.id))
     .where(whereClause)
     .orderBy(desc(searches.createdAt));
+
+  return rows.map(r => ({ ...r.search, brainName: r.brainName ?? null }));
 }
 
 export async function archiveSearch(searchId: number, userId: number, archive: boolean) {

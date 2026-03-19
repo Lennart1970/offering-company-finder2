@@ -409,3 +409,25 @@ export const bomCalculations = mysqlTable("bom_calculations", {
 });
 export type BomCalculation = typeof bomCalculations.$inferSelect;
 export type InsertBomCalculation = typeof bomCalculations.$inferInsert;
+
+/**
+ * Campaign Research Queue — persistent job queue for background deep research.
+ * One row per company per enqueue event. The worker picks pending jobs FIFO,
+ * runs fit score → brief → sales approach, and marks them completed/failed.
+ * Survives server restarts — state is fully in the DB.
+ */
+export const campaignQueue = mysqlTable("campaign_queue", {
+  id: int("id").autoincrement().primaryKey(),
+  searchId: int("searchId").notNull().references(() => searches.id, { onDelete: "cascade" }),
+  companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  userId: int("userId").notNull().references(() => users.id),
+  companyName: varchar("companyName", { length: 512 }).notNull(),
+  jobType: mysqlEnum("jobType", ["full", "brief_only"]).default("full").notNull(),
+  status: mysqlEnum("status", ["pending", "running", "completed", "failed"]).default("pending").notNull(),
+  errorMessage: text("errorMessage"),
+  startedAt: timestamp("startedAt"),
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type CampaignQueueJob = typeof campaignQueue.$inferSelect;
+export type InsertCampaignQueueJob = typeof campaignQueue.$inferInsert;

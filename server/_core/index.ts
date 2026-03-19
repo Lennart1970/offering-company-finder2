@@ -11,6 +11,7 @@ import conferenceImportRouter from "../routes/conferenceImport";
 import excelImportRouter from "../routes/excelImport";
 import exportExcelRouter from "../routes/exportExcel";
 import { serveStatic, setupVite } from "./vite";
+import { startCampaignQueueWorker } from "../campaignQueueWorker";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -78,6 +79,8 @@ async function startServer() {
   server.keepAliveTimeout = 185_000;
   server.listen(port, () => {
     console.log(`Server running on http://localhost:${port}/`);
+    // Start the background campaign research queue worker (1 company every 5 min)
+    startCampaignQueueWorker();
   });
 }
 

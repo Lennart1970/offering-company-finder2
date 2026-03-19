@@ -253,6 +253,13 @@
       "when": 1773932011490,
       "tag": "0035_classy_bastion",
       "breakpoints": true
+    },
+    {
+      "idx": 36,
+      "version": "5",
+      "when": 1773933820411,
+      "tag": "0036_short_maximus",
+      "breakpoints": true
     }
   ]
 }

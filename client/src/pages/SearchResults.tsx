@@ -62,6 +62,31 @@ export default function SearchResults() {
     onSuccess: () => { refetchHistory(); },
     onError: (err) => toast.error(err.message),
   });
+
+  // ── Campaign Queue ──────────────────────────────────────────────────────────
+  const [queueingSearchId, setQueueingSearchId] = useState<number | null>(null);
+  const enqueueSearch = trpc.campaignQueue.enqueueSearch.useMutation({
+    onSuccess: (data, vars) => {
+      toast.success(data.message);
+      setQueueingSearchId(null);
+      utils.campaignQueue.getQueueStatus.invalidate({ searchId: vars.searchId });
+      utils.campaignQueue.getQueueStatus.invalidate({});
+    },
+    onError: (err) => { toast.error(err.message); setQueueingSearchId(null); },
+  });
+  const cancelQueue = trpc.campaignQueue.cancelSearch.useMutation({
+    onSuccess: (data, vars) => {
+      toast.success(`${data.cancelled} jobs cancelled`);
+      utils.campaignQueue.getQueueStatus.invalidate({ searchId: vars.searchId });
+      utils.campaignQueue.getQueueStatus.invalidate({});
+    },
+    onError: (err) => toast.error(err.message),
+  });
+  // Global queue status — polls every 30s to update all campaign cards
+  const { data: globalQueueStatus } = trpc.campaignQueue.getQueueStatus.useQuery(
+    {},
+    { refetchInterval: 30_000 }
+  );
   const { data: excludedCodes } = trpc.companyFinder.getExcludedCodes.useQuery();
 
   const [excludedSectors, setExcludedSectors] = useState<string[]>([]);
@@ -378,6 +403,29 @@ export default function SearchResults() {
           </p>
         </div>
 
+        {/* Global Queue Status Banner */}
+        {globalQueueStatus && (globalQueueStatus.pending > 0 || globalQueueStatus.running > 0) && (
+          <div className="mb-4 border-2 border-blue-600 bg-blue-50 p-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <span className="text-blue-700 font-black text-sm animate-pulse">⚡ QUEUE ACTIVE</span>
+              <span className="text-blue-800 text-sm font-bold">
+                {globalQueueStatus.running > 0 && (
+                  <span className="mr-3">▶ Researching: <strong>{globalQueueStatus.currentCompany ?? "..."}</strong></span>
+                )}
+                {globalQueueStatus.pending > 0 && (
+                  <span>{globalQueueStatus.pending} pending — ~{globalQueueStatus.estimatedMinutes} min remaining</span>
+                )}
+              </span>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="text-xs text-blue-600 font-bold">✓ {globalQueueStatus.completed} done</span>
+              {globalQueueStatus.failed > 0 && (
+                <span className="text-xs text-red-600 font-bold">✗ {globalQueueStatus.failed} failed</span>
+              )}
+            </div>
+          </div>
+        )}
+
         {/* Show archived toggle */}
         <div className="flex items-center justify-between mb-4">
           <span className="text-xs font-bold text-muted-foreground">
@@ -415,6 +463,25 @@ export default function SearchResults() {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
+                      {/* Queue Research button — enqueue all unprocessed companies for background deep research */}
+                      {search.userId === user?.id && search.status === "completed" && (() => {
+                        const qStatus = (globalQueueStatus as any)?.[search.id];
+                        const isPending = queueingSearchId === search.id;
+                        return (
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setQueueingSearchId(search.id);
+                              enqueueSearch.mutate({ searchId: search.id, jobType: "full" });
+                            }}
+                            disabled={isPending || enqueueSearch.isPending}
+                            className="text-xs font-black border-2 px-3 py-1 transition-colors border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white disabled:opacity-40"
+                            title="Queue all unprocessed companies for background deep research (1 per 5 min)"
+                          >
+                            {isPending ? "QUEUING..." : "⚡ QUEUE RESEARCH"}
+                          </button>
+                        );
+                      })()}
                       {/* Archive button — only owner sees it */}
                       {search.userId === user?.id && (
                         <button

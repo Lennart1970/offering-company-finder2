@@ -1853,3 +1853,14 @@
 ## UI: Fifth W — Know WHAT to Offer
 - [x] Update cockpit tagline to include "Know what to offer"
 - [x] Add fifth W card: RIGHT PRODUCT / BOM + Capability Statement / description
+
+## Feature: Backend Queue Processing for Campaigns
+- [x] Audit research queue worker and campaign/company schema to confirm what counts as "unprocessed"
+- [x] Add `campaign_queue` DB table + Drizzle migration applied
+- [x] Write `campaignQueueWorker.ts`: picks 1 pending job every 5 min, runs fitScore → brief → salesApproach, marks complete/failed, survives restarts
+- [x] Wire worker startup to Express server `listen` callback
+- [x] Add `campaignQueueRouter.ts`: `enqueueSearch`, `getQueueStatus`, `cancelSearch`, `getJobHistory`
+- [x] Register `campaignQueueRouter` in `routers.ts`
+- [x] Add ⚡ QUEUE RESEARCH button to each completed campaign card in SearchResults
+- [x] Add global queue status banner above campaign list (current company, pending count, estimated time)
+- [x] Write 11 unit tests for queue logic (all passing)

@@ -294,6 +294,8 @@ export default function CompanyDetail() {
   // BOM Calculator state
   const [bomModalOpen, setBomModalOpen] = useState(false);
   const [bomLoading, setBomLoading] = useState(false);
+  const [bomImageSelectionMode, setBomImageSelectionMode] = useState(false);
+  const [selectedBomImages, setSelectedBomImages] = useState<Set<number>>(new Set());
   const [bomResult, setBomResult] = useState<{
     productSummary: string;
     components: Array<{ component: string; qty: number; unitCostEur: number; confidence: "high" | "medium" | "low"; notes: string; editedCost?: number }>;
@@ -1408,13 +1410,82 @@ export default function CompanyDetail() {
                       </div>
                       {productImages.length > 0 ? (
                         <>
+                          {/* Image selection mode banner */}
+                          {bomImageSelectionMode && (
+                            <div className="mb-3 p-3 bg-amber-50 border-2 border-amber-400 flex items-center justify-between">
+                              <div>
+                                <p className="text-xs font-black text-amber-800">🧮 SELECT IMAGES FOR BOM ANALYSIS</p>
+                                <p className="text-xs text-amber-700 mt-0.5">
+                                  {selectedBomImages.size === 0
+                                    ? "Tick the images you want to include (max 6)"
+                                    : `${selectedBomImages.size} image${selectedBomImages.size > 1 ? "s" : ""} selected`}
+                                </p>
+                              </div>
+                              <div className="flex gap-2">
+                                <button
+                                  onClick={() => {
+                                    const allIdx = new Set(productImages.slice(0, 6).map((_, i) => i));
+                                    setSelectedBomImages(allIdx);
+                                  }}
+                                  className="text-xs font-bold border border-amber-500 text-amber-700 px-2 py-1 hover:bg-amber-100 cursor-pointer"
+                                >
+                                  SELECT ALL
+                                </button>
+                                <button
+                                  onClick={() => { setBomImageSelectionMode(false); setSelectedBomImages(new Set()); }}
+                                  className="text-xs font-bold border border-gray-300 px-2 py-1 hover:bg-gray-100 cursor-pointer"
+                                >
+                                  CANCEL
+                                </button>
+                                <button
+                                  disabled={selectedBomImages.size === 0}
+                                  onClick={() => {
+                                    const urls = Array.from(selectedBomImages).sort().map(i => productImages[i].imageUrl);
+                                    setBomImageSelectionMode(false);
+                                    setBomModalOpen(true);
+                                    setBomResult(null);
+                                    setBomLoading(true);
+                                    extractBomMutation.mutate({ imageUrls: urls, productContext: company?.name ?? undefined });
+                                  }}
+                                  className="text-xs font-black border-2 border-amber-500 bg-amber-400 text-black px-3 py-1 hover:bg-amber-500 transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+                                >
+                                  ANALYSE →
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
                           <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
                             {productImages.map((img, i) => (
                               <div
                                 key={i}
-                                className="border-2 border-gray-200 hover:border-black transition-colors cursor-pointer overflow-hidden group"
-                                onClick={() => setLightboxImage(img.imageUrl)}
+                                className={`border-2 transition-colors overflow-hidden group relative ${
+                                  bomImageSelectionMode
+                                    ? selectedBomImages.has(i)
+                                      ? "border-amber-500 ring-2 ring-amber-300 cursor-pointer"
+                                      : "border-gray-200 hover:border-amber-300 cursor-pointer"
+                                    : "border-gray-200 hover:border-black cursor-pointer"
+                                }`}
+                                onClick={() => {
+                                  if (bomImageSelectionMode) {
+                                    setSelectedBomImages(prev => {
+                                      const next = new Set(prev);
+                                      if (next.has(i)) { next.delete(i); } else if (next.size < 6) { next.add(i); }
+                                      return next;
+                                    });
+                                  } else {
+                                    setLightboxImage(img.imageUrl);
+                                  }
+                                }}
                               >
+                                {/* Selection checkbox overlay */}
+                                {bomImageSelectionMode && (
+                                  <div className={`absolute top-2 left-2 z-10 w-5 h-5 border-2 flex items-center justify-center ${
+                                    selectedBomImages.has(i) ? "bg-amber-500 border-amber-500" : "bg-white border-gray-400"
+                                  }`}>
+                                    {selectedBomImages.has(i) && <span className="text-white text-xs font-black">✓</span>}
+                                  </div>
+                                )}
                                 <div className="aspect-video bg-gray-50 overflow-hidden">
                                   <img
                                     src={img.thumbnailUrl || img.imageUrl}
@@ -1431,25 +1502,33 @@ export default function CompanyDetail() {
                               </div>
                             ))}
                           </div>
+
                           {/* BOM Cost Calculator button — appears once images are loaded */}
-                          <div className="mt-6 border-t-2 border-dashed border-amber-300 pt-4">
-                            <button
-                              onClick={() => {
-                                setBomModalOpen(true);
-                                if (!bomResult) {
-                                  setBomLoading(true);
-                                  extractBomMutation.mutate({
-                                    imageUrls: productImages.slice(0, 6).map(i => i.imageUrl),
-                                    productContext: company?.name ?? undefined,
-                                  });
-                                }
-                              }}
-                              className="flex items-center gap-2 text-sm font-black border-2 border-amber-500 bg-amber-50 text-amber-800 px-4 py-2.5 hover:bg-amber-500 hover:text-white transition-colors cursor-pointer"
-                            >
-                              🧮 CALCULATE BOM COST
-                            </button>
-                            <p className="mt-1.5 text-xs text-muted-foreground">AI-estimated material costs from product images. For indicative purposes only — not a quote.</p>
-                          </div>
+                          {!bomImageSelectionMode && (
+                            <div className="mt-6 border-t-2 border-dashed border-amber-300 pt-4">
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={() => {
+                                    // Enter selection mode — pre-select all images up to 6
+                                    setBomImageSelectionMode(true);
+                                    setSelectedBomImages(new Set(productImages.slice(0, 6).map((_, i) => i)));
+                                  }}
+                                  className="flex items-center gap-2 text-sm font-black border-2 border-amber-500 bg-amber-50 text-amber-800 px-4 py-2.5 hover:bg-amber-500 hover:text-white transition-colors cursor-pointer"
+                                >
+                                  🧮 CALCULATE BOM COST
+                                </button>
+                                {bomResult && (
+                                  <button
+                                    onClick={() => setBomModalOpen(true)}
+                                    className="text-xs font-bold border border-amber-400 text-amber-700 px-3 py-2 hover:bg-amber-50 cursor-pointer"
+                                  >
+                                    VIEW LAST RESULT
+                                  </button>
+                                )}
+                              </div>
+                              <p className="mt-1.5 text-xs text-muted-foreground">Select which images to include, then AI estimates material costs. For indicative purposes only — not a quote.</p>
+                            </div>
+                          )}
                         </>
                       ) : (
                         <div className="py-12 text-center border-2 border-dashed border-gray-200">
@@ -1568,10 +1647,15 @@ export default function CompanyDetail() {
 
                               <div className="mt-4 flex gap-3">
                                 <button
-                                  onClick={() => { setBomResult(null); setBomLoading(true); extractBomMutation.mutate({ imageUrls: productImages.slice(0, 6).map(i => i.imageUrl), productContext: company?.name ?? undefined }); }}
+                                  onClick={() => {
+                                    // Close modal and enter image selection mode for re-analysis
+                                    setBomModalOpen(false);
+                                    setBomImageSelectionMode(true);
+                                    setSelectedBomImages(new Set(productImages.slice(0, 6).map((_, idx) => idx)));
+                                  }}
                                   className="text-xs font-black border-2 border-black px-3 py-1.5 hover:bg-black hover:text-white transition-colors cursor-pointer"
                                 >
-                                  ↻ RE-ANALYSE
+                                  ↻ RE-ANALYSE (CHANGE IMAGES)
                                 </button>
                                 <button
                                   onClick={() => {

@@ -190,43 +190,24 @@ export const prototypeRouter = router({
             ],
           },
         ],
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "bom_extraction",
-            strict: true,
-            schema: {
-              type: "object",
-              properties: {
-                productSummary: { type: "string", description: "One-sentence product type summary" },
-                components: {
-                  type: "array",
-                  items: {
-                    type: "object",
-                    properties: {
-                      component: { type: "string" },
-                      qty: { type: "number" },
-                      unitCostEur: { type: "number" },
-                      confidence: { type: "string", enum: ["high", "medium", "low"] },
-                      notes: { type: "string" },
-                    },
-                    required: ["component", "qty", "unitCostEur", "confidence", "notes"],
-                    additionalProperties: false,
-                  },
-                },
-              },
-              required: ["productSummary", "components"],
-              additionalProperties: false,
-            },
-          },
-        },
+        response_format: { type: "json_object" },
       });
       const raw = response.choices?.[0]?.message?.content ?? "{}";
-      const parsed = JSON.parse(typeof raw === "string" ? raw : JSON.stringify(raw));
-      return parsed as {
-        productSummary: string;
-        components: Array<{ component: string; qty: number; unitCostEur: number; confidence: "high" | "medium" | "low"; notes: string }>;
-      };
+      let parsed: { productSummary?: string; components?: Array<{ component: string; qty: number; unitCostEur: number; confidence: string; notes: string }> } = {};
+      try {
+        const text = typeof raw === "string" ? raw : JSON.stringify(raw);
+        // Strip markdown code fences if present
+        const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+        parsed = JSON.parse(cleaned);
+      } catch {
+        parsed = { productSummary: "Unable to parse AI response", components: [] };
+      }
+      // Normalise confidence values
+      const components = (parsed.components ?? []).map((c) => ({
+        ...c,
+        confidence: (["high", "medium", "low"].includes(c.confidence) ? c.confidence : "medium") as "high" | "medium" | "low",
+      }));
+      return { productSummary: parsed.productSummary ?? "Product analysis", components };
     }),
 
   /**

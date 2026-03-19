@@ -1800,3 +1800,9 @@
 - [x] Customer UI: Copy for Excel button
 - [ ] Customer UI: currency selector (EUR/USD)
 - [ ] Tests for BOM procedures
+
+## Bug Fix: BOM Calculation Failed
+- [x] Diagnose BOM extraction error (json_schema + thinking mode incompatible with vision API)
+- [x] Fix the extractBomFromImages procedure (switched to json_object format with manual JSON parsing)
+- [x] Add image selection UI (checkboxes on product images before BOM analysis)
+- [x] Add unit tests for BOM JSON parsing and confidence normalisation (6 tests passing)

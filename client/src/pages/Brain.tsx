@@ -184,12 +184,12 @@ export default function Brain() {
             LeadTrigger.ai turns a seller's deep understanding of their own offering into a precision-guided, AI-powered prospecting machine — so sales teams spend every minute on the right company, at the right moment, with the right reason to call.
           </p>
           <p className="text-2xl font-black tracking-tight text-black">
-            Know who to call.&nbsp; Know why.&nbsp; Know when.&nbsp; Know who to ask for.
+            Know who to call.&nbsp; Know why.&nbsp; Know when.&nbsp; Know who to ask for.&nbsp; Know what to offer.
           </p>
         </div>
 
-        {/* Four-variable breakdown */}
-        <div className="grid grid-cols-4 gap-0 border-4 border-black mb-2">
+        {/* Five-variable breakdown */}
+        <div className="grid grid-cols-5 gap-0 border-4 border-black mb-2">
           <div className="border-r-4 border-black p-4">
             <div className="text-xs font-black text-muted-foreground mb-1">RIGHT COMPANY</div>
             <div className="text-sm font-black">Fit Score</div>
@@ -205,10 +205,15 @@ export default function Brain() {
             <div className="text-sm font-black">Deep Research Brief</div>
             <div className="text-xs text-muted-foreground mt-1">Conversation starter + intelligence brief — so every call starts with a specific, credible reason.</div>
           </div>
-          <div className="p-4">
+          <div className="border-r-4 border-black p-4">
             <div className="text-xs font-black text-muted-foreground mb-1">RIGHT SALES REP</div>
             <div className="text-sm font-black">Decision-Maker Match</div>
             <div className="text-xs text-muted-foreground mt-1">Find the right contact — title, seniority, and role — so the right person makes the call.</div>
+          </div>
+          <div className="p-4 bg-amber-50">
+            <div className="text-xs font-black text-amber-700 mb-1">RIGHT PRODUCT</div>
+            <div className="text-sm font-black">BOM + Capability Statement</div>
+            <div className="text-xs text-muted-foreground mt-1">From product images to a full bill of materials — know exactly what you can supply and quote it on the spot.</div>
           </div>
         </div>
       </div>

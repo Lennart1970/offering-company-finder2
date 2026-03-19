@@ -1849,3 +1849,7 @@
 - [x] Rename DOM Report → Capability Statement in server procedure labels/toast messages
 - [x] BOM image selection: start with zero images selected (no pre-selection)
 - [x] BOM image selection: single-select mode — clicking a new image replaces the previous selection
+
+## UI: Fifth W — Know WHAT to Offer
+- [x] Update cockpit tagline to include "Know what to offer"
+- [x] Add fifth W card: RIGHT PRODUCT / BOM + Capability Statement / description

@@ -1806,3 +1806,10 @@
 - [x] Fix the extractBomFromImages procedure (switched to json_object format with manual JSON parsing)
 - [x] Add image selection UI (checkboxes on product images before BOM analysis)
 - [x] Add unit tests for BOM JSON parsing and confidence normalisation (6 tests passing)
+
+## Feature: BOM Brain-Aware Enrichment + DOM Report
+- [x] Add `enrichBomWithBrain` tRPC procedure: cross-reference BOM components vs Brain capabilities (canSupply: yes/partial/no + reason)
+- [x] Add `generateDomReport` tRPC procedure: on-demand DOM mini-report for a specific component grounded in Brain data
+- [x] Update BOM modal UI: add "Can Supply" column with colour-coded badge (green/amber/red)
+- [x] Add per-row "📄 DOM" button for yes/partial components that opens a DOM detail panel
+- [x] Write unit tests for BOM Brain enrichment logic (10 tests passing)

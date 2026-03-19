@@ -211,6 +211,191 @@ export const prototypeRouter = router({
     }),
 
   /**
+   * Enrich BOM components with Brain-awareness.
+   * Cross-references each component against the active Offering Brain's capabilities
+   * and returns canSupply: 'yes' | 'partial' | 'no' with a short reason for each.
+   */
+  enrichBomWithBrain: protectedProcedure
+    .input(z.object({
+      components: z.array(z.object({
+        component: z.string(),
+        qty: z.number(),
+        unitCostEur: z.number(),
+        confidence: z.enum(["high", "medium", "low"]),
+        notes: z.string(),
+      })).min(1).max(20),
+      // Brain context — passed from the frontend so we avoid an extra DB round-trip
+      brainContext: z.object({
+        companyName: z.string(),
+        offeringSummary: z.string().optional(),
+        coreCapabilities: z.string().optional(), // JSON array string
+        valuePropositions: z.string().optional(), // JSON array string
+        competitiveAdvantages: z.string().optional(),
+      }),
+    }))
+    .mutation(async ({ input }) => {
+      const { invokeLLM } = await import("./_core/llm");
+
+      // Build a concise Brain profile for the LLM
+      const caps = (() => {
+        try { return JSON.parse(input.brainContext.coreCapabilities ?? "[]"); } catch { return []; }
+      })();
+      const props = (() => {
+        try { return JSON.parse(input.brainContext.valuePropositions ?? "[]"); } catch { return []; }
+      })();
+
+      const brainProfile = [
+        `Company: ${input.brainContext.companyName}`,
+        input.brainContext.offeringSummary ? `Offering: ${input.brainContext.offeringSummary}` : null,
+        caps.length > 0 ? `Core Capabilities: ${Array.isArray(caps) ? caps.map((c: any) => typeof c === "string" ? c : c.capability || c.name || JSON.stringify(c)).join("; ") : caps}` : null,
+        props.length > 0 ? `Value Propositions: ${Array.isArray(props) ? props.map((p: any) => typeof p === "string" ? p : p.proposition || p.value || JSON.stringify(p)).join("; ") : props}` : null,
+        input.brainContext.competitiveAdvantages ? `Competitive Advantages: ${input.brainContext.competitiveAdvantages}` : null,
+      ].filter(Boolean).join("\n");
+
+      const componentList = input.components.map((c, i) =>
+        `${i + 1}. ${c.component} (qty: ${c.qty}, ~€${c.unitCostEur}/unit) — ${c.notes}`
+      ).join("\n");
+
+      const response = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a PCB and electronics manufacturing expert. " +
+              "Given a manufacturer's capabilities profile and a BOM component list, " +
+              "assess whether the manufacturer can supply each component. " +
+              "Return ONLY valid JSON — no markdown, no explanation outside the JSON.",
+          },
+          {
+            role: "user",
+            content:
+              `MANUFACTURER PROFILE:\n${brainProfile}\n\n` +
+              `BOM COMPONENTS:\n${componentList}\n\n` +
+              "For each component, return a JSON array with objects: " +
+              "{ index: number (1-based), canSupply: 'yes'|'partial'|'no', reason: string (max 15 words), deliverableCategory: string (e.g. 'PCB Fabrication', 'SMT Assembly', 'Through-Hole', 'Mechanical', 'Passive Component', 'Active IC', 'Connector', 'Cable', 'Enclosure', 'Raw Material', 'Out-of-scope') }. " +
+              "Return: { enriched: [...] }",
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const raw = response.choices?.[0]?.message?.content ?? "{}";
+      let parsed: { enriched?: Array<{ index: number; canSupply: string; reason: string; deliverableCategory: string }> } = {};
+      try {
+        const text = typeof raw === "string" ? raw : JSON.stringify(raw);
+        const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+        parsed = JSON.parse(cleaned);
+      } catch {
+        parsed = { enriched: [] };
+      }
+
+      // Merge enrichment back onto original components
+      const enriched = input.components.map((c, i) => {
+        const match = (parsed.enriched ?? []).find((e) => e.index === i + 1);
+        return {
+          ...c,
+          canSupply: (["yes", "partial", "no"].includes(match?.canSupply ?? "") ? match!.canSupply : "no") as "yes" | "partial" | "no",
+          supplyReason: match?.reason ?? "",
+          deliverableCategory: match?.deliverableCategory ?? "Unknown",
+        };
+      });
+
+      return { enriched };
+    }),
+
+  /**
+   * Generate a DOM (Deliverables of Materials) mini-report for a specific BOM component.
+   * Grounds the report in the Brain's capabilities and the component's context.
+   */
+  generateDomReport: protectedProcedure
+    .input(z.object({
+      component: z.string(),
+      qty: z.number(),
+      unitCostEur: z.number(),
+      notes: z.string(),
+      deliverableCategory: z.string(),
+      productContext: z.string().optional(), // e.g. company name + product type
+      brainContext: z.object({
+        companyName: z.string(),
+        offeringSummary: z.string().optional(),
+        coreCapabilities: z.string().optional(),
+        competitiveAdvantages: z.string().optional(),
+      }),
+    }))
+    .mutation(async ({ input }) => {
+      const { invokeLLM } = await import("./_core/llm");
+
+      const caps = (() => {
+        try { return JSON.parse(input.brainContext.coreCapabilities ?? "[]"); } catch { return []; }
+      })();
+      const capsStr = Array.isArray(caps)
+        ? caps.map((c: any) => typeof c === "string" ? c : c.capability || c.name || JSON.stringify(c)).join("; ")
+        : String(caps);
+
+      const response = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a senior PCB manufacturing engineer and technical sales expert. " +
+              "Write a concise Deliverables of Materials (DOM) report for a specific component. " +
+              "Ground every claim in the manufacturer's actual capabilities. " +
+              "Return ONLY valid JSON — no markdown outside the JSON.",
+          },
+          {
+            role: "user",
+            content:
+              `MANUFACTURER: ${input.brainContext.companyName}\n` +
+              (input.brainContext.offeringSummary ? `OFFERING: ${input.brainContext.offeringSummary}\n` : "") +
+              (capsStr ? `CAPABILITIES: ${capsStr}\n` : "") +
+              (input.brainContext.competitiveAdvantages ? `ADVANTAGES: ${input.brainContext.competitiveAdvantages}\n` : "") +
+              `\nCOMPONENT: ${input.component}` +
+              `\nQTY NEEDED: ${input.qty}` +
+              `\nESTIMATED UNIT COST: €${input.unitCostEur}` +
+              `\nCATEGORY: ${input.deliverableCategory}` +
+              (input.notes ? `\nNOTES: ${input.notes}` : "") +
+              (input.productContext ? `\nPRODUCT CONTEXT: ${input.productContext}` : "") +
+              "\n\nReturn a JSON object: { " +
+              "componentName: string, " +
+              "canDeliver: boolean, " +
+              "deliveryStatement: string (1-2 sentences: how we deliver this), " +
+              "specification: string (key technical specs, tolerances, standards), " +
+              "leadTimeEstimate: string (e.g. '5-7 working days for prototype'), " +
+              "manufacturingProcess: string (which of our processes applies), " +
+              "qualityStandards: string (relevant certifications/standards we meet), " +
+              "pricingNote: string (rough pricing context vs the estimate), " +
+              "whyUs: string (2-3 sentences: why our capabilities make us the right fit), " +
+              "limitations: string (honest caveats or out-of-scope items, if any) }",
+          },
+        ],
+        response_format: { type: "json_object" },
+      });
+
+      const raw = response.choices?.[0]?.message?.content ?? "{}";
+      let parsed: Record<string, string | boolean> = {};
+      try {
+        const text = typeof raw === "string" ? raw : JSON.stringify(raw);
+        const cleaned = text.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/i, "").trim();
+        parsed = JSON.parse(cleaned);
+      } catch {
+        parsed = { componentName: input.component, canDeliver: false, deliveryStatement: "Unable to generate report." };
+      }
+
+      return parsed as {
+        componentName: string;
+        canDeliver: boolean;
+        deliveryStatement: string;
+        specification: string;
+        leadTimeEstimate: string;
+        manufacturingProcess: string;
+        qualityStandards: string;
+        pricingNote: string;
+        whyUs: string;
+        limitations: string;
+      };
+    }),
+
+  /**
    * Internal: Add/update internal notes
    */
   addNotes: protectedProcedure

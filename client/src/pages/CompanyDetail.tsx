@@ -291,6 +291,10 @@ export default function CompanyDetail() {
     onError: () => { setProductImagesLoading(false); toast.error("Could not fetch product images"); },
   });
 
+  // Active Brain — used for BOM enrichment
+  const { data: activeBrainData } = trpc.companyFinder.getActiveBrain.useQuery();
+  const activeBrain = activeBrainData?.brain ?? null;
+
   // BOM Calculator state
   const [bomModalOpen, setBomModalOpen] = useState(false);
   const [bomLoading, setBomLoading] = useState(false);
@@ -298,8 +302,30 @@ export default function CompanyDetail() {
   const [selectedBomImages, setSelectedBomImages] = useState<Set<number>>(new Set());
   const [bomResult, setBomResult] = useState<{
     productSummary: string;
-    components: Array<{ component: string; qty: number; unitCostEur: number; confidence: "high" | "medium" | "low"; notes: string; editedCost?: number }>;
+    components: Array<{
+      component: string;
+      qty: number;
+      unitCostEur: number;
+      confidence: "high" | "medium" | "low";
+      notes: string;
+      editedCost?: number;
+      // Brain enrichment fields
+      canSupply?: "yes" | "partial" | "no";
+      supplyReason?: string;
+      deliverableCategory?: string;
+    }>;
   } | null>(null);
+  const [bomEnrichLoading, setBomEnrichLoading] = useState(false);
+  const [domPanelComponent, setDomPanelComponent] = useState<null | {
+    component: string; qty: number; unitCostEur: number; notes: string; deliverableCategory: string;
+  }>(null);
+  const [domReport, setDomReport] = useState<null | {
+    componentName: string; canDeliver: boolean; deliveryStatement: string;
+    specification: string; leadTimeEstimate: string; manufacturingProcess: string;
+    qualityStandards: string; pricingNote: string; whyUs: string; limitations: string;
+  }>(null);
+  const [domLoading, setDomLoading] = useState(false);
+
   const extractBomMutation = trpc.prototype.extractBomFromImages.useMutation({
     onSuccess: (data) => {
       setBomResult({ ...data, components: data.components.map(c => ({ ...c, editedCost: c.unitCostEur })) });
@@ -307,6 +333,71 @@ export default function CompanyDetail() {
     },
     onError: () => { setBomLoading(false); toast.error("BOM extraction failed"); },
   });
+
+  const enrichBomMutation = trpc.prototype.enrichBomWithBrain.useMutation({
+    onSuccess: (data) => {
+      setBomResult(prev => prev ? {
+        ...prev,
+        components: data.enriched.map((c, i) => ({
+          ...prev.components[i],
+          ...c,
+          editedCost: prev.components[i]?.editedCost ?? c.unitCostEur,
+        }))
+      } : null);
+      setBomEnrichLoading(false);
+    },
+    onError: () => { setBomEnrichLoading(false); toast.error("Brain enrichment failed"); },
+  });
+
+  const generateDomMutation = trpc.prototype.generateDomReport.useMutation({
+    onSuccess: (data) => {
+      setDomReport(data);
+      setDomLoading(false);
+    },
+    onError: () => { setDomLoading(false); toast.error("DOM report generation failed"); },
+  });
+
+  const handleEnrichBom = () => {
+    if (!bomResult || !activeBrain) return;
+    setBomEnrichLoading(true);
+    enrichBomMutation.mutate({
+      components: bomResult.components.map(c => ({
+        component: c.component,
+        qty: c.qty,
+        unitCostEur: c.editedCost ?? c.unitCostEur,
+        confidence: c.confidence,
+        notes: c.notes,
+      })),
+      brainContext: {
+        companyName: activeBrain.companyName ?? company?.name ?? "Unknown",
+        offeringSummary: activeBrain.offeringSummary ?? undefined,
+        coreCapabilities: activeBrain.coreCapabilities ?? undefined,
+        valuePropositions: activeBrain.valuePropositions ?? undefined,
+        competitiveAdvantages: activeBrain.competitiveAdvantages ?? undefined,
+      },
+    });
+  };
+
+  const handleGenerateDom = (c: { component: string; qty: number; unitCostEur: number; notes: string; deliverableCategory: string }) => {
+    if (!activeBrain) return;
+    setDomPanelComponent(c);
+    setDomReport(null);
+    setDomLoading(true);
+    generateDomMutation.mutate({
+      component: c.component,
+      qty: c.qty,
+      unitCostEur: c.unitCostEur,
+      notes: c.notes,
+      deliverableCategory: c.deliverableCategory,
+      productContext: company?.name ?? undefined,
+      brainContext: {
+        companyName: activeBrain.companyName ?? company?.name ?? "Unknown",
+        offeringSummary: activeBrain.offeringSummary ?? undefined,
+        coreCapabilities: activeBrain.coreCapabilities ?? undefined,
+        competitiveAdvantages: activeBrain.competitiveAdvantages ?? undefined,
+      },
+    });
+  };
 
   // Urgency images (editorial/news style)
   const [urgencyImagesLoading, setUrgencyImagesLoading] = useState(false);
@@ -1582,6 +1673,33 @@ export default function CompanyDetail() {
                             <>
                               <p className="text-sm font-bold mb-4 text-muted-foreground">{bomResult.productSummary}</p>
 
+                              {/* Brain enrichment bar */}
+                              {activeBrain ? (
+                                <div className="mb-4 flex items-center gap-3 p-3 bg-blue-50 border-2 border-blue-200">
+                                  <div className="flex-1">
+                                    <p className="text-xs font-black text-blue-800">
+                                      🧠 BRAIN: {activeBrain.companyName ?? "Active Brain"}
+                                    </p>
+                                    <p className="text-xs text-blue-600 mt-0.5">
+                                      {bomResult.components.some(c => c.canSupply)
+                                        ? `${bomResult.components.filter(c => c.canSupply === "yes").length} can supply · ${bomResult.components.filter(c => c.canSupply === "partial").length} partial · ${bomResult.components.filter(c => c.canSupply === "no").length} out-of-scope`
+                                        : "Cross-reference BOM against your manufacturing capabilities"}
+                                    </p>
+                                  </div>
+                                  <button
+                                    onClick={handleEnrichBom}
+                                    disabled={bomEnrichLoading}
+                                    className="text-xs font-black border-2 border-blue-600 bg-blue-600 text-white px-3 py-1.5 hover:bg-blue-700 transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    {bomEnrichLoading ? "ANALYSING..." : bomResult.components.some(c => c.canSupply) ? "↻ RE-CHECK" : "🧠 CHECK WHAT WE CAN SUPPLY"}
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="mb-4 p-3 bg-gray-50 border border-dashed border-gray-300">
+                                  <p className="text-xs text-muted-foreground">💡 Set up an Offering Brain to cross-reference which components your company can supply.</p>
+                                </div>
+                              )}
+
                               {/* BOM table */}
                               <div className="overflow-x-auto">
                                 <table className="w-full text-sm border-collapse">
@@ -1592,14 +1710,25 @@ export default function CompanyDetail() {
                                       <th className="text-right px-3 py-2 font-black w-28">Unit Cost (€)</th>
                                       <th className="text-right px-3 py-2 font-black w-28">Line Total</th>
                                       <th className="text-center px-3 py-2 font-black w-20">Confidence</th>
+                                      {bomResult.components.some(c => c.canSupply) && (
+                                        <th className="text-center px-3 py-2 font-black w-28">Can Supply</th>
+                                      )}
                                     </tr>
                                   </thead>
                                   <tbody>
                                     {bomResult.components.map((c, i) => (
-                                      <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                                      <tr key={i} className={`${
+                                        c.canSupply === "yes" ? "bg-green-50" :
+                                        c.canSupply === "partial" ? "bg-amber-50" :
+                                        c.canSupply === "no" ? "bg-red-50" :
+                                        i % 2 === 0 ? "bg-white" : "bg-gray-50"
+                                      }`}>
                                         <td className="px-3 py-2">
                                           <div className="font-bold">{c.component}</div>
                                           {c.notes && <div className="text-xs text-muted-foreground">{c.notes}</div>}
+                                          {c.deliverableCategory && (
+                                            <div className="text-[10px] font-black text-gray-400 mt-0.5 uppercase tracking-wide">{c.deliverableCategory}</div>
+                                          )}
                                         </td>
                                         <td className="text-center px-3 py-2">{c.qty}</td>
                                         <td className="text-right px-3 py-2">
@@ -1630,20 +1759,160 @@ export default function CompanyDetail() {
                                             "bg-red-100 text-red-700"
                                           }`}>{c.confidence.toUpperCase()}</span>
                                         </td>
+                                        {bomResult.components.some(comp => comp.canSupply) && (
+                                          <td className="text-center px-3 py-2">
+                                            {c.canSupply ? (
+                                              <div className="flex flex-col items-center gap-1">
+                                                <span className={`text-xs font-black px-2 py-0.5 ${
+                                                  c.canSupply === "yes" ? "bg-green-600 text-white" :
+                                                  c.canSupply === "partial" ? "bg-amber-500 text-white" :
+                                                  "bg-red-500 text-white"
+                                                }`}>
+                                                  {c.canSupply === "yes" ? "✓ YES" : c.canSupply === "partial" ? "~ PARTIAL" : "✕ NO"}
+                                                </span>
+                                                {c.supplyReason && (
+                                                  <span className="text-[9px] text-muted-foreground text-center leading-tight max-w-[100px]">{c.supplyReason}</span>
+                                                )}
+                                                {(c.canSupply === "yes" || c.canSupply === "partial") && activeBrain && (
+                                                  <button
+                                                    onClick={() => handleGenerateDom({
+                                                      component: c.component,
+                                                      qty: c.qty,
+                                                      unitCostEur: c.editedCost ?? c.unitCostEur,
+                                                      notes: c.notes,
+                                                      deliverableCategory: c.deliverableCategory ?? "Unknown",
+                                                    })}
+                                                    className="text-[9px] font-black border border-blue-400 text-blue-600 px-1.5 py-0.5 hover:bg-blue-50 cursor-pointer mt-0.5"
+                                                  >
+                                                    📄 DOM
+                                                  </button>
+                                                )}
+                                              </div>
+                                            ) : (
+                                              <span className="text-xs text-gray-300">—</span>
+                                            )}
+                                          </td>
+                                        )}
                                       </tr>
                                     ))}
                                   </tbody>
                                   <tfoot>
                                     <tr className="bg-black text-white">
-                                      <td colSpan={3} className="px-3 py-3 font-black text-right">ESTIMATED TOTAL MATERIAL COST</td>
+                                      <td colSpan={bomResult.components.some(c => c.canSupply) ? 3 : 3} className="px-3 py-3 font-black text-right">ESTIMATED TOTAL MATERIAL COST</td>
                                       <td className="px-3 py-3 font-black font-mono text-right text-lg">
                                         €{bomResult.components.reduce((sum, c) => sum + (c.editedCost ?? c.unitCostEur) * c.qty, 0).toFixed(2)}
                                       </td>
                                       <td />
+                                      {bomResult.components.some(c => c.canSupply) && <td />}
                                     </tr>
                                   </tfoot>
                                 </table>
                               </div>
+
+                              {/* DOM Report Panel */}
+                              {domPanelComponent && (
+                                <div className="mt-5 border-4 border-blue-600 bg-blue-50">
+                                  <div className="bg-blue-600 px-4 py-3 flex items-center justify-between">
+                                    <div>
+                                      <h3 className="text-sm font-black text-white">📄 DOM REPORT — {domPanelComponent.component.toUpperCase()}</h3>
+                                      <p className="text-xs text-blue-200">{domPanelComponent.deliverableCategory} · Qty: {domPanelComponent.qty} · Est. €{domPanelComponent.unitCostEur}/unit</p>
+                                    </div>
+                                    <button onClick={() => { setDomPanelComponent(null); setDomReport(null); }} className="text-white font-black text-lg hover:opacity-60 cursor-pointer">✕</button>
+                                  </div>
+                                  <div className="px-4 py-4">
+                                    {domLoading ? (
+                                      <div className="py-8 text-center">
+                                        <div className="w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+                                        <p className="text-sm font-bold text-blue-800">Generating DOM report from Brain...</p>
+                                      </div>
+                                    ) : domReport ? (
+                                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                        {/* Delivery statement — full width */}
+                                        <div className="md:col-span-2 p-3 bg-white border-l-4 border-blue-600">
+                                          <p className="text-[10px] font-black text-blue-600 tracking-widest mb-1">DELIVERY STATEMENT</p>
+                                          <p className="text-sm font-bold">{domReport.deliveryStatement}</p>
+                                        </div>
+                                        {/* Spec */}
+                                        <div className="p-3 bg-white border border-gray-200">
+                                          <p className="text-[10px] font-black text-gray-500 tracking-widest mb-1">SPECIFICATION</p>
+                                          <p className="text-xs leading-relaxed">{domReport.specification}</p>
+                                        </div>
+                                        {/* Process */}
+                                        <div className="p-3 bg-white border border-gray-200">
+                                          <p className="text-[10px] font-black text-gray-500 tracking-widest mb-1">MANUFACTURING PROCESS</p>
+                                          <p className="text-xs leading-relaxed">{domReport.manufacturingProcess}</p>
+                                        </div>
+                                        {/* Lead time */}
+                                        <div className="p-3 bg-white border border-gray-200">
+                                          <p className="text-[10px] font-black text-gray-500 tracking-widest mb-1">LEAD TIME ESTIMATE</p>
+                                          <p className="text-xs font-bold">{domReport.leadTimeEstimate}</p>
+                                        </div>
+                                        {/* Quality */}
+                                        <div className="p-3 bg-white border border-gray-200">
+                                          <p className="text-[10px] font-black text-gray-500 tracking-widest mb-1">QUALITY STANDARDS</p>
+                                          <p className="text-xs leading-relaxed">{domReport.qualityStandards}</p>
+                                        </div>
+                                        {/* Pricing */}
+                                        <div className="p-3 bg-white border border-gray-200">
+                                          <p className="text-[10px] font-black text-gray-500 tracking-widest mb-1">PRICING NOTE</p>
+                                          <p className="text-xs leading-relaxed">{domReport.pricingNote}</p>
+                                        </div>
+                                        {/* Why us — full width */}
+                                        <div className="md:col-span-2 p-3 bg-green-50 border-l-4 border-green-600">
+                                          <p className="text-[10px] font-black text-green-700 tracking-widest mb-1">WHY US FOR THIS COMPONENT</p>
+                                          <p className="text-sm leading-relaxed">{domReport.whyUs}</p>
+                                        </div>
+                                        {/* Limitations */}
+                                        {domReport.limitations && (
+                                          <div className="md:col-span-2 p-3 bg-amber-50 border-l-4 border-amber-500">
+                                            <p className="text-[10px] font-black text-amber-700 tracking-widest mb-1">LIMITATIONS / CAVEATS</p>
+                                            <p className="text-xs leading-relaxed">{domReport.limitations}</p>
+                                          </div>
+                                        )}
+                                        {/* Copy DOM button */}
+                                        <div className="md:col-span-2 flex gap-2">
+                                          <button
+                                            onClick={() => {
+                                              const text = [
+                                                `DOM REPORT — ${domReport.componentName}`,
+                                                `Category: ${domPanelComponent.deliverableCategory}`,
+                                                `Qty: ${domPanelComponent.qty} | Est. €${domPanelComponent.unitCostEur}/unit`,
+                                                ``,
+                                                `DELIVERY STATEMENT`,
+                                                domReport.deliveryStatement,
+                                                ``,
+                                                `SPECIFICATION`,
+                                                domReport.specification,
+                                                ``,
+                                                `MANUFACTURING PROCESS`,
+                                                domReport.manufacturingProcess,
+                                                ``,
+                                                `LEAD TIME`,
+                                                domReport.leadTimeEstimate,
+                                                ``,
+                                                `QUALITY STANDARDS`,
+                                                domReport.qualityStandards,
+                                                ``,
+                                                `PRICING NOTE`,
+                                                domReport.pricingNote,
+                                                ``,
+                                                `WHY US`,
+                                                domReport.whyUs,
+                                                domReport.limitations ? `\nLIMITATIONS\n${domReport.limitations}` : "",
+                                              ].join("\n");
+                                              navigator.clipboard.writeText(text);
+                                              toast.success("DOM report copied to clipboard");
+                                            }}
+                                            className="text-xs font-black border-2 border-blue-600 text-blue-700 px-3 py-1.5 hover:bg-blue-600 hover:text-white transition-colors cursor-pointer"
+                                          >
+                                            📋 COPY DOM REPORT
+                                          </button>
+                                        </div>
+                                      </div>
+                                    ) : null}
+                                  </div>
+                                </div>
+                              )}
 
                               <div className="mt-4 flex gap-3">
                                 <button

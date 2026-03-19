@@ -130,7 +130,7 @@ export async function syncCompaniesToSupabase(companyIds: number[]): Promise<{
   });
 
   const { error } = await (supabase
-    .from("prospect_companies") as any)
+    .from("lt_mns_prospect_companies") as any)
     .upsert(companyRows, { onConflict: "id" });
 
   if (error) {
@@ -184,7 +184,7 @@ async function syncSignalsForCompanies(
   if (signalRows.length === 0) return;
 
   const { error } = await (supabase
-    .from("prospect_signals") as any)
+    .from("lt_mns_prospect_signals") as any)
     .upsert(signalRows, { onConflict: "id" });
 
   if (error) {
@@ -239,7 +239,7 @@ export async function syncContactsToSupabase(companyIds: number[]): Promise<{
   }));
 
   const { error } = await (supabase
-    .from("prospect_contacts") as any)
+    .from("lt_mns_prospect_contacts") as any)
     .upsert(contactRows, { onConflict: "id" });
 
   if (error) {
@@ -256,7 +256,7 @@ export async function syncContactsToSupabase(companyIds: number[]): Promise<{
 
   for (const [companyId, count] of Array.from(countByCompany.entries())) {
     await supabase
-      .from("prospect_companies")
+      .from("lt_mns_prospect_companies")
       .update({ has_contacts: true, contact_count: count, synced_at: new Date().toISOString() })
       .eq("id", companyId);
   }
@@ -298,7 +298,7 @@ export async function syncBrainsToSupabase(): Promise<{
   }));
 
   const { error } = await (supabase
-    .from("offering_brains") as any)
+    .from("lt_mns_offering_brains") as any)
     .upsert(brainRows, { onConflict: "id" });
 
   if (error) {

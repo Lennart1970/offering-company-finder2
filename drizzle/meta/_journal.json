@@ -239,6 +239,20 @@
       "when": 1773922878010,
       "tag": "0033_marvelous_misty_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 34,
+      "version": "5",
+      "when": 1773930728052,
+      "tag": "0034_little_yellow_claw",
+      "breakpoints": true
+    },
+    {
+      "idx": 35,
+      "version": "5",
+      "when": 1773932011490,
+      "tag": "0035_classy_bastion",
+      "breakpoints": true
     }
   ]
 }

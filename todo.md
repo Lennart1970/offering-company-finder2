@@ -1816,3 +1816,36 @@
 
 ## Feature: VoiceDebt Debrief Link on Call Today Page
 - [x] Add VoiceDebt debrief link (https://voicedebt-rd2i5zsv.manus.space/debrief) to the Call Today page
+
+## Feature: Persistent BOM Calculations
+- [ ] Add bom_calculations table to Drizzle schema (companyId, userId, imageUrls, productSummary, components JSON, enriched flag, brainId, totalEur, createdAt)
+- [ ] Generate Drizzle migration and apply to DB
+- [ ] Add DB helpers: saveBomCalculation, getBomCalculations, deleteBomCalculation
+- [ ] Add tRPC procedures: saveBom, getBomHistory, deleteBom
+- [ ] Auto-save BOM to DB after extraction completes
+- [ ] Auto-save enrichment results to DB after Brain check
+- [ ] Load latest saved BOM when modal opens (if exists)
+- [ ] Show BOM history list in modal (date, total, enriched flag)
+- [ ] Write unit tests for BOM persistence logic
+
+## Bug Fix: Multiple Brains Appearing Selected
+- [ ] Investigate Brain schema (isActive flag) and activation procedure
+- [ ] Fix activation logic: deactivate ALL other brains for the user before activating the new one
+- [ ] Fix UI: ensure only one brain shows as selected/active at a time
+- [ ] Write unit test for single-active-brain constraint
+
+## Feature: Brain-Campaign Wiring + Single Active Brain
+- [ ] Fix DB data: deactivate brain 150001, keep 60001 (ConnectGroup) as the single active brain
+- [ ] Add cleanup guard in getActiveBrain: if multiple active brains exist, keep the most recently updated one and deactivate the rest
+- [ ] Add brainId column to searches table (nullable FK to offering_brain)
+- [ ] Set brainId at campaign creation time (from the brain the user selects or the current active brain)
+- [ ] Pass brainId through all downstream calls: fit scoring, brief generation, approach generation
+- [ ] Brain selector UI on new campaign creation: show all brains, let user pick one
+- [ ] Show brain badge on each campaign card in the search list
+- [ ] Write unit tests for single-active-brain guard and campaign-brain wiring
+
+## UI Fix: Capability Statement + Image Selection
+- [x] Rename DOM Report → Capability Statement in CompanyDetail UI (button, panel header, copy text)
+- [x] Rename DOM Report → Capability Statement in server procedure labels/toast messages
+- [x] BOM image selection: start with zero images selected (no pre-selection)
+- [x] BOM image selection: single-select mode — clicking a new image replaces the previous selection

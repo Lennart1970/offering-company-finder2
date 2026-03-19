@@ -51,6 +51,7 @@ export const searches = mysqlTable("searches", {
   sharedWithTeam: tinyint("sharedWithTeam").default(0).notNull(),
   isArchived: tinyint("isArchived").default(0).notNull(),
   sourceNicheId: int("sourceNicheId"), // Set when campaign was created from a Market Segment niche
+  brainId: int("brainId"), // Brain used for this campaign (FK to offering_brain added via migration)
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });
@@ -378,3 +379,33 @@ export const bomItems = mysqlTable("bom_items", {
 
 export type BomItem = typeof bomItems.$inferSelect;
 export type InsertBomItem = typeof bomItems.$inferInsert;
+
+/**
+ * Persistent BOM calculations — one row per AI-generated BOM analysis.
+ * Linked to a prospect company and the user who ran the analysis.
+ * Stores the full component list as JSON so it can be reloaded without re-running the AI.
+ */
+export const bomCalculations = mysqlTable("bom_calculations", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull(),          // FK → companies.id
+  userId: varchar("userId", { length: 256 }).notNull(), // user openId
+  // Source images used for this analysis (JSON array of image URLs)
+  imageUrls: text("imageUrls").notNull(),
+  // AI-generated product summary sentence
+  productSummary: text("productSummary").notNull(),
+  // Full component list as JSON array
+  // Each item: { component, qty, unitCostEur, confidence, notes, editedCost?, canSupply?, supplyReason?, deliverableCategory? }
+  componentsJson: text("componentsJson").notNull(),
+  // Computed total (sum of editedCost * qty) stored for quick display
+  totalEur: decimal("totalEur", { precision: 14, scale: 2 }).notNull().default("0"),
+  // Whether Brain enrichment (canSupply) has been run on this BOM
+  isEnriched: tinyint("isEnriched").default(0).notNull(),
+  // Brain id used for enrichment (null if not enriched)
+  brainId: int("brainId"),
+  // Optional user-editable label (defaults to date string)
+  label: varchar("label", { length: 256 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type BomCalculation = typeof bomCalculations.$inferSelect;
+export type InsertBomCalculation = typeof bomCalculations.$inferInsert;

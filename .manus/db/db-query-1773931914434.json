@@ -1,0 +1,15 @@
+{
+  "query": "SELECT id, companyName, isActive FROM offering_brain WHERE userId = 1 AND isActive = 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, companyName, isActive FROM offering_brain WHERE userId = 1 AND isActive = 1;",
+  "rows": [
+    {
+      "id": "60001",
+      "companyName": "ConnectGroup",
+      "isActive": "1"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tcompanyName\tisActive\n60001\tConnectGroup\t1\n",
+  "stderr": "",
+  "execution_time_ms": 63
+}

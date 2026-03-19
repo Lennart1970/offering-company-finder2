@@ -16,6 +16,13 @@ import {
   getAllPrototypeRequests,
   updatePrototypeRequest,
 } from "./prototypeService";
+import {
+  saveBomCalculation,
+  updateBomCalculation,
+  getBomCalculationsByCompany,
+  getLatestBomCalculation,
+  deleteBomCalculation,
+} from "./db";
 
 function randomSuffix(): string {
   return Math.random().toString(36).substring(2, 10);
@@ -407,6 +414,114 @@ export const prototypeRouter = router({
       await updatePrototypeRequest(input.id, {
         internalNotes: input.internalNotes,
       });
+      return { success: true };
+    }),
+
+  // ── BOM Persistence ──────────────────────────────────────────────────────
+
+  /**
+   * Save (or update) a BOM calculation for a company.
+   * If bomId is provided, updates the existing row; otherwise inserts a new one.
+   */
+  saveBom: protectedProcedure
+    .input(z.object({
+      bomId: z.number().optional(),
+      companyId: z.number(),
+      imageUrls: z.array(z.string()),
+      productSummary: z.string(),
+      components: z.array(z.object({
+        component: z.string(),
+        qty: z.number(),
+        unitCostEur: z.number(),
+        confidence: z.enum(["high", "medium", "low"]),
+        notes: z.string(),
+        editedCost: z.number().optional(),
+        canSupply: z.enum(["yes", "partial", "no"]).optional(),
+        supplyReason: z.string().optional(),
+        deliverableCategory: z.string().optional(),
+      })),
+      isEnriched: z.boolean().default(false),
+      brainId: z.number().optional(),
+      label: z.string().optional(),
+    }))
+    .mutation(async ({ input, ctx }) => {
+      const totalEur = input.components
+        .reduce((sum, c) => sum + (c.editedCost ?? c.unitCostEur) * c.qty, 0)
+        .toFixed(2);
+
+      const payload = {
+        companyId: input.companyId,
+        userId: ctx.user.openId,
+        imageUrls: JSON.stringify(input.imageUrls),
+        productSummary: input.productSummary,
+        componentsJson: JSON.stringify(input.components),
+        totalEur,
+        isEnriched: input.isEnriched ? 1 : 0,
+        brainId: input.brainId ?? null,
+        label: input.label ?? new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }),
+      };
+
+      if (input.bomId) {
+        await updateBomCalculation(input.bomId, payload);
+        return { bomId: input.bomId };
+      } else {
+        const bomId = await saveBomCalculation(payload);
+        return { bomId };
+      }
+    }),
+
+  /**
+   * Get all BOM calculations for a company, newest first.
+   */
+  getBomHistory: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .query(async ({ input }) => {
+      const rows = await getBomCalculationsByCompany(input.companyId);
+      return {
+        boms: rows.map(r => ({
+          id: r.id,
+          label: r.label,
+          totalEur: r.totalEur,
+          isEnriched: r.isEnriched === 1,
+          brainId: r.brainId,
+          createdAt: r.createdAt,
+          productSummary: r.productSummary,
+          componentsJson: r.componentsJson,
+          imageUrls: r.imageUrls,
+        })),
+      };
+    }),
+
+  /**
+   * Get the latest BOM calculation for a company (for auto-loading on modal open).
+   */
+  getLatestBom: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .query(async ({ input }) => {
+      const row = await getLatestBomCalculation(input.companyId);
+      if (!row) return { bom: null };
+      return {
+        bom: {
+          id: row.id,
+          label: row.label,
+          totalEur: row.totalEur,
+          isEnriched: row.isEnriched === 1,
+          brainId: row.brainId,
+          createdAt: row.createdAt,
+          productSummary: row.productSummary,
+          componentsJson: row.componentsJson,
+          imageUrls: row.imageUrls,
+        },
+      };
+    }),
+
+  /**
+   * Delete a BOM calculation (owner only).
+   */
+  deleteBom: protectedProcedure
+    .input(z.object({ bomId: z.number() }))
+    .mutation(async ({ input, ctx }) => {
+      await deleteBomCalculation(input.bomId, ctx.user.openId);
       return { success: true };
     }),
 });

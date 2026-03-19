@@ -1,6 +1,6 @@
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob } from "../drizzle/schema";
+import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob, bomCalculations, BomCalculation, InsertBomCalculation } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -88,8 +88,6 @@ export async function getUserByOpenId(openId: string) {
 
   return result.length > 0 ? result[0] : undefined;
 }
-
-import { desc } from "drizzle-orm";
 
 // Search operations
 export async function createSearch(search: InsertSearch) {
@@ -423,14 +421,32 @@ export async function createOfferingBrain(brain: InsertOfferingBrain): Promise<n
 export async function getActiveBrain(userId: number): Promise<OfferingBrain | null> {
   const db = await getDb();
   if (!db) return null;
-  
-  const [brain] = await db.select().from(offeringBrain)
+
+  // Fetch ALL active brains ordered by most recently updated first
+  const activeBrains = await db.select().from(offeringBrain)
     .where(and(
       eq(offeringBrain.userId, userId),
       eq(offeringBrain.isActive, 1)
     ))
-    .limit(1);
-  return brain || null;
+    .orderBy(desc(offeringBrain.updatedAt));
+
+  if (activeBrains.length === 0) return null;
+
+  // Self-healing guard: if more than one active brain exists, keep the most
+  // recently updated one and deactivate all others.
+  if (activeBrains.length > 1) {
+    const keepId = activeBrains[0].id;
+    // Deactivate all active brains for this user, then re-activate the winner
+    await db.update(offeringBrain)
+      .set({ isActive: 0 })
+      .where(and(eq(offeringBrain.userId, userId), eq(offeringBrain.isActive, 1)));
+    await db.update(offeringBrain)
+      .set({ isActive: 1 })
+      .where(eq(offeringBrain.id, keepId));
+    console.warn(`[Brain] Self-healing: found ${activeBrains.length} active brains for user ${userId}. Kept brain ${keepId}, deactivated the rest.`);
+  }
+
+  return activeBrains[0];
 }
 
 export async function updateOfferingBrain(id: number, updates: Partial<InsertOfferingBrain>) {
@@ -641,4 +657,64 @@ export async function getLatestBatchJobForSearch(searchId: number): Promise<Batc
     .orderBy(desc(batchJobs.createdAt))
     .limit(1);
   return job ?? null;
+}
+
+// ── BOM Calculation helpers ──────────────────────────────────────────────────
+
+/**
+ * Save a new BOM calculation row and return its new id.
+ */
+export async function saveBomCalculation(data: InsertBomCalculation): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(bomCalculations).values(data);
+  return result[0].insertId;
+}
+
+/**
+ * Update an existing BOM calculation (e.g. after Brain enrichment or cost edits).
+ */
+export async function updateBomCalculation(id: number, updates: Partial<InsertBomCalculation>): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(bomCalculations).set(updates).where(eq(bomCalculations.id, id));
+}
+
+/**
+ * Return all BOM calculations for a given company, newest first.
+ */
+export async function getBomCalculationsByCompany(companyId: number): Promise<BomCalculation[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(bomCalculations)
+    .where(eq(bomCalculations.companyId, companyId))
+    .orderBy(desc(bomCalculations.createdAt));
+}
+
+/**
+ * Return the most recent BOM calculation for a company.
+ */
+export async function getLatestBomCalculation(companyId: number): Promise<BomCalculation | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db
+    .select()
+    .from(bomCalculations)
+    .where(eq(bomCalculations.companyId, companyId))
+    .orderBy(desc(bomCalculations.createdAt))
+    .limit(1);
+  return row ?? null;
+}
+
+/**
+ * Delete a BOM calculation by id (only if it belongs to the requesting user).
+ */
+export async function deleteBomCalculation(id: number, userId: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .delete(bomCalculations)
+    .where(and(eq(bomCalculations.id, id), eq(bomCalculations.userId, userId)));
 }

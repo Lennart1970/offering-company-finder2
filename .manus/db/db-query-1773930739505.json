@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `bom_calculations` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`companyId` int NOT NULL,\n\t`userId` varchar(256) NOT NULL,\n\t`imageUrls` text NOT NULL,\n\t`productSummary` text NOT NULL,\n\t`componentsJson` text NOT NULL,\n\t`totalEur` decimal(14,2) NOT NULL DEFAULT '0',\n\t`isEnriched` tinyint NOT NULL DEFAULT 0,\n\t`brainId` int,\n\t`label` varchar(256),\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `bom_calculations_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute CREATE TABLE `bom_calculations` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`companyId` int NOT NULL,\n\t`userId` varchar(256) NOT NULL,\n\t`imageUrls` text NOT NULL,\n\t`productSummary` text NOT NULL,\n\t`componentsJson` text NOT NULL,\n\t`totalEur` decimal(14,2) NOT NULL DEFAULT '0',\n\t`isEnriched` tinyint NOT NULL DEFAULT 0,\n\t`brainId` int,\n\t`label` varchar(256),\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `bom_calculations_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 163
+}

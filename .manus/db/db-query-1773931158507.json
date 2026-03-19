@@ -1,0 +1,15 @@
+{
+  "query": "SELECT userId, COUNT(*) as active_count, GROUP_CONCAT(id ORDER BY id) as brain_ids FROM offering_brain WHERE isActive = 1 GROUP BY userId HAVING active_count > 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT userId, COUNT(*) as active_count, GROUP_CONCAT(id ORDER BY id) as brain_ids FROM offering_brain WHERE isActive = 1 GROUP BY userId HAVING active_count > 1;",
+  "rows": [
+    {
+      "userId": "1",
+      "active_count": "2",
+      "brain_ids": "60001,150001"
+    }
+  ],
+  "messages": [],
+  "stdout": "userId\tactive_count\tbrain_ids\n1\t2\t60001,150001\n",
+  "stderr": "",
+  "execution_time_ms": 65
+}

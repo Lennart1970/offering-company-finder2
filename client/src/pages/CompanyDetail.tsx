@@ -326,24 +326,83 @@ export default function CompanyDetail() {
   }>(null);
   const [domLoading, setDomLoading] = useState(false);
 
+  // BOM persistence state
+  const [currentBomId, setCurrentBomId] = useState<number | null>(null);
+  const [showBomHistory, setShowBomHistory] = useState(false);
+  const bomUtils = trpc.useUtils();
+
+  // Load latest saved BOM for this company (auto-loads on modal open)
+  const { data: latestBomData } = trpc.prototype.getLatestBom.useQuery(
+    { companyId },
+    { enabled: !!companyId && !isNaN(companyId) }
+  );
+  // Load full BOM history (only when history panel is open)
+  const { data: bomHistoryData } = trpc.prototype.getBomHistory.useQuery(
+    { companyId },
+    { enabled: !!companyId && !isNaN(companyId) && showBomHistory }
+  );
+
+  const saveBomMutation = trpc.prototype.saveBom.useMutation({
+    onSuccess: (data) => {
+      setCurrentBomId(data.bomId);
+      bomUtils.prototype.getLatestBom.invalidate({ companyId });
+      bomUtils.prototype.getBomHistory.invalidate({ companyId });
+    },
+  });
+
+  const deleteBomMutation = trpc.prototype.deleteBom.useMutation({
+    onSuccess: () => {
+      setCurrentBomId(null);
+      setBomResult(null);
+      bomUtils.prototype.getLatestBom.invalidate({ companyId });
+      bomUtils.prototype.getBomHistory.invalidate({ companyId });
+      toast.success("BOM deleted");
+    },
+  });
+
+  // Helper: save current BOM state to DB
+  const persistBom = (result: typeof bomResult, imageIndices: Set<number>, isEnriched: boolean, existingBomId?: number | null) => {
+    if (!result) return;
+    const imageUrls = Array.from(imageIndices).sort().map(i => productImages[i]?.imageUrl ?? "").filter(Boolean);
+    saveBomMutation.mutate({
+      bomId: existingBomId ?? undefined,
+      companyId,
+      imageUrls,
+      productSummary: result.productSummary,
+      components: result.components,
+      isEnriched,
+      brainId: activeBrain?.id ?? undefined,
+    });
+  };
+
   const extractBomMutation = trpc.prototype.extractBomFromImages.useMutation({
     onSuccess: (data) => {
-      setBomResult({ ...data, components: data.components.map(c => ({ ...c, editedCost: c.unitCostEur })) });
+      const components = data.components.map(c => ({ ...c, editedCost: c.unitCostEur }));
+      const result = { ...data, components };
+      setBomResult(result);
       setBomLoading(false);
+      // Auto-save new BOM to DB (no existing bomId — always creates a new row)
+      persistBom(result, selectedBomImages, false, null);
     },
     onError: () => { setBomLoading(false); toast.error("BOM extraction failed"); },
   });
 
   const enrichBomMutation = trpc.prototype.enrichBomWithBrain.useMutation({
     onSuccess: (data) => {
-      setBomResult(prev => prev ? {
-        ...prev,
-        components: data.enriched.map((c, i) => ({
-          ...prev.components[i],
-          ...c,
-          editedCost: prev.components[i]?.editedCost ?? c.unitCostEur,
-        }))
-      } : null);
+      setBomResult(prev => {
+        if (!prev) return null;
+        const enriched = {
+          ...prev,
+          components: data.enriched.map((c, i) => ({
+            ...prev.components[i],
+            ...c,
+            editedCost: prev.components[i]?.editedCost ?? c.unitCostEur,
+          }))
+        };
+        // Auto-save enriched BOM — update the existing row
+        persistBom(enriched, selectedBomImages, true, currentBomId);
+        return enriched;
+      });
       setBomEnrichLoading(false);
     },
     onError: () => { setBomEnrichLoading(false); toast.error("Brain enrichment failed"); },
@@ -354,7 +413,7 @@ export default function CompanyDetail() {
       setDomReport(data);
       setDomLoading(false);
     },
-    onError: () => { setDomLoading(false); toast.error("DOM report generation failed"); },
+    onError: () => { setDomLoading(false); toast.error("Capability Statement generation failed"); },
   });
 
   const handleEnrichBom = () => {
@@ -1505,23 +1564,15 @@ export default function CompanyDetail() {
                           {bomImageSelectionMode && (
                             <div className="mb-3 p-3 bg-amber-50 border-2 border-amber-400 flex items-center justify-between">
                               <div>
-                                <p className="text-xs font-black text-amber-800">🧮 SELECT IMAGES FOR BOM ANALYSIS</p>
+                                <p className="text-xs font-black text-amber-800">🧮 SELECT AN IMAGE FOR BOM ANALYSIS</p>
                                 <p className="text-xs text-amber-700 mt-0.5">
                                   {selectedBomImages.size === 0
-                                    ? "Tick the images you want to include (max 6)"
-                                    : `${selectedBomImages.size} image${selectedBomImages.size > 1 ? "s" : ""} selected`}
+                                    ? "Click one product image to analyse"
+                                    : "1 image selected — click ANALYSE → or choose a different image"}
                                 </p>
                               </div>
                               <div className="flex gap-2">
-                                <button
-                                  onClick={() => {
-                                    const allIdx = new Set(productImages.slice(0, 6).map((_, i) => i));
-                                    setSelectedBomImages(allIdx);
-                                  }}
-                                  className="text-xs font-bold border border-amber-500 text-amber-700 px-2 py-1 hover:bg-amber-100 cursor-pointer"
-                                >
-                                  SELECT ALL
-                                </button>
+
                                 <button
                                   onClick={() => { setBomImageSelectionMode(false); setSelectedBomImages(new Set()); }}
                                   className="text-xs font-bold border border-gray-300 px-2 py-1 hover:bg-gray-100 cursor-pointer"
@@ -1559,9 +1610,10 @@ export default function CompanyDetail() {
                                 }`}
                                 onClick={() => {
                                   if (bomImageSelectionMode) {
+                                    // Single-select: clicking a new image replaces the previous selection
                                     setSelectedBomImages(prev => {
-                                      const next = new Set(prev);
-                                      if (next.has(i)) { next.delete(i); } else if (next.size < 6) { next.add(i); }
+                                      const next = new Set<number>();
+                                      if (!prev.has(i)) { next.add(i); } // deselect if already selected, else select only this one
                                       return next;
                                     });
                                   } else {
@@ -1600,20 +1652,30 @@ export default function CompanyDetail() {
                               <div className="flex items-center gap-3">
                                 <button
                                   onClick={() => {
-                                    // Enter selection mode — pre-select all images up to 6
+                                    // Enter selection mode — start with nothing selected
                                     setBomImageSelectionMode(true);
-                                    setSelectedBomImages(new Set(productImages.slice(0, 6).map((_, i) => i)));
+                                    setSelectedBomImages(new Set());
                                   }}
                                   className="flex items-center gap-2 text-sm font-black border-2 border-amber-500 bg-amber-50 text-amber-800 px-4 py-2.5 hover:bg-amber-500 hover:text-white transition-colors cursor-pointer"
                                 >
                                   🧮 CALCULATE BOM COST
                                 </button>
-                                {bomResult && (
+                                {(bomResult || latestBomData?.bom) && (
                                   <button
-                                    onClick={() => setBomModalOpen(true)}
+                                    onClick={() => {
+                                      // Load saved BOM if no in-memory result
+                                      if (!bomResult && latestBomData?.bom) {
+                                        try {
+                                          const comps = JSON.parse(latestBomData.bom.componentsJson);
+                                          setBomResult({ productSummary: latestBomData.bom.productSummary, components: comps });
+                                          setCurrentBomId(latestBomData.bom.id);
+                                        } catch { /* ignore */ }
+                                      }
+                                      setBomModalOpen(true);
+                                    }}
                                     className="text-xs font-bold border border-amber-400 text-amber-700 px-3 py-2 hover:bg-amber-50 cursor-pointer"
                                   >
-                                    VIEW LAST RESULT
+                                    {bomResult ? "VIEW LAST RESULT" : `📂 LOAD SAVED BOM (${new Date(latestBomData!.bom!.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short" })})`}
                                   </button>
                                 )}
                               </div>
@@ -1650,8 +1712,61 @@ export default function CompanyDetail() {
                             <h2 className="text-xl font-black">🧮 BOM COST CALCULATOR</h2>
                             <p className="text-xs font-bold text-amber-900">{company?.name ?? ""} — AI-estimated material costs</p>
                           </div>
-                          <button onClick={() => setBomModalOpen(false)} className="text-2xl font-black hover:opacity-60 cursor-pointer">✕</button>
+                          <div className="flex items-center gap-2">
+                            {currentBomId && (
+                              <button
+                                onClick={() => deleteBomMutation.mutate({ bomId: currentBomId })}
+                                className="text-xs font-black border-2 border-red-600 text-red-600 px-2 py-1 hover:bg-red-600 hover:text-white transition-colors cursor-pointer"
+                                title="Delete this BOM"
+                              >
+                                🗑 DELETE
+                              </button>
+                            )}
+                            <button
+                              onClick={() => setShowBomHistory(h => !h)}
+                              className="text-xs font-black border-2 border-amber-800 text-amber-900 px-2 py-1 hover:bg-amber-800 hover:text-white transition-colors cursor-pointer"
+                            >
+                              {showBomHistory ? "HIDE HISTORY" : "📋 HISTORY"}
+                            </button>
+                            <button onClick={() => setBomModalOpen(false)} className="text-2xl font-black hover:opacity-60 cursor-pointer">✕</button>
+                          </div>
                         </div>
+                        {/* BOM History panel */}
+                        {showBomHistory && (
+                          <div className="border-b-2 border-amber-300 bg-amber-50 px-6 py-3">
+                            <p className="text-xs font-black text-amber-800 mb-2">SAVED BOM CALCULATIONS</p>
+                            {!bomHistoryData ? (
+                              <p className="text-xs text-muted-foreground">Loading...</p>
+                            ) : bomHistoryData.boms.length === 0 ? (
+                              <p className="text-xs text-muted-foreground">No saved BOMs yet.</p>
+                            ) : (
+                              <div className="space-y-1">
+                                {bomHistoryData.boms.map(b => (
+                                  <button
+                                    key={b.id}
+                                    onClick={() => {
+                                      try {
+                                        const comps = JSON.parse(b.componentsJson);
+                                        setBomResult({ productSummary: b.productSummary, components: comps });
+                                        setCurrentBomId(b.id);
+                                        setShowBomHistory(false);
+                                      } catch { toast.error("Failed to load BOM"); }
+                                    }}
+                                    className={`w-full text-left flex items-center justify-between px-3 py-2 border-2 text-xs hover:bg-amber-100 transition-colors cursor-pointer ${
+                                      currentBomId === b.id ? "border-amber-500 bg-amber-100 font-black" : "border-amber-200 font-bold"
+                                    }`}
+                                  >
+                                    <span>{b.label ?? new Date(b.createdAt).toLocaleDateString("en-GB")}</span>
+                                    <span className="flex items-center gap-2">
+                                      {b.isEnriched && <span className="text-blue-600">🧠</span>}
+                                      <span className="text-muted-foreground">€{parseFloat(b.totalEur ?? "0").toFixed(0)}</span>
+                                    </span>
+                                  </button>
+                                ))}
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* Disclaimer banner */}
                         <div className="bg-red-50 border-b-2 border-red-200 px-6 py-3">
@@ -1784,7 +1899,7 @@ export default function CompanyDetail() {
                                                     })}
                                                     className="text-[9px] font-black border border-blue-400 text-blue-600 px-1.5 py-0.5 hover:bg-blue-50 cursor-pointer mt-0.5"
                                                   >
-                                                    📄 DOM
+                                                    📋 CAPABILITY STATEMENT
                                                   </button>
                                                 )}
                                               </div>
@@ -1814,7 +1929,7 @@ export default function CompanyDetail() {
                                 <div className="mt-5 border-4 border-blue-600 bg-blue-50">
                                   <div className="bg-blue-600 px-4 py-3 flex items-center justify-between">
                                     <div>
-                                      <h3 className="text-sm font-black text-white">📄 DOM REPORT — {domPanelComponent.component.toUpperCase()}</h3>
+                                      <h3 className="text-sm font-black text-white">📋 CAPABILITY STATEMENT — {domPanelComponent.component.toUpperCase()}</h3>
                                       <p className="text-xs text-blue-200">{domPanelComponent.deliverableCategory} · Qty: {domPanelComponent.qty} · Est. €{domPanelComponent.unitCostEur}/unit</p>
                                     </div>
                                     <button onClick={() => { setDomPanelComponent(null); setDomReport(null); }} className="text-white font-black text-lg hover:opacity-60 cursor-pointer">✕</button>
@@ -1823,7 +1938,7 @@ export default function CompanyDetail() {
                                     {domLoading ? (
                                       <div className="py-8 text-center">
                                         <div className="w-6 h-6 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-                                        <p className="text-sm font-bold text-blue-800">Generating DOM report from Brain...</p>
+                                        <p className="text-sm font-bold text-blue-800">Generating Capability Statement from Brain...</p>
                                       </div>
                                     ) : domReport ? (
                                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1869,12 +1984,12 @@ export default function CompanyDetail() {
                                             <p className="text-xs leading-relaxed">{domReport.limitations}</p>
                                           </div>
                                         )}
-                                        {/* Copy DOM button */}
+                                        {/* Copy Capability Statement button */}
                                         <div className="md:col-span-2 flex gap-2">
                                           <button
                                             onClick={() => {
                                               const text = [
-                                                `DOM REPORT — ${domReport.componentName}`,
+                                                `CAPABILITY STATEMENT — ${domReport.componentName}`,
                                                 `Category: ${domPanelComponent.deliverableCategory}`,
                                                 `Qty: ${domPanelComponent.qty} | Est. €${domPanelComponent.unitCostEur}/unit`,
                                                 ``,
@@ -1917,10 +2032,10 @@ export default function CompanyDetail() {
                               <div className="mt-4 flex gap-3">
                                 <button
                                   onClick={() => {
-                                    // Close modal and enter image selection mode for re-analysis
+                                    // Close modal and enter image selection mode for re-analysis — start empty
                                     setBomModalOpen(false);
                                     setBomImageSelectionMode(true);
-                                    setSelectedBomImages(new Set(productImages.slice(0, 6).map((_, idx) => idx)));
+                                    setSelectedBomImages(new Set());
                                   }}
                                   className="text-xs font-black border-2 border-black px-3 py-1.5 hover:bg-black hover:text-white transition-colors cursor-pointer"
                                 >

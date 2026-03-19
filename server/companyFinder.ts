@@ -2770,6 +2770,23 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       })();
       return { jobId };
     }),
+
+  syncToSupabase: protectedProcedure
+    .input(z.object({ searchId: z.number() }))
+    .mutation(async ({ input }) => {
+      const { syncSearchRunToSupabase, syncBrainsToSupabase } = await import("./supabaseSync");
+      const [searchResult, brainResult] = await Promise.all([
+        syncSearchRunToSupabase(input.searchId),
+        syncBrainsToSupabase(),
+      ]);
+      return {
+        companiesSynced: searchResult.companiesSynced,
+        contactsSynced: searchResult.contactsSynced,
+        brainsSynced: brainResult.synced,
+        errors: searchResult.errors + brainResult.errors,
+        message: `${searchResult.message} | ${brainResult.message}`,
+      };
+    }),
 });
 
 // Background search function for hardcoded ConnectGroup offering (skip extraction)

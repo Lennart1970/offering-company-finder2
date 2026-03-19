@@ -163,6 +163,15 @@ export default function SearchResults() {
     },
   });
 
+  const syncToSupabaseMutation = trpc.companyFinder.syncToSupabase.useMutation({
+    onSuccess: (data) => {
+      toast.success(`✅ Synced to Supabase: ${data.companiesSynced} companies, ${data.contactsSynced} contacts, ${data.brainsSynced} brains`);
+    },
+    onError: (error) => {
+      toast.error(`Supabase sync failed: ${error.message}`);
+    },
+  });
+
   const batchContactsMutation = trpc.companyFinder.batchFindDecisionMakers.useMutation({
     onSuccess: (data) => {
       setActiveJobId(data.jobId);
@@ -809,6 +818,13 @@ export default function SearchResults() {
                   )}
                 </>
               )}
+              <Button
+                onClick={() => syncToSupabaseMutation.mutate({ searchId: searchId! })}
+                disabled={syncToSupabaseMutation.isPending}
+                className="text-lg px-6 py-4 font-black bg-emerald-700 text-white hover:bg-emerald-800 transition-colors disabled:opacity-50"
+              >
+                {syncToSupabaseMutation.isPending ? "⏳ SYNCING..." : "⚡ SYNC TO SUPABASE"}
+              </Button>
               <Button
                 onClick={() => batchContactsMutation.mutate({ searchId: searchId!, minUrgencyScore: 50 })}
                 disabled={isJobRunning}

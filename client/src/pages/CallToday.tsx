@@ -34,14 +34,24 @@ export default function CallToday() {
   return (
     <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}
-      <div className="mb-6">
-        <div className="text-[10px] font-black text-muted-foreground mb-1">[CALL TODAY]</div>
-        <h1 className="text-4xl font-black">CALL TODAY</h1>
-        <p className="text-sm text-muted-foreground mt-1">
-          {isLoading
-            ? "Loading..."
-            : `${sorted.length} ${sorted.length === 1 ? "company" : "companies"} across all campaigns · sorted by urgency`}
-        </p>
+      <div className="mb-6 flex items-start justify-between gap-4">
+        <div>
+          <div className="text-[10px] font-black text-muted-foreground mb-1">[CALL TODAY]</div>
+          <h1 className="text-4xl font-black">CALL TODAY</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            {isLoading
+              ? "Loading..."
+              : `${sorted.length} ${sorted.length === 1 ? "company" : "companies"} across all campaigns · sorted by urgency`}
+          </p>
+        </div>
+        <a
+          href="https://voicedebt-rd2i5zsv.manus.space/debrief"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="shrink-0 flex items-center gap-2 border-2 border-black bg-amber-400 px-4 py-2 text-xs font-black hover:bg-amber-500 transition-colors shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px]"
+        >
+          🎙️ VOICE DEBRIEF →
+        </a>
       </div>
 
       {isLoading && (

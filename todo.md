@@ -1813,3 +1813,6 @@
 - [x] Update BOM modal UI: add "Can Supply" column with colour-coded badge (green/amber/red)
 - [x] Add per-row "📄 DOM" button for yes/partial components that opens a DOM detail panel
 - [x] Write unit tests for BOM Brain enrichment logic (10 tests passing)
+
+## Feature: VoiceDebt Debrief Link on Call Today Page
+- [x] Add VoiceDebt debrief link (https://voicedebt-rd2i5zsv.manus.space/debrief) to the Call Today page

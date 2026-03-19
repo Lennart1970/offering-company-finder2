@@ -6,6 +6,7 @@ import { companyFinderRouter } from "./companyFinder";
 import { codeDescriptionsRouter } from "./codeDescriptions";
 import { nicheRouter } from "./nicheRouter";
 import { prototypeRouter } from "./prototypeRouter";
+import { bomRouter } from "./bomRouter";
 import { ALL_PROMPTS } from "./prompts/index";
 
 export const appRouter = router({
@@ -26,6 +27,7 @@ export const appRouter = router({
   codeDescriptions: codeDescriptionsRouter,
   niche: nicheRouter,
   prototype: prototypeRouter,
+  bom: bomRouter,
 
   // Prompt Repository — exposes the full prompt catalogue for transparency
   prompts: router({

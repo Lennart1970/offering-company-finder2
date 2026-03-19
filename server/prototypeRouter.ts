@@ -149,6 +149,87 @@ export const prototypeRouter = router({
     }),
 
   /**
+   * Extract BOM components from product images — used on Company Detail page
+   * Returns estimated components with rough unit cost guesses for the BOM calculator.
+   * Results are AI estimates only — not quotes.
+   */
+  extractBomFromImages: protectedProcedure
+    .input(z.object({
+      imageUrls: z.array(z.string()).min(1).max(6),
+      productContext: z.string().optional(), // e.g. company name + product type hint
+    }))
+    .mutation(async ({ input }) => {
+      const { invokeLLM } = await import("./_core/llm");
+      const imageContent = input.imageUrls.slice(0, 6).map((url) => ({
+        type: "image_url" as const,
+        image_url: { url, detail: "low" as const },
+      }));
+      const response = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are an experienced electronics and mechanical engineering cost estimator. " +
+              "Analyse the product images and return a rough Bill of Materials (BOM) with estimated unit costs in EUR. " +
+              "Focus on main components visible or inferable from the product. " +
+              "Be honest about uncertainty — these are rough estimates only, not quotes. " +
+              "Return ONLY valid JSON matching the schema.",
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text:
+                  `Analyse these product images${input.productContext ? ` for: ${input.productContext}` : ""}. ` +
+                  "Return a JSON object with: " +
+                  "{ productSummary: string, components: Array<{ component: string, qty: number, unitCostEur: number, confidence: 'high'|'medium'|'low', notes: string }> }. " +
+                  "Include 5-15 main components. unitCostEur should be a realistic market price estimate per unit.",
+              },
+              ...imageContent,
+            ],
+          },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "bom_extraction",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                productSummary: { type: "string", description: "One-sentence product type summary" },
+                components: {
+                  type: "array",
+                  items: {
+                    type: "object",
+                    properties: {
+                      component: { type: "string" },
+                      qty: { type: "number" },
+                      unitCostEur: { type: "number" },
+                      confidence: { type: "string", enum: ["high", "medium", "low"] },
+                      notes: { type: "string" },
+                    },
+                    required: ["component", "qty", "unitCostEur", "confidence", "notes"],
+                    additionalProperties: false,
+                  },
+                },
+              },
+              required: ["productSummary", "components"],
+              additionalProperties: false,
+            },
+          },
+        },
+      });
+      const raw = response.choices?.[0]?.message?.content ?? "{}";
+      const parsed = JSON.parse(typeof raw === "string" ? raw : JSON.stringify(raw));
+      return parsed as {
+        productSummary: string;
+        components: Array<{ component: string; qty: number; unitCostEur: number; confidence: "high" | "medium" | "low"; notes: string }>;
+      };
+    }),
+
+  /**
    * Internal: Add/update internal notes
    */
   addNotes: protectedProcedure

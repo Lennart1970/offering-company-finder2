@@ -1789,3 +1789,14 @@
 - [x] Internal UI: 3 action buttons (Request more info, Ask for sample, Start costing)
 - [x] Route registration in App.tsx
 - [x] Tests for extraction and request creation
+
+## Feature: Material Cost Calculator (BOM)
+- [x] Database schema: bom_items table (prototypeRequestId, component, unitCost, qty, notes)
+- [x] Server: tRPC procedures for BOM CRUD (add, update, delete, list by request)
+- [x] Server: extractBomFromImages AI vision procedure (LLM analyses product images → component list + unit costs)
+- [x] Customer UI: Calculate BOM Cost button on Company Detail Product Images tab
+- [x] Customer UI: BOM modal with AI-extracted components, editable unit costs, running total, confidence badges
+- [x] Customer UI: Disclaimers (not a quote, indicative only)
+- [x] Customer UI: Copy for Excel button
+- [ ] Customer UI: currency selector (EUR/USD)
+- [ ] Tests for BOM procedures

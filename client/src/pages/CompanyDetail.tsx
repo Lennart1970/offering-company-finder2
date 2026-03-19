@@ -291,6 +291,21 @@ export default function CompanyDetail() {
     onError: () => { setProductImagesLoading(false); toast.error("Could not fetch product images"); },
   });
 
+  // BOM Calculator state
+  const [bomModalOpen, setBomModalOpen] = useState(false);
+  const [bomLoading, setBomLoading] = useState(false);
+  const [bomResult, setBomResult] = useState<{
+    productSummary: string;
+    components: Array<{ component: string; qty: number; unitCostEur: number; confidence: "high" | "medium" | "low"; notes: string; editedCost?: number }>;
+  } | null>(null);
+  const extractBomMutation = trpc.prototype.extractBomFromImages.useMutation({
+    onSuccess: (data) => {
+      setBomResult({ ...data, components: data.components.map(c => ({ ...c, editedCost: c.unitCostEur })) });
+      setBomLoading(false);
+    },
+    onError: () => { setBomLoading(false); toast.error("BOM extraction failed"); },
+  });
+
   // Urgency images (editorial/news style)
   const [urgencyImagesLoading, setUrgencyImagesLoading] = useState(false);
   const urgencyImagesUtils = trpc.useUtils();
@@ -1392,29 +1407,50 @@ export default function CompanyDetail() {
                         </button>
                       </div>
                       {productImages.length > 0 ? (
-                        <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
-                          {productImages.map((img, i) => (
-                            <div
-                              key={i}
-                              className="border-2 border-gray-200 hover:border-black transition-colors cursor-pointer overflow-hidden group"
-                              onClick={() => setLightboxImage(img.imageUrl)}
+                        <>
+                          <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                            {productImages.map((img, i) => (
+                              <div
+                                key={i}
+                                className="border-2 border-gray-200 hover:border-black transition-colors cursor-pointer overflow-hidden group"
+                                onClick={() => setLightboxImage(img.imageUrl)}
+                              >
+                                <div className="aspect-video bg-gray-50 overflow-hidden">
+                                  <img
+                                    src={img.thumbnailUrl || img.imageUrl}
+                                    alt={img.title}
+                                    loading="lazy"
+                                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
+                                  />
+                                </div>
+                                <div className="px-2 py-1.5">
+                                  <p className="text-xs font-bold truncate">{img.title}</p>
+                                  <p className="text-xs text-muted-foreground truncate">{img.source || img.domain}</p>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                          {/* BOM Cost Calculator button — appears once images are loaded */}
+                          <div className="mt-6 border-t-2 border-dashed border-amber-300 pt-4">
+                            <button
+                              onClick={() => {
+                                setBomModalOpen(true);
+                                if (!bomResult) {
+                                  setBomLoading(true);
+                                  extractBomMutation.mutate({
+                                    imageUrls: productImages.slice(0, 6).map(i => i.imageUrl),
+                                    productContext: company?.name ?? undefined,
+                                  });
+                                }
+                              }}
+                              className="flex items-center gap-2 text-sm font-black border-2 border-amber-500 bg-amber-50 text-amber-800 px-4 py-2.5 hover:bg-amber-500 hover:text-white transition-colors cursor-pointer"
                             >
-                              <div className="aspect-video bg-gray-50 overflow-hidden">
-                                <img
-                                  src={img.thumbnailUrl || img.imageUrl}
-                                  alt={img.title}
-                                  loading="lazy"
-                                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200"
-                                  onError={(e) => { (e.target as HTMLImageElement).style.display = 'none'; }}
-                                />
-                              </div>
-                              <div className="px-2 py-1.5">
-                                <p className="text-xs font-bold truncate">{img.title}</p>
-                                <p className="text-xs text-muted-foreground truncate">{img.source || img.domain}</p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
+                              🧮 CALCULATE BOM COST
+                            </button>
+                            <p className="mt-1.5 text-xs text-muted-foreground">AI-estimated material costs from product images. For indicative purposes only — not a quote.</p>
+                          </div>
+                        </>
                       ) : (
                         <div className="py-12 text-center border-2 border-dashed border-gray-200">
                           <p className="text-sm text-muted-foreground font-bold mb-3">No product images fetched yet.</p>
@@ -1429,6 +1465,135 @@ export default function CompanyDetail() {
                         </div>
                       )}
                     </section>
+                  )}
+
+                  {/* BOM Calculator Modal */}
+                  {bomModalOpen && (
+                    <div
+                      className="fixed inset-0 bg-black/70 z-50 flex items-start justify-center p-4 overflow-y-auto"
+                      onClick={(e) => { if (e.target === e.currentTarget) setBomModalOpen(false); }}
+                    >
+                      <div className="bg-white w-full max-w-3xl my-8 border-4 border-black shadow-[8px_8px_0px_0px_rgba(0,0,0,1)]">
+                        {/* Modal header */}
+                        <div className="bg-amber-400 border-b-4 border-black px-6 py-4 flex items-center justify-between">
+                          <div>
+                            <h2 className="text-xl font-black">🧮 BOM COST CALCULATOR</h2>
+                            <p className="text-xs font-bold text-amber-900">{company?.name ?? ""} — AI-estimated material costs</p>
+                          </div>
+                          <button onClick={() => setBomModalOpen(false)} className="text-2xl font-black hover:opacity-60 cursor-pointer">✕</button>
+                        </div>
+
+                        {/* Disclaimer banner */}
+                        <div className="bg-red-50 border-b-2 border-red-200 px-6 py-3">
+                          <p className="text-xs font-bold text-red-700">⚠️ IMPORTANT DISCLAIMER</p>
+                          <p className="text-xs text-red-600 mt-0.5">
+                            These are AI-generated rough estimates based on product images only. They are <strong>not quotes</strong>, <strong>not validated BOM data</strong>, and <strong>not suitable for procurement decisions</strong>.
+                            Actual costs depend on volumes, suppliers, specifications, and design details. Use for indicative purposes and internal discussion only.
+                          </p>
+                        </div>
+
+                        <div className="px-6 py-5">
+                          {bomLoading ? (
+                            <div className="py-16 text-center">
+                              <div className="text-4xl mb-4">🔍</div>
+                              <p className="font-black text-lg">Analysing product images...</p>
+                              <p className="text-sm text-muted-foreground mt-2">AI is identifying components and estimating costs. This takes 10–20 seconds.</p>
+                            </div>
+                          ) : bomResult ? (
+                            <>
+                              <p className="text-sm font-bold mb-4 text-muted-foreground">{bomResult.productSummary}</p>
+
+                              {/* BOM table */}
+                              <div className="overflow-x-auto">
+                                <table className="w-full text-sm border-collapse">
+                                  <thead>
+                                    <tr className="bg-black text-white">
+                                      <th className="text-left px-3 py-2 font-black">Component</th>
+                                      <th className="text-center px-3 py-2 font-black w-16">Qty</th>
+                                      <th className="text-right px-3 py-2 font-black w-28">Unit Cost (€)</th>
+                                      <th className="text-right px-3 py-2 font-black w-28">Line Total</th>
+                                      <th className="text-center px-3 py-2 font-black w-20">Confidence</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {bomResult.components.map((c, i) => (
+                                      <tr key={i} className={i % 2 === 0 ? "bg-white" : "bg-gray-50"}>
+                                        <td className="px-3 py-2">
+                                          <div className="font-bold">{c.component}</div>
+                                          {c.notes && <div className="text-xs text-muted-foreground">{c.notes}</div>}
+                                        </td>
+                                        <td className="text-center px-3 py-2">{c.qty}</td>
+                                        <td className="text-right px-3 py-2">
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            step="0.01"
+                                            value={c.editedCost ?? c.unitCostEur}
+                                            onChange={(e) => {
+                                              const val = parseFloat(e.target.value) || 0;
+                                              setBomResult(prev => prev ? {
+                                                ...prev,
+                                                components: prev.components.map((comp, idx) =>
+                                                  idx === i ? { ...comp, editedCost: val } : comp
+                                                )
+                                              } : null);
+                                            }}
+                                            className="w-24 text-right border-b-2 border-black bg-transparent font-mono text-sm focus:outline-none focus:border-amber-500"
+                                          />
+                                        </td>
+                                        <td className="text-right px-3 py-2 font-mono font-bold">
+                                          €{((c.editedCost ?? c.unitCostEur) * c.qty).toFixed(2)}
+                                        </td>
+                                        <td className="text-center px-3 py-2">
+                                          <span className={`text-xs font-black px-2 py-0.5 ${
+                                            c.confidence === "high" ? "bg-green-100 text-green-700" :
+                                            c.confidence === "medium" ? "bg-amber-100 text-amber-700" :
+                                            "bg-red-100 text-red-700"
+                                          }`}>{c.confidence.toUpperCase()}</span>
+                                        </td>
+                                      </tr>
+                                    ))}
+                                  </tbody>
+                                  <tfoot>
+                                    <tr className="bg-black text-white">
+                                      <td colSpan={3} className="px-3 py-3 font-black text-right">ESTIMATED TOTAL MATERIAL COST</td>
+                                      <td className="px-3 py-3 font-black font-mono text-right text-lg">
+                                        €{bomResult.components.reduce((sum, c) => sum + (c.editedCost ?? c.unitCostEur) * c.qty, 0).toFixed(2)}
+                                      </td>
+                                      <td />
+                                    </tr>
+                                  </tfoot>
+                                </table>
+                              </div>
+
+                              <div className="mt-4 flex gap-3">
+                                <button
+                                  onClick={() => { setBomResult(null); setBomLoading(true); extractBomMutation.mutate({ imageUrls: productImages.slice(0, 6).map(i => i.imageUrl), productContext: company?.name ?? undefined }); }}
+                                  className="text-xs font-black border-2 border-black px-3 py-1.5 hover:bg-black hover:text-white transition-colors cursor-pointer"
+                                >
+                                  ↻ RE-ANALYSE
+                                </button>
+                                <button
+                                  onClick={() => {
+                                    const rows = bomResult.components.map(c =>
+                                      `${c.component}\t${c.qty}\t${(c.editedCost ?? c.unitCostEur).toFixed(2)}\t${((c.editedCost ?? c.unitCostEur) * c.qty).toFixed(2)}\t${c.confidence}`
+                                    ).join("\n");
+                                    const csv = `Component\tQty\tUnit Cost (EUR)\tLine Total\tConfidence\n${rows}\n\nTOTAL\t\t\t${bomResult.components.reduce((s, c) => s + (c.editedCost ?? c.unitCostEur) * c.qty, 0).toFixed(2)}\t`;
+                                    navigator.clipboard.writeText(csv);
+                                    toast.success("BOM copied to clipboard — paste into Excel");
+                                  }}
+                                  className="text-xs font-black border-2 border-amber-500 bg-amber-50 text-amber-800 px-3 py-1.5 hover:bg-amber-500 hover:text-white transition-colors cursor-pointer"
+                                >
+                                  📋 COPY FOR EXCEL
+                                </button>
+                              </div>
+                            </>
+                          ) : (
+                            <div className="py-8 text-center text-muted-foreground">No data yet.</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
                   )}
 
                   {/* Lightbox — rendered outside tab sections so it works from any tab */}

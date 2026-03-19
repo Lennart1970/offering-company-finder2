@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, tinyint } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, tinyint, decimal } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -360,3 +360,21 @@ export const prototypeRequests = mysqlTable("prototype_requests", {
 
 export type PrototypeRequest = typeof prototypeRequests.$inferSelect;
 export type InsertPrototypeRequest = typeof prototypeRequests.$inferInsert;
+
+/**
+ * Bill of Materials (BOM) line items for prototype cost calculation
+ */
+export const bomItems = mysqlTable("bom_items", {
+  id: int("id").autoincrement().primaryKey(),
+  prototypeRequestId: int("prototypeRequestId").notNull(),
+  component: varchar("component", { length: 256 }).notNull(), // Component / material name
+  qty: int("qty").notNull().default(1),                        // Quantity
+  unitCost: decimal("unitCost", { precision: 12, scale: 2 }).notNull(), // Cost per unit
+  currency: varchar("currency", { length: 8 }).notNull().default("EUR"),
+  notes: text("notes"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type BomItem = typeof bomItems.$inferSelect;
+export type InsertBomItem = typeof bomItems.$inferInsert;

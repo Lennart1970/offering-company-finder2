@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `bom_items` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`prototypeRequestId` int NOT NULL,\n\t`component` varchar(256) NOT NULL,\n\t`qty` int NOT NULL DEFAULT 1,\n\t`unitCost` decimal(12,2) NOT NULL,\n\t`currency` varchar(8) NOT NULL DEFAULT 'EUR',\n\t`notes` text,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `bom_items_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute CREATE TABLE `bom_items` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`prototypeRequestId` int NOT NULL,\n\t`component` varchar(256) NOT NULL,\n\t`qty` int NOT NULL DEFAULT 1,\n\t`unitCost` decimal(12,2) NOT NULL,\n\t`currency` varchar(8) NOT NULL DEFAULT 'EUR',\n\t`notes` text,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `bom_items_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 449
+}

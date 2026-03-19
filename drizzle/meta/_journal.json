@@ -225,6 +225,13 @@
       "when": 1773653990670,
       "tag": "0031_awesome_scalphunter",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "5",
+      "when": 1773921567907,
+      "tag": "0032_chilly_demogoblin",
+      "breakpoints": true
     }
   ]
 }

@@ -323,3 +323,40 @@ export const batchJobs = mysqlTable("batch_jobs", {
 
 export type BatchJob = typeof batchJobs.$inferSelect;
 export type InsertBatchJob = typeof batchJobs.$inferInsert;
+
+/**
+ * Fast Prototyping from Product Picture — prototype request tickets.
+ * A customer uploads product images, the system extracts intelligence via LLM vision,
+ * and the customer fills in basic info to create a prototype request.
+ */
+export const prototypeRequests = mysqlTable("prototype_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id),
+  // Images (up to 3 S3 URLs)
+  imageUrls: text("imageUrls").notNull(), // JSON array of S3 image URLs
+  productUrl: varchar("productUrl", { length: 1024 }), // Optional: URL to competing product page
+  // LLM Vision Extraction
+  productTypeGuess: text("productTypeGuess"), // e.g. "Lithium battery module with integrated BMS"
+  keyFeatureGuess: text("keyFeatureGuess"), // JSON array of extracted features
+  whatWeStillNeed: text("whatWeStillNeed"), // JSON array of questions to ask customer
+  extractionRaw: text("extractionRaw"), // Full LLM response for reference
+  // Customer-entered info
+  annualUnits: varchar("annualUnits", { length: 128 }), // EAU - Expected Annual Units
+  expectedSop: varchar("expectedSop", { length: 128 }), // SOP - Start of Production date
+  region: mysqlEnum("region", ["EU", "US", "APAC", "Other"]),
+  designIntent: mysqlEnum("designIntent", ["equivalent", "modified"]), // 1:1 equivalent or modified design
+  hasBom: tinyint("hasBom").default(0), // Customer has BOM / dimensions / extra pictures
+  customerNotes: text("customerNotes"), // Free text notes from customer
+  customerName: varchar("customerName", { length: 256 }), // Name of the requesting person
+  customerEmail: varchar("customerEmail", { length: 320 }), // Email for follow-up
+  customerCompany: varchar("customerCompany", { length: 256 }), // Company name
+  // Internal workflow
+  status: mysqlEnum("status", ["draft", "analyzing", "pending_info", "submitted", "more_info_requested", "sample_requested", "costing", "completed"]).default("draft").notNull(),
+  internalNotes: text("internalNotes"), // Notes from the internal team
+  assignedTo: varchar("assignedTo", { length: 256 }), // Internal team member
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type PrototypeRequest = typeof prototypeRequests.$inferSelect;
+export type InsertPrototypeRequest = typeof prototypeRequests.$inferInsert;

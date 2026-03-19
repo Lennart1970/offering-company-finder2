@@ -5,6 +5,7 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { companyFinderRouter } from "./companyFinder";
 import { codeDescriptionsRouter } from "./codeDescriptions";
 import { nicheRouter } from "./nicheRouter";
+import { prototypeRouter } from "./prototypeRouter";
 import { ALL_PROMPTS } from "./prompts/index";
 
 export const appRouter = router({
@@ -24,6 +25,7 @@ export const appRouter = router({
   companyFinder: companyFinderRouter,
   codeDescriptions: codeDescriptionsRouter,
   niche: nicheRouter,
+  prototype: prototypeRouter,
 
   // Prompt Repository — exposes the full prompt catalogue for transparency
   prompts: router({

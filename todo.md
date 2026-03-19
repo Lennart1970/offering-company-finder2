@@ -1775,3 +1775,17 @@
 - [x] Add "FIND ALL DECISION MAKERS (50+)" indigo button on Search Results page
 - [x] Progress bar label shows "FINDING DECISION MAKERS..." when contacts batch is running
 - [x] Progress bar stats show contacts found count
+
+## Feature: Fast Prototyping from Product Picture (MVP)
+- [x] Database schema: prototype_requests table with images, extraction data, customer info, status
+- [x] Server: image upload to S3 endpoint
+- [x] Server: LLM vision extraction (product type, key features, what's still needed)
+- [x] Server: tRPC procedures for create/read/update prototype requests
+- [x] Customer UI: upload page (1-3 images or URL)
+- [x] Customer UI: extraction display (product type, features, what's needed)
+- [x] Customer UI: request form (EAU, SOP, Region, notes) + Create Prototype Request button
+- [x] Customer UI: confirmation message after submission
+- [x] Internal UI: request list view (images, extraction, customer info)
+- [x] Internal UI: 3 action buttons (Request more info, Ask for sample, Start costing)
+- [x] Route registration in App.tsx
+- [x] Tests for extraction and request creation

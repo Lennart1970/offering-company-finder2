@@ -384,7 +384,13 @@ export default function CompanyDetail() {
       // Auto-save new BOM to DB (no existing bomId — always creates a new row)
       persistBom(result, selectedBomImages, false, null);
     },
-    onError: () => { setBomLoading(false); toast.error("BOM extraction failed"); },
+    onError: (err) => {
+      setBomLoading(false);
+      setBomModalOpen(false);
+      // Show the server error message if available (e.g. "image URLs expired")
+      const msg = err?.message ?? "BOM extraction failed";
+      toast.error(msg, { duration: 8000 });
+    },
   });
 
   const enrichBomMutation = trpc.prototype.enrichBomWithBrain.useMutation({
@@ -1782,7 +1788,8 @@ export default function CompanyDetail() {
                             <div className="py-16 text-center">
                               <div className="text-4xl mb-4">🔍</div>
                               <p className="font-black text-lg">Analysing product images...</p>
-                              <p className="text-sm text-muted-foreground mt-2">AI is identifying components and estimating costs. This takes 10–20 seconds.</p>
+                              <p className="text-sm text-muted-foreground mt-2">Loading and analysing image — this takes 10–20 seconds.</p>
+                              <p className="text-xs text-muted-foreground mt-1 opacity-60">Images are downloaded server-side before analysis for reliability.</p>
                             </div>
                           ) : bomResult ? (
                             <>

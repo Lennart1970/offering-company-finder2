@@ -28,6 +28,50 @@ function randomSuffix(): string {
   return Math.random().toString(36).substring(2, 10);
 }
 
+/**
+ * Download an external image URL and return a base64 data URI.
+ * This is necessary because Gemini (and many LLM vision APIs) cannot reliably
+ * fetch third-party URLs — they may be expired, blocked, or require referrer headers.
+ * By proxying through our server we guarantee the bytes reach the model.
+ *
+ * Returns null if the image cannot be fetched (network error, 4xx/5xx, wrong content-type).
+ */
+async function fetchImageAsDataUri(url: string): Promise<string | null> {
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 12_000); // 12s timeout
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        signal: controller.signal,
+        headers: {
+          // Mimic a real browser request so CDNs don't block us
+          "User-Agent": "Mozilla/5.0 (compatible; BOMAnalyser/1.0)",
+          "Accept": "image/*,*/*;q=0.8",
+        },
+      });
+    } finally {
+      clearTimeout(timeoutId);
+    }
+    if (!response.ok) {
+      console.warn(`[BOM] Image fetch failed (${response.status}): ${url}`);
+      return null;
+    }
+    const contentType = response.headers.get("content-type") ?? "image/jpeg";
+    // Only accept actual image content types
+    if (!contentType.startsWith("image/")) {
+      console.warn(`[BOM] Non-image content-type "${contentType}" for: ${url}`);
+      return null;
+    }
+    const buffer = await response.arrayBuffer();
+    const base64 = Buffer.from(buffer).toString("base64");
+    return `data:${contentType.split(";")[0].trim()};base64,${base64}`;
+  } catch (err: any) {
+    console.warn(`[BOM] Image fetch error for ${url}: ${err.message}`);
+    return null;
+  }
+}
+
 export const prototypeRouter = router({
   /**
    * Step 1: Upload images (base64) → store in S3 → return URLs
@@ -167,9 +211,27 @@ export const prototypeRouter = router({
     }))
     .mutation(async ({ input }) => {
       const { invokeLLM } = await import("./_core/llm");
-      const imageContent = input.imageUrls.slice(0, 6).map((url) => ({
+
+      // Proxy all images through our server so Gemini receives raw bytes (not
+      // third-party URLs that may be expired/blocked/require referrer headers).
+      const dataUris = await Promise.all(
+        input.imageUrls.slice(0, 6).map((url) => fetchImageAsDataUri(url))
+      );
+      const validDataUris = dataUris.filter((d): d is string => d !== null);
+
+      if (validDataUris.length === 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Could not load any of the selected images. " +
+            "The image URLs may have expired or be blocked. " +
+            "Please try refreshing the product images and selecting again.",
+        });
+      }
+
+      const imageContent = validDataUris.map((dataUri) => ({
         type: "image_url" as const,
-        image_url: { url, detail: "low" as const },
+        image_url: { url: dataUri, detail: "low" as const },
       }));
       const response = await invokeLLM({
         messages: [

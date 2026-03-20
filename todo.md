@@ -1895,3 +1895,10 @@
 
 ## UI Cleanup: Action Bar on Search Results
 - [x] Remove "FIND ALL DECISION MAKERS (50+)" button from the action bar — keep only SYNC TO SUPABASE, EXPORT CSV, EXPORT TO SHAREPOINT
+
+## BOM Analysis Stability Fix
+- [x] Add server-side image proxy endpoint that downloads image bytes and returns base64 data URI
+- [x] Update extractBomFromImages to proxy image URLs through the server before sending to Gemini
+- [x] Add timeout and error handling for image fetch (fallback gracefully if one image fails)
+- [x] Add clear user-facing error message when no images can be loaded
+- [x] Write tests for image proxy logic (11 tests passing)

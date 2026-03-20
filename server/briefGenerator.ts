@@ -121,6 +121,14 @@ function todayString(): string {
   return new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 }
 
+/** Strip markdown code fences that Grok sometimes wraps around JSON responses */
+function stripJsonFences(raw: string): string {
+  const trimmed = raw.trim();
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/);
+  if (fenceMatch) return fenceMatch[1].trim();
+  return trimmed;
+}
+
 /**
  * Call xAI Responses API with explicit web_search tool.
  * Pass a json_schema object to enforce strict structured output.
@@ -171,7 +179,7 @@ async function callGrokWithWebSearch(
         if (item.content && Array.isArray(item.content)) {
           const textContent = item.content.find((c: any) => c.type === "output_text");
           if (textContent?.text) {
-            return textContent.text;
+            return stripJsonFences(textContent.text);
           }
         }
       }
@@ -179,7 +187,7 @@ async function callGrokWithWebSearch(
 
     // Fallback: check for direct text field (older format)
     if (data.text) {
-      return data.text;
+      return stripJsonFences(data.text);
     }
 
     throw new Error("Unexpected Responses API format: no output text found in response.output[].content[]");

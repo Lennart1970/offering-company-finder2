@@ -1871,3 +1871,24 @@
 - [x] Return brainId + brainName on getSearchHistory query (LEFT JOIN offering_brain)
 - [x] Display brain badge (purple 🧠) on each campaign card in Search Results
 - [x] Write 12 unit tests for brain-campaign wiring (all passing)
+
+## Feature: Wire brainId into Downstream Scoring Pipeline
+- [ ] Pass campaign's stored brainId explicitly to fitScore, brief, and salesApproach calls
+- [ ] Ensure scoring uses the brain the campaign was created with, not the current active brain
+
+## Feature: Brain Badge on Company Detail Page
+- [ ] Show which brain was used for this company's research at the top of the Company Detail view
+- [ ] Display brain name + creation date so the sales rep knows the context of the brief
+
+## Feature: BOM + Capability Statement PDF Export
+- [ ] Add "Export Full BOM Report" button to the BOM modal
+- [ ] Bundle BOM table, Can Supply summary, and all generated Capability Statements into a single PDF
+- [ ] Allow sales rep to download and attach to quote email
+
+## Feature: Full-Pipeline Queue Worker (Enrich + Deep Research in One Go)
+- [x] Audit Apollo enrichment procedure to understand how to call it from the worker
+- [x] Add Step 0 to campaign queue worker: Apollo enrichment for unenriched companies
+- [x] Update enqueueSearch to also pick up companies with enrichmentStatus = pending (not just enriched)
+- [x] Update UI queue button label to "⚡ FULL PIPELINE" and status banner to show "Enrich → Score → Brief → Approach"
+- [x] Fix JSON markdown fence stripping in briefGenerator.ts (prevents JSON parse crash on Grok responses)
+- [x] Write 20 unit tests for full-pipeline worker logic (all passing)

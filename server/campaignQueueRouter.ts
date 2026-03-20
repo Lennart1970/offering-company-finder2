@@ -27,7 +27,8 @@ export const campaignQueueRouter = router({
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
 
-      // Get all enriched companies for this search
+      // Get ALL companies for this search (pending enrichment OR already enriched)
+      // The worker handles enrichment as Step 0, so we queue everything
       const allCompanies = await db
         .select({
           id: companies.id,
@@ -39,11 +40,15 @@ export const campaignQueueRouter = router({
         .from(companies)
         .where(and(
           eq(companies.searchId, input.searchId),
-          eq(companies.enrichmentStatus, "enriched"),
         ));
 
-      if (allCompanies.length === 0) {
-        return { enqueued: 0, skipped: 0, total: 0, message: "No enriched companies found in this campaign." };
+      // Exclude companies that failed enrichment with no apolloId (nothing we can do)
+      const processable = allCompanies.filter(
+        (c) => c.enrichmentStatus !== "failed" || c.salesApproachData
+      );
+
+      if (processable.length === 0) {
+        return { enqueued: 0, skipped: 0, total: 0, message: "No processable companies found in this campaign." };
       }
 
       // Find companies already in the queue (pending or running — don't double-queue)
@@ -57,7 +62,7 @@ export const campaignQueueRouter = router({
       const alreadyQueued = new Set(existingJobs.map((j) => j.companyId));
 
       // Filter: skip if already queued, and skip if already processed (unless forceRefresh)
-      const toEnqueue = allCompanies.filter((c) => {
+      const toEnqueue = processable.filter((c) => {
         if (alreadyQueued.has(c.id)) return false;
         if (!input.forceRefresh && c.briefData && c.salesApproachData) return false;
         return true;
@@ -66,8 +71,8 @@ export const campaignQueueRouter = router({
       if (toEnqueue.length === 0) {
         return {
           enqueued: 0,
-          skipped: allCompanies.length,
-          total: allCompanies.length,
+          skipped: processable.length,
+          total: processable.length,
           message: "All companies are already queued or fully processed.",
         };
       }
@@ -86,9 +91,9 @@ export const campaignQueueRouter = router({
 
       return {
         enqueued: toEnqueue.length,
-        skipped: allCompanies.length - toEnqueue.length,
-        total: allCompanies.length,
-        message: `${toEnqueue.length} companies added to the research queue.`,
+        skipped: processable.length - toEnqueue.length,
+        total: processable.length,
+        message: `${toEnqueue.length} companies queued for full pipeline (Enrich → Score → Brief → Approach).`,
       };
     }),
 

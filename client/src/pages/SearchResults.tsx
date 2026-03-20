@@ -410,10 +410,10 @@ export default function SearchResults() {
               <span className="text-blue-700 font-black text-sm animate-pulse">⚡ QUEUE ACTIVE</span>
               <span className="text-blue-800 text-sm font-bold">
                 {globalQueueStatus.running > 0 && (
-                  <span className="mr-3">▶ Researching: <strong>{globalQueueStatus.currentCompany ?? "..."}</strong></span>
+                  <span className="mr-3">▶ Processing: <strong>{globalQueueStatus.currentCompany ?? "..."}</strong></span>
                 )}
                 {globalQueueStatus.pending > 0 && (
-                  <span>{globalQueueStatus.pending} pending — ~{globalQueueStatus.estimatedMinutes} min remaining</span>
+                  <span>{globalQueueStatus.pending} pending — ~{globalQueueStatus.estimatedMinutes} min remaining · Enrich → Score → Brief → Approach</span>
                 )}
               </span>
             </div>
@@ -483,9 +483,9 @@ export default function SearchResults() {
                             }}
                             disabled={isPending || enqueueSearch.isPending}
                             className="text-xs font-black border-2 px-3 py-1 transition-colors border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white disabled:opacity-40"
-                            title="Queue all unprocessed companies for background deep research (1 per 5 min)"
+                            title="Queue all companies for automated full pipeline: Enrich → Fit Score → Deep Research Brief → Sales Approach (1 per 5 min)"
                           >
-                            {isPending ? "QUEUING..." : "⚡ QUEUE RESEARCH"}
+                            {isPending ? "QUEUING..." : "⚡ FULL PIPELINE"}
                           </button>
                         );
                       })()}

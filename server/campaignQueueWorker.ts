@@ -2,10 +2,12 @@
  * Campaign Research Queue Worker
  * --------------------------------
  * Runs inside the Express process. Every 5 minutes it picks the next
- * pending job from campaign_queue and runs the full deep-research pipeline:
- *   1. Fit Score (scoreCompanyFit)
- *   2. Deep Research Brief (generateSalesIntelligenceBrief)
- *   3. Sales Approach (generateSalesApproach)
+ * pending job from campaign_queue and runs the FULL pipeline:
+ *
+ *   Step 0: Apollo Enrichment  (if enrichmentStatus === "pending")
+ *   Step 1: Fit Score          (scoreCompanyFit)
+ *   Step 2: Deep Research Brief (generateSalesIntelligenceBrief)
+ *   Step 3: Sales Approach     (generateSalesApproach)
  *
  * Designed to be indestructible:
  *  - Catches all errors per company and marks them failed without crashing
@@ -61,7 +63,7 @@ async function processNextJob() {
       .where(eq(campaignQueue.id, job.id));
 
     // Fetch fresh company data
-    const company = await getCompanyById(job.companyId);
+    let company = await getCompanyById(job.companyId);
     if (!company) {
       await db.update(campaignQueue).set({
         status: "failed",
@@ -73,6 +75,40 @@ async function processNextJob() {
     }
 
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+
+    // ── Step 0: Apollo Enrichment ────────────────────────────────────────────
+    // Run if the company is still in "pending" enrichment status
+    if (company.enrichmentStatus === "pending") {
+      if (!company.apolloId) {
+        console.warn(`[CampaignQueue] ⚠ Company ${company.name} has no apolloId — skipping enrichment`);
+        // Mark as enriched anyway so downstream steps can still run with available data
+        await updateCompany(job.companyId, { enrichmentStatus: "enriched" });
+      } else {
+        try {
+          const { enrichCompanyDetails } = await import("./apolloSearch");
+          console.log(`[CampaignQueue] Step 0: Enriching ${company.name} via Apollo...`);
+          const details = await enrichCompanyDetails(company.apolloId);
+          await updateCompany(job.companyId, {
+            city: details.city,
+            state: details.state,
+            country: details.country,
+            streetAddress: details.street_address,
+            rawAddress: details.raw_address,
+            enrichmentStatus: "enriched",
+          });
+          console.log(`[CampaignQueue] ✓ Enriched: ${company.name} (${details.city ?? "?"}, ${details.country ?? "?"})`);
+          // Refresh company data after enrichment
+          company = await getCompanyById(job.companyId) ?? company;
+        } catch (err: any) {
+          console.warn(`[CampaignQueue] ⚠ Enrichment failed for ${company.name}: ${err.message}`);
+          await updateCompany(job.companyId, { enrichmentStatus: "failed" });
+          // Non-fatal — continue to scoring with what we have
+          company = await getCompanyById(job.companyId) ?? company;
+        }
+      }
+    } else {
+      console.log(`[CampaignQueue] ↩ Already enriched: ${company.name}`);
+    }
 
     // ── Step 1: Fit Score ────────────────────────────────────────────────────
     if (job.jobType === "full" && !company.fitScore) {
@@ -88,6 +124,8 @@ async function processNextJob() {
         console.warn(`[CampaignQueue] ⚠ Fit score failed for ${company.name}: ${err.message}`);
         // Non-fatal — continue to brief
       }
+    } else if (company.fitScore) {
+      console.log(`[CampaignQueue] ↩ Fit score cached: ${company.name} (${company.fitScore})`);
     }
 
     // ── Step 2: Deep Research Brief ──────────────────────────────────────────
@@ -126,7 +164,7 @@ async function processNextJob() {
         salesApproachGeneratedAt: new Date(),
       });
       console.log(`[CampaignQueue] ✓ Sales approach: ${company.name}`);
-    } else if (!needsApproach) {
+    } else {
       console.log(`[CampaignQueue] ↩ Sales approach cached: ${company.name}`);
     }
 
@@ -163,7 +201,7 @@ async function processNextJob() {
 
 export function startCampaignQueueWorker() {
   if (workerInterval) return; // Already running
-  console.log(`[CampaignQueue] Worker started — interval: ${INTERVAL_MS / 1000}s`);
+  console.log(`[CampaignQueue] Worker started — interval: ${INTERVAL_MS / 1000}s (full pipeline: Enrich → Score → Brief → Approach)`);
   // Run immediately on startup to pick up any pending jobs
   processNextJob().catch(console.error);
   workerInterval = setInterval(() => {

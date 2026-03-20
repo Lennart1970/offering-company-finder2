@@ -167,6 +167,38 @@ Return JSON:
   const content = typeof rawContent === 'string' ? rawContent : null;
   if (!content) throw new Error("LLM returned empty response during brain normalisation");
 
-  const result = JSON.parse(content) as BrainResearchResult;
+  const llmResult = JSON.parse(content) as Partial<BrainResearchResult>;
+
+  // Defensive normalisation: the LLM may return null or missing sub-arrays
+  // (especially for sparse Excel inputs). Mirror the same guards used in
+  // brainResearchService.ts to prevent downstream .map() crashes.
+  const toStringArray = (v: unknown): string[] =>
+    Array.isArray(v) ? (v as unknown[]).filter((x): x is string => typeof x === "string") : [];
+
+  const result: BrainResearchResult = {
+    companyName: llmResult.companyName ?? "",
+    companyWebsite: llmResult.companyWebsite ?? "",
+    offeringSummary: llmResult.offeringSummary ?? "",
+    coreCapabilities: toStringArray(llmResult.coreCapabilities),
+    valuePropositions: Array.isArray(llmResult.valuePropositions)
+      ? (llmResult.valuePropositions as Array<{ proposition?: string; targetAudience?: string }>).map((vp) => ({
+          proposition: vp.proposition ?? "",
+          targetAudience: vp.targetAudience ?? "",
+        }))
+      : [],
+    competitiveAdvantages: llmResult.competitiveAdvantages ?? "",
+    icpIndustries: toStringArray(llmResult.icpIndustries),
+    icpCompanySize: llmResult.icpCompanySize ?? "",
+    icpGeography: llmResult.icpGeography ?? "",
+    icpPainPoints: toStringArray(llmResult.icpPainPoints),
+    icpBuyingSignals: toStringArray(llmResult.icpBuyingSignals),
+    fitCriteria: {
+      mustHave: toStringArray(llmResult.fitCriteria?.mustHave),
+      niceToHave: toStringArray(llmResult.fitCriteria?.niceToHave),
+      disqualifiers: toStringArray(llmResult.fitCriteria?.disqualifiers),
+    },
+    urgencyTriggers: toStringArray(llmResult.urgencyTriggers),
+  };
+
   return result;
 }

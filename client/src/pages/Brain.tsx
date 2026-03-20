@@ -87,7 +87,16 @@ export default function Brain() {
   const industries = useMemo(() => parseJson<string[]>(brain?.icpIndustries, []), [brain?.icpIndustries]);
   const painPoints = useMemo(() => parseJson<string[]>(brain?.icpPainPoints, []), [brain?.icpPainPoints]);
   const buyingSignals = useMemo(() => parseJson<string[]>(brain?.icpBuyingSignals, []), [brain?.icpBuyingSignals]);
-  const fitCriteria = useMemo(() => parseJson<{ mustHave: string[]; niceToHave: string[]; disqualifiers: string[] }>(brain?.fitCriteria, { mustHave: [], niceToHave: [], disqualifiers: [] }), [brain?.fitCriteria]);
+  const fitCriteria = useMemo(() => {
+    const raw = parseJson<{ mustHave?: string[] | null; niceToHave?: string[] | null; disqualifiers?: string[] | null }>(brain?.fitCriteria, {});
+    // Guard: LLM may have stored null sub-arrays (e.g. from sparse Excel uploads).
+    // Ensure every sub-array is always a real array so .map() never crashes.
+    return {
+      mustHave: Array.isArray(raw.mustHave) ? raw.mustHave : [],
+      niceToHave: Array.isArray(raw.niceToHave) ? raw.niceToHave : [],
+      disqualifiers: Array.isArray(raw.disqualifiers) ? raw.disqualifiers : [],
+    };
+  }, [brain?.fitCriteria]);
   const urgencyTriggers = useMemo(() => parseJson<string[]>(brain?.urgencyTriggers, []), [brain?.urgencyTriggers]);
 
   const handleStartEdit = (field: string, currentValue: string) => {

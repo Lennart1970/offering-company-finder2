@@ -1902,3 +1902,17 @@
 - [x] Add timeout and error handling for image fetch (fallback gracefully if one image fails)
 - [x] Add clear user-facing error message when no images can be loaded
 - [x] Write tests for image proxy logic (11 tests passing)
+
+## Feature: Product Image Quality Scoring
+- [ ] Add AI vision step that scores each fetched product image on clarity, ambiguity, and product focus (0–10 scale)
+- [ ] Store image quality scores alongside product images in the database
+- [ ] Surface image quality score as a "desirability signal" on the Company Detail page (e.g. amber badge "Clear product photos" vs grey "Low-quality images")
+- [ ] Factor image quality score into the overall fit/desirability score shown on company cards
+- [ ] In the BOM selection UI, show quality score on each image thumbnail so the user picks the best one
+- [ ] Consider adding "Product Clarity" as a standalone dimension in the Fit Score rubric
+
+## Bug: "Edit Excel Brain" back-navigation crashes with "Cannot read properties of undefined (reading 'map')"
+- [x] Find which component renders after navigating back from the Excel brain editor
+- [x] Identify the array that is undefined — fitCriteria sub-arrays (mustHave/niceToHave/disqualifiers) stored as null by LLM
+- [x] Add null/undefined guards before all .map() calls on brain data (server + client)
+- [x] Test back-navigation flow — 13 new tests passing

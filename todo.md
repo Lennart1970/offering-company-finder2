@@ -1892,3 +1892,6 @@
 - [x] Update UI queue button label to "⚡ FULL PIPELINE" and status banner to show "Enrich → Score → Brief → Approach"
 - [x] Fix JSON markdown fence stripping in briefGenerator.ts (prevents JSON parse crash on Grok responses)
 - [x] Write 20 unit tests for full-pipeline worker logic (all passing)
+
+## UI Cleanup: Action Bar on Search Results
+- [x] Remove "FIND ALL DECISION MAKERS (50+)" button from the action bar — keep only SYNC TO SUPABASE, EXPORT CSV, EXPORT TO SHAREPOINT

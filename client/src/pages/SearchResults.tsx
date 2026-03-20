@@ -900,13 +900,6 @@ export default function SearchResults() {
                 {syncToSupabaseMutation.isPending ? "⏳ SYNCING..." : "⚡ SYNC TO SUPABASE"}
               </Button>
               <Button
-                onClick={() => batchContactsMutation.mutate({ searchId: searchId!, minUrgencyScore: 50 })}
-                disabled={isJobRunning}
-                className="text-lg px-6 py-4 font-black bg-indigo-600 text-white hover:bg-indigo-700 transition-colors disabled:opacity-50"
-              >
-                {batchContactsMutation.isPending ? "STARTING..." : "👤 FIND ALL DECISION MAKERS (50+)"}
-              </Button>
-              <Button
                 onClick={handleExportCsv}
                 variant="outline"
                 className="text-lg px-6 py-4 font-black border-2 border-black"

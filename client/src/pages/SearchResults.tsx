@@ -45,16 +45,39 @@ export default function SearchResults() {
   const isSelectMode = searchIdParam === "select" || !searchIdParam;
   const searchId = isSelectMode ? null : parseInt(searchIdParam, 10);
 
+  const [page, setPage] = useState(0);
+  const [allCompanies, setAllCompanies] = useState<any[]>([]);
+
   const { data: searchData, isLoading: searchLoading } = trpc.companyFinder.getSearch.useQuery(
-    { searchId: searchId! },
+    { searchId: searchId!, page, pageSize: 100 },
     {
       enabled: !!searchId,
       refetchInterval: (query) => {
         const data = query.state.data;
-        return data?.search.status === "completed" || data?.search.status === "failed" ? false : 2000;
+        return data?.search.status === "completed" || data?.search.status === "failed" ? false : 5000;
       },
     }
   );
+
+  // Accumulate companies across pages
+  useEffect(() => {
+    if (!searchData?.companies) return;
+    if (page === 0) {
+      setAllCompanies(searchData.companies as any);
+    } else {
+      setAllCompanies((prev) => {
+        const existingIds = new Set(prev.map((c: any) => c.id));
+        const newOnes = (searchData.companies as any[]).filter((c: any) => !existingIds.has(c.id));
+        return [...prev, ...newOnes];
+      });
+    }
+  }, [searchData?.companies, page]);
+
+  // Reset accumulated companies when search changes
+  useEffect(() => {
+    setPage(0);
+    setAllCompanies([]);
+  }, [searchId]);
 
   const [showArchived, setShowArchived] = useState(false);
   const { data: searchHistory, refetch: refetchHistory } = trpc.companyFinder.getSearchHistory.useQuery({ showArchived });
@@ -281,12 +304,12 @@ export default function SearchResults() {
   const excludedSectorsSet = useMemo(() => new Set(excludedSectors), [excludedSectors]);
 
   const { filteredCompanies, excludedCompanies, callTodayCompanies } = useMemo(() => {
-    if (!searchData?.companies) return { filteredCompanies: [], excludedCompanies: [], callTodayCompanies: [] };
+    if (!allCompanies.length && !searchData?.companies) return { filteredCompanies: [], excludedCompanies: [], callTodayCompanies: [] };
 
-    const filtered: typeof searchData.companies = [];
-    const excluded: typeof searchData.companies = [];
+    const filtered: any[] = [];
+    const excluded: any[] = [];
 
-    for (const company of searchData.companies) {
+    for (const company of allCompanies) {
       let isExcluded = false;
 
       if (company.naicsCodes && excludedSectorsSet.size > 0) {
@@ -331,7 +354,7 @@ export default function SearchResults() {
     });
 
     return { filteredCompanies: filtered, excludedCompanies: excluded, callTodayCompanies: callToday };
-  }, [searchData?.companies, searchData?.decisions, excludedSicSet, excludedNaicsSet, excludedSectorsSet]);
+  }, [allCompanies, searchData?.decisions, excludedSicSet, excludedNaicsSet, excludedSectorsSet]);
 
   const enrichmentFiltered = useMemo(() => {
     if (enrichmentFilter === "enriched") return filteredCompanies.filter(c => c.enrichmentStatus === "enriched");
@@ -360,16 +383,16 @@ export default function SearchResults() {
 
   // High-urgency companies not yet in Call Today list
   const highUrgencyNotCalled = useMemo(() => {
-    if (!searchData?.companies || !searchData?.decisions) return [];
+    if (!allCompanies.length || !searchData?.decisions) return [];
     const callTodayIds = new Set(
       searchData.decisions
         .filter((d: any) => d.decision === "call_today")
         .map((d: any) => d.companyId)
     );
-    return searchData.companies
+    return allCompanies
       .filter((c: any) => (c.urgencyScore || 0) >= 70 && !callTodayIds.has(c.id))
       .sort((a: any, b: any) => (b.urgencyScore || 0) - (a.urgencyScore || 0));
-  }, [searchData?.companies, searchData?.decisions]);
+  }, [allCompanies, searchData?.decisions]);
 
   const addAllHighUrgencyToCallToday = async () => {
     if (!searchId || highUrgencyNotCalled.length === 0) return;
@@ -383,11 +406,10 @@ export default function SearchResults() {
 
   // Remaining work = pending + no-brief + no-approach (must be before early returns)
   const remainingWork = useMemo(() => {
-    if (!searchData?.companies) return 0;
-    return searchData.companies.filter(
+    return allCompanies.filter(
       (c: any) => c.enrichmentStatus === "pending" || !c.briefData || !c.salesApproachData
     ).length;
-  }, [searchData?.companies]);
+  }, [allCompanies]);
 
   // Search selector mode
   if (isSelectMode) {
@@ -591,7 +613,7 @@ export default function SearchResults() {
   const totalCount = filteredCompanies.length;
   const enrichedCount = enrichmentStats?.enriched ?? 0;
   const outreachReadyCount = enrichmentStats?.outreachReady ?? 0;
-  const researchedCount = searchData.companies.filter((c: any) => !!c.briefData).length;
+  const researchedCount = allCompanies.filter((c: any) => !!c.briefData).length;
 
 
 
@@ -736,7 +758,7 @@ export default function SearchResults() {
         </div>
       )}
 
-      {(searchData.search.status === "completed" || searchData.search.status === "searching") && searchData.companies.length > 0 && (
+      {(searchData.search.status === "completed" || searchData.search.status === "searching") && allCompanies.length > 0 && (
         <>
           {/* HERO SENTENCE — the main message for sales reps */}
           <div className="mb-6 mt-4">
@@ -1036,9 +1058,21 @@ export default function SearchResults() {
               />
             ))}
 
+            {/* Load More button */}
+            {searchData?.pagination?.hasMore && (
+              <div className="pt-6 pb-2 text-center">
+                <button
+                  onClick={() => setPage((p) => p + 1)}
+                  className="border-4 border-black px-8 py-3 text-sm font-black hover:bg-black hover:text-white transition-colors"
+                >
+                  LOAD MORE — showing {allCompanies.length} of {searchData.pagination.total}
+                </button>
+              </div>
+            )}
+
             {/* Quick-View Modal for Research/Approach header cards */}
             {quickViewCompanyId && quickViewMode && (() => {
-              const qc = searchData?.companies?.find((c: any) => c.id === quickViewCompanyId);
+              const qc = allCompanies?.find((c: any) => c.id === quickViewCompanyId);
               if (!qc) return null;
               const briefData = qc.briefData ? (typeof qc.briefData === 'string' ? JSON.parse(qc.briefData) : qc.briefData) : null;
               const salesApproach = qc.salesApproachData ? (typeof qc.salesApproachData === 'string' ? JSON.parse(qc.salesApproachData) : qc.salesApproachData) : null;
@@ -1157,7 +1191,7 @@ export default function SearchResults() {
         </>
       )}
 
-      {searchData.search.status === "completed" && searchData.companies.length === 0 && (
+      {searchData.search.status === "completed" && allCompanies.length === 0 && (
         <div className="border-4 border-black p-12 text-center">
           <div className="text-3xl font-black mb-4">NO MATCHES FOUND</div>
           <div className="text-lg font-bold text-muted-foreground">Try a different location or offering</div>

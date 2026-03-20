@@ -1,0 +1,18 @@
+{
+  "query": "SELECT id, status, offeringName, offeringDescription, companyWebsite, errorMessage FROM searches WHERE id = 1350003;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, status, offeringName, offeringDescription, companyWebsite, errorMessage FROM searches WHERE id = 1350003;",
+  "rows": [
+    {
+      "id": "1350003",
+      "status": "completed",
+      "offeringName": "[Niche] Medical Device Suppliers",
+      "offeringDescription": "This niche comprises companies specializing in the design, manufacturing, distribution, and maintenance of a wide range of medical devices. They cater to healthcare providers, hospitals, and clinics, offering solutions for diagnostics, treatment, patient care, and surgical procedures. Their offerings span from general medical equipment to specialized devices for specific medical fields.",
+      "companyWebsite": "",
+      "errorMessage": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tstatus\tofferingName\tofferingDescription\tcompanyWebsite\terrorMessage\n1350003\tcompleted\t[Niche] Medical Device Suppliers\tThis niche comprises companies specializing in the design, manufacturing, distribution, and maintenance of a wide range of medical devices. They cater to healthcare providers, hospitals, and clinics, offering solutions for diagnostics, treatment, patient care, and surgical procedures. Their offerings span from general medical equipment to specialized devices for specific medical fields.\t\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 50
+}

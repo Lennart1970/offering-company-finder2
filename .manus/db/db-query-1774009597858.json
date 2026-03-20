@@ -1,0 +1,13 @@
+{
+  "query": "SELECT COUNT(*) as total FROM companies WHERE searchId = 1350003;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT COUNT(*) as total FROM companies WHERE searchId = 1350003;",
+  "rows": [
+    {
+      "total": "876"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\n876\n",
+  "stderr": "",
+  "execution_time_ms": 56
+}

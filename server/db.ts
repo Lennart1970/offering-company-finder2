@@ -181,6 +181,25 @@ export async function getCompaniesBySearchId(searchId: number) {
   return db.select().from(companies).where(eq(companies.searchId, searchId));
 }
 
+export async function getCompaniesBySearchIdPaged(searchId: number, limit = 100, offset = 0) {
+  const { desc } = await import("drizzle-orm");
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(companies)
+    .where(eq(companies.searchId, searchId))
+    .orderBy(desc(companies.fitScore), desc(companies.urgencyScore))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function countCompaniesBySearchId(searchId: number) {
+  const { count } = await import("drizzle-orm");
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.select({ total: count() }).from(companies).where(eq(companies.searchId, searchId));
+  return result[0]?.total ?? 0;
+}
+
 export async function getCompaniesByNicheId(nicheId: number, limit = 500, offset = 0) {
   const { and } = await import("drizzle-orm");
   const db = await getDb();

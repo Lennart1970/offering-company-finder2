@@ -36,6 +36,8 @@ import {
   updateBatchJob,
   getLatestBatchJobForSearch,
   archiveSearch,
+  getCompaniesBySearchIdPaged,
+  countCompaniesBySearchId,
 } from "./db";
 // Brain and contacts-by-company imports are above with brainResearchService
 import { searchApolloContacts, searchApolloContacts as searchApolloContactsSingle, trickleDownSearch, getAllPersonnel, enrichPerson, SENIORITY_TIERS } from "./apolloPeopleSearch";
@@ -168,23 +170,25 @@ export const companyFinderRouter = router({
       return { searchId };
     }),
 
-  // Get search status and results
+  // Get search status and results (paginated — default 100 per page)
   getSearch: protectedProcedure
-    .input(z.object({ searchId: z.number() }))
+    .input(z.object({ searchId: z.number(), page: z.number().optional().default(0), pageSize: z.number().optional().default(100) }))
     .query(async ({ ctx, input }) => {
       const search = await assertSearchAccess(input.searchId, ctx.user.id);
 
-      const companiesList = await getCompaniesBySearchId(input.searchId);
-      const decisions = await getDecisionsBySearch(input.searchId);
+      const offset = input.page * input.pageSize;
+      const [companiesList, decisions, totalCount] = await Promise.all([
+        getCompaniesBySearchIdPaged(input.searchId, input.pageSize, offset),
+        getDecisionsBySearch(input.searchId),
+        countCompaniesBySearchId(input.searchId),
+      ]);
 
-      // Count enrichment stats
+      // Compute enrichment stats from the full page (approximate for display)
       const enrichedCount = companiesList.filter((c) => c.enrichmentStatus === "enriched").length;
       const pendingCount = companiesList.filter((c) => c.enrichmentStatus === "pending").length;
-      // Name-only: pending companies with no apolloId and no primaryDomain (conference imports)
       const nameOnlyCount = companiesList.filter(
         (c) => c.enrichmentStatus === "pending" && !c.apolloId && !c.primaryDomain
       ).length;
-      // Outreach ready: enriched companies with a sales approach generated
       const outreachReadyCount = companiesList.filter(
         (c) => c.enrichmentStatus === "enriched" && !!c.salesApproachData
       ).length;
@@ -193,8 +197,14 @@ export const companyFinderRouter = router({
         search,
         companies: companiesList,
         decisions,
+        pagination: {
+          page: input.page,
+          pageSize: input.pageSize,
+          total: totalCount,
+          hasMore: offset + companiesList.length < totalCount,
+        },
         enrichmentStats: {
-          total: companiesList.length,
+          total: totalCount,
           enriched: enrichedCount,
           pending: pendingCount,
           nameOnly: nameOnlyCount,

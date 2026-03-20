@@ -1916,3 +1916,9 @@
 - [x] Identify the array that is undefined — fitCriteria sub-arrays (mustHave/niceToHave/disqualifiers) stored as null by LLM
 - [x] Add null/undefined guards before all .map() calls on brain data (server + client)
 - [x] Test back-navigation flow — 13 new tests passing
+
+## Search Results Pagination Fix
+- [x] Add getCompaniesBySearchIdPaged and countCompaniesBySearchId to db.ts
+- [x] Replace getSearch procedure with paginated version (100 companies per page, sorted by fitScore/urgencyScore)
+- [x] Update SearchResults.tsx to accumulate companies across pages with allCompanies state
+- [x] Add LOAD MORE button showing X of Y total

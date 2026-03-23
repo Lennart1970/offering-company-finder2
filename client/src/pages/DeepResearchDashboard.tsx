@@ -4,6 +4,7 @@ import { trpc } from "@/lib/trpc";
 import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { normaliseSalesApproach } from "@shared/normaliseStarters";
 
 /** Safely extract a string from any conversationStarter shape */
 function safeStarterText(s: any): string {
@@ -491,7 +492,7 @@ export default function DeepResearchDashboard() {
         linkedinUrl: company.linkedinUrl,
         urgencyScore: company.urgencyScore,
         briefData: company.briefData ? JSON.parse(company.briefData) : null,
-        salesApproachData: company.salesApproachData ? JSON.parse(company.salesApproachData) : null,
+        salesApproachData: company.salesApproachData ? normaliseSalesApproach(JSON.parse(company.salesApproachData)) : null,
         briefGeneratedAt: company.briefGeneratedAt,
         salesApproachGeneratedAt: company.salesApproachGeneratedAt,
         decisionMakers: Array.isArray(company.contacts) ? company.contacts.map((contact: any) => ({
@@ -670,7 +671,7 @@ export default function DeepResearchDashboard() {
           {sortedCompanies.map((company: any) => {
             const isExpanded = expandedCompanyId === company.id;
             const briefData = company.briefData ? JSON.parse(company.briefData) : null;
-            const salesApproach = company.salesApproachData ? JSON.parse(company.salesApproachData) : null;
+            const salesApproach = company.salesApproachData ? normaliseSalesApproach(JSON.parse(company.salesApproachData)) : null;
             const urgencyScore = briefData?.urgencyScore || company.urgencyScore || 0;
 
             return (

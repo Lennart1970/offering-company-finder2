@@ -118,6 +118,30 @@ const SALES_APPROACH_SCHEMA = {
 };
 
 /**
+ * Normalise a conversationStarters array so every item is {opener, sourceUrl, basedOn}.
+ * Handles all known LLM output shapes:
+ *   - plain string
+ *   - {opener, sourceUrl, basedOn}  (canonical)
+ *   - {type, description, conversationStarter}  (legacy Grok shape)
+ *   - {text, ...} or any other object
+ */
+export function normaliseConversationStarters(raw: any[]): Array<{opener: string; sourceUrl: string; basedOn: string}> {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((s) => {
+    if (typeof s === "string") return { opener: s, sourceUrl: "", basedOn: "" };
+    if (s && typeof s === "object") {
+      const opener: string = s.opener ?? s.conversationStarter ?? s.description ?? s.text ?? JSON.stringify(s);
+      return {
+        opener,
+        sourceUrl: typeof s.sourceUrl === "string" ? s.sourceUrl : "",
+        basedOn: typeof s.basedOn === "string" ? s.basedOn : (typeof s.type === "string" ? s.type : ""),
+      };
+    }
+    return { opener: String(s ?? ""), sourceUrl: "", basedOn: "" };
+  });
+}
+
+/**
  * Call xAI Responses API with explicit web_search tool.
  * Uses strict json_schema mode to enforce the SalesApproach contract.
  */
@@ -268,7 +292,7 @@ ${verifiedSources || "No verified sources available."}
   const salesApproach: SalesApproach = {
     companyName: company.name,
     generatedAt: new Date().toISOString(),
-    conversationStarters: approachData.conversationStarters || [],
+    conversationStarters: normaliseConversationStarters(approachData.conversationStarters || []),
     engagementStrategy: approachData.engagementStrategy || {
       whyThisProspectMatters: [],
       recommendedApproach: [],

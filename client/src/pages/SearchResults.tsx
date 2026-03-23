@@ -7,6 +7,7 @@ import { useLocation, useParams } from "wouter";
 import CompanyDecisionButtons from "@/components/CompanyDecisionButtons";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
+import { normaliseSalesApproach } from "@shared/normaliseStarters";
 
 // Format revenue to human-readable string
 function formatRevenue(revenue: number | string | null): string {
@@ -1075,7 +1076,7 @@ export default function SearchResults() {
               const qc = allCompanies?.find((c: any) => c.id === quickViewCompanyId);
               if (!qc) return null;
               const briefData = qc.briefData ? (typeof qc.briefData === 'string' ? JSON.parse(qc.briefData) : qc.briefData) : null;
-              const salesApproach = qc.salesApproachData ? (typeof qc.salesApproachData === 'string' ? JSON.parse(qc.salesApproachData) : qc.salesApproachData) : null;
+              const salesApproach = normaliseSalesApproach(qc.salesApproachData ? (typeof qc.salesApproachData === 'string' ? JSON.parse(qc.salesApproachData) : qc.salesApproachData) : null);
               const copyText = (text: string, label: string) => { navigator.clipboard.writeText(text); toast.success(`${label} copied`); };
               return (
                 <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4" onClick={() => { setQuickViewCompanyId(null); setQuickViewMode(null); }}>
@@ -1360,7 +1361,7 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
             })()}
             {company.salesApproachData && (() => {
               let sa: any = null;
-              try { sa = typeof company.salesApproachData === 'string' ? JSON.parse(company.salesApproachData) : company.salesApproachData; } catch {}
+              try { sa = normaliseSalesApproach(typeof company.salesApproachData === 'string' ? JSON.parse(company.salesApproachData) : company.salesApproachData); } catch {}
               const approachSections = [
                 sa?.conversationStarters?.length > 0 && `Conversation Starters (${sa.conversationStarters.length})`,
                 sa?.emailDraft && 'Email Draft',

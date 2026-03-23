@@ -7,6 +7,7 @@ import { trpc } from "@/lib/trpc";
 import { useState, useEffect, useMemo } from "react";
 import { toast } from "sonner";
 import { normalizeWebsiteUrl } from "@shared/urlUtils";
+import { normaliseSalesApproach } from "@shared/normaliseStarters";
 import { useLocation } from "wouter";
 import CompanyDecisionButtons from "@/components/CompanyDecisionButtons";
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
@@ -1600,7 +1601,7 @@ function CreateSalesApproachButton({ companyId, companyName }: { companyId: numb
 
   const generateApproachMutation = trpc.companyFinder.generateSalesApproach.useMutation({
     onSuccess: (data) => {
-      setSalesApproach(data.salesApproach);
+      setSalesApproach(normaliseSalesApproach(data.salesApproach));
       setIsGenerating(false);
       setShowApproach(true);
       toast.success("Sales approach generated!");

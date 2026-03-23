@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useLocation, useParams } from "wouter";
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
 import { Button } from "@/components/ui/button";
+import { normaliseSalesApproach } from "@shared/normaliseStarters";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 /** Safely extract a string from any conversationStarter shape */
@@ -208,7 +209,7 @@ export default function CompanyDetail() {
 
   const salesApproach = useMemo(() => {
     if (!company?.salesApproachData) return null;
-    try { return typeof company.salesApproachData === "string" ? JSON.parse(company.salesApproachData) : company.salesApproachData; }
+    try { return normaliseSalesApproach(typeof company.salesApproachData === "string" ? JSON.parse(company.salesApproachData) : company.salesApproachData); }
     catch { return null; }
   }, [company?.salesApproachData]);
 

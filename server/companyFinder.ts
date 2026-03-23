@@ -943,6 +943,11 @@ export const companyFinderRouter = router({
         if (cacheAge < sevenDaysMs) {
           console.log(`[generateSalesApproach] Using cached sales approach (age: ${Math.floor(cacheAge / (24 * 60 * 60 * 1000))} days)`);
           const cachedApproach = JSON.parse(company.salesApproachData);
+          // Normalise conversationStarters in case legacy data has wrong shape
+          const { normaliseConversationStarters } = await import("./salesApproachGenerator");
+          if (cachedApproach && Array.isArray(cachedApproach.conversationStarters)) {
+            cachedApproach.conversationStarters = normaliseConversationStarters(cachedApproach.conversationStarters);
+          }
           return {
             success: true,
             salesApproach: cachedApproach,

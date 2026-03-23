@@ -1536,9 +1536,10 @@ function DeepResearchButton({ companyId, companyName, hasResearch }: { companyId
               <div className="mb-6">
                 <h3 className="text-xl font-black mb-2">Conversation Starters</h3>
                 <ul className="list-disc pl-5 space-y-2">
-                  {briefData.conversationStarters.map((starter: any, i: number) => (
-                    <li key={i} className="text-gray-800">{typeof starter === 'string' ? starter : starter.opener || starter}</li>
-                  ))}
+                  {briefData.conversationStarters.map((starter: any, i: number) => {
+                    const text = typeof starter === 'string' ? starter : starter.opener ?? starter.conversationStarter ?? starter.description ?? '';
+                    return <li key={i} className="text-gray-800">{text}</li>;
+                  })}
                 </ul>
               </div>
             )}

@@ -12,6 +12,16 @@ import CompanyDecisionButtons from "@/components/CompanyDecisionButtons";
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
 import SelectedCodesDisplay from "@/components/SelectedCodesDisplay";
 
+/** Extract a displayable string from a conversationStarter that may be a plain string,
+ * {opener, basedOn, sourceUrl}, or {type, description, conversationStarter} */
+function safeStarterText(s: any): string {
+  if (typeof s === "string") return s;
+  if (s && typeof s === "object") {
+    return s.opener ?? s.conversationStarter ?? s.description ?? JSON.stringify(s);
+  }
+  return String(s ?? "");
+}
+
 export default function Home() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
@@ -1415,7 +1425,7 @@ function DeepResearchButton({ companyId, companyName }: { companyId: number; com
                 <ul className="list-disc pl-5 space-y-2">
                   {briefData.conversationStarters.map((starter: any, i: number) => (
                     <li key={i} className="text-blue-600">
-                      {typeof starter === 'string' ? starter : starter.opener || starter}
+                      {safeStarterText(starter)}
                     </li>
                   ))}
                 </ul>
@@ -1638,7 +1648,7 @@ function CreateSalesApproachButton({ companyId, companyName }: { companyId: numb
                 <div className="space-y-3">
                   {salesApproach.conversationStarters.map((starter: any, i: number) => (
                     <div key={i} className="p-2 bg-amber-50 rounded">
-                      <div className="text-sm font-medium">{typeof starter === 'string' ? starter : starter.opener}</div>
+                      <div className="text-sm font-medium">{safeStarterText(starter)}</div>
                       {typeof starter !== 'string' && starter.basedOn && (
                         <div className="text-xs text-gray-500 mt-1">Based on: {starter.basedOn}</div>
                       )}

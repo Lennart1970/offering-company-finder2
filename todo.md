@@ -1922,3 +1922,9 @@
 - [x] Replace getSearch procedure with paginated version (100 companies per page, sorted by fitScore/urgencyScore)
 - [x] Update SearchResults.tsx to accumulate companies across pages with allCompanies state
 - [x] Add LOAD MORE button showing X of Y total
+
+## ConversationStarter Render Crash Fix
+- [x] Add safeStarterText() helper in Home.tsx to handle {type, description, conversationStarter} shape
+- [x] Fix briefData.conversationStarters render in Home.tsx
+- [x] Fix salesApproach.conversationStarters render in Home.tsx
+- [x] Fix briefData.conversationStarters render in SearchResults.tsx

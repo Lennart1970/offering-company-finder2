@@ -1,0 +1,38 @@
+{
+  "query": "\nSELECT id, offeringName, location, status, createdAt\nFROM searches\nWHERE id IN (780001, 1350003, 1350004, 1380004);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT id, offeringName, location, status, createdAt\nFROM searches\nWHERE id IN (780001, 1350003, 1350004, 1380004);\n",
+  "rows": [
+    {
+      "id": "780001",
+      "offeringName": "VanderlandeUSA_Machinery_03_03_2026",
+      "location": "CSV Import",
+      "status": "completed",
+      "createdAt": "2026-03-03 16:37:32"
+    },
+    {
+      "id": "1350003",
+      "offeringName": "[Niche] Medical Device Suppliers",
+      "location": "Excel Import",
+      "status": "completed",
+      "createdAt": "2026-03-16 11:37:46"
+    },
+    {
+      "id": "1350004",
+      "offeringName": "[Niche] AI-Powered Video Surveillance & Analytics",
+      "location": "Excel Import",
+      "status": "completed",
+      "createdAt": "2026-03-16 11:38:13"
+    },
+    {
+      "id": "1380004",
+      "offeringName": "[Niche] Physical & Electronic Security Solutions",
+      "location": "Excel Import",
+      "status": "completed",
+      "createdAt": "2026-03-17 09:34:38"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tofferingName\tlocation\tstatus\tcreatedAt\n780001\tVanderlandeUSA_Machinery_03_03_2026\tCSV Import\tcompleted\t2026-03-03 16:37:32\n1350003\t[Niche] Medical Device Suppliers\tExcel Import\tcompleted\t2026-03-16 11:37:46\n1350004\t[Niche] AI-Powered Video Surveillance & Analytics\tExcel Import\tcompleted\t2026-03-16 11:38:13\n1380004\t[Niche] Physical & Electronic Security Solutions\tExcel Import\tcompleted\t2026-03-17 09:34:38\n",
+  "stderr": "",
+  "execution_time_ms": 59
+}

@@ -1,0 +1,8 @@
+{
+  "query": "\nSELECT \n  cq.searchId,\n  cq.status,\n  COUNT(*) as count,\n  MIN(cq.createdAt) as oldest_job,\n  MAX(cq.createdAt) as newest_job,\n  cq.companyName as currently_running\nFROM campaign_queue cq\nWHERE cq.status IN ('pending', 'running')\nGROUP BY cq.searchId, cq.status\nORDER BY cq.searchId, cq.status;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  cq.searchId,\n  cq.status,\n  COUNT(*) as count,\n  MIN(cq.createdAt) as oldest_job,\n  MAX(cq.createdAt) as newest_job,\n  cq.companyName as currently_running\nFROM campaign_queue cq\nWHERE cq.status IN ('pending', 'running')\nGROUP BY cq.searchId, cq.status\nORDER BY cq.searchId, cq.status;\n",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1055 (42000) at line 2: Expression #6 of SELECT list is not in GROUP BY clause and contains nonaggregated column 'jD7AgpCX9VGnkJhgqHKmjt.cq.companyName' which is not functionally dependent on columns in GROUP BY clause; this is incompatible with sql_mode=only_full_group_by"
+  ]
+}

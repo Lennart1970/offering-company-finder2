@@ -1,0 +1,45 @@
+{
+  "query": "\nSELECT \n  cq.searchId,\n  cq.status,\n  COUNT(*) as job_count,\n  MIN(cq.createdAt) as oldest_job,\n  MAX(cq.createdAt) as newest_job\nFROM campaign_queue cq\nWHERE cq.status IN ('pending', 'running')\nGROUP BY cq.searchId, cq.status\nORDER BY cq.searchId, cq.status;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  cq.searchId,\n  cq.status,\n  COUNT(*) as job_count,\n  MIN(cq.createdAt) as oldest_job,\n  MAX(cq.createdAt) as newest_job\nFROM campaign_queue cq\nWHERE cq.status IN ('pending', 'running')\nGROUP BY cq.searchId, cq.status\nORDER BY cq.searchId, cq.status;\n",
+  "rows": [
+    {
+      "searchId": "780001",
+      "status": "pending",
+      "job_count": "2",
+      "oldest_job": "2026-03-19 15:51:09",
+      "newest_job": "2026-03-19 15:51:09"
+    },
+    {
+      "searchId": "1350003",
+      "status": "pending",
+      "job_count": "169",
+      "oldest_job": "2026-03-19 15:51:03",
+      "newest_job": "2026-03-19 15:51:03"
+    },
+    {
+      "searchId": "1350003",
+      "status": "running",
+      "job_count": "1",
+      "oldest_job": "2026-03-19 15:51:03",
+      "newest_job": "2026-03-19 15:51:03"
+    },
+    {
+      "searchId": "1350004",
+      "status": "pending",
+      "job_count": "39",
+      "oldest_job": "2026-03-20 11:56:14",
+      "newest_job": "2026-03-20 11:56:14"
+    },
+    {
+      "searchId": "1380004",
+      "status": "pending",
+      "job_count": "22",
+      "oldest_job": "2026-03-20 09:50:55",
+      "newest_job": "2026-03-20 09:50:55"
+    }
+  ],
+  "messages": [],
+  "stdout": "searchId\tstatus\tjob_count\toldest_job\tnewest_job\n780001\tpending\t2\t2026-03-19 15:51:09\t2026-03-19 15:51:09\n1350003\tpending\t169\t2026-03-19 15:51:03\t2026-03-19 15:51:03\n1350003\trunning\t1\t2026-03-19 15:51:03\t2026-03-19 15:51:03\n1350004\tpending\t39\t2026-03-20 11:56:14\t2026-03-20 11:56:14\n1380004\tpending\t22\t2026-03-20 09:50:55\t2026-03-20 09:50:55\n",
+  "stderr": "",
+  "execution_time_ms": 56
+}

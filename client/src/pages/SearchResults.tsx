@@ -1138,8 +1138,8 @@ export default function SearchResults() {
                             <div className="space-y-3">
                               {salesApproach.conversationStarters.map((s: any, i: number) => (
                                 <div key={i} className="p-2 bg-white border border-gray-200">
-                                  <div className="text-sm font-medium">{typeof s === 'string' ? s : s.opener}</div>
-                                  {typeof s !== 'string' && s.basedOn && <div className="text-xs text-gray-500 mt-1">Based on: {s.basedOn}</div>}
+                  <div className="text-sm font-medium">{typeof s === 'string' ? s : s.opener ?? s.conversationStarter ?? s.description ?? ''}</div>
+                                   {typeof s !== 'string' && s.basedOn && <div className="text-xs text-gray-500 mt-1">Based on: {s.basedOn}</div>}
                                 </div>
                               ))}
                             </div>
@@ -1714,7 +1714,7 @@ function CreateSalesApproachButton({ companyId, companyName, hasSalesApproach }:
                 <div className="space-y-3">
                   {salesApproach.conversationStarters.map((starter: any, i: number) => (
                     <div key={i} className="p-2 bg-white border border-gray-200">
-                      <div className="text-sm font-medium">{typeof starter === 'string' ? starter : starter.opener}</div>
+                      <div className="text-sm font-medium">{typeof starter === 'string' ? starter : starter.opener ?? starter.conversationStarter ?? starter.description ?? ''}</div>
                       {typeof starter !== 'string' && starter.basedOn && <div className="text-xs text-gray-500 mt-1">Based on: {starter.basedOn}</div>}
                       {typeof starter !== 'string' && starter.sourceUrl && <a href={starter.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-gray-600 underline mt-1 inline-block">Source</a>}
                     </div>

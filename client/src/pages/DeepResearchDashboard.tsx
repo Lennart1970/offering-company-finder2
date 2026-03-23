@@ -5,6 +5,15 @@ import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 
+/** Safely extract a string from any conversationStarter shape */
+function safeStarterText(s: any): string {
+  if (typeof s === "string") return s;
+  if (s && typeof s === "object") {
+    return s.opener ?? s.conversationStarter ?? s.description ?? JSON.stringify(s);
+  }
+  return String(s ?? "");
+}
+
 // ============================================================================
 // Get All Personnel Button for Deep Research
 // ============================================================================
@@ -698,9 +707,7 @@ export default function DeepResearchDashboard() {
                       {/* Quick Summary */}
                       {briefData?.conversationStarters?.[0] && (
                         <div className="text-sm font-bold text-blue-600 mt-2 italic">
-                          "{typeof briefData.conversationStarters[0] === 'string' 
-                            ? briefData.conversationStarters[0] 
-                            : briefData.conversationStarters[0].opener}"
+                          "{safeStarterText(briefData.conversationStarters[0])}"
                         </div>
                       )}
                     </div>
@@ -832,8 +839,8 @@ export default function DeepResearchDashboard() {
                             <div className="space-y-2">
                               {salesApproach.conversationStarters.map((starter: any, i: number) => (
                                 <div key={i} className="text-sm p-2 bg-amber-50 border border-amber-200">
-                                  {typeof starter === 'string' ? starter : starter.opener}
-                                  {typeof starter !== 'string' && starter.sourceUrl && (
+                  {safeStarterText(starter)}
+                                   {typeof starter !== 'string' && starter.sourceUrl && (
                                     <a href={starter.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-600 underline ml-2">Source</a>
                                   )}
                                 </div>

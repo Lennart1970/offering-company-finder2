@@ -7,6 +7,15 @@ import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
 import { Button } from "@/components/ui/button";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
+/** Safely extract a string from any conversationStarter shape */
+function safeStarterText(s: any): string {
+  if (typeof s === "string") return s;
+  if (s && typeof s === "object") {
+    return s.opener ?? s.conversationStarter ?? s.description ?? JSON.stringify(s);
+  }
+  return String(s ?? "");
+}
+
 function formatRevenue(revenue: number | string | null): string {
   if (!revenue) return "—";
   const num = typeof revenue === "string" ? parseFloat(revenue) : revenue;
@@ -2185,8 +2194,8 @@ export default function CompanyDetail() {
                       {salesApproach.conversationStarters?.length > 0 ? (
                         <div className="space-y-3">
                           {salesApproach.conversationStarters.map((s: any, i: number) => (
-                            <div key={i} className="p-4 bg-amber-50 border-2 border-amber-200">
-                              <p className="text-sm font-medium">{typeof s === "string" ? s : s.opener}</p>
+            <div key={i} className="p-4 bg-amber-50 border-2 border-amber-200">
+                               <p className="text-sm font-medium">{safeStarterText(s)}</p>
                               {typeof s !== "string" && s.basedOn && <p className="text-xs text-muted-foreground mt-1">Based on: {s.basedOn}</p>}
                             </div>
                           ))}

@@ -1928,3 +1928,8 @@
 - [x] Fix briefData.conversationStarters render in Home.tsx
 - [x] Fix salesApproach.conversationStarters render in Home.tsx
 - [x] Fix briefData.conversationStarters render in SearchResults.tsx
+
+## Persistent conversationStarter crash on /brain page
+- [x] Full audit of Brain.tsx for every span/.map() that could render a raw object
+- [x] Fix all unsafe render sites on Brain.tsx
+- [x] Add global safety wrapper so this class of bug can never recur

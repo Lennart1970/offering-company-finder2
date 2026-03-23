@@ -13,6 +13,29 @@ function parseJson<T>(value: string | null | undefined, fallback: T): T {
   }
 }
 
+/**
+ * Parse a JSON field that should be string[], but the LLM may have stored
+ * objects like {type, description, conversationStarter} instead of plain strings.
+ * Every element is coerced to a displayable string.
+ */
+function parseStringArray(value: string | null | undefined): string[] {
+  if (!value) return [];
+  try {
+    const arr = JSON.parse(value);
+    if (!Array.isArray(arr)) return [];
+    return arr.map((item: any) => {
+      if (typeof item === 'string') return item;
+      if (item && typeof item === 'object') {
+        // Handle known LLM object shapes
+        return item.description ?? item.conversationStarter ?? item.opener ?? item.type ?? JSON.stringify(item);
+      }
+      return String(item);
+    });
+  } catch {
+    return [];
+  }
+}
+
 export default function Brain() {
   const [website, setWebsite] = useState("https://www.connectgroup.com");
   const [companyName, setCompanyName] = useState("ConnectGroup");
@@ -82,22 +105,29 @@ export default function Brain() {
   const brainHistory = historyData?.history || [];
 
   // Parse structured fields
-  const capabilities = useMemo(() => parseJson<string[]>(brain?.coreCapabilities, []), [brain?.coreCapabilities]);
+  const capabilities = useMemo(() => parseStringArray(brain?.coreCapabilities), [brain?.coreCapabilities]);
   const valueProps = useMemo(() => parseJson<Array<{ proposition: string; targetAudience: string }>>(brain?.valuePropositions, []), [brain?.valuePropositions]);
-  const industries = useMemo(() => parseJson<string[]>(brain?.icpIndustries, []), [brain?.icpIndustries]);
-  const painPoints = useMemo(() => parseJson<string[]>(brain?.icpPainPoints, []), [brain?.icpPainPoints]);
-  const buyingSignals = useMemo(() => parseJson<string[]>(brain?.icpBuyingSignals, []), [brain?.icpBuyingSignals]);
+  const industries = useMemo(() => parseStringArray(brain?.icpIndustries), [brain?.icpIndustries]);
+  const painPoints = useMemo(() => parseStringArray(brain?.icpPainPoints), [brain?.icpPainPoints]);
+  const buyingSignals = useMemo(() => parseStringArray(brain?.icpBuyingSignals), [brain?.icpBuyingSignals]);
   const fitCriteria = useMemo(() => {
-    const raw = parseJson<{ mustHave?: string[] | null; niceToHave?: string[] | null; disqualifiers?: string[] | null }>(brain?.fitCriteria, {});
-    // Guard: LLM may have stored null sub-arrays (e.g. from sparse Excel uploads).
-    // Ensure every sub-array is always a real array so .map() never crashes.
+    const raw = parseJson<{ mustHave?: any[] | null; niceToHave?: any[] | null; disqualifiers?: any[] | null }>(brain?.fitCriteria, {});
+    // Guard: LLM may have stored null sub-arrays or objects instead of strings.
+    const coerce = (arr: any) => {
+      if (!Array.isArray(arr)) return [];
+      return arr.map((item: any) => {
+        if (typeof item === 'string') return item;
+        if (item && typeof item === 'object') return item.description ?? item.conversationStarter ?? item.opener ?? item.type ?? JSON.stringify(item);
+        return String(item);
+      });
+    };
     return {
-      mustHave: Array.isArray(raw.mustHave) ? raw.mustHave : [],
-      niceToHave: Array.isArray(raw.niceToHave) ? raw.niceToHave : [],
-      disqualifiers: Array.isArray(raw.disqualifiers) ? raw.disqualifiers : [],
+      mustHave: coerce(raw.mustHave),
+      niceToHave: coerce(raw.niceToHave),
+      disqualifiers: coerce(raw.disqualifiers),
     };
   }, [brain?.fitCriteria]);
-  const urgencyTriggers = useMemo(() => parseJson<string[]>(brain?.urgencyTriggers, []), [brain?.urgencyTriggers]);
+  const urgencyTriggers = useMemo(() => parseStringArray(brain?.urgencyTriggers), [brain?.urgencyTriggers]);
 
   const handleStartEdit = (field: string, currentValue: string) => {
     setEditingField(field);

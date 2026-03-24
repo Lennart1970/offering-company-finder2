@@ -170,10 +170,27 @@ Return JSON:
   const llmResult = JSON.parse(content) as Partial<BrainResearchResult>;
 
   // Defensive normalisation: the LLM may return null or missing sub-arrays
-  // (especially for sparse Excel inputs). Mirror the same guards used in
-  // brainResearchService.ts to prevent downstream .map() crashes.
-  const toStringArray = (v: unknown): string[] =>
-    Array.isArray(v) ? (v as unknown[]).filter((x): x is string => typeof x === "string") : [];
+  // (especially for sparse Excel inputs), or objects instead of strings.
+  // Coerce every element to a plain string — same logic as brainResearchService.ts.
+  const toStringArray = (v: unknown): string[] => {
+    if (!Array.isArray(v)) return [];
+    return (v as any[]).map((item: any) => {
+      if (typeof item === 'string') return item;
+      if (item && typeof item === 'object') {
+        const type = item.type ? String(item.type) : '';
+        const desc = item.description ? String(item.description) : '';
+        const starter = item.conversationStarter ? String(item.conversationStarter) : '';
+        const opener = item.opener ? String(item.opener) : '';
+        if (type && desc) return `${type} — ${desc}`;
+        if (desc) return desc;
+        if (starter) return starter;
+        if (opener) return opener;
+        if (type) return type;
+        return JSON.stringify(item);
+      }
+      return String(item);
+    }).filter(s => s.length > 0);
+  };
 
   const result: BrainResearchResult = {
     companyName: llmResult.companyName ?? "",

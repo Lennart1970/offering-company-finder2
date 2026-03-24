@@ -1,0 +1,13 @@
+{
+  "query": "SELECT LEFT(urgencyTriggers, 500) as urgencyTriggers FROM offering_brain WHERE id = 150001;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT LEFT(urgencyTriggers, 500) as urgencyTriggers FROM offering_brain WHERE id = 150001;",
+  "rows": [
+    {
+      "urgencyTriggers": "[\"New Product Launch / NPI — Company announces a new product line, enters a new market segment, or launches an R&D programme requiring new electronics manufacturing\",\"Supply Chain Disruption — Company reports delays, quality issues, or cost overruns with current EMS supplier; mentions reshoring or nearshoring\",\"Regulatory / Certification Pressure — New compliance requirement (IEC, EN50155, DO-160, MDR, etc.) forces quality upgrade; company fails audit\",\"Expansion / Growth Signal — Company announ"
+    }
+  ],
+  "messages": [],
+  "stdout": "urgencyTriggers\n[\"New Product Launch / NPI — Company announces a new product line, enters a new market segment, or launches an R&D programme requiring new electronics manufacturing\",\"Supply Chain Disruption — Company reports delays, quality issues, or cost overruns with current EMS supplier; mentions reshoring or nearshoring\",\"Regulatory / Certification Pressure — New compliance requirement (IEC, EN50155, DO-160, MDR, etc.) forces quality upgrade; company fails audit\",\"Expansion / Growth Signal — Company announ\n",
+  "stderr": "",
+  "execution_time_ms": 194
+}

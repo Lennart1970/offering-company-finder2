@@ -1933,3 +1933,7 @@
 - [x] Full audit of Brain.tsx for every span/.map() that could render a raw object
 - [x] Fix all unsafe render sites on Brain.tsx
 - [x] Add global safety wrapper so this class of bug can never recur
+
+## Brain Data Normalisation & Schema Validation
+- [x] One-time DB migration: convert urgencyTriggers objects to plain strings in all brains
+- [x] Add schema validation in brainResearchService.ts to coerce all array fields to string[] before storing

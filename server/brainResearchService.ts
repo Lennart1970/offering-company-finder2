@@ -100,6 +100,35 @@ function stripFromArray(arr: string[]): string[] {
 }
 
 /**
+ * Coerce an array of unknown LLM outputs to plain strings.
+ * Handles: plain strings, {type, description, conversationStarter} objects,
+ * {opener, basedOn} objects, or any other shape.
+ * Always returns string[] — safe to store in DB and render in React.
+ */
+function coerceToStringArray(arr: any[]): string[] {
+  return arr
+    .map((item: any) => {
+      if (typeof item === 'string') return stripCitationTags(item);
+      if (item && typeof item === 'object') {
+        // Known LLM object shapes — extract the most informative field
+        const type = item.type ? stripCitationTags(String(item.type)) : '';
+        const desc = item.description ? stripCitationTags(String(item.description)) : '';
+        const starter = item.conversationStarter ? stripCitationTags(String(item.conversationStarter)) : '';
+        const opener = item.opener ? stripCitationTags(String(item.opener)) : '';
+        // Combine type + description for maximum information retention
+        if (type && desc) return `${type} — ${desc}`;
+        if (desc) return desc;
+        if (starter) return starter;
+        if (opener) return opener;
+        if (type) return type;
+        return JSON.stringify(item);
+      }
+      return String(item);
+    })
+    .filter(s => s.length > 0);
+}
+
+/**
  * Research a company's offering deeply using Grok web search
  */
 export async function researchOfferingBrain(
@@ -206,7 +235,7 @@ export async function researchOfferingBrain(
       companyName: stripCitationTags(parsed.companyName || displayName),
       companyWebsite: parsed.companyWebsite || companyWebsite,
       offeringSummary: stripCitationTags(parsed.offeringSummary || ""),
-      coreCapabilities: stripFromArray(Array.isArray(parsed.coreCapabilities) ? parsed.coreCapabilities : []),
+      coreCapabilities: coerceToStringArray(Array.isArray(parsed.coreCapabilities) ? parsed.coreCapabilities : []),
       valuePropositions: Array.isArray(parsed.valuePropositions)
         ? parsed.valuePropositions.map((vp: any) => ({
             proposition: stripCitationTags(vp.proposition || ""),
@@ -214,17 +243,17 @@ export async function researchOfferingBrain(
           }))
         : [],
       competitiveAdvantages: stripCitationTags(parsed.competitiveAdvantages || ""),
-      icpIndustries: stripFromArray(Array.isArray(parsed.icpIndustries) ? parsed.icpIndustries : []),
+      icpIndustries: coerceToStringArray(Array.isArray(parsed.icpIndustries) ? parsed.icpIndustries : []),
       icpCompanySize: stripCitationTags(parsed.icpCompanySize || ""),
       icpGeography: stripCitationTags(parsed.icpGeography || ""),
-      icpPainPoints: stripFromArray(Array.isArray(parsed.icpPainPoints) ? parsed.icpPainPoints : []),
-      icpBuyingSignals: stripFromArray(Array.isArray(parsed.icpBuyingSignals) ? parsed.icpBuyingSignals : []),
+      icpPainPoints: coerceToStringArray(Array.isArray(parsed.icpPainPoints) ? parsed.icpPainPoints : []),
+      icpBuyingSignals: coerceToStringArray(Array.isArray(parsed.icpBuyingSignals) ? parsed.icpBuyingSignals : []),
       fitCriteria: {
-        mustHave: stripFromArray(Array.isArray(parsed.fitCriteria?.mustHave) ? parsed.fitCriteria.mustHave : []),
-        niceToHave: stripFromArray(Array.isArray(parsed.fitCriteria?.niceToHave) ? parsed.fitCriteria.niceToHave : []),
-        disqualifiers: stripFromArray(Array.isArray(parsed.fitCriteria?.disqualifiers) ? parsed.fitCriteria.disqualifiers : []),
+        mustHave: coerceToStringArray(Array.isArray(parsed.fitCriteria?.mustHave) ? parsed.fitCriteria.mustHave : []),
+        niceToHave: coerceToStringArray(Array.isArray(parsed.fitCriteria?.niceToHave) ? parsed.fitCriteria.niceToHave : []),
+        disqualifiers: coerceToStringArray(Array.isArray(parsed.fitCriteria?.disqualifiers) ? parsed.fitCriteria.disqualifiers : []),
       },
-      urgencyTriggers: stripFromArray(Array.isArray(parsed.urgencyTriggers) ? parsed.urgencyTriggers : []),
+      urgencyTriggers: coerceToStringArray(Array.isArray(parsed.urgencyTriggers) ? parsed.urgencyTriggers : []),
     };
 
     console.log(`[Brain Research] ✓ Successfully parsed brain for ${result.companyName}`);

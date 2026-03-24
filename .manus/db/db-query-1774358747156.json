@@ -1,0 +1,25 @@
+{
+  "query": "SELECT id, brainName, LEFT(urgencyTriggers, 500) as urgencyTriggers FROM offering_brain ORDER BY id;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, brainName, LEFT(urgencyTriggers, 500) as urgencyTriggers FROM offering_brain ORDER BY id;",
+  "rows": [
+    {
+      "id": "30001",
+      "brainName": "",
+      "urgencyTriggers": "[\"Current EMS supplier capacity shortages or geopolitical disruptions\",\"Imminent product launch deadlines or regulatory certification needs\",\"Supply chain crises (e.g., component shortages, tariffs)\",\"Major expansion announcements requiring rapid NPI\",\"Competitor wins or lost bids indicating supplier switch\",\"Recent acquisitions/mergers needing manufacturing integration\"]"
+    },
+    {
+      "id": "60001",
+      "brainName": "Connect Group EMS brain",
+      "urgencyTriggers": "[\"Current supplier capacity shortages or disruptions\",\"Impending product launches or commercialization (e.g., Ariane-like missions)\",\"New regulatory/certification deadlines (e.g., ISO for medical)\",\"Supply chain reshoring mandates or geopolitical shifts\",\"Rapid prototyping needs for proof-of-concept validation\",\"Expansion announcements requiring additional manufacturing capacity\"]"
+    },
+    {
+      "id": "150001",
+      "brainName": "CGSD Customer Targeting Brain 2026",
+      "urgencyTriggers": "[{\"type\":\"New Product Launch / NPI\",\"description\":\"Company announces a new product line, enters a new market segment, or launches an R&D programme requiring new electronics manufacturing\",\"conversationStarter\":\"We saw you are launching [product] — NPI is where we add the most value. How are you planning the electronics manufacturing ramp?\"},{\"type\":\"Supply Chain Disruption\",\"description\":\"Company reports delays, quality issues, or cost overruns with current EMS supplier; mentions reshoring or ne"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tbrainName\turgencyTriggers\n30001\t\t[\"Current EMS supplier capacity shortages or geopolitical disruptions\",\"Imminent product launch deadlines or regulatory certification needs\",\"Supply chain crises (e.g., component shortages, tariffs)\",\"Major expansion announcements requiring rapid NPI\",\"Competitor wins or lost bids indicating supplier switch\",\"Recent acquisitions/mergers needing manufacturing integration\"]\n60001\tConnect Group EMS brain\t[\"Current supplier capacity shortages or disruptions\",\"Impending product launches or commercialization (e.g., Ariane-like missions)\",\"New regulatory/certification deadlines (e.g., ISO for medical)\",\"Supply chain reshoring mandates or geopolitical shifts\",\"Rapid prototyping needs for proof-of-concept validation\",\"Expansion announcements requiring additional manufacturing capacity\"]\n150001\tCGSD Customer Targeting Brain 2026\t[{\"type\":\"New Product Launch / NPI\",\"description\":\"Company announces a new product line, enters a new market segment, or launches an R&D programme requiring new electronics manufacturing\",\"conversationStarter\":\"We saw you are launching [product] — NPI is where we add the most value. How are you planning the electronics manufacturing ramp?\"},{\"type\":\"Supply Chain Disruption\",\"description\":\"Company reports delays, quality issues, or cost overruns with current EMS supplier; mentions reshoring or ne\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

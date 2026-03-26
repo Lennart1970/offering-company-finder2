@@ -1947,3 +1947,8 @@
 - [ ] Frontend: "Website Visitor" badge on SearchResults company cards
 - [ ] Frontend: Leadinfo intent summary section on CompanyDetail page
 - [ ] Sidebar nav: Add Leadinfo Import link
+
+## Website Visitors Filter + Priority Sort Integration
+- [x] Add "Website Visitors" filter toggle to SearchResults filter bar
+- [x] Integrate Leadinfo engagement score into priority sort with heavy weighting (site visit = strongest signal)
+- [x] Ensure sort works across all sort modes (default, urgency, fit_urgency)

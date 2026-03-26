@@ -124,7 +124,7 @@ export default function SearchResults() {
   const [showCallTodayOnly, setShowCallTodayOnly] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
   const [sortBy, setSortBy] = useState<"default" | "urgency" | "fit_urgency">("urgency");
-  const [enrichmentFilter, setEnrichmentFilter] = useState<"all" | "enriched" | "pending" | "outreach">("all");
+  const [enrichmentFilter, setEnrichmentFilter] = useState<"all" | "enriched" | "pending" | "outreach" | "visitors">("all");
   const [urgencyCtaAdded, setUrgencyCtaAdded] = useState(false);
   const [quickViewCompanyId, setQuickViewCompanyId] = useState<number | null>(null);
   const [quickViewMode, setQuickViewMode] = useState<"research" | "approach" | null>(null);
@@ -368,26 +368,49 @@ export default function SearchResults() {
     if (enrichmentFilter === "enriched") return filteredCompanies.filter(c => c.enrichmentStatus === "enriched");
     if (enrichmentFilter === "pending") return filteredCompanies.filter(c => c.enrichmentStatus === "pending" || c.enrichmentStatus === "failed");
     if (enrichmentFilter === "outreach") return filteredCompanies.filter(c => !!c.salesApproachData);
+    if (enrichmentFilter === "visitors") return filteredCompanies.filter(c => leadinfoSet.has(c.id));
     return filteredCompanies;
-  }, [filteredCompanies, enrichmentFilter]);
+  }, [filteredCompanies, enrichmentFilter, leadinfoSet]);
 
   const baseDisplayed = showCallTodayOnly ? callTodayCompanies : enrichmentFiltered;
 
+  // Site visitor boost: a company that visited your website is the hottest lead.
+  // We add a massive flat bonus (50 points) to the sort score for site visitors.
+  // This means even a moderate-fit site visitor outranks a high-fit non-visitor.
+  const SITE_VISITOR_BONUS = 50;
+
   const displayedCompanies = useMemo(() => {
     const sorted = [...baseDisplayed];
+
+    const visitorBoost = (c: any) => leadinfoSet.has(c.id) ? SITE_VISITOR_BONUS : 0;
+
     if (sortBy === "urgency") {
-      sorted.sort((a: any, b: any) => (b.urgencyScore || 0) - (a.urgencyScore || 0));
-    } else if (sortBy === "fit_urgency") {
-      // Combined score: urgency * fitScore (fitScore defaults to urgency if not set)
       sorted.sort((a: any, b: any) => {
-        const scoreA = (a.urgencyScore || 0) * (a.fitScore || a.urgencyScore || 0);
-        const scoreB = (b.urgencyScore || 0) * (b.fitScore || b.urgencyScore || 0);
+        const scoreA = (a.urgencyScore || 0) + visitorBoost(a);
+        const scoreB = (b.urgencyScore || 0) + visitorBoost(b);
         return scoreB - scoreA;
       });
+    } else if (sortBy === "fit_urgency") {
+      sorted.sort((a: any, b: any) => {
+        const baseA = (a.urgencyScore || 0) * (a.fitScore || a.urgencyScore || 0);
+        const baseB = (b.urgencyScore || 0) * (b.fitScore || b.urgencyScore || 0);
+        // Visitor bonus: add 50% of max possible score (100*100 = 10000, so +5000)
+        const scoreA = baseA + (leadinfoSet.has(a.id) ? 5000 : 0);
+        const scoreB = baseB + (leadinfoSet.has(b.id) ? 5000 : 0);
+        return scoreB - scoreA;
+      });
+    } else {
+      // "default" = import order, but still float site visitors to the top
+      if (leadinfoSet.size > 0) {
+        sorted.sort((a: any, b: any) => {
+          const va = leadinfoSet.has(a.id) ? 1 : 0;
+          const vb = leadinfoSet.has(b.id) ? 1 : 0;
+          return vb - va;
+        });
+      }
     }
-    // "default" = import order (no sort)
     return sorted;
-  }, [baseDisplayed, sortBy]);
+  }, [baseDisplayed, sortBy, leadinfoSet]);
 
   // High-urgency companies not yet in Call Today list
   const highUrgencyNotCalled = useMemo(() => {
@@ -856,6 +879,18 @@ export default function SearchResults() {
                     }`}
                   >
                     {enrichmentStats?.outreachReady || 0} OUTREACH READY
+                  </button>
+                )}
+                {leadinfoSet.size > 0 && (
+                  <button
+                    onClick={() => setEnrichmentFilter(enrichmentFilter === "visitors" ? "all" : "visitors")}
+                    className={`text-xs font-black border-2 px-3 py-1 cursor-pointer transition-colors ${
+                      enrichmentFilter === "visitors"
+                        ? "border-emerald-700 bg-emerald-700 text-white"
+                        : "border-emerald-600 text-emerald-700 hover:border-emerald-800"
+                    }`}
+                  >
+                    🌐 {leadinfoSet.size} SITE VISITORS
                   </button>
                 )}
                 {excludedCompanies.length > 0 && (

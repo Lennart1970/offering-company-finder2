@@ -103,6 +103,12 @@ export default function CompanyDetail() {
   const company = data?.company ?? null;
   const rawContacts = data?.contacts ?? [];
 
+  // Leadinfo — website visitor data for this company
+  const { data: leadinfoVisit } = trpc.leadinfo.getByCompany.useQuery(
+    { companyId },
+    { enabled: !!companyId && !isNaN(companyId) }
+  );
+
   // Derive unique seniority and department values from contact titles
   const seniorityOptions = useMemo(() => {
     const keywords = [
@@ -931,6 +937,93 @@ export default function CompanyDetail() {
                   </button>
                 </div>
               </div>
+
+              {/* ── LEADINFO: WEBSITE VISITOR ── */}
+              {leadinfoVisit && (
+                <div className="border-4 border-emerald-600 p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <div className="text-[10px] font-black text-emerald-700">WEBSITE VISITOR</div>
+                    <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-sm">LEADINFO</span>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-3">
+                    <div>
+                      <div className="text-[10px] font-black text-muted-foreground">ENGAGEMENT</div>
+                      <div className={`text-lg font-black ${
+                        (leadinfoVisit.engagementScore ?? 0) >= 30 ? "text-emerald-700" :
+                        (leadinfoVisit.engagementScore ?? 0) >= 10 ? "text-amber-600" : "text-gray-600"
+                      }`}>{leadinfoVisit.engagementScore ?? 0}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-black text-muted-foreground">SESSIONS</div>
+                      <div className="text-lg font-black">{leadinfoVisit.totalSessions}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-black text-muted-foreground">PAGES VIEWED</div>
+                      <div className="text-lg font-black">{leadinfoVisit.totalPages}</div>
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-black text-muted-foreground">TIME ON SITE</div>
+                      <div className="text-lg font-black">{leadinfoVisit.totalDuration ? `${Math.round(leadinfoVisit.totalDuration / 60)}m` : "—"}</div>
+                    </div>
+                  </div>
+                  {/* Intent Signals */}
+                  {leadinfoVisit.intentSignals && (() => {
+                    try {
+                      const signals = typeof leadinfoVisit.intentSignals === "string" ? JSON.parse(leadinfoVisit.intentSignals) : leadinfoVisit.intentSignals;
+                      if (!Array.isArray(signals) || signals.length === 0) return null;
+                      return (
+                        <div className="mb-3">
+                          <div className="text-[10px] font-black text-muted-foreground mb-1">INTENT SIGNALS</div>
+                          <div className="flex flex-wrap gap-1">
+                            {signals.map((s: string, i: number) => (
+                              <span key={i} className="text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 px-2 py-0.5 rounded">{s}</span>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    } catch { return null; }
+                  })()}
+                  {/* Top Pages */}
+                  {leadinfoVisit.topPages && (() => {
+                    try {
+                      const pages = typeof leadinfoVisit.topPages === "string" ? JSON.parse(leadinfoVisit.topPages) : leadinfoVisit.topPages;
+                      if (!Array.isArray(pages) || pages.length === 0) return null;
+                      return (
+                        <div className="mb-3">
+                          <div className="text-[10px] font-black text-muted-foreground mb-1">PAGES VISITED</div>
+                          <div className="flex flex-wrap gap-1">
+                            {pages.slice(0, 8).map((p: string, i: number) => (
+                              <span key={i} className="text-[10px] font-medium bg-gray-100 text-gray-700 px-2 py-0.5 rounded">{p}</span>
+                            ))}
+                            {pages.length > 8 && <span className="text-[10px] text-muted-foreground">+{pages.length - 8} more</span>}
+                          </div>
+                        </div>
+                      );
+                    } catch { return null; }
+                  })()}
+                  {/* Personas */}
+                  {leadinfoVisit.personas && (() => {
+                    try {
+                      const personas = typeof leadinfoVisit.personas === "string" ? JSON.parse(leadinfoVisit.personas) : leadinfoVisit.personas;
+                      if (!Array.isArray(personas) || personas.length === 0) return null;
+                      return (
+                        <div>
+                          <div className="text-[10px] font-black text-muted-foreground mb-1">IDENTIFIED VISITORS</div>
+                          <div className="space-y-1">
+                            {personas.map((p: any, i: number) => (
+                              <div key={i} className="flex items-center gap-3 text-sm">
+                                <span className="font-bold">{p.firstName} {p.lastName}</span>
+                                {p.jobTitle && <span className="text-muted-foreground">{p.jobTitle}</span>}
+                                {p.email && <a href={`mailto:${p.email}`} className="text-blue-600 underline text-xs">{p.email}</a>}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      );
+                    } catch { return null; }
+                  })()}
+                </div>
+              )}
 
               {/* ── 2. TOP CONTACT ── */}
               <div className="border-4 border-purple-600 p-4">

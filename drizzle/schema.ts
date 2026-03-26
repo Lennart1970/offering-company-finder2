@@ -431,3 +431,43 @@ export const campaignQueue = mysqlTable("campaign_queue", {
 });
 export type CampaignQueueJob = typeof campaignQueue.$inferSelect;
 export type InsertCampaignQueueJob = typeof campaignQueue.$inferInsert;
+
+/**
+ * Leadinfo website visitor data — imported from Leadinfo Excel exports.
+ * Each row represents one company that visited the user's website.
+ * Matched to campaign companies by domain for enrichment.
+ */
+export const leadinfoVisits = mysqlTable("leadinfo_visits", {
+  id: int("id").autoincrement().primaryKey(),
+  userId: int("userId").notNull().references(() => users.id),
+  searchId: int("searchId").references(() => searches.id, { onDelete: "cascade" }), // Campaign this was matched against
+  companyId: int("companyId").references(() => companies.id, { onDelete: "cascade" }), // Matched company (null if unmatched)
+  // Leadinfo company data
+  companyName: varchar("companyName", { length: 512 }).notNull(),
+  domain: varchar("domain", { length: 256 }).notNull(), // Normalised root domain from Leadinfo URL
+  rawUrl: varchar("rawUrl", { length: 1024 }), // Original URL from Leadinfo
+  city: varchar("city", { length: 128 }),
+  country: varchar("country", { length: 8 }), // ISO-2 country code
+  salesRegion: varchar("salesRegion", { length: 64 }),
+  employees: int("employees"),
+  branch: varchar("branch", { length: 256 }), // Industry/branch from Leadinfo
+  linkedinUrl: varchar("linkedinUrl", { length: 512 }),
+  salesVolume: varchar("salesVolume", { length: 128 }), // Raw sales volume string from Leadinfo
+  // Engagement metrics
+  totalPages: int("totalPages").default(0),
+  totalSessions: int("totalSessions").default(0),
+  totalDuration: int("totalDuration").default(0), // Total seconds across all sessions
+  engagementScore: int("engagementScore").default(0), // Computed: sessions * log(duration+1) * pageDepthMultiplier
+  // Visitor intent signals
+  pagesViewed: text("pagesViewed"), // JSON array of { url, title, duration, visitedAt }
+  topPages: text("topPages"), // JSON array of top 5 most-viewed page titles
+  intentSignals: text("intentSignals"), // JSON array of detected intent signals (e.g. "Viewed services page", "Visited contact page")
+  // Persona data (from Leadinfo page views sheet)
+  personas: text("personas"), // JSON array of { firstName, lastName, email, jobTitle }
+  // Import metadata
+  importBatchId: varchar("importBatchId", { length: 36 }), // UUID grouping one Excel upload
+  importedAt: timestamp("importedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type LeadinfoVisit = typeof leadinfoVisits.$inferSelect;
+export type InsertLeadinfoVisit = typeof leadinfoVisits.$inferInsert;

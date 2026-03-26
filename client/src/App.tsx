@@ -22,6 +22,7 @@ import NicheReview from "./pages/NicheReview";
 import NicheCompanyList from "./pages/NicheCompanyList";
 import FastPrototype from "./pages/FastPrototype";
 import PrototypeRequests from "./pages/PrototypeRequests";
+import LeadinfoImport from "./pages/LeadinfoImport";
 
 
 function Router() {
@@ -46,6 +47,7 @@ function Router() {
         <Route path={"/niche-review"} component={NicheReview} />
         <Route path={"/fast-prototype"} component={FastPrototype} />
         <Route path={"/prototype-requests"} component={PrototypeRequests} />
+        <Route path={"/leadinfo"} component={LeadinfoImport} />
         <Route path={"/niche/:nicheId"} component={({ params }: { params: { nicheId: string } }) => <NicheCompanyList nicheId={parseInt(params.nicheId)} />} />
 
         <Route path={"/404"} component={NotFound} />

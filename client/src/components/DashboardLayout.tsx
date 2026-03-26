@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2, FileSpreadsheet, Phone, BookMarked, ScrollText, Network, UserPlus, Copy, Camera, Package } from "lucide-react";
+import { List, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2, FileSpreadsheet, Phone, BookMarked, ScrollText, Network, UserPlus, Copy, Camera, Package, Globe } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -37,6 +37,7 @@ const menuItems = [
   { icon: Network, label: "Market Segments", path: "/niche-review" },
   { icon: Camera, label: "Fast Prototype", path: "/fast-prototype" },
   { icon: Package, label: "Prototype Requests", path: "/prototype-requests" },
+  { icon: Globe, label: "Leadinfo Import", path: "/leadinfo" },
   { icon: ScrollText, label: "Prompt Repository", path: "/prompts" },
 ];
 

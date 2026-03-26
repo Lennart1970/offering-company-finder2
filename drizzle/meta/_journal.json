@@ -260,6 +260,13 @@
       "when": 1773933820411,
       "tag": "0036_short_maximus",
       "breakpoints": true
+    },
+    {
+      "idx": 37,
+      "version": "5",
+      "when": 1774525247372,
+      "tag": "0037_brief_the_leader",
+      "breakpoints": true
     }
   ]
 }

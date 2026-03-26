@@ -113,6 +113,13 @@ export default function SearchResults() {
   );
   const { data: excludedCodes } = trpc.companyFinder.getExcludedCodes.useQuery();
 
+  // Leadinfo — fetch matched company IDs for this campaign
+  const { data: leadinfoCompanyIds } = trpc.leadinfo.getMatchedCompanyIds.useQuery(
+    { searchId: searchId! },
+    { enabled: !!searchId }
+  );
+  const leadinfoSet = useMemo(() => new Set(leadinfoCompanyIds || []), [leadinfoCompanyIds]);
+
   const [excludedSectors, setExcludedSectors] = useState<string[]>([]);
   const [showCallTodayOnly, setShowCallTodayOnly] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
@@ -1053,7 +1060,7 @@ export default function SearchResults() {
                 company={company}
                 index={index}
                 searchId={searchId!}
-
+                isWebsiteVisitor={leadinfoSet.has(company.id)}
                 onViewResearch={(id) => { setQuickViewCompanyId(id); setQuickViewMode("research"); }}
                 onViewApproach={(id) => { setQuickViewCompanyId(id); setQuickViewMode("approach"); }}
               />
@@ -1212,12 +1219,13 @@ export default function SearchResults() {
 // ============================================================================
 // Company Card — Compact Layout
 // ============================================================================
-function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach }: {
+function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach, isWebsiteVisitor }: {
   company: any;
   index: number;
   searchId: number;
   onViewResearch?: (companyId: number) => void;
   onViewApproach?: (companyId: number) => void;
+  isWebsiteVisitor?: boolean;
 }) {
   const [, navigate] = useLocation();
   // Build a URL to this company's detail page, optionally with a chapter and the full queue for PREV/NEXT nav
@@ -1246,6 +1254,12 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach 
               )}
               {company.enrichmentStatus === "pending" && (
                 <span className="text-[10px] font-medium text-gray-400 px-1.5 py-0.5">PENDING</span>
+              )}
+              {isWebsiteVisitor && (
+                <span className="text-[10px] font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-sm inline-flex items-center gap-1">
+                  <svg className="w-3 h-3" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                  SITE VISITOR
+                </span>
               )}
               {company.urgencyScore > 0 && (
                 <button

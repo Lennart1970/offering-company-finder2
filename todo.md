@@ -1937,3 +1937,13 @@
 ## Brain Data Normalisation & Schema Validation
 - [x] One-time DB migration: convert urgencyTriggers objects to plain strings in all brains
 - [x] Add schema validation in brainResearchService.ts to coerce all array fields to string[] before storing
+
+## Leadinfo Import Workflow
+- [x] DB schema: leadinfo_visits table (companyId, domain, sessions, duration, engagementScore, pagesViewed JSON, personas JSON, salesVolume, employees, branch, linkedinUrl, importedAt)
+- [ ] Server: Excel parser for Leadinfo export format (Companies + Page views sheets)
+- [ ] Server: Domain matching logic (strip URLs to root domains, fuzzy match against campaign companies)
+- [ ] Server: tRPC procedure for upload + match + enrich
+- [ ] Frontend: Leadinfo Import page with upload, campaign selector, match preview
+- [ ] Frontend: "Website Visitor" badge on SearchResults company cards
+- [ ] Frontend: Leadinfo intent summary section on CompanyDetail page
+- [ ] Sidebar nav: Add Leadinfo Import link

@@ -1,0 +1,22 @@
+{
+  "query": "SELECT searchId, COUNT(*) as total, SUM(CASE WHEN enrichmentStatus = 'researched' THEN 1 ELSE 0 END) as researched, SUM(CASE WHEN enrichmentStatus = 'pending' THEN 1 ELSE 0 END) as pending FROM companies WHERE searchId IN (1500003, 1500002) GROUP BY searchId;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT searchId, COUNT(*) as total, SUM(CASE WHEN enrichmentStatus = 'researched' THEN 1 ELSE 0 END) as researched, SUM(CASE WHEN enrichmentStatus = 'pending' THEN 1 ELSE 0 END) as pending FROM companies WHERE searchId IN (1500003, 1500002) GROUP BY searchId;",
+  "rows": [
+    {
+      "searchId": "1500003",
+      "total": "108",
+      "researched": "0",
+      "pending": "108"
+    },
+    {
+      "searchId": "1500002",
+      "total": "230",
+      "researched": "0",
+      "pending": "220"
+    }
+  ],
+  "messages": [],
+  "stdout": "searchId\ttotal\tresearched\tpending\n1500003\t108\t0\t108\n1500002\t230\t0\t220\n",
+  "stderr": "",
+  "execution_time_ms": 51
+}

@@ -1,66 +1,83 @@
 /**
- * Campaign Research Queue Worker
- * --------------------------------
- * Runs inside the Express process. Every 5 minutes it picks the next
- * pending job from campaign_queue and runs the FULL pipeline:
+ * Campaign Research Queue Worker — ACCELERATED
+ * ──────────────────────────────────────────────
+ * Runs inside the Express process. Picks pending jobs from campaign_queue
+ * and runs the FULL pipeline:
  *
  *   Step 0: Apollo Enrichment  (if enrichmentStatus === "pending")
  *   Step 1: Fit Score          (scoreCompanyFit)
- *   Step 2: Deep Research Brief (generateSalesIntelligenceBrief)
- *   Step 3: Sales Approach     (generateSalesApproach)
+ *   Step 2+3: Brief + Sales Approach  (run IN PARALLEL after fit score)
+ *
+ * Acceleration strategies:
+ *  1. Polling interval: 2 seconds (was 5 minutes)
+ *  2. Brief + Approach run concurrently via Promise.allSettled
+ *  3. Multiple concurrent workers (CONCURRENCY = 5) with DB-level job locking
  *
  * Designed to be indestructible:
  *  - Catches all errors per company and marks them failed without crashing
  *  - Skips steps already done (idempotent — re-enqueue is safe)
  *  - Survives server restarts (state is fully in the DB)
- *  - Only one job runs at a time (mutex via `isProcessing` flag)
+ *  - DB-level atomic claim prevents double-processing across workers
  */
 
 import { campaignQueue } from "../drizzle/schema";
-import { eq, asc } from "drizzle-orm";
+import { eq, asc, and, sql } from "drizzle-orm";
 
-const INTERVAL_MS = 5 * 60 * 1000; // 5 minutes
-let isProcessing = false;
+const POLL_INTERVAL_MS = 2_000;  // 2 seconds (was 5 minutes)
+const CONCURRENCY = 5;           // 5 parallel workers
+const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+
+let activeWorkers = 0;
 let workerInterval: ReturnType<typeof setInterval> | null = null;
 
-// ── Process one job ──────────────────────────────────────────────────────────
+// ── Atomic job claim ────────────────────────────────────────────────────────
+// Uses MySQL LAST_INSERT_ID() trick for bulletproof concurrent claiming:
+// UPDATE sets LAST_INSERT_ID(id) on the claimed row, so we can SELECT it
+// back without any race condition between concurrent workers.
 
-async function processNextJob() {
-  if (isProcessing) {
-    console.log("[CampaignQueue] Worker busy — skipping tick");
-    return;
-  }
-  isProcessing = true;
+async function claimNextJob() {
+  const { getDb } = await import("./db");
+  const db = await getDb();
+  if (!db) return null;
+
+  // Atomic claim: update the oldest pending job to 'running'
+  // LAST_INSERT_ID(id) stores the claimed row's id in the session variable
+  const result: any = await db.execute(
+    sql`UPDATE campaign_queue
+        SET status = 'running',
+            startedAt = NOW(),
+            id = LAST_INSERT_ID(id)
+        WHERE status = 'pending'
+        ORDER BY createdAt ASC
+        LIMIT 1`
+  );
+
+  // Check if any row was actually updated
+  const affectedRows = result?.[0]?.affectedRows ?? result?.rowsAffected ?? 0;
+  if (affectedRows === 0) return null;
+
+  // Fetch the exact job we claimed using LAST_INSERT_ID()
+  const [job] = await db
+    .select()
+    .from(campaignQueue)
+    .where(sql`${campaignQueue.id} = LAST_INSERT_ID()`)
+    .limit(1);
+
+  return job ?? null;
+}
+
+// ── Process one job ─────────────────────────────────────────────────────────
+
+async function processJob() {
+  const job = await claimNextJob();
+  if (!job) return false; // No work available
+
+  console.log(`[CampaignQueue] ▶ Worker claiming Job ${job.id} — ${job.companyName} (companyId: ${job.companyId})`);
 
   try {
     const { getDb, getCompanyById, updateCompany } = await import("./db");
     const db = await getDb();
-    if (!db) {
-      console.error("[CampaignQueue] DB not available");
-      isProcessing = false;
-      return;
-    }
-
-    // Claim the next pending job (FIFO by createdAt)
-    const [job] = await db
-      .select()
-      .from(campaignQueue)
-      .where(eq(campaignQueue.status, "pending"))
-      .orderBy(asc(campaignQueue.createdAt))
-      .limit(1);
-
-    if (!job) {
-      isProcessing = false;
-      return; // Nothing to do
-    }
-
-    console.log(`[CampaignQueue] ▶ Job ${job.id} — ${job.companyName} (companyId: ${job.companyId})`);
-
-    // Mark as running
-    await db
-      .update(campaignQueue)
-      .set({ status: "running", startedAt: new Date() })
-      .where(eq(campaignQueue.id, job.id));
+    if (!db) throw new Error("DB unavailable");
 
     // Fetch fresh company data
     let company = await getCompanyById(job.companyId);
@@ -70,18 +87,13 @@ async function processNextJob() {
         errorMessage: "Company not found in DB",
         completedAt: new Date(),
       }).where(eq(campaignQueue.id, job.id));
-      isProcessing = false;
-      return;
+      return true; // Job handled (failed), but there may be more work
     }
 
-    const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-
-    // ── Step 0: Apollo Enrichment ────────────────────────────────────────────
-    // Run if the company is still in "pending" enrichment status
+    // ── Step 0: Apollo Enrichment ──────────────────────────────────────────
     if (company.enrichmentStatus === "pending") {
       if (!company.apolloId) {
         console.warn(`[CampaignQueue] ⚠ Company ${company.name} has no apolloId — skipping enrichment`);
-        // Mark as enriched anyway so downstream steps can still run with available data
         await updateCompany(job.companyId, { enrichmentStatus: "enriched" });
       } else {
         try {
@@ -97,20 +109,18 @@ async function processNextJob() {
             enrichmentStatus: "enriched",
           });
           console.log(`[CampaignQueue] ✓ Enriched: ${company.name} (${details.city ?? "?"}, ${details.country ?? "?"})`);
-          // Refresh company data after enrichment
-          company = await getCompanyById(job.companyId) ?? company;
         } catch (err: any) {
           console.warn(`[CampaignQueue] ⚠ Enrichment failed for ${company.name}: ${err.message}`);
           await updateCompany(job.companyId, { enrichmentStatus: "failed" });
-          // Non-fatal — continue to scoring with what we have
-          company = await getCompanyById(job.companyId) ?? company;
         }
       }
+      // Refresh company data after enrichment
+      company = await getCompanyById(job.companyId) ?? company;
     } else {
       console.log(`[CampaignQueue] ↩ Already enriched: ${company.name}`);
     }
 
-    // ── Step 1: Fit Score ────────────────────────────────────────────────────
+    // ── Step 1: Fit Score ──────────────────────────────────────────────────
     if (job.jobType === "full" && !company.fitScore) {
       try {
         const { scoreCompanyFit } = await import("./briefGenerator");
@@ -122,63 +132,109 @@ async function processNextJob() {
         console.log(`[CampaignQueue] ✓ Fit score: ${company.name} → ${result.fitScore}`);
       } catch (err: any) {
         console.warn(`[CampaignQueue] ⚠ Fit score failed for ${company.name}: ${err.message}`);
-        // Non-fatal — continue to brief
       }
     } else if (company.fitScore) {
       console.log(`[CampaignQueue] ↩ Fit score cached: ${company.name} (${company.fitScore})`);
     }
 
-    // ── Step 2: Deep Research Brief ──────────────────────────────────────────
+    // ── Step 2 + 3: Brief + Sales Approach IN PARALLEL ─────────────────────
+    // These are independent once we have the fit score. Run them concurrently.
+    const freshCompany = await getCompanyById(job.companyId) ?? company;
+
     const needsBrief =
-      !company.briefData ||
-      !company.briefGeneratedAt ||
-      Date.now() - new Date(company.briefGeneratedAt).getTime() >= sevenDaysMs;
+      !freshCompany.briefData ||
+      !freshCompany.briefGeneratedAt ||
+      Date.now() - new Date(freshCompany.briefGeneratedAt).getTime() >= SEVEN_DAYS_MS;
+
+    const needsApproach =
+      !freshCompany.salesApproachData ||
+      !freshCompany.salesApproachGeneratedAt ||
+      Date.now() - new Date(freshCompany.salesApproachGeneratedAt).getTime() >= SEVEN_DAYS_MS;
+
+    const parallelTasks: Promise<void>[] = [];
 
     if (needsBrief) {
-      const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
-      const brief = await generateSalesIntelligenceBrief(job.companyId, job.userId);
-      await updateCompany(job.companyId, {
-        urgencyScore: brief.urgencyScore,
-        briefData: JSON.stringify(brief),
-        briefGeneratedAt: new Date(),
-      });
-      console.log(`[CampaignQueue] ✓ Brief: ${company.name} (urgency: ${brief.urgencyScore})`);
+      parallelTasks.push(
+        (async () => {
+          const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
+          const brief = await generateSalesIntelligenceBrief(job.companyId, job.userId);
+          await updateCompany(job.companyId, {
+            urgencyScore: brief.urgencyScore,
+            briefData: JSON.stringify(brief),
+            briefGeneratedAt: new Date(),
+          });
+          console.log(`[CampaignQueue] ✓ Brief: ${company.name} (urgency: ${brief.urgencyScore})`);
+        })()
+      );
     } else {
       console.log(`[CampaignQueue] ↩ Brief cached: ${company.name}`);
     }
 
-    // ── Step 3: Sales Approach ───────────────────────────────────────────────
-    // Re-fetch to get fresh briefData if it was just generated
-    const refreshed = await getCompanyById(job.companyId);
-    const needsApproach =
-      refreshed?.briefData &&
-      (!refreshed.salesApproachData ||
-        !refreshed.salesApproachGeneratedAt ||
-        Date.now() - new Date(refreshed.salesApproachGeneratedAt).getTime() >= sevenDaysMs);
-
     if (needsApproach) {
-      const { generateSalesApproach } = await import("./salesApproachGenerator");
-      const salesApproach = await generateSalesApproach(job.companyId, job.userId);
-      await updateCompany(job.companyId, {
-        salesApproachData: JSON.stringify(salesApproach),
-        salesApproachGeneratedAt: new Date(),
-      });
-      console.log(`[CampaignQueue] ✓ Sales approach: ${company.name}`);
+      parallelTasks.push(
+        (async () => {
+          // If we need a fresh brief AND approach, the approach needs the brief data.
+          // But if brief is cached, we can start approach immediately.
+          // If both are needed, brief runs first (approach depends on briefData).
+          if (needsBrief) {
+            // Wait for brief to complete first, then generate approach
+            // This is handled by the brief task above completing first in the array
+            // We'll do a sequential fallback for this specific case
+            return; // Will be handled after parallel block
+          }
+          const { generateSalesApproach } = await import("./salesApproachGenerator");
+          const salesApproach = await generateSalesApproach(job.companyId, job.userId);
+          await updateCompany(job.companyId, {
+            salesApproachData: JSON.stringify(salesApproach),
+            salesApproachGeneratedAt: new Date(),
+          });
+          console.log(`[CampaignQueue] ✓ Sales approach: ${company.name}`);
+        })()
+      );
     } else {
       console.log(`[CampaignQueue] ↩ Sales approach cached: ${company.name}`);
     }
 
-    // ── Mark complete ────────────────────────────────────────────────────────
-    await db.update(campaignQueue).set({
+    // Run parallel tasks
+    if (parallelTasks.length > 0) {
+      const results = await Promise.allSettled(parallelTasks);
+      for (const r of results) {
+        if (r.status === "rejected") {
+          console.warn(`[CampaignQueue] ⚠ Parallel task failed for ${company.name}: ${r.reason?.message ?? r.reason}`);
+        }
+      }
+    }
+
+    // If both brief and approach were needed, approach was skipped above.
+    // Now generate approach with the fresh brief data.
+    if (needsBrief && needsApproach) {
+      try {
+        const refreshedForApproach = await getCompanyById(job.companyId);
+        if (refreshedForApproach?.briefData) {
+          const { generateSalesApproach } = await import("./salesApproachGenerator");
+          const salesApproach = await generateSalesApproach(job.companyId, job.userId);
+          await updateCompany(job.companyId, {
+            salesApproachData: JSON.stringify(salesApproach),
+            salesApproachGeneratedAt: new Date(),
+          });
+          console.log(`[CampaignQueue] ✓ Sales approach (after brief): ${company.name}`);
+        }
+      } catch (err: any) {
+        console.warn(`[CampaignQueue] ⚠ Sales approach failed for ${company.name}: ${err.message}`);
+      }
+    }
+
+    // ── Mark complete ──────────────────────────────────────────────────────
+    await db!.update(campaignQueue).set({
       status: "completed",
       completedAt: new Date(),
     }).where(eq(campaignQueue.id, job.id));
 
     console.log(`[CampaignQueue] ✅ Job ${job.id} complete — ${company.name}`);
+    return true; // More work may be available
 
   } catch (err: any) {
-    console.error(`[CampaignQueue] ❌ Unhandled error:`, err.message);
-    // Mark any stuck "running" job as failed so the queue doesn't deadlock
+    console.error(`[CampaignQueue] ❌ Unhandled error for Job ${job.id}:`, err.message);
     try {
       const { getDb } = await import("./db");
       const db = await getDb();
@@ -187,26 +243,51 @@ async function processNextJob() {
           status: "failed",
           errorMessage: (err.message ?? "Unknown error").slice(0, 512),
           completedAt: new Date(),
-        }).where(eq(campaignQueue.status, "running"));
+        }).where(eq(campaignQueue.id, job.id));
       }
     } catch (dbErr) {
       console.error(`[CampaignQueue] Could not mark job as failed:`, dbErr);
     }
-  } finally {
-    isProcessing = false;
+    return true; // There may be more work even if this one failed
   }
 }
 
-// ── Public API ───────────────────────────────────────────────────────────────
+// ── Worker loop (one of N concurrent workers) ───────────────────────────────
+
+async function workerLoop(workerId: number) {
+  activeWorkers++;
+  try {
+    const hadWork = await processJob();
+    if (hadWork) {
+      // Immediately try next job (no delay when there's work)
+      setImmediate(() => workerLoop(workerId));
+      return;
+    }
+    // No work found — this worker slot goes idle until next tick
+  } catch (err: any) {
+    console.error(`[CampaignQueue] Worker ${workerId} error:`, err.message);
+  } finally {
+    activeWorkers--;
+  }
+}
+
+// ── Tick: spawn workers up to CONCURRENCY ───────────────────────────────────
+
+function tick() {
+  const slotsAvailable = CONCURRENCY - activeWorkers;
+  for (let i = 0; i < slotsAvailable; i++) {
+    workerLoop(i + 1);
+  }
+}
+
+// ── Public API ──────────────────────────────────────────────────────────────
 
 export function startCampaignQueueWorker() {
   if (workerInterval) return; // Already running
-  console.log(`[CampaignQueue] Worker started — interval: ${INTERVAL_MS / 1000}s (full pipeline: Enrich → Score → Brief → Approach)`);
-  // Run immediately on startup to pick up any pending jobs
-  processNextJob().catch(console.error);
-  workerInterval = setInterval(() => {
-    processNextJob().catch(console.error);
-  }, INTERVAL_MS);
+  console.log(`[CampaignQueue] Worker started — interval: ${POLL_INTERVAL_MS / 1000}s, concurrency: ${CONCURRENCY} (Enrich → Score → Brief+Approach parallel)`);
+  // Run immediately on startup
+  tick();
+  workerInterval = setInterval(tick, POLL_INTERVAL_MS);
 }
 
 export function stopCampaignQueueWorker() {
@@ -217,6 +298,11 @@ export function stopCampaignQueueWorker() {
   }
 }
 
-export function getWorkerStatus(): { running: boolean; busy: boolean } {
-  return { running: workerInterval !== null, busy: isProcessing };
+export function getWorkerStatus(): { running: boolean; busy: boolean; activeWorkers: number; concurrency: number } {
+  return {
+    running: workerInterval !== null,
+    busy: activeWorkers > 0,
+    activeWorkers,
+    concurrency: CONCURRENCY,
+  };
 }

@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO campaign_queue (searchId, companyId, userId, companyName, jobType, status, createdAt)\nSELECT c.searchId, c.id, 1, c.name, 'full', 'pending', NOW()\nFROM companies c\nWHERE c.searchId = 1500002\n  AND c.enrichmentStatus != 'failed'\n  AND (c.briefData IS NULL OR c.salesApproachData IS NULL)\n  AND c.id NOT IN (\n    SELECT cq.companyId FROM campaign_queue cq\n    WHERE cq.searchId = 1500002 AND cq.status IN ('pending', 'running')\n  );",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute INSERT INTO campaign_queue (searchId, companyId, userId, companyName, jobType, status, createdAt)\nSELECT c.searchId, c.id, 1, c.name, 'full', 'pending', NOW()\nFROM companies c\nWHERE c.searchId = 1500002\n  AND c.enrichmentStatus != 'failed'\n  AND (c.briefData IS NULL OR c.salesApproachData IS NULL)\n  AND c.id NOT IN (\n    SELECT cq.companyId FROM campaign_queue cq\n    WHERE cq.searchId = 1500002 AND cq.status IN ('pending', 'running')\n  );",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 89
+}

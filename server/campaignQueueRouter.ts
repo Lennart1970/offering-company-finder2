@@ -147,8 +147,10 @@ export const campaignQueueRouter = router({
         currentCompany: runningJob?.companyName ?? null,
         workerRunning: worker.running,
         workerBusy: worker.busy,
-        // Estimated minutes remaining (5 min per job)
-        estimatedMinutes: ((statusMap["pending"] ?? 0) + (statusMap["running"] ?? 0)) * 5,
+        activeWorkers: worker.activeWorkers,
+        concurrency: worker.concurrency,
+        // Estimated minutes remaining: ~2 min per job, divided by concurrency
+        estimatedMinutes: Math.ceil(((statusMap["pending"] ?? 0) + (statusMap["running"] ?? 0)) * 2 / worker.concurrency),
       };
     }),
 

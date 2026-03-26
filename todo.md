@@ -1952,3 +1952,10 @@
 - [x] Add "Website Visitors" filter toggle to SearchResults filter bar
 - [x] Integrate Leadinfo engagement score into priority sort with heavy weighting (site visit = strongest signal)
 - [x] Ensure sort works across all sort modes (default, urgency, fit_urgency)
+
+## Campaign Queue Worker Acceleration
+- [x] Reduce polling interval from 15-30s to 2s between jobs
+- [x] Remove unnecessary safety delays between API calls
+- [x] Parallelise brief generation + sales approach generation (run concurrently after fit score)
+- [x] Add concurrent worker support (3-5 parallel workers picking from the same queue)
+- [x] Ensure proper job locking so concurrent workers don't pick the same job

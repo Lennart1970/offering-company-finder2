@@ -1,0 +1,30 @@
+{
+  "query": "SELECT searchId, enrichmentStatus, COUNT(*) as cnt FROM companies WHERE searchId IN (1500002, 1500003) GROUP BY searchId, enrichmentStatus;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT searchId, enrichmentStatus, COUNT(*) as cnt FROM companies WHERE searchId IN (1500002, 1500003) GROUP BY searchId, enrichmentStatus;",
+  "rows": [
+    {
+      "searchId": "1500002",
+      "enrichmentStatus": "enriched",
+      "cnt": "220"
+    },
+    {
+      "searchId": "1500003",
+      "enrichmentStatus": "pending",
+      "cnt": "10"
+    },
+    {
+      "searchId": "1500002",
+      "enrichmentStatus": "pending",
+      "cnt": "10"
+    },
+    {
+      "searchId": "1500003",
+      "enrichmentStatus": "enriched",
+      "cnt": "98"
+    }
+  ],
+  "messages": [],
+  "stdout": "searchId\tenrichmentStatus\tcnt\n1500002\tenriched\t220\n1500003\tpending\t10\n1500002\tpending\t10\n1500003\tenriched\t98\n",
+  "stderr": "",
+  "execution_time_ms": 66
+}

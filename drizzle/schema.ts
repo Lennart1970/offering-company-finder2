@@ -101,6 +101,8 @@ export const companies = mysqlTable("companies", {
   urgencyImages: text("urgencyImages"), // JSON array of editorial/news images from Serper for the Urgency tab
   salesRepProfile: text("salesRepProfile"), // LLM-generated ideal sales rep profile for this company
   salesRepProfileGeneratedAt: timestamp("salesRepProfileGeneratedAt"), // When the rep profile was generated
+  signalOpeners: text("signalOpeners"), // JSON array of pre-generated per-signal openers [{signalIndex, opener}]
+  signalOpenersGeneratedAt: timestamp("signalOpenersGeneratedAt"), // When signal openers were batch-generated
   enrichmentStatus: mysqlEnum("enrichmentStatus", ["pending", "enriched", "failed"]).default("pending").notNull(),
   // Niche cluster assignment (set during Phase 1 seed clustering or Phase 2 proximity assignment)
   // Note: FK constraint added via SQL migration to avoid circular reference in schema definition

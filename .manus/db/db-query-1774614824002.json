@@ -1,0 +1,24 @@
+{
+  "query": "\nSELECT searchId, \n  SUM(CASE WHEN enrichmentStatus = 'failed' AND apolloId IS NULL THEN 1 ELSE 0 END) as failed_no_apollo,\n  SUM(CASE WHEN enrichmentStatus = 'failed' AND apolloId IS NOT NULL THEN 1 ELSE 0 END) as failed_has_apollo,\n  SUM(CASE WHEN (salesApproachData IS NULL OR salesApproachData = '') AND enrichmentStatus != 'failed' THEN 1 ELSE 0 END) as incomplete_not_failed,\n  SUM(CASE WHEN (salesApproachData IS NULL OR salesApproachData = '') AND enrichmentStatus = 'failed' THEN 1 ELSE 0 END) as incomplete_and_failed\nFROM companies WHERE searchId IN (1500002, 1500003)\nGROUP BY searchId;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT searchId, \n  SUM(CASE WHEN enrichmentStatus = 'failed' AND apolloId IS NULL THEN 1 ELSE 0 END) as failed_no_apollo,\n  SUM(CASE WHEN enrichmentStatus = 'failed' AND apolloId IS NOT NULL THEN 1 ELSE 0 END) as failed_has_apollo,\n  SUM(CASE WHEN (salesApproachData IS NULL OR salesApproachData = '') AND enrichmentStatus != 'failed' THEN 1 ELSE 0 END) as incomplete_not_failed,\n  SUM(CASE WHEN (salesApproachData IS NULL OR salesApproachData = '') AND enrichmentStatus = 'failed' THEN 1 ELSE 0 END) as incomplete_and_failed\nFROM companies WHERE searchId IN (1500002, 1500003)\nGROUP BY searchId;\n",
+  "rows": [
+    {
+      "searchId": "1500002",
+      "failed_no_apollo": "0",
+      "failed_has_apollo": "6",
+      "incomplete_not_failed": "23",
+      "incomplete_and_failed": "0"
+    },
+    {
+      "searchId": "1500003",
+      "failed_no_apollo": "0",
+      "failed_has_apollo": "5",
+      "incomplete_not_failed": "20",
+      "incomplete_and_failed": "2"
+    }
+  ],
+  "messages": [],
+  "stdout": "searchId\tfailed_no_apollo\tfailed_has_apollo\tincomplete_not_failed\tincomplete_and_failed\n1500002\t0\t6\t23\t0\n1500003\t0\t5\t20\t2\n",
+  "stderr": "",
+  "execution_time_ms": 83
+}

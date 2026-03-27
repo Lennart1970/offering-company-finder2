@@ -1,0 +1,130 @@
+{
+  "query": "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'companies' ORDER BY ORDINAL_POSITION;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = 'companies' ORDER BY ORDINAL_POSITION;",
+  "rows": [
+    {
+      "COLUMN_NAME": "id"
+    },
+    {
+      "COLUMN_NAME": "searchId"
+    },
+    {
+      "COLUMN_NAME": "apolloId"
+    },
+    {
+      "COLUMN_NAME": "name"
+    },
+    {
+      "COLUMN_NAME": "websiteUrl"
+    },
+    {
+      "COLUMN_NAME": "primaryDomain"
+    },
+    {
+      "COLUMN_NAME": "linkedinUrl"
+    },
+    {
+      "COLUMN_NAME": "phone"
+    },
+    {
+      "COLUMN_NAME": "foundedYear"
+    },
+    {
+      "COLUMN_NAME": "revenue"
+    },
+    {
+      "COLUMN_NAME": "headcountGrowth"
+    },
+    {
+      "COLUMN_NAME": "createdAt"
+    },
+    {
+      "COLUMN_NAME": "searchLocation"
+    },
+    {
+      "COLUMN_NAME": "city"
+    },
+    {
+      "COLUMN_NAME": "state"
+    },
+    {
+      "COLUMN_NAME": "country"
+    },
+    {
+      "COLUMN_NAME": "streetAddress"
+    },
+    {
+      "COLUMN_NAME": "rawAddress"
+    },
+    {
+      "COLUMN_NAME": "sicCodes"
+    },
+    {
+      "COLUMN_NAME": "naicsCodes"
+    },
+    {
+      "COLUMN_NAME": "enrichmentStatus"
+    },
+    {
+      "COLUMN_NAME": "sliceMetadata"
+    },
+    {
+      "COLUMN_NAME": "urgencyScore"
+    },
+    {
+      "COLUMN_NAME": "briefData"
+    },
+    {
+      "COLUMN_NAME": "briefGeneratedAt"
+    },
+    {
+      "COLUMN_NAME": "salesApproachData"
+    },
+    {
+      "COLUMN_NAME": "salesApproachGeneratedAt"
+    },
+    {
+      "COLUMN_NAME": "twitterUrl"
+    },
+    {
+      "COLUMN_NAME": "facebookUrl"
+    },
+    {
+      "COLUMN_NAME": "parentCompanyName"
+    },
+    {
+      "COLUMN_NAME": "parentCompanyId"
+    },
+    {
+      "COLUMN_NAME": "fitScore"
+    },
+    {
+      "COLUMN_NAME": "fitScoreData"
+    },
+    {
+      "COLUMN_NAME": "sourceCountryCode"
+    },
+    {
+      "COLUMN_NAME": "callReadinessSummary"
+    },
+    {
+      "COLUMN_NAME": "productImages"
+    },
+    {
+      "COLUMN_NAME": "nicheId"
+    },
+    {
+      "COLUMN_NAME": "urgencyImages"
+    },
+    {
+      "COLUMN_NAME": "salesRepProfile"
+    },
+    {
+      "COLUMN_NAME": "salesRepProfileGeneratedAt"
+    }
+  ],
+  "messages": [],
+  "stdout": "COLUMN_NAME\nid\nsearchId\napolloId\nname\nwebsiteUrl\nprimaryDomain\nlinkedinUrl\nphone\nfoundedYear\nrevenue\nheadcountGrowth\ncreatedAt\nsearchLocation\ncity\nstate\ncountry\nstreetAddress\nrawAddress\nsicCodes\nnaicsCodes\nenrichmentStatus\nsliceMetadata\nurgencyScore\nbriefData\nbriefGeneratedAt\nsalesApproachData\nsalesApproachGeneratedAt\ntwitterUrl\nfacebookUrl\nparentCompanyName\nparentCompanyId\nfitScore\nfitScoreData\nsourceCountryCode\ncallReadinessSummary\nproductImages\nnicheId\nurgencyImages\nsalesRepProfile\nsalesRepProfileGeneratedAt\n",
+  "stderr": "",
+  "execution_time_ms": 55
+}

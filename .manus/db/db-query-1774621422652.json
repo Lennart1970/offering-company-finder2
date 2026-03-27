@@ -1,0 +1,15 @@
+{
+  "query": "\nSELECT \n  SUM(JSON_LENGTH(JSON_EXTRACT(briefData, '$.urgencySignals'))) as total_signals,\n  COUNT(*) as companies_with_signals,\n  ROUND(AVG(JSON_LENGTH(JSON_EXTRACT(briefData, '$.urgencySignals'))), 1) as avg_signals_per_company\nFROM companies \nWHERE searchId IN (1500002, 1500003) \n  AND briefData IS NOT NULL \n  AND JSON_EXTRACT(briefData, '$.urgencySignals') IS NOT NULL;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  SUM(JSON_LENGTH(JSON_EXTRACT(briefData, '$.urgencySignals'))) as total_signals,\n  COUNT(*) as companies_with_signals,\n  ROUND(AVG(JSON_LENGTH(JSON_EXTRACT(briefData, '$.urgencySignals'))), 1) as avg_signals_per_company\nFROM companies \nWHERE searchId IN (1500002, 1500003) \n  AND briefData IS NOT NULL \n  AND JSON_EXTRACT(briefData, '$.urgencySignals') IS NOT NULL;\n",
+  "rows": [
+    {
+      "total_signals": "976",
+      "companies_with_signals": "338",
+      "avg_signals_per_company": "2.9"
+    }
+  ],
+  "messages": [],
+  "stdout": "total_signals\tcompanies_with_signals\tavg_signals_per_company\n976\t338\t2.9\n",
+  "stderr": "",
+  "execution_time_ms": 475
+}

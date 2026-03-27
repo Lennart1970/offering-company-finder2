@@ -1,0 +1,18 @@
+{
+  "query": "SELECT status, COUNT(*) as cnt FROM campaign_queue WHERE searchId IN (1500002, 1500003) GROUP BY status;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT status, COUNT(*) as cnt FROM campaign_queue WHERE searchId IN (1500002, 1500003) GROUP BY status;",
+  "rows": [
+    {
+      "status": "running",
+      "cnt": "5"
+    },
+    {
+      "status": "completed",
+      "cnt": "331"
+    }
+  ],
+  "messages": [],
+  "stdout": "status\tcnt\nrunning\t5\ncompleted\t331\n",
+  "stderr": "",
+  "execution_time_ms": 62
+}

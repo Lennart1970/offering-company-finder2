@@ -1,0 +1,18 @@
+{
+  "query": "\nSELECT \n  COUNT(*) as total,\n  SUM(CASE WHEN enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) as enriched,\n  SUM(CASE WHEN fitScore IS NOT NULL THEN 1 ELSE 0 END) as has_fit,\n  SUM(CASE WHEN fitScore IS NULL THEN 1 ELSE 0 END) as no_fit,\n  SUM(CASE WHEN briefData IS NOT NULL AND briefData != '' THEN 1 ELSE 0 END) as has_brief,\n  SUM(CASE WHEN salesApproachData IS NOT NULL AND salesApproachData != '' THEN 1 ELSE 0 END) as has_sales\nFROM companies WHERE searchId IN (1500002, 1500003);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  COUNT(*) as total,\n  SUM(CASE WHEN enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) as enriched,\n  SUM(CASE WHEN fitScore IS NOT NULL THEN 1 ELSE 0 END) as has_fit,\n  SUM(CASE WHEN fitScore IS NULL THEN 1 ELSE 0 END) as no_fit,\n  SUM(CASE WHEN briefData IS NOT NULL AND briefData != '' THEN 1 ELSE 0 END) as has_brief,\n  SUM(CASE WHEN salesApproachData IS NOT NULL AND salesApproachData != '' THEN 1 ELSE 0 END) as has_sales\nFROM companies WHERE searchId IN (1500002, 1500003);\n",
+  "rows": [
+    {
+      "total": "338",
+      "enriched": "338",
+      "has_fit": "338",
+      "no_fit": "0",
+      "has_brief": "338",
+      "has_sales": "338"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\tenriched\thas_fit\tno_fit\thas_brief\thas_sales\n338\t338\t338\t0\t338\t338\n",
+  "stderr": "",
+  "execution_time_ms": 71
+}

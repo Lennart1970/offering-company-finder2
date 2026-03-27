@@ -1,0 +1,50 @@
+{
+  "query": "\nSELECT cq.id, cq.companyName, cq.status, cq.errorMessage,\n  CASE WHEN c.briefData IS NULL OR c.briefData = '' THEN 'NO' ELSE 'YES' END as has_brief,\n  CASE WHEN c.salesApproachData IS NULL OR c.salesApproachData = '' THEN 'NO' ELSE 'YES' END as has_sales\nFROM campaign_queue cq\nJOIN companies c ON c.id = cq.companyId\nWHERE cq.id >= 90046\nORDER BY cq.id;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT cq.id, cq.companyName, cq.status, cq.errorMessage,\n  CASE WHEN c.briefData IS NULL OR c.briefData = '' THEN 'NO' ELSE 'YES' END as has_brief,\n  CASE WHEN c.salesApproachData IS NULL OR c.salesApproachData = '' THEN 'NO' ELSE 'YES' END as has_sales\nFROM campaign_queue cq\nJOIN companies c ON c.id = cq.companyId\nWHERE cq.id >= 90046\nORDER BY cq.id;\n",
+  "rows": [
+    {
+      "id": "90046",
+      "companyName": "Kitron, Uab",
+      "status": "completed",
+      "errorMessage": "NULL",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "90047",
+      "companyName": "W.H. Brady",
+      "status": "completed",
+      "errorMessage": "NULL",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "90048",
+      "companyName": "Ydchem",
+      "status": "completed",
+      "errorMessage": "NULL",
+      "has_brief": "YES",
+      "has_sales": "NO"
+    },
+    {
+      "id": "90049",
+      "companyName": "Grupo Elektra Xxi SL",
+      "status": "completed",
+      "errorMessage": "NULL",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "90050",
+      "companyName": "AKROS CZ, s.r.o.",
+      "status": "completed",
+      "errorMessage": "NULL",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tcompanyName\tstatus\terrorMessage\thas_brief\thas_sales\n90046\tKitron, Uab\tcompleted\tNULL\tYES\tYES\n90047\tW.H. Brady\tcompleted\tNULL\tYES\tYES\n90048\tYdchem\tcompleted\tNULL\tYES\tNO\n90049\tGrupo Elektra Xxi SL\tcompleted\tNULL\tYES\tYES\n90050\tAKROS CZ, s.r.o.\tcompleted\tNULL\tYES\tYES\n",
+  "stderr": "",
+  "execution_time_ms": 63
+}

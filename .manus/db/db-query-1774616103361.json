@@ -1,0 +1,34 @@
+{
+  "query": "\nSELECT id, name, fitScore, urgencyScore,\n  CASE WHEN briefData IS NULL OR briefData = '' THEN 'MISSING' ELSE 'OK' END as brief_status,\n  CASE WHEN salesApproachData IS NULL OR salesApproachData = '' THEN 'MISSING' ELSE 'OK' END as sales_status\nFROM companies \nWHERE id IN (1381091, 1381143, 1381144);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT id, name, fitScore, urgencyScore,\n  CASE WHEN briefData IS NULL OR briefData = '' THEN 'MISSING' ELSE 'OK' END as brief_status,\n  CASE WHEN salesApproachData IS NULL OR salesApproachData = '' THEN 'MISSING' ELSE 'OK' END as sales_status\nFROM companies \nWHERE id IN (1381091, 1381143, 1381144);\n",
+  "rows": [
+    {
+      "id": "1381091",
+      "name": "BMK Group GmbH",
+      "fitScore": "55",
+      "urgencyScore": "78",
+      "brief_status": "OK",
+      "sales_status": "OK"
+    },
+    {
+      "id": "1381143",
+      "name": "Meopta s.r.o.",
+      "fitScore": "95",
+      "urgencyScore": "75",
+      "brief_status": "OK",
+      "sales_status": "OK"
+    },
+    {
+      "id": "1381144",
+      "name": "Nanyo Auto Center",
+      "fitScore": "35",
+      "urgencyScore": "0",
+      "brief_status": "OK",
+      "sales_status": "OK"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tfitScore\turgencyScore\tbrief_status\tsales_status\n1381091\tBMK Group GmbH\t55\t78\tOK\tOK\n1381143\tMeopta s.r.o.\t95\t75\tOK\tOK\n1381144\tNanyo Auto Center\t35\t0\tOK\tOK\n",
+  "stderr": "",
+  "execution_time_ms": 55
+}

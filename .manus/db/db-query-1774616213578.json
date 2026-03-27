@@ -1,0 +1,9 @@
+{
+  "query": "\nINSERT INTO campaign_queue (searchId, companyId, userId, companyName, jobType, status)\nSELECT searchId, id, 1, name, 'full', 'pending'\nFROM companies \nWHERE searchId IN (1500002, 1500003) AND fitScore IS NULL;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nINSERT INTO campaign_queue (searchId, companyId, userId, companyName, jobType, status)\nSELECT searchId, id, 1, name, 'full', 'pending'\nFROM companies \nWHERE searchId IN (1500002, 1500003) AND fitScore IS NULL;\n",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 70
+}

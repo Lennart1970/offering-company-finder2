@@ -1959,3 +1959,19 @@
 - [x] Parallelise brief generation + sales approach generation (run concurrently after fit score)
 - [x] Add concurrent worker support (3-5 parallel workers picking from the same queue)
 - [x] Ensure proper job locking so concurrent workers don't pick the same job
+
+## Data Completeness Audit & Gap-Filling (Campaigns 1500003 + 1500002)
+- [x] Audit data completeness for campaigns 1500003 and 1500002 (missing images, sales approaches, briefs, fit scores)
+- [x] Build targeted re-processing to fill gaps for incomplete companies
+- [x] Re-run pipeline for incomplete companies
+- [x] Verify all data is complete and clean
+
+## Batch Decision Makers + Sales Rep Matching (All 338 Companies)
+- [x] Find 1-3 decision makers per company using Apollo People Search
+- [x] Execute "Find Best Sales Rep" matching for all companies
+- [x] Verify completeness of contacts and sales rep assignments
+
+## Pre-generate Sales Approaches
+- [x] Investigate how proposed approach is generated (on-the-fly vs stored)
+- [x] Batch pre-generate and store signal openers for all 338 companies (976 openers)
+- [x] Verify all companies have pre-stored signal openers (338/338)

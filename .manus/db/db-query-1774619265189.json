@@ -1,0 +1,106 @@
+{
+  "query": "\nSELECT c.id, c.name, c.primaryDomain, c.websiteUrl\nFROM companies c \nWHERE c.searchId IN (1500002, 1500003) \n  AND c.id NOT IN (SELECT DISTINCT companyId FROM contacts)\nLIMIT 20;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT c.id, c.name, c.primaryDomain, c.websiteUrl\nFROM companies c \nWHERE c.searchId IN (1500002, 1500003) \n  AND c.id NOT IN (SELECT DISTINCT companyId FROM contacts)\nLIMIT 20;\n",
+  "rows": [
+    {
+      "id": "1380897",
+      "name": "Alexander Nolte",
+      "primaryDomain": "alexander-nolte.de",
+      "websiteUrl": "http://www.alexander-nolte.de"
+    },
+    {
+      "id": "1380977",
+      "name": "Besa SanitÃ¤rtechnik GmbH",
+      "primaryDomain": "sanitaer-besa.de",
+      "websiteUrl": "http://www.sanitaer-besa.de"
+    },
+    {
+      "id": "1380982",
+      "name": "Festool Schweiz AG",
+      "primaryDomain": "festool.de",
+      "websiteUrl": "http://www.festool.de"
+    },
+    {
+      "id": "1380992",
+      "name": "RDCS Informationstechnologie GmbH",
+      "primaryDomain": "rdcs.eu",
+      "websiteUrl": "http://www.rdcs.eu"
+    },
+    {
+      "id": "1381008",
+      "name": "Electro Enterprises, Inc.",
+      "primaryDomain": "electroenterprises.com",
+      "websiteUrl": "http://www.electroenterprises.com"
+    },
+    {
+      "id": "1381009",
+      "name": "Festlicht Sandra Matheis UG (haftungsbeschrÃ¤nkt)",
+      "primaryDomain": "festlich-t.de",
+      "websiteUrl": "http://www.festlich-t.de"
+    },
+    {
+      "id": "1381035",
+      "name": "Erhard Wolfgang",
+      "primaryDomain": "rackling.de",
+      "websiteUrl": "http://www.rackling.de"
+    },
+    {
+      "id": "1381096",
+      "name": "Human Interactive Technologies GmbH",
+      "primaryDomain": "hit-netzon.com.cn",
+      "websiteUrl": "http://www.hit-netzon.com.cn"
+    },
+    {
+      "id": "1381120",
+      "name": "Strabag SE",
+      "primaryDomain": "strabag.at",
+      "websiteUrl": "http://www.strabag.at"
+    },
+    {
+      "id": "1381134",
+      "name": "LUDIN Components s.r.o.",
+      "primaryDomain": "ludin.cz",
+      "websiteUrl": "http://www.ludin.cz"
+    },
+    {
+      "id": "1381144",
+      "name": "Nanyo Auto Center",
+      "primaryDomain": "yamaha-motorbiz.co.jp",
+      "websiteUrl": "http://www.yamaha-motorbiz.co.jp"
+    },
+    {
+      "id": "1381149",
+      "name": "ATD Elektronik, s.r.o.",
+      "primaryDomain": "atd-elektronik.cz",
+      "websiteUrl": "http://www.atd-elektronik.cz"
+    },
+    {
+      "id": "1381157",
+      "name": "Insignia Sign & Graphics",
+      "primaryDomain": "insignialtd.com",
+      "websiteUrl": "http://www.insignialtd.com"
+    },
+    {
+      "id": "1381183",
+      "name": "Navamitecnologia",
+      "primaryDomain": "navamitecnologia.com",
+      "websiteUrl": "http://www.navamitecnologia.com"
+    },
+    {
+      "id": "1381186",
+      "name": "Stellantis Auto Sas",
+      "primaryDomain": "citroen.fr",
+      "websiteUrl": "http://www.citroen.fr"
+    },
+    {
+      "id": "1381196",
+      "name": "Aplicaciones Y Sistemas Electronicos Led's SL",
+      "primaryDomain": "asel.es",
+      "websiteUrl": "http://www.asel.es"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tprimaryDomain\twebsiteUrl\n1380897\tAlexander Nolte\talexander-nolte.de\thttp://www.alexander-nolte.de\n1380977\tBesa SanitÃ¤rtechnik GmbH\tsanitaer-besa.de\thttp://www.sanitaer-besa.de\n1380982\tFestool Schweiz AG\tfestool.de\thttp://www.festool.de\n1380992\tRDCS Informationstechnologie GmbH\trdcs.eu\thttp://www.rdcs.eu\n1381008\tElectro Enterprises, Inc.\telectroenterprises.com\thttp://www.electroenterprises.com\n1381009\tFestlicht Sandra Matheis UG (haftungsbeschrÃ¤nkt)\tfestlich-t.de\thttp://www.festlich-t.de\n1381035\tErhard Wolfgang\trackling.de\thttp://www.rackling.de\n1381096\tHuman Interactive Technologies GmbH\thit-netzon.com.cn\thttp://www.hit-netzon.com.cn\n1381120\tStrabag SE\tstrabag.at\thttp://www.strabag.at\n1381134\tLUDIN Components s.r.o.\tludin.cz\thttp://www.ludin.cz\n1381144\tNanyo Auto Center\tyamaha-motorbiz.co.jp\thttp://www.yamaha-motorbiz.co.jp\n1381149\tATD Elektronik, s.r.o.\tatd-elektronik.cz\thttp://www.atd-elektronik.cz\n1381157\tInsignia Sign & Graphics\tinsignialtd.com\thttp://www.insignialtd.com\n1381183\tNavamitecnologia\tnavamitecnologia.com\thttp://www.navamitecnologia.com\n1381186\tStellantis Auto Sas\tcitroen.fr\thttp://www.citroen.fr\n1381196\tAplicaciones Y Sistemas Electronicos Led's SL\tasel.es\thttp://www.asel.es\n",
+  "stderr": "",
+  "execution_time_ms": 65
+}

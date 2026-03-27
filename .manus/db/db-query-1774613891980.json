@@ -1,0 +1,22 @@
+{
+  "query": "SELECT status, COUNT(*) as cnt FROM campaign_queue GROUP BY status;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT status, COUNT(*) as cnt FROM campaign_queue GROUP BY status;",
+  "rows": [
+    {
+      "status": "failed",
+      "cnt": "120"
+    },
+    {
+      "status": "running",
+      "cnt": "38"
+    },
+    {
+      "status": "completed",
+      "cnt": "649"
+    }
+  ],
+  "messages": [],
+  "stdout": "status\tcnt\nfailed\t120\nrunning\t38\ncompleted\t649\n",
+  "stderr": "",
+  "execution_time_ms": 59
+}

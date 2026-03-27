@@ -1,0 +1,17 @@
+{
+  "query": "\nSELECT \n  COUNT(DISTINCT c.id) as total_companies,\n  SUM(CASE WHEN c.id IN (SELECT DISTINCT companyId FROM contacts) THEN 1 ELSE 0 END) as has_contacts,\n  SUM(CASE WHEN c.salesRepProfile IS NOT NULL AND c.salesRepProfile != '' THEN 1 ELSE 0 END) as has_sales_rep,\n  (SELECT COUNT(*) FROM contacts WHERE companyId IN (SELECT id FROM companies WHERE searchId IN (1500002, 1500003))) as total_contacts,\n  ROUND((SELECT COUNT(*) FROM contacts WHERE companyId IN (SELECT id FROM companies WHERE searchId IN (1500002, 1500003))) / COUNT(DISTINCT c.id), 1) as avg_contacts_per_company\nFROM companies c WHERE c.searchId IN (1500002, 1500003);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  COUNT(DISTINCT c.id) as total_companies,\n  SUM(CASE WHEN c.id IN (SELECT DISTINCT companyId FROM contacts) THEN 1 ELSE 0 END) as has_contacts,\n  SUM(CASE WHEN c.salesRepProfile IS NOT NULL AND c.salesRepProfile != '' THEN 1 ELSE 0 END) as has_sales_rep,\n  (SELECT COUNT(*) FROM contacts WHERE companyId IN (SELECT id FROM companies WHERE searchId IN (1500002, 1500003))) as total_contacts,\n  ROUND((SELECT COUNT(*) FROM contacts WHERE companyId IN (SELECT id FROM companies WHERE searchId IN (1500002, 1500003))) / COUNT(DISTINCT c.id), 1) as avg_contacts_per_company\nFROM companies c WHERE c.searchId IN (1500002, 1500003);\n",
+  "rows": [
+    {
+      "total_companies": "338",
+      "has_contacts": "322",
+      "has_sales_rep": "338",
+      "total_contacts": "723",
+      "avg_contacts_per_company": "2.1"
+    }
+  ],
+  "messages": [],
+  "stdout": "total_companies\thas_contacts\thas_sales_rep\ttotal_contacts\tavg_contacts_per_company\n338\t322\t338\t723\t2.1\n",
+  "stderr": "",
+  "execution_time_ms": 88
+}

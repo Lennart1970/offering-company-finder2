@@ -1,0 +1,24 @@
+{
+  "query": "\nSELECT id, companyWebsite, offeringName, status, \n  LEFT(keywordTagsUsed, 100) as tags_preview\nFROM searches \nWHERE id IN (1500002, 1500003);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT id, companyWebsite, offeringName, status, \n  LEFT(keywordTagsUsed, 100) as tags_preview\nFROM searches \nWHERE id IN (1500002, 1500003);\n",
+  "rows": [
+    {
+      "id": "1500002",
+      "companyWebsite": "",
+      "offeringName": "[Niche] Industrial Manufacturing & Electronics",
+      "status": "completed",
+      "tags_preview": "NULL"
+    },
+    {
+      "id": "1500003",
+      "companyWebsite": "",
+      "offeringName": "[Niche] Diverse Industrial & Manufacturing Solutions",
+      "status": "completed",
+      "tags_preview": "NULL"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tcompanyWebsite\tofferingName\tstatus\ttags_preview\n1500002\t\t[Niche] Industrial Manufacturing & Electronics\tcompleted\tNULL\n1500003\t\t[Niche] Diverse Industrial & Manufacturing Solutions\tcompleted\tNULL\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

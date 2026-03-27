@@ -1,0 +1,28 @@
+{
+  "query": "\nSELECT id, name, \n  LEFT(salesApproachData, 300) as approach_preview,\n  salesApproachGeneratedAt\nFROM companies \nWHERE searchId IN (1500002, 1500003) \nLIMIT 3;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT id, name, \n  LEFT(salesApproachData, 300) as approach_preview,\n  salesApproachGeneratedAt\nFROM companies \nWHERE searchId IN (1500002, 1500003) \nLIMIT 3;\n",
+  "rows": [
+    {
+      "id": "1380894",
+      "name": "Viscom SE",
+      "approach_preview": "{\"companyName\":\"Viscom SE\",\"generatedAt\":\"2026-03-26T11:40:17.228Z\",\"conversationStarters\":[{\"opener\":\"Congratulations on showcasing the X8011-III manual X-ray system for safety-critical defense electronics at Hannover Messe 2026! As an EMS specializing in Defense & Avionics with coated products and",
+      "salesApproachGeneratedAt": "2026-03-26 11:40:17"
+    },
+    {
+      "id": "1380895",
+      "name": "AL-KO Production Austria GmbH",
+      "approach_preview": "{\"companyName\":\"AL-KO Production Austria GmbH\",\"generatedAt\":\"2026-03-26T11:41:44.722Z\",\"conversationStarters\":[{\"opener\":\"Congratulations on receiving the prestigious BGF quality seal for 2026-2028! This highlights your commitment to excellence, much like our IPC-certified processes with full trace",
+      "salesApproachGeneratedAt": "2026-03-26 11:41:45"
+    },
+    {
+      "id": "1380896",
+      "name": "A.G.W. Electronics Limited",
+      "approach_preview": "{\"companyName\":\"A.G.W. Electronics Limited\",\"generatedAt\":\"2026-03-26T11:43:30.022Z\",\"conversationStarters\":[{\"opener\":\"Hi [Name], I noticed AGW showcased its power electronics portfolio at Southern Manufacturing & Electronics 2025 at stand C70 (https://agw.co.uk/news/article/southern-manufacturing-",
+      "salesApproachGeneratedAt": "2026-03-26 11:43:30"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tapproach_preview\tsalesApproachGeneratedAt\n1380894\tViscom SE\t{\"companyName\":\"Viscom SE\",\"generatedAt\":\"2026-03-26T11:40:17.228Z\",\"conversationStarters\":[{\"opener\":\"Congratulations on showcasing the X8011-III manual X-ray system for safety-critical defense electronics at Hannover Messe 2026! As an EMS specializing in Defense & Avionics with coated products and\t2026-03-26 11:40:17\n1380895\tAL-KO Production Austria GmbH\t{\"companyName\":\"AL-KO Production Austria GmbH\",\"generatedAt\":\"2026-03-26T11:41:44.722Z\",\"conversationStarters\":[{\"opener\":\"Congratulations on receiving the prestigious BGF quality seal for 2026-2028! This highlights your commitment to excellence, much like our IPC-certified processes with full trace\t2026-03-26 11:41:45\n1380896\tA.G.W. Electronics Limited\t{\"companyName\":\"A.G.W. Electronics Limited\",\"generatedAt\":\"2026-03-26T11:43:30.022Z\",\"conversationStarters\":[{\"opener\":\"Hi [Name], I noticed AGW showcased its power electronics portfolio at Southern Manufacturing & Electronics 2025 at stand C70 (https://agw.co.uk/news/article/southern-manufacturing-\t2026-03-26 11:43:30\n",
+  "stderr": "",
+  "execution_time_ms": 60
+}

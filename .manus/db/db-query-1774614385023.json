@@ -1,0 +1,19 @@
+{
+  "query": "\nSELECT \n  COUNT(*) as total,\n  SUM(CASE WHEN enrichmentStatus != 'enriched' THEN 1 ELSE 0 END) as not_enriched,\n  SUM(CASE WHEN fitScore IS NULL THEN 1 ELSE 0 END) as no_fit_score,\n  SUM(CASE WHEN urgencyScore IS NULL THEN 1 ELSE 0 END) as no_urgency,\n  SUM(CASE WHEN briefData IS NULL OR briefData = '' THEN 1 ELSE 0 END) as no_brief,\n  SUM(CASE WHEN salesApproachData IS NULL OR salesApproachData = '' THEN 1 ELSE 0 END) as no_sales_approach,\n  SUM(CASE WHEN productImages IS NULL OR productImages = '' OR productImages = '[]' THEN 1 ELSE 0 END) as no_product_images\nFROM companies WHERE searchId = 1500003;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  COUNT(*) as total,\n  SUM(CASE WHEN enrichmentStatus != 'enriched' THEN 1 ELSE 0 END) as not_enriched,\n  SUM(CASE WHEN fitScore IS NULL THEN 1 ELSE 0 END) as no_fit_score,\n  SUM(CASE WHEN urgencyScore IS NULL THEN 1 ELSE 0 END) as no_urgency,\n  SUM(CASE WHEN briefData IS NULL OR briefData = '' THEN 1 ELSE 0 END) as no_brief,\n  SUM(CASE WHEN salesApproachData IS NULL OR salesApproachData = '' THEN 1 ELSE 0 END) as no_sales_approach,\n  SUM(CASE WHEN productImages IS NULL OR productImages = '' OR productImages = '[]' THEN 1 ELSE 0 END) as no_product_images\nFROM companies WHERE searchId = 1500003;\n",
+  "rows": [
+    {
+      "total": "108",
+      "not_enriched": "10",
+      "no_fit_score": "6",
+      "no_urgency": "21",
+      "no_brief": "21",
+      "no_sales_approach": "22",
+      "no_product_images": "107"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\tnot_enriched\tno_fit_score\tno_urgency\tno_brief\tno_sales_approach\tno_product_images\n108\t10\t6\t21\t21\t22\t107\n",
+  "stderr": "",
+  "execution_time_ms": 62
+}

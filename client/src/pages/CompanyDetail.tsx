@@ -545,13 +545,29 @@ export default function CompanyDetail() {
     }
   };
 
-  // Auto-generate openers for all signals when urgency tab is active and briefData is ready
+  // Load pre-cached signal openers from company data, fall back to on-the-fly generation
   const signalOpenersFiredRef = useRef(false);
   useEffect(() => {
     if (chapter === "urgency" && briefData?.urgencySignals?.length > 0 && !signalOpenersFiredRef.current) {
       signalOpenersFiredRef.current = true;
+
+      // Check for pre-cached openers in company data
+      let cachedOpeners: Array<{ signalIndex: number; opener: string }> = [];
+      try {
+        if (company?.signalOpeners) {
+          cachedOpeners = JSON.parse(company.signalOpeners);
+        }
+      } catch { /* ignore parse errors */ }
+
       briefData.urgencySignals.forEach((signal: any, index: number) => {
-        generateOpenerForSignal(signal, index);
+        // Use cached opener if available and non-empty
+        const cached = cachedOpeners.find((o: any) => o.signalIndex === index);
+        if (cached && cached.opener) {
+          setSignalOpeners(prev => ({ ...prev, [index]: cached.opener }));
+        } else {
+          // Fall back to on-the-fly generation
+          generateOpenerForSignal(signal, index);
+        }
       });
     }
   }, [chapter, briefData]);

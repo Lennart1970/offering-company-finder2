@@ -1,0 +1,15 @@
+{
+  "query": "\nSELECT \n  COUNT(*) as total,\n  SUM(CASE WHEN id IN (SELECT DISTINCT companyId FROM contacts) THEN 1 ELSE 0 END) as has_contacts,\n  SUM(CASE WHEN salesRepProfile IS NOT NULL AND salesRepProfile != '' THEN 1 ELSE 0 END) as has_sales_rep\nFROM companies WHERE searchId IN (1500002, 1500003);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  COUNT(*) as total,\n  SUM(CASE WHEN id IN (SELECT DISTINCT companyId FROM contacts) THEN 1 ELSE 0 END) as has_contacts,\n  SUM(CASE WHEN salesRepProfile IS NOT NULL AND salesRepProfile != '' THEN 1 ELSE 0 END) as has_sales_rep\nFROM companies WHERE searchId IN (1500002, 1500003);\n",
+  "rows": [
+    {
+      "total": "338",
+      "has_contacts": "2",
+      "has_sales_rep": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\thas_contacts\thas_sales_rep\n338\t2\t0\n",
+  "stderr": "",
+  "execution_time_ms": 66
+}

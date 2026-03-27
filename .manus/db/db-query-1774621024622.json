@@ -1,0 +1,16 @@
+{
+  "query": "\nSELECT DISTINCT importBatchId, searchId, COUNT(*) as cnt, MIN(importedAt) as first_import\nFROM leadinfo_visits \nGROUP BY importBatchId, searchId;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT DISTINCT importBatchId, searchId, COUNT(*) as cnt, MIN(importedAt) as first_import\nFROM leadinfo_visits \nGROUP BY importBatchId, searchId;\n",
+  "rows": [
+    {
+      "importBatchId": "7385ccdb-1793-448b-baf4-b488333cf1bb",
+      "searchId": "1500002",
+      "cnt": "219",
+      "first_import": "2026-03-26 12:06:56"
+    }
+  ],
+  "messages": [],
+  "stdout": "importBatchId\tsearchId\tcnt\tfirst_import\n7385ccdb-1793-448b-baf4-b488333cf1bb\t1500002\t219\t2026-03-26 12:06:56\n",
+  "stderr": "",
+  "execution_time_ms": 57
+}

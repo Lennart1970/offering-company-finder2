@@ -1,0 +1,230 @@
+{
+  "query": "\nSELECT \n  cq.searchId, cq.companyName, cq.status, cq.errorMessage,\n  c.enrichmentStatus, c.fitScore, c.urgencyScore,\n  CASE WHEN c.briefData IS NULL OR c.briefData = '' THEN 'NO' ELSE 'YES' END as has_brief,\n  CASE WHEN c.salesApproachData IS NULL OR c.salesApproachData = '' THEN 'NO' ELSE 'YES' END as has_sales\nFROM campaign_queue cq\nJOIN companies c ON c.id = cq.companyId\nWHERE cq.status = 'failed' AND cq.searchId IN (1500002, 1500003)\nLIMIT 20;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  cq.searchId, cq.companyName, cq.status, cq.errorMessage,\n  c.enrichmentStatus, c.fitScore, c.urgencyScore,\n  CASE WHEN c.briefData IS NULL OR c.briefData = '' THEN 'NO' ELSE 'YES' END as has_brief,\n  CASE WHEN c.salesApproachData IS NULL OR c.salesApproachData = '' THEN 'NO' ELSE 'YES' END as has_sales\nFROM campaign_queue cq\nJOIN companies c ON c.id = cq.companyId\nWHERE cq.status = 'failed' AND cq.searchId IN (1500002, 1500003)\nLIMIT 20;\n",
+  "rows": [
+    {
+      "searchId": "1500002",
+      "companyName": "Foshan Dragon Industry Co., Ltd",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "enriched",
+      "fitScore": "45",
+      "urgencyScore": "35",
+      "has_brief": "YES",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Heinz Hermann Thiele Familienstiftung",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "enriched",
+      "fitScore": "98",
+      "urgencyScore": "85",
+      "has_brief": "YES",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Knorr-Bremse Global Truck Management GmbH",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "enriched",
+      "fitScore": "95",
+      "urgencyScore": "82",
+      "has_brief": "YES",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Metrohm France",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "failed",
+      "fitScore": "85",
+      "urgencyScore": "55",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Tct-Tores Composants Technologies",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "enriched",
+      "fitScore": "73",
+      "urgencyScore": "NULL",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Ikor",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "enriched",
+      "fitScore": "50",
+      "urgencyScore": "15",
+      "has_brief": "YES",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Rochester Sensors UK Limited",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "enriched",
+      "fitScore": "72",
+      "urgencyScore": "82",
+      "has_brief": "YES",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Mekoprint A/S",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "enriched",
+      "fitScore": "60",
+      "urgencyScore": "NULL",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Fameccanica.Data Spa",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "enriched",
+      "fitScore": "NULL",
+      "urgencyScore": "NULL",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Ahlers Zentralverwaltung GmbH",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "enriched",
+      "fitScore": "NULL",
+      "urgencyScore": "NULL",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Strama - MPS Maschinenbau GmbH & Co. KG",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "enriched",
+      "fitScore": "98",
+      "urgencyScore": "NULL",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Kyocera Avx Components Limited",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "enriched",
+      "fitScore": "75",
+      "urgencyScore": "75",
+      "has_brief": "YES",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Achim Zerrer",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "enriched",
+      "fitScore": "30",
+      "urgencyScore": "NULL",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Astotec Automotive GmbH",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "enriched",
+      "fitScore": "95",
+      "urgencyScore": "NULL",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "BMK Group GmbH",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "pending",
+      "fitScore": "NULL",
+      "urgencyScore": "NULL",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Jfe Engineering (S) pte. ltd.",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "pending",
+      "fitScore": "NULL",
+      "urgencyScore": "NULL",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Joseph Dresselhaus GmbH & Co. KG",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "pending",
+      "fitScore": "NULL",
+      "urgencyScore": "NULL",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500002",
+      "companyName": "Kitron, Uab",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "pending",
+      "fitScore": "NULL",
+      "urgencyScore": "NULL",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500003",
+      "companyName": "Grupo Elektra Xxi SL",
+      "status": "failed",
+      "errorMessage": "fetch failed",
+      "enrichmentStatus": "enriched",
+      "fitScore": "53",
+      "urgencyScore": "NULL",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    },
+    {
+      "searchId": "1500003",
+      "companyName": "STUDIO 071 s.r.o.",
+      "status": "failed",
+      "errorMessage": "Manually stopped by admin",
+      "enrichmentStatus": "enriched",
+      "fitScore": "30",
+      "urgencyScore": "8",
+      "has_brief": "YES",
+      "has_sales": "NO"
+    }
+  ],
+  "messages": [],
+  "stdout": "searchId\tcompanyName\tstatus\terrorMessage\tenrichmentStatus\tfitScore\turgencyScore\thas_brief\thas_sales\n1500002\tFoshan Dragon Industry Co., Ltd\tfailed\tManually stopped by admin\tenriched\t45\t35\tYES\tNO\n1500002\tHeinz Hermann Thiele Familienstiftung\tfailed\tManually stopped by admin\tenriched\t98\t85\tYES\tNO\n1500002\tKnorr-Bremse Global Truck Management GmbH\tfailed\tManually stopped by admin\tenriched\t95\t82\tYES\tNO\n1500002\tMetrohm France\tfailed\tManually stopped by admin\tfailed\t85\t55\tYES\tYES\n1500002\tTct-Tores Composants Technologies\tfailed\tManually stopped by admin\tenriched\t73\tNULL\tNO\tNO\n1500002\tIkor\tfailed\tManually stopped by admin\tenriched\t50\t15\tYES\tNO\n1500002\tRochester Sensors UK Limited\tfailed\tManually stopped by admin\tenriched\t72\t82\tYES\tNO\n1500002\tMekoprint A/S\tfailed\tManually stopped by admin\tenriched\t60\tNULL\tNO\tNO\n1500002\tFameccanica.Data Spa\tfailed\tManually stopped by admin\tenriched\tNULL\tNULL\tNO\tNO\n1500002\tAhlers Zentralverwaltung GmbH\tfailed\tManually stopped by admin\tenriched\tNULL\tNULL\tNO\tNO\n1500002\tStrama - MPS Maschinenbau GmbH & Co. KG\tfailed\tManually stopped by admin\tenriched\t98\tNULL\tNO\tNO\n1500002\tKyocera Avx Components Limited\tfailed\tManually stopped by admin\tenriched\t75\t75\tYES\tNO\n1500002\tAchim Zerrer\tfailed\tManually stopped by admin\tenriched\t30\tNULL\tNO\tNO\n1500002\tAstotec Automotive GmbH\tfailed\tManually stopped by admin\tenriched\t95\tNULL\tNO\tNO\n1500002\tBMK Group GmbH\tfailed\tManually stopped by admin\tpending\tNULL\tNULL\tNO\tNO\n1500002\tJfe Engineering (S) pte. ltd.\tfailed\tManually stopped by admin\tpending\tNULL\tNULL\tNO\tNO\n1500002\tJoseph Dresselhaus GmbH & Co. KG\tfailed\tManually stopped by admin\tpending\tNULL\tNULL\tNO\tNO\n1500002\tKitron, Uab\tfailed\tManually stopped by admin\tpending\tNULL\tNULL\tNO\tNO\n1500003\tGrupo Elektra Xxi SL\tfailed\tfetch failed\tenriched\t53\tNULL\tNO\tNO\n1500003\tSTUDIO 071 s.r.o.\tfailed\tManually stopped by admin\tenriched\t30\t8\tYES\tNO\n",
+  "stderr": "",
+  "execution_time_ms": 66
+}

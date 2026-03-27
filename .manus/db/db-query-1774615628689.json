@@ -1,0 +1,40 @@
+{
+  "query": "SELECT id, companyName, startedAt, TIMESTAMPDIFF(MINUTE, startedAt, NOW()) as mins_running FROM campaign_queue WHERE searchId IN (1500002, 1500003) AND status = 'running';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, companyName, startedAt, TIMESTAMPDIFF(MINUTE, startedAt, NOW()) as mins_running FROM campaign_queue WHERE searchId IN (1500002, 1500003) AND status = 'running';",
+  "rows": [
+    {
+      "id": "90019",
+      "companyName": "Kitron, Uab",
+      "startedAt": "2026-03-27 12:36:16",
+      "mins_running": "10"
+    },
+    {
+      "id": "90021",
+      "companyName": "W.H. Brady",
+      "startedAt": "2026-03-27 12:36:40",
+      "mins_running": "10"
+    },
+    {
+      "id": "90022",
+      "companyName": "Ydchem",
+      "startedAt": "2026-03-27 12:36:50",
+      "mins_running": "10"
+    },
+    {
+      "id": "90024",
+      "companyName": "Grupo Elektra Xxi SL",
+      "startedAt": "2026-03-27 12:37:17",
+      "mins_running": "9"
+    },
+    {
+      "id": "90028",
+      "companyName": "AKROS CZ, s.r.o.",
+      "startedAt": "2026-03-27 12:37:36",
+      "mins_running": "9"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tcompanyName\tstartedAt\tmins_running\n90019\tKitron, Uab\t2026-03-27 12:36:16\t10\n90021\tW.H. Brady\t2026-03-27 12:36:40\t10\n90022\tYdchem\t2026-03-27 12:36:50\t10\n90024\tGrupo Elektra Xxi SL\t2026-03-27 12:37:17\t9\n90028\tAKROS CZ, s.r.o.\t2026-03-27 12:37:36\t9\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

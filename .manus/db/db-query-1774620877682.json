@@ -1,0 +1,15 @@
+{
+  "query": "\nSELECT searchId, COUNT(*) as total_visits, \n  SUM(CASE WHEN companyId IS NOT NULL THEN 1 ELSE 0 END) as matched\nFROM leadinfo_visits \nGROUP BY searchId\nORDER BY searchId;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT searchId, COUNT(*) as total_visits, \n  SUM(CASE WHEN companyId IS NOT NULL THEN 1 ELSE 0 END) as matched\nFROM leadinfo_visits \nGROUP BY searchId\nORDER BY searchId;\n",
+  "rows": [
+    {
+      "searchId": "1500002",
+      "total_visits": "219",
+      "matched": "219"
+    }
+  ],
+  "messages": [],
+  "stdout": "searchId\ttotal_visits\tmatched\n1500002\t219\t219\n",
+  "stderr": "",
+  "execution_time_ms": 57
+}

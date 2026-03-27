@@ -1,0 +1,8 @@
+{
+  "query": "UPDATE campaign_queue SET status = 'failed', error = 'Manually stopped by admin', updatedAt = NOW() WHERE status = 'running';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute UPDATE campaign_queue SET status = 'failed', error = 'Manually stopped by admin', updatedAt = NOW() WHERE status = 'running';",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 1: Unknown column 'error' in 'field list'"
+  ]
+}

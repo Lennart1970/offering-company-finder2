@@ -1,0 +1,18 @@
+{
+  "query": "\nSELECT \n  'BOTH' as campaign,\n  SUM(CASE WHEN enrichmentStatus != 'enriched' THEN 1 ELSE 0 END) as need_enrich,\n  SUM(CASE WHEN fitScore IS NULL AND enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) as need_fit_score,\n  SUM(CASE WHEN (briefData IS NULL OR briefData = '') AND fitScore IS NOT NULL THEN 1 ELSE 0 END) as need_brief,\n  SUM(CASE WHEN (salesApproachData IS NULL OR salesApproachData = '') AND briefData IS NOT NULL AND briefData != '' THEN 1 ELSE 0 END) as need_sales_only,\n  SUM(CASE WHEN (salesApproachData IS NULL OR salesApproachData = '') THEN 1 ELSE 0 END) as total_no_sales\nFROM companies WHERE searchId IN (1500002, 1500003);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  'BOTH' as campaign,\n  SUM(CASE WHEN enrichmentStatus != 'enriched' THEN 1 ELSE 0 END) as need_enrich,\n  SUM(CASE WHEN fitScore IS NULL AND enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) as need_fit_score,\n  SUM(CASE WHEN (briefData IS NULL OR briefData = '') AND fitScore IS NOT NULL THEN 1 ELSE 0 END) as need_brief,\n  SUM(CASE WHEN (salesApproachData IS NULL OR salesApproachData = '') AND briefData IS NOT NULL AND briefData != '' THEN 1 ELSE 0 END) as need_sales_only,\n  SUM(CASE WHEN (salesApproachData IS NULL OR salesApproachData = '') THEN 1 ELSE 0 END) as total_no_sales\nFROM companies WHERE searchId IN (1500002, 1500003);\n",
+  "rows": [
+    {
+      "campaign": "BOTH",
+      "need_enrich": "20",
+      "need_fit_score": "13",
+      "need_brief": "24",
+      "need_sales_only": "9",
+      "total_no_sales": "45"
+    }
+  ],
+  "messages": [],
+  "stdout": "campaign\tneed_enrich\tneed_fit_score\tneed_brief\tneed_sales_only\ttotal_no_sales\nBOTH\t20\t13\t24\t9\t45\n",
+  "stderr": "",
+  "execution_time_ms": 75
+}

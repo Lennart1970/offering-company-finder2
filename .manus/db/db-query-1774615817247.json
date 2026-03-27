@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO campaign_queue (searchId, companyId, userId, companyName, jobType, status) VALUES (1500002, 1381113, 1, 'Ydchem', 'full', 'pending');",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute INSERT INTO campaign_queue (searchId, companyId, userId, companyName, jobType, status) VALUES (1500002, 1381113, 1, 'Ydchem', 'full', 'pending');",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 71
+}

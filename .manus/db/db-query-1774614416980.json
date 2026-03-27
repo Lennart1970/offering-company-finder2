@@ -1,0 +1,14 @@
+{
+  "query": "\nSELECT COUNT(*) as total, \n  SUM(CASE WHEN productImages IS NOT NULL AND productImages != '' AND productImages != '[]' AND productImages != 'null' THEN 1 ELSE 0 END) as has_images\nFROM companies WHERE searchId IN (1500002, 1500003);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT COUNT(*) as total, \n  SUM(CASE WHEN productImages IS NOT NULL AND productImages != '' AND productImages != '[]' AND productImages != 'null' THEN 1 ELSE 0 END) as has_images\nFROM companies WHERE searchId IN (1500002, 1500003);\n",
+  "rows": [
+    {
+      "total": "338",
+      "has_images": "3"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\thas_images\n338\t3\n",
+  "stderr": "",
+  "execution_time_ms": 57
+}

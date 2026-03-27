@@ -1,0 +1,16 @@
+{
+  "query": "\nSELECT \n  SUM(CASE WHEN enrichmentStatus = 'pending' AND briefData IS NOT NULL AND briefData != '' AND salesApproachData IS NOT NULL AND salesApproachData != '' THEN 1 ELSE 0 END) as enrich_only_issue,\n  SUM(CASE WHEN fitScore IS NULL AND briefData IS NOT NULL AND briefData != '' AND salesApproachData IS NOT NULL AND salesApproachData != '' THEN 1 ELSE 0 END) as fitscore_only_issue,\n  SUM(CASE WHEN briefData IS NULL OR briefData = '' THEN 1 ELSE 0 END) as truly_missing_brief,\n  SUM(CASE WHEN salesApproachData IS NULL OR salesApproachData = '' THEN 1 ELSE 0 END) as truly_missing_sales\nFROM companies WHERE searchId IN (1500002, 1500003);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  SUM(CASE WHEN enrichmentStatus = 'pending' AND briefData IS NOT NULL AND briefData != '' AND salesApproachData IS NOT NULL AND salesApproachData != '' THEN 1 ELSE 0 END) as enrich_only_issue,\n  SUM(CASE WHEN fitScore IS NULL AND briefData IS NOT NULL AND briefData != '' AND salesApproachData IS NOT NULL AND salesApproachData != '' THEN 1 ELSE 0 END) as fitscore_only_issue,\n  SUM(CASE WHEN briefData IS NULL OR briefData = '' THEN 1 ELSE 0 END) as truly_missing_brief,\n  SUM(CASE WHEN salesApproachData IS NULL OR salesApproachData = '' THEN 1 ELSE 0 END) as truly_missing_sales\nFROM companies WHERE searchId IN (1500002, 1500003);\n",
+  "rows": [
+    {
+      "enrich_only_issue": "9",
+      "fitscore_only_issue": "10",
+      "truly_missing_brief": "2",
+      "truly_missing_sales": "3"
+    }
+  ],
+  "messages": [],
+  "stdout": "enrich_only_issue\tfitscore_only_issue\ttruly_missing_brief\ttruly_missing_sales\n9\t10\t2\t3\n",
+  "stderr": "",
+  "execution_time_ms": 70
+}

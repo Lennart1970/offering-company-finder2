@@ -1,0 +1,73 @@
+{
+  "query": "\nSELECT id, name, enrichmentStatus, apolloId, fitScore FROM companies \nWHERE searchId IN (1500002, 1500003) AND enrichmentStatus = 'pending'\nLIMIT 10;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT id, name, enrichmentStatus, apolloId, fitScore FROM companies \nWHERE searchId IN (1500002, 1500003) AND enrichmentStatus = 'pending'\nLIMIT 10;\n",
+  "rows": [
+    {
+      "id": "1380909",
+      "name": "Metrohm France",
+      "enrichmentStatus": "pending",
+      "apolloId": "69c51780b786070001d31db8",
+      "fitScore": "85"
+    },
+    {
+      "id": "1380960",
+      "name": "KSB Finanz GmbH",
+      "enrichmentStatus": "pending",
+      "apolloId": "69c5177fb786070001d31d83",
+      "fitScore": "93"
+    },
+    {
+      "id": "1380961",
+      "name": "Link-In Solutions Ood",
+      "enrichmentStatus": "pending",
+      "apolloId": "69c51780b786070001d31d93",
+      "fitScore": "35"
+    },
+    {
+      "id": "1380962",
+      "name": "PalmSens B.V.",
+      "enrichmentStatus": "pending",
+      "apolloId": "69c51780b786070001d31dfa",
+      "fitScore": "75"
+    },
+    {
+      "id": "1380963",
+      "name": "Preh GmbH",
+      "enrichmentStatus": "pending",
+      "apolloId": "69c51780b786070001d31e12",
+      "fitScore": "100"
+    },
+    {
+      "id": "1380964",
+      "name": "ProMicro B.V.",
+      "enrichmentStatus": "pending",
+      "apolloId": "69c51780b786070001d31e19",
+      "fitScore": "42"
+    },
+    {
+      "id": "1381162",
+      "name": "ELDIS Pardubice, s.r.o.",
+      "enrichmentStatus": "pending",
+      "apolloId": "69494affe3f780000181fb81",
+      "fitScore": "90"
+    },
+    {
+      "id": "1381163",
+      "name": "Circutor S.A.U.",
+      "enrichmentStatus": "pending",
+      "apolloId": "69a83296f0b5080001884cfa",
+      "fitScore": "90"
+    },
+    {
+      "id": "1381165",
+      "name": "Pandolfo Alluminio Spa",
+      "enrichmentStatus": "pending",
+      "apolloId": "69a835f346fda10001136e28",
+      "fitScore": "58"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tenrichmentStatus\tapolloId\tfitScore\n1380909\tMetrohm France\tpending\t69c51780b786070001d31db8\t85\n1380960\tKSB Finanz GmbH\tpending\t69c5177fb786070001d31d83\t93\n1380961\tLink-In Solutions Ood\tpending\t69c51780b786070001d31d93\t35\n1380962\tPalmSens B.V.\tpending\t69c51780b786070001d31dfa\t75\n1380963\tPreh GmbH\tpending\t69c51780b786070001d31e12\t100\n1380964\tProMicro B.V.\tpending\t69c51780b786070001d31e19\t42\n1381162\tELDIS Pardubice, s.r.o.\tpending\t69494affe3f780000181fb81\t90\n1381163\tCircutor S.A.U.\tpending\t69a83296f0b5080001884cfa\t90\n1381165\tPandolfo Alluminio Spa\tpending\t69a835f346fda10001136e28\t58\n",
+  "stderr": "",
+  "execution_time_ms": 60
+}

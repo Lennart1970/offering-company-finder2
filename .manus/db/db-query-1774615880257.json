@@ -1,0 +1,14 @@
+{
+  "query": "\nSELECT c.name, \n  CASE WHEN c.salesApproachData IS NULL OR c.salesApproachData = '' THEN 'NO' ELSE 'YES' END as has_sales\nFROM companies c WHERE c.id = 1381113;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT c.name, \n  CASE WHEN c.salesApproachData IS NULL OR c.salesApproachData = '' THEN 'NO' ELSE 'YES' END as has_sales\nFROM companies c WHERE c.id = 1381113;\n",
+  "rows": [
+    {
+      "name": "Ydchem",
+      "has_sales": "YES"
+    }
+  ],
+  "messages": [],
+  "stdout": "name\thas_sales\nYdchem\tYES\n",
+  "stderr": "",
+  "execution_time_ms": 66
+}

@@ -12,6 +12,8 @@ import excelImportRouter from "../routes/excelImport";
 import exportExcelRouter from "../routes/exportExcel";
 import { serveStatic, setupVite } from "./vite";
 import { startCampaignQueueWorker } from "../campaignQueueWorker";
+import { runBatchContactsAndReps, getBatchProgress } from "../batchContactsAndReps";
+import { runBatchSignalOpeners, batchSignalProgress } from "../batchSignalOpeners";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -48,6 +50,28 @@ async function startServer() {
   app.use("/api/excel-import", excelImportRouter);
   // SharePoint-ready Excel export
   app.use("/api/export-excel", exportExcelRouter);
+
+  // Batch contacts + sales rep trigger (admin only, no auth for internal use)
+  app.post("/api/batch-contacts-reps", (req, res) => {
+    const { searchIds, userId } = req.body || {};
+    if (!searchIds || !Array.isArray(searchIds)) {
+      return res.status(400).json({ error: "searchIds array required" });
+    }
+    runBatchContactsAndReps(searchIds, userId || 1);
+    res.json({ started: true, searchIds });
+  });
+  app.get("/api/batch-contacts-reps/progress", (_req, res) => {
+    res.json(getBatchProgress());
+  });
+
+  // Batch signal openers pre-generation
+  app.post("/api/batch-signal-openers", (_req, res) => {
+    runBatchSignalOpeners();
+    res.json({ started: true });
+  });
+  app.get("/api/batch-signal-openers/progress", (_req, res) => {
+    res.json(batchSignalProgress);
+  });
   // tRPC API
   app.use(
     "/api/trpc",

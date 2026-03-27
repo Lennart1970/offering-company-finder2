@@ -1,0 +1,18 @@
+{
+  "query": "\nSELECT searchId, COUNT(*) as needs_work FROM companies \nWHERE searchId IN (1500002, 1500003) \nAND (salesApproachData IS NULL OR salesApproachData = '')\nGROUP BY searchId;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT searchId, COUNT(*) as needs_work FROM companies \nWHERE searchId IN (1500002, 1500003) \nAND (salesApproachData IS NULL OR salesApproachData = '')\nGROUP BY searchId;\n",
+  "rows": [
+    {
+      "searchId": "1500002",
+      "needs_work": "23"
+    },
+    {
+      "searchId": "1500003",
+      "needs_work": "22"
+    }
+  ],
+  "messages": [],
+  "stdout": "searchId\tneeds_work\n1500002\t23\n1500003\t22\n",
+  "stderr": "",
+  "execution_time_ms": 145
+}

@@ -1,0 +1,22 @@
+{
+  "query": "\nSELECT \n  searchId,\n  COUNT(*) as total,\n  SUM(CASE WHEN signalOpeners IS NOT NULL THEN 1 ELSE 0 END) as has_openers,\n  SUM(CASE WHEN signalOpeners IS NULL THEN 1 ELSE 0 END) as missing_openers\nFROM companies \nWHERE searchId IN (1500002, 1500003)\nGROUP BY searchId;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  searchId,\n  COUNT(*) as total,\n  SUM(CASE WHEN signalOpeners IS NOT NULL THEN 1 ELSE 0 END) as has_openers,\n  SUM(CASE WHEN signalOpeners IS NULL THEN 1 ELSE 0 END) as missing_openers\nFROM companies \nWHERE searchId IN (1500002, 1500003)\nGROUP BY searchId;\n",
+  "rows": [
+    {
+      "searchId": "1500003",
+      "total": "108",
+      "has_openers": "108",
+      "missing_openers": "0"
+    },
+    {
+      "searchId": "1500002",
+      "total": "230",
+      "has_openers": "230",
+      "missing_openers": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "searchId\ttotal\thas_openers\tmissing_openers\n1500003\t108\t108\t0\n1500002\t230\t230\t0\n",
+  "stderr": "",
+  "execution_time_ms": 69
+}

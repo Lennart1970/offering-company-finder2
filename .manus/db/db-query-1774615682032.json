@@ -1,0 +1,55 @@
+{
+  "query": "\nSELECT c.id, c.name, c.enrichmentStatus, c.fitScore, c.urgencyScore,\n  CASE WHEN c.briefData IS NULL OR c.briefData = '' THEN 'NO' ELSE 'YES' END as has_brief,\n  CASE WHEN c.salesApproachData IS NULL OR c.salesApproachData = '' THEN 'NO' ELSE 'YES' END as has_sales\nFROM campaign_queue cq\nJOIN companies c ON c.id = cq.companyId\nWHERE cq.id IN (90019, 90021, 90022, 90024, 90028);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT c.id, c.name, c.enrichmentStatus, c.fitScore, c.urgencyScore,\n  CASE WHEN c.briefData IS NULL OR c.briefData = '' THEN 'NO' ELSE 'YES' END as has_brief,\n  CASE WHEN c.salesApproachData IS NULL OR c.salesApproachData = '' THEN 'NO' ELSE 'YES' END as has_sales\nFROM campaign_queue cq\nJOIN companies c ON c.id = cq.companyId\nWHERE cq.id IN (90019, 90021, 90022, 90024, 90028);\n",
+  "rows": [
+    {
+      "id": "1381100",
+      "name": "Kitron, Uab",
+      "enrichmentStatus": "enriched",
+      "fitScore": "70",
+      "urgencyScore": "92",
+      "has_brief": "YES",
+      "has_sales": "NO"
+    },
+    {
+      "id": "1381112",
+      "name": "W.H. Brady",
+      "enrichmentStatus": "enriched",
+      "fitScore": "80",
+      "urgencyScore": "75",
+      "has_brief": "YES",
+      "has_sales": "NO"
+    },
+    {
+      "id": "1381113",
+      "name": "Ydchem",
+      "enrichmentStatus": "enriched",
+      "fitScore": "46",
+      "urgencyScore": "22",
+      "has_brief": "YES",
+      "has_sales": "NO"
+    },
+    {
+      "id": "1381131",
+      "name": "Grupo Elektra Xxi SL",
+      "enrichmentStatus": "enriched",
+      "fitScore": "53",
+      "urgencyScore": "NULL",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    },
+    {
+      "id": "1381139",
+      "name": "AKROS CZ, s.r.o.",
+      "enrichmentStatus": "enriched",
+      "fitScore": "0",
+      "urgencyScore": "NULL",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tenrichmentStatus\tfitScore\turgencyScore\thas_brief\thas_sales\n1381100\tKitron, Uab\tenriched\t70\t92\tYES\tNO\n1381112\tW.H. Brady\tenriched\t80\t75\tYES\tNO\n1381113\tYdchem\tenriched\t46\t22\tYES\tNO\n1381131\tGrupo Elektra Xxi SL\tenriched\t53\tNULL\tNO\tNO\n1381139\tAKROS CZ, s.r.o.\tenriched\t0\tNULL\tNO\tNO\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

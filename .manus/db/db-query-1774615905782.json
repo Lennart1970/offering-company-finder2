@@ -1,0 +1,208 @@
+{
+  "query": "\nSELECT id, name, enrichmentStatus, apolloId, fitScore,\n  CASE WHEN briefData IS NULL OR briefData = '' THEN 'NO' ELSE 'YES' END as has_brief,\n  CASE WHEN salesApproachData IS NULL OR salesApproachData = '' THEN 'NO' ELSE 'YES' END as has_sales\nFROM companies \nWHERE searchId IN (1500002, 1500003) \nAND (salesApproachData IS NULL OR salesApproachData = '' OR fitScore IS NULL OR enrichmentStatus != 'enriched')\nORDER BY enrichmentStatus, fitScore;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT id, name, enrichmentStatus, apolloId, fitScore,\n  CASE WHEN briefData IS NULL OR briefData = '' THEN 'NO' ELSE 'YES' END as has_brief,\n  CASE WHEN salesApproachData IS NULL OR salesApproachData = '' THEN 'NO' ELSE 'YES' END as has_sales\nFROM companies \nWHERE searchId IN (1500002, 1500003) \nAND (salesApproachData IS NULL OR salesApproachData = '' OR fitScore IS NULL OR enrichmentStatus != 'enriched')\nORDER BY enrichmentStatus, fitScore;\n",
+  "rows": [
+    {
+      "id": "1380961",
+      "name": "Link-In Solutions Ood",
+      "enrichmentStatus": "pending",
+      "apolloId": "69c51780b786070001d31d93",
+      "fitScore": "35",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1380964",
+      "name": "ProMicro B.V.",
+      "enrichmentStatus": "pending",
+      "apolloId": "69c51780b786070001d31e19",
+      "fitScore": "42",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1381165",
+      "name": "Pandolfo Alluminio Spa",
+      "enrichmentStatus": "pending",
+      "apolloId": "69a835f346fda10001136e28",
+      "fitScore": "58",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1380962",
+      "name": "PalmSens B.V.",
+      "enrichmentStatus": "pending",
+      "apolloId": "69c51780b786070001d31dfa",
+      "fitScore": "75",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1380909",
+      "name": "Metrohm France",
+      "enrichmentStatus": "pending",
+      "apolloId": "69c51780b786070001d31db8",
+      "fitScore": "85",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1381163",
+      "name": "Circutor S.A.U.",
+      "enrichmentStatus": "pending",
+      "apolloId": "69a83296f0b5080001884cfa",
+      "fitScore": "90",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1381162",
+      "name": "ELDIS Pardubice, s.r.o.",
+      "enrichmentStatus": "pending",
+      "apolloId": "69494affe3f780000181fb81",
+      "fitScore": "90",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1380960",
+      "name": "KSB Finanz GmbH",
+      "enrichmentStatus": "pending",
+      "apolloId": "69c5177fb786070001d31d83",
+      "fitScore": "93",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1380963",
+      "name": "Preh GmbH",
+      "enrichmentStatus": "pending",
+      "apolloId": "69c51780b786070001d31e12",
+      "fitScore": "100",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1380901",
+      "name": "EFB-Elektronik GmbH",
+      "enrichmentStatus": "enriched",
+      "apolloId": "69c5177fb786070001d31cbf",
+      "fitScore": "NULL",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1380903",
+      "name": "Fischer Elektronik GmbH & Co. KG",
+      "enrichmentStatus": "enriched",
+      "apolloId": "69c5177fb786070001d31cf5",
+      "fitScore": "NULL",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1380902",
+      "name": "Einfochips Inc.",
+      "enrichmentStatus": "enriched",
+      "apolloId": "69c5177fb786070001d31cc3",
+      "fitScore": "NULL",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1380894",
+      "name": "Viscom SE",
+      "enrichmentStatus": "enriched",
+      "apolloId": "694d4fb8a558b2000198dd85",
+      "fitScore": "NULL",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1380898",
+      "name": "Alujet GmbH",
+      "enrichmentStatus": "enriched",
+      "apolloId": "69c5177db786070001d31c19",
+      "fitScore": "NULL",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1381102",
+      "name": "MAGNA Automotive Holding (Germany) GmbH",
+      "enrichmentStatus": "enriched",
+      "apolloId": "69c51780b786070001d31da5",
+      "fitScore": "NULL",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1381120",
+      "name": "Strabag SE",
+      "enrichmentStatus": "enriched",
+      "apolloId": "69c51781b786070001d31e76",
+      "fitScore": "NULL",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1380897",
+      "name": "Alexander Nolte",
+      "enrichmentStatus": "enriched",
+      "apolloId": "69c5177db786070001d31c10",
+      "fitScore": "NULL",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1380896",
+      "name": "A.G.W. Electronics Limited",
+      "enrichmentStatus": "enriched",
+      "apolloId": "69c5177db786070001d31bf2",
+      "fitScore": "NULL",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1380895",
+      "name": "AL-KO Production Austria GmbH",
+      "enrichmentStatus": "enriched",
+      "apolloId": "69a835ed46fda10001136819",
+      "fitScore": "NULL",
+      "has_brief": "YES",
+      "has_sales": "YES"
+    },
+    {
+      "id": "1381144",
+      "name": "Nanyo Auto Center",
+      "enrichmentStatus": "enriched",
+      "apolloId": "69c51780b786070001d31dcf",
+      "fitScore": "35",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    },
+    {
+      "id": "1381091",
+      "name": "BMK Group GmbH",
+      "enrichmentStatus": "enriched",
+      "apolloId": "69c5177eb786070001d31c5f",
+      "fitScore": "55",
+      "has_brief": "NO",
+      "has_sales": "NO"
+    },
+    {
+      "id": "1381143",
+      "name": "Meopta s.r.o.",
+      "enrichmentStatus": "enriched",
+      "apolloId": "69c51780b786070001d31db3",
+      "fitScore": "95",
+      "has_brief": "YES",
+      "has_sales": "NO"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tenrichmentStatus\tapolloId\tfitScore\thas_brief\thas_sales\n1380961\tLink-In Solutions Ood\tpending\t69c51780b786070001d31d93\t35\tYES\tYES\n1380964\tProMicro B.V.\tpending\t69c51780b786070001d31e19\t42\tYES\tYES\n1381165\tPandolfo Alluminio Spa\tpending\t69a835f346fda10001136e28\t58\tYES\tYES\n1380962\tPalmSens B.V.\tpending\t69c51780b786070001d31dfa\t75\tYES\tYES\n1380909\tMetrohm France\tpending\t69c51780b786070001d31db8\t85\tYES\tYES\n1381163\tCircutor S.A.U.\tpending\t69a83296f0b5080001884cfa\t90\tYES\tYES\n1381162\tELDIS Pardubice, s.r.o.\tpending\t69494affe3f780000181fb81\t90\tYES\tYES\n1380960\tKSB Finanz GmbH\tpending\t69c5177fb786070001d31d83\t93\tYES\tYES\n1380963\tPreh GmbH\tpending\t69c51780b786070001d31e12\t100\tYES\tYES\n1380901\tEFB-Elektronik GmbH\tenriched\t69c5177fb786070001d31cbf\tNULL\tYES\tYES\n1380903\tFischer Elektronik GmbH & Co. KG\tenriched\t69c5177fb786070001d31cf5\tNULL\tYES\tYES\n1380902\tEinfochips Inc.\tenriched\t69c5177fb786070001d31cc3\tNULL\tYES\tYES\n1380894\tViscom SE\tenriched\t694d4fb8a558b2000198dd85\tNULL\tYES\tYES\n1380898\tAlujet GmbH\tenriched\t69c5177db786070001d31c19\tNULL\tYES\tYES\n1381102\tMAGNA Automotive Holding (Germany) GmbH\tenriched\t69c51780b786070001d31da5\tNULL\tYES\tYES\n1381120\tStrabag SE\tenriched\t69c51781b786070001d31e76\tNULL\tYES\tYES\n1380897\tAlexander Nolte\tenriched\t69c5177db786070001d31c10\tNULL\tYES\tYES\n1380896\tA.G.W. Electronics Limited\tenriched\t69c5177db786070001d31bf2\tNULL\tYES\tYES\n1380895\tAL-KO Production Austria GmbH\tenriched\t69a835ed46fda10001136819\tNULL\tYES\tYES\n1381144\tNanyo Auto Center\tenriched\t69c51780b786070001d31dcf\t35\tNO\tNO\n1381091\tBMK Group GmbH\tenriched\t69c5177eb786070001d31c5f\t55\tNO\tNO\n1381143\tMeopta s.r.o.\tenriched\t69c51780b786070001d31db3\t95\tYES\tNO\n",
+  "stderr": "",
+  "execution_time_ms": 94
+}

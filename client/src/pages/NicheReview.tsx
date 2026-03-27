@@ -540,6 +540,10 @@ export default function NicheReview() {
   const [clustering, setClustering] = useState(false);
   const [assigning, setAssigning] = useState(false);
   const [expanding, setExpanding] = useState(false);
+  // Batch assignment progress tracking
+  const [batchAssigning, setBatchAssigning] = useState(false);
+  const [batchProgress, setBatchProgress] = useState<{ assigned: number; remaining: number; batchesCompleted: number; newNiches: string[] } | null>(null);
+  const batchAssigningRef = React.useRef(false);
   const [subClusteringId, setSubClusteringId] = useState<number | null>(null);
   // Target group size for Phase 1 clustering (derives K = ceil(seedCount / targetGroupSize))
   const [targetGroupSize, setTargetGroupSize] = useState<number>(300);
@@ -650,6 +654,65 @@ export default function NicheReview() {
     setAssignResult(null);
     setExpandResult(null);
     assignMutation.mutate({ searchId: selectedSearchId });
+  };
+
+  // Auto-looping batch assignment: processes 1K companies at a time until all assigned
+  const handleBatchAssignAll = async () => {
+    if (!selectedSearchId) {
+      toast.error("Select a campaign first");
+      return;
+    }
+    setBatchAssigning(true);
+    batchAssigningRef.current = true;
+    setBatchProgress({ assigned: 0, remaining: 0, batchesCompleted: 0, newNiches: [] });
+    setAssignResult(null);
+    setExpandResult(null);
+
+    let totalAssigned = 0;
+    let batchesCompleted = 0;
+    let allNewNiches: string[] = [];
+    let remaining = 1; // start > 0 to enter loop
+
+    try {
+      while (remaining > 0 && batchAssigningRef.current) {
+        const result = await expandMutation.mutateAsync({
+          searchId: selectedSearchId,
+          batchSize: 1000,
+        });
+        totalAssigned += result.assigned;
+        remaining = result.remaining;
+        batchesCompleted++;
+        if (result.newNicheNames && result.newNicheNames.length > 0) {
+          allNewNiches = [...allNewNiches, ...result.newNicheNames];
+        }
+        setBatchProgress({
+          assigned: totalAssigned,
+          remaining,
+          batchesCompleted,
+          newNiches: allNewNiches,
+        });
+        // Refetch niches and unassigned count after each batch
+        refetchUnassigned();
+        if (selectedSearchId) refetchSearch();
+        else refetch();
+
+        if (result.assigned === 0) {
+          // Safety: if a batch assigned 0 companies, stop to avoid infinite loop
+          break;
+        }
+      }
+      toast.success(`Batch assignment complete: ${totalAssigned.toLocaleString()} companies assigned in ${batchesCompleted} batches`);
+    } catch (e: any) {
+      toast.error(`Batch assignment error at batch ${batchesCompleted + 1}: ${e.message}`);
+    } finally {
+      setBatchAssigning(false);
+      batchAssigningRef.current = false;
+    }
+  };
+
+  const handleStopBatchAssign = () => {
+    batchAssigningRef.current = false;
+    toast.info("Stopping after current batch completes...");
   };
 
   // Expand Sample: assign next 500 unassigned companies (with discovery)
@@ -882,23 +945,35 @@ export default function NicheReview() {
               </Button>
             )}
 
-            {/* PHASE 2: Assign Remaining — assign ALL unassigned at once */}
+            {/* PHASE 2: Assign All — batch 1K at a time with progress */}
             {selectedSearchId && sortedNiches.length > 0 && unassignedData && unassignedData.unassigned > 0 && (
-              <Button
-                size="sm"
-                className="font-black bg-blue-700 text-white hover:bg-blue-800 border-2 border-blue-700"
-                onClick={handleAssignRemaining}
-                disabled={assigning || expanding || clustering}
-              >
-                {assigning ? (
-                  <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                ) : (
-                  <GitBranch className="w-4 h-4 mr-2" />
+              <div className="flex items-center gap-2">
+                <Button
+                  size="sm"
+                  className="font-black bg-blue-700 text-white hover:bg-blue-800 border-2 border-blue-700"
+                  onClick={handleBatchAssignAll}
+                  disabled={batchAssigning || assigning || expanding || clustering}
+                >
+                  {batchAssigning ? (
+                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
+                  ) : (
+                    <GitBranch className="w-4 h-4 mr-2" />
+                  )}
+                  {batchAssigning
+                    ? `Batch ${batchProgress?.batchesCompleted ?? 0} running...`
+                    : `Assign All (${unassignedData.unassigned.toLocaleString()})`}
+                </Button>
+                {batchAssigning && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="font-black border-2 border-red-500 text-red-600 hover:bg-red-50 h-9"
+                    onClick={handleStopBatchAssign}
+                  >
+                    Stop
+                  </Button>
                 )}
-                {assigning
-                  ? "Assigning..."
-                  : `Assign All (${unassignedData.unassigned.toLocaleString()})`}
-              </Button>
+              </div>
             )}
 
             <CreateNicheDialog
@@ -1017,8 +1092,8 @@ export default function NicheReview() {
           </div>
         )}
 
-        {/* Phase 2 (Assign All) progress banner */}
-        {assigning && (
+        {/* Phase 2 (Assign All) progress banner — legacy single-shot */}
+        {assigning && !batchAssigning && (
           <div className="mb-4 border-4 border-blue-700 bg-blue-700 text-white px-6 py-4 flex items-center gap-4">
             <Loader2 className="w-6 h-6 animate-spin shrink-0" />
             <div>
@@ -1031,8 +1106,62 @@ export default function NicheReview() {
           </div>
         )}
 
-        {/* Phase 2 result summary */}
-        {assignResult && !assigning && (
+        {/* Batch assignment progress banner */}
+        {batchAssigning && batchProgress && (
+          <div className="mb-4 border-4 border-blue-700 bg-gradient-to-r from-blue-700 to-blue-800 text-white px-6 py-4">
+            <div className="flex items-center gap-4 mb-3">
+              <Loader2 className="w-6 h-6 animate-spin shrink-0" />
+              <div className="flex-1">
+                <p className="font-black">
+                  Batch {batchProgress.batchesCompleted + 1} processing (1,000 companies per batch)...
+                </p>
+                <p className="text-sm opacity-80 mt-1">
+                  {batchProgress.assigned.toLocaleString()} assigned so far • {batchProgress.remaining.toLocaleString()} remaining • {batchProgress.batchesCompleted} batches completed
+                </p>
+              </div>
+            </div>
+            {/* Progress bar */}
+            {batchProgress.assigned > 0 && (
+              <div className="h-3 bg-blue-900 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-green-400 rounded-full transition-all duration-700"
+                  style={{ width: `${Math.round((batchProgress.assigned / (batchProgress.assigned + batchProgress.remaining)) * 100)}%` }}
+                />
+              </div>
+            )}
+            {batchProgress.newNiches.length > 0 && (
+              <p className="text-sm mt-2 opacity-80">
+                New segments discovered: {batchProgress.newNiches.join(", ")}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Batch assignment complete banner */}
+        {!batchAssigning && batchProgress && batchProgress.batchesCompleted > 0 && batchProgress.remaining === 0 && (
+          <div className="mb-4 border-4 border-green-600 bg-green-50 px-6 py-4">
+            <p className="font-black text-green-800">
+              Batch assignment complete — {batchProgress.assigned.toLocaleString()} companies assigned in {batchProgress.batchesCompleted} batches.
+            </p>
+            {batchProgress.newNiches.length > 0 && (
+              <p className="text-sm text-green-700 mt-1">
+                {batchProgress.newNiches.length} new segment{batchProgress.newNiches.length > 1 ? "s" : ""} discovered: {batchProgress.newNiches.join(", ")}
+              </p>
+            )}
+          </div>
+        )}
+
+        {/* Batch assignment stopped banner */}
+        {!batchAssigning && batchProgress && batchProgress.batchesCompleted > 0 && batchProgress.remaining > 0 && (
+          <div className="mb-4 border-4 border-orange-500 bg-orange-50 px-6 py-4">
+            <p className="font-black text-orange-800">
+              Batch assignment paused — {batchProgress.assigned.toLocaleString()} companies assigned in {batchProgress.batchesCompleted} batches. {batchProgress.remaining.toLocaleString()} still unassigned.
+            </p>
+          </div>
+        )}
+
+        {/* Phase 2 result summary (legacy single-shot) */}
+        {assignResult && !assigning && !batchAssigning && (
           <div className="mb-4 border-4 border-blue-600 bg-blue-50 px-6 py-4">
             <p className="font-black text-blue-800">
               Done — {assignResult.assigned.toLocaleString()} companies assigned to segments.

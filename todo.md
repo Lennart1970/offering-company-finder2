@@ -2001,3 +2001,11 @@
 - [x] Add type-aware assignment to assignRemainingCompanies (service→service niches, mfg→mfg niches)
 - [x] Add type-aware assignment to expandClusterSample (same logic)
 - [x] Write tests for classifier (14 tests) — all 459 tests passing
+
+## Fix tRPC Client Timeout — Break Clustering into 1K Batches
+- [x] Replaced single-shot "Assign All" with auto-looping batch (1K per batch via expandClusterSample)
+- [x] Added batch progress banner with progress bar, batch counter, and remaining count
+- [x] Added Stop button to pause after current batch
+- [x] Added completion/paused banners
+- [x] Type-aware assignment preserved (service→service niches, mfg→mfg niches)
+- [x] All 459 tests passing, server compiles cleanly

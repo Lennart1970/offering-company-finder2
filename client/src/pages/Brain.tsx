@@ -37,8 +37,8 @@ function parseStringArray(value: string | null | undefined): string[] {
 }
 
 export default function Brain() {
-  const [website, setWebsite] = useState("https://www.connectgroup.com");
-  const [companyName, setCompanyName] = useState("ConnectGroup");
+  const [website, setWebsite] = useState("");
+  const [companyName, setCompanyName] = useState("");
   const [brainName, setBrainName] = useState("");
   const [editingField, setEditingField] = useState<string | null>(null);
   const [editValue, setEditValue] = useState("");
@@ -59,8 +59,8 @@ export default function Brain() {
       utils.companyFinder.getActiveBrain.invalidate();
       utils.companyFinder.getBrainHistory.invalidate();
       // Reset form
-      setWebsite("https://www.connectgroup.com");
-      setCompanyName("ConnectGroup");
+      setWebsite("");
+      setCompanyName("");
       setBrainName("");
     },
     onError: (error) => {
@@ -402,7 +402,7 @@ export default function Brain() {
                   type="text"
                   value={companyName}
                   onChange={(e) => setCompanyName(e.target.value)}
-                  placeholder="ConnectGroup"
+                  placeholder="Acme Corporation"
                   className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
                 />
               </div>
@@ -412,7 +412,7 @@ export default function Brain() {
                   type="text"
                   value={website}
                   onChange={(e) => setWebsite(e.target.value)}
-                  placeholder="https://www.connectgroup.com"
+                  placeholder="https://www.example.com"
                   className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
                 />
               </div>
@@ -423,11 +423,11 @@ export default function Brain() {
                 type="text"
                 value={brainName}
                 onChange={(e) => setBrainName(e.target.value)}
-                placeholder="ConnectGroup EMS Brain"
+                placeholder="My Company Brain"
                 className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
               />
               <div className="text-xs font-bold text-muted-foreground mt-1">
-                Give this brain a memorable name (e.g., "ConnectGroup EMS Brain", "Acme Manufacturing Brain")
+                Give this brain a memorable name (e.g., "Acme Manufacturing Brain", "My Sales Intelligence Brain")
               </div>
             </div>
             <Button
@@ -480,7 +480,7 @@ export default function Brain() {
                 type="text"
                 value={excelBrainName}
                 onChange={(e) => setExcelBrainName(e.target.value)}
-                placeholder="e.g. ConnectGroup EMS Brain Q2 2026"
+                placeholder="e.g. My Company Brain Q2 2026"
                 className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
               />
             </div>

@@ -11,7 +11,7 @@ import { NAICS_SECTORS } from "./naicsHierarchy";
  * Comprehensive NAICS code database (5-6 digit codes grouped by 2-digit sector)
  * 
  * Note: This is a curated subset of commonly-used NAICS codes for B2B industries.
- * Full NAICS 2022 has 1000+ codes. We focus on codes relevant to ConnectGroup's target markets.
+ * Full NAICS 2022 has 1000+ codes. We focus on codes relevant to B2B manufacturing and industrial target markets.
  */
 export const NAICS_CODES_BY_SECTOR: Record<string, string[]> = {
   // 22 — Utilities
@@ -22,7 +22,7 @@ export const NAICS_CODES_BY_SECTOR: Record<string, string[]> = {
     "221310", "221320", "221330",
   ],
   
-  // 31-33 — Manufacturing (MAJOR sector for EMS customers)
+  // 31-33 — Manufacturing (major sector for B2B offerings)
   "31": [ // Food, Beverage, Textile
     "311111", "311119", "311211", "311212", "311213", "311221", "311224", "311225",
     "311230", "311313", "311314", "311340", "311351", "311352", "311411", "311412",
@@ -57,7 +57,7 @@ export const NAICS_CODES_BY_SECTOR: Record<string, string[]> = {
     "327993", "327999",
   ],
   
-  "33": [ // Machinery, Computer/Electronics, Electrical, Transportation Equipment (CORE EMS)
+  "33": [ // Machinery, Computer/Electronics, Electrical, Transportation Equipment
     "331110", "331210", "331221", "331222", "331313", "331314", "331315", "331318",
     "331410", "331420", "331491", "331492", "331511", "331512", "331513", "331523",
     "331524", "331529",
@@ -94,7 +94,7 @@ export const NAICS_CODES_BY_SECTOR: Record<string, string[]> = {
     "339994", "339995", "339999",
   ],
   
-  // 42 — Wholesale Trade (potential EMS customers who resell)
+  // 42 — Wholesale Trade (potential B2B customers)
   "42": [
     "423110", "423120", "423130", "423140", "423210", "423220", "423310", "423320",
     "423330", "423390", "423410", "423420", "423430", "423440", "423450", "423460",

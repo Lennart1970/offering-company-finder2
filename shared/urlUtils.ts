@@ -1,11 +1,11 @@
 /**
  * Normalize a user-provided website input to a proper URL format
  * Handles various input formats:
- * - "connectgroup" -> "https://connectgroup.com"
- * - "connectgroup.com" -> "https://connectgroup.com"
- * - "www.connectgroup.com" -> "https://www.connectgroup.com"
- * - "http://connectgroup.com" -> "https://connectgroup.com"
- * - "https://connectgroup.com" -> "https://connectgroup.com"
+ * - "acme" -> "https://acme.com"
+ * - "acme.com" -> "https://acme.com"
+ * - "www.acme.com" -> "https://www.acme.com"
+ * - "http://acme.com" -> "https://acme.com"
+ * - "https://acme.com" -> "https://acme.com"
  */
 export function normalizeWebsiteUrl(input: string): string {
   if (!input || typeof input !== "string") {

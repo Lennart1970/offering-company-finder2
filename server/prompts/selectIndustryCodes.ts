@@ -97,7 +97,7 @@ This is much more powerful than listing 50 individual 6-digit codes. A single "3
    - Companies that would resell or integrate this into larger solutions
 
 3. **Avoid selecting the offering provider's own industry**:
-   - If offering is "EMS services", DON'T select EMS provider codes
+   - If offering is "contract manufacturing", DON'T select contract manufacturer codes
    - If offering is "supply chain software", DON'T select software publisher codes
    - Select the industries that would BUY and USE the offering
 

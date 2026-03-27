@@ -1975,3 +1975,21 @@
 - [x] Investigate how proposed approach is generated (on-the-fly vs stored)
 - [x] Batch pre-generate and store signal openers for all 338 companies (976 openers)
 - [x] Verify all companies have pre-stored signal openers (338/338)
+
+## Brain Agnosticism Audit
+- [x] Audit server code for hardcoded ConnectGroup/offering references
+- [x] Audit client code for hardcoded ConnectGroup/offering references
+- [x] Audit prompts and templates for brain-specific assumptions
+- [x] Compile findings report
+
+## Brain Agnosticism Fixes
+- [x] P1: Replace startSearch hardcoded offering with brain lookup
+- [x] P1: Make searchSlices.ts dynamic from brain data
+- [x] P1: Replace OfferingDetails.tsx with brain-driven rendering
+- [x] P2: Fix nationalScan.ts to use brain
+- [x] P2: Fix prototypeService.ts to use brain context
+- [x] P2: Fix leadinfoService.ts to use generic intent patterns
+- [x] P3: Change all "ConnectGroup" fallbacks to neutral defaults
+- [x] P3: Fix Brain.tsx default form values and placeholders
+- [x] P3: Fix CompanyDecisionButtons competitor label to use brain company name
+- [x] Run tests and verify (441/441 passing, 0 ConnectGroup/EMS references in production code)

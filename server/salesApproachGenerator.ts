@@ -29,14 +29,14 @@ const XAI_BASE_URL = "https://api.x.ai/v1";
 async function getBrainContextForApproach(userId: number): Promise<{ context: string; companyName: string }> {
   try {
     const brain = await getActiveBrain(userId);
-    if (!brain || brain.status !== "completed") return { context: "", companyName: "ConnectGroup" };
+    if (!brain || brain.status !== "completed") return { context: "", companyName: "Your Company" };
 
     const capabilities = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
     const valueProps = brain.valuePropositions ? JSON.parse(brain.valuePropositions) : [];
     const painPoints = brain.icpPainPoints ? JSON.parse(brain.icpPainPoints) : [];
 
     return {
-      companyName: brain.companyName || "ConnectGroup",
+      companyName: brain.companyName || "Your Company",
       context: `
 **YOUR COMPANY (Seller) — ${brain.companyName}:**
 - Summary: ${brain.offeringSummary}
@@ -48,7 +48,7 @@ async function getBrainContextForApproach(userId: number): Promise<{ context: st
     };
   } catch (error) {
     console.warn("[Brain Context] Failed to load brain for sales approach:", error);
-    return { context: "", companyName: "ConnectGroup" };
+    return { context: "", companyName: "Your Company" };
   }
 }
 
@@ -231,7 +231,7 @@ export async function generateSalesApproach(
   const domain = company.primaryDomain || company.websiteUrl || "unknown.com";
 
   // Load Brain context for seller intelligence
-  const brainInfo = userId ? await getBrainContextForApproach(userId) : { context: "", companyName: "ConnectGroup" };
+  const brainInfo = userId ? await getBrainContextForApproach(userId) : { context: "", companyName: "Your Company" };
   const sellerName = brainInfo.companyName;
 
   // Build verified developments summary with source URLs

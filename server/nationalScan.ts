@@ -1,7 +1,7 @@
 import { US_STATES } from "./usStates";
 import { selectIndustryCodes } from "./codeSelectionService";
 import { confirmAndSearch } from "./confirmAndSearch";
-import { createSearch } from "./db";
+import { createSearch, getActiveBrain } from "./db";
 
 /**
  * Progress tracking for national scan
@@ -45,7 +45,7 @@ export function stopNationalScan() {
 
 /**
  * Run a national scan across all 50 US states
- * Only retrieves companies (no Deep Research)
+ * BRAIN-AGNOSTIC: Loads offering data from the active Offering Brain.
  * @param userId - User ID to associate searches with
  * @param testMode - If true, only run 2 states (Delaware, Rhode Island) for testing
  * @param customStates - Optional array of specific states to scan (overrides testMode)
@@ -54,6 +54,30 @@ export async function runNationalScan(userId: number, testMode = false, customSt
   if (scanProgress.isRunning) {
     throw new Error("A national scan is already running");
   }
+
+  // Load the active Offering Brain
+  const brain = await getActiveBrain(userId);
+  if (!brain || brain.status !== "completed") {
+    throw new Error("No active Offering Brain found. Please create one first on the Brain page.");
+  }
+
+  // Build offering data dynamically from the brain
+  const coreCapabilities: string[] = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
+  const icpIndustries: string[] = brain.icpIndustries ? JSON.parse(brain.icpIndustries) : [];
+  const valuePropositions: Array<{ audience: string; value: string }> = brain.valuePropositions ? JSON.parse(brain.valuePropositions) : [];
+
+  const brainOffering = {
+    name: brain.offeringSummary || brain.brainName,
+    description: `${brain.companyName}: ${brain.offeringSummary || ""} ${brain.competitiveAdvantages || ""}`.trim(),
+    targetMarket: icpIndustries.join(" • ") || "General B2B",
+    keywords: coreCapabilities.slice(0, 10),
+    targetMarketKeywordTags: [
+      ...icpIndustries.map(i => i.toLowerCase()),
+      ...coreCapabilities.map(c => c.toLowerCase()),
+    ].slice(0, 40),
+  };
+
+  const vpSummary = valuePropositions.map(vp => vp.value).join("; ") || brain.competitiveAdvantages || "";
 
   // Select states to scan
   const statesToScan = customStates 
@@ -77,57 +101,15 @@ export async function runNationalScan(userId: number, testMode = false, customSt
   };
 
   console.log(`[National Scan] Starting ${testMode ? 'TEST' : 'FULL'} scan for ${statesToScan.length} states`);
-
-  // ConnectGroup offering (same as used in startSearch)
-  const connectGroupOffering = {
-    name: "Electronics Manufacturing Services (EMS) - PCB Assembly, Cable Assembly & Module Building",
-    description: "ConnectGroup is a full-service EMS subcontractor providing PCB assembly, cable assembly (from complex harnesses to automated large-scale), and module building (integration of cables, electronics, and mechanics). With 33 years of industrial experience and 9 locations across 8 countries, they support companies from design to successful product with focus on efficiency, quality, and shorter time-to-market.",
-    targetMarket: "Railway • Healthcare/MedTech • Infrastructure • Automotive & Off-road • Defense & Avionics • Industrial Manufacturing • Electronics • Telecommunications • Energy • Automation • Instrumentation • Aerospace • Marine • Agricultural Equipment • Construction Equipment • Mining • Oil & Gas • Renewable Energy • IoT • Embedded Systems",
-    keywords: ["ems", "electronics manufacturing", "pcb assembly", "cable assembly", "module building", "industrial", "railway", "healthcare", "automotive", "defense"],
-    targetMarketKeywordTags: [
-      "railway",
-      "rail",
-      "medical devices",
-      "healthcare",
-      "automotive",
-      "off-road",
-      "defense",
-      "avionics",
-      "infrastructure",
-      "industrial",
-      "manufacturing",
-      "electronics",
-      "telecommunications",
-      "energy",
-      "power systems",
-      "automation",
-      "instrumentation",
-      "measurement",
-      "control systems",
-      "process control",
-      "robotics",
-      "aerospace",
-      "marine",
-      "agricultural equipment",
-      "construction equipment",
-      "mining",
-      "oil and gas",
-      "renewable energy",
-      "smart grid",
-      "iot",
-      "industrial iot",
-      "embedded systems",
-      "electrical equipment"
-    ],
-  };
+  console.log(`[National Scan] Using brain: ${brain.brainName} (${brain.companyName})`);
 
   // STEP 1: Select industry codes once (reuse for all states)
   console.log(`[National Scan] Selecting industry codes (one time)`);
   const codeSelection = await selectIndustryCodes({
-    offeringName: connectGroupOffering.name,
-    offeringDescription: connectGroupOffering.description,
-    targetMarket: connectGroupOffering.targetMarket,
-    valueProposition: "Full-service EMS with 33 years experience, 9 global locations, design-to-product support",
+    offeringName: brainOffering.name,
+    offeringDescription: brainOffering.description,
+    targetMarket: brainOffering.targetMarket,
+    valueProposition: vpSummary,
   });
 
   console.log(`[National Scan] Selected ${codeSelection.sicCodes.length} SIC codes and ${codeSelection.naicsCodes.length} NAICS codes`);
@@ -161,18 +143,19 @@ export async function runNationalScan(userId: number, testMode = false, customSt
       // Create a search for this state
       const searchId = await createSearch({
         userId,
-        companyWebsite: "https://www.connectgroup.com/en/",
+        companyWebsite: brain.companyWebsite,
         location: state, // Just the state name
         status: "searching", // Skip code_targeting review
-        offeringName: connectGroupOffering.name,
-        offeringDescription: connectGroupOffering.description,
-        targetMarket: connectGroupOffering.targetMarket,
-        keywords: JSON.stringify(connectGroupOffering.keywords),
-        keywordTagsUsed: JSON.stringify(connectGroupOffering.targetMarketKeywordTags),
+        offeringName: brainOffering.name,
+        offeringDescription: brainOffering.description,
+        targetMarket: brainOffering.targetMarket,
+        keywords: JSON.stringify(brainOffering.keywords),
+        keywordTagsUsed: JSON.stringify(brainOffering.targetMarketKeywordTags),
         selectedSicCodes: JSON.stringify(codeSelection.sicCodes),
         selectedNaicsCodes: JSON.stringify(codeSelection.naicsCodes),
         codeSelectionReasoning: codeSelection.reasoning,
         excludedSectors: JSON.stringify([]), // No exclusions for national scan
+        brainId: brain.id,
       });
 
       console.log(`[National Scan] Created search ${searchId} for ${state}`);

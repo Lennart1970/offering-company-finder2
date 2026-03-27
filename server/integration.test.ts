@@ -63,7 +63,7 @@ describe("companyFinder router", () => {
     const { ctx } = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
-    const history = await caller.companyFinder.getSearchHistory();
+    const history = await caller.companyFinder.getSearchHistory({ showArchived: false });
     expect(Array.isArray(history)).toBe(true);
   });
 });
@@ -72,18 +72,18 @@ describe("URL normalization", () => {
   it("normalizes bare domains", async () => {
     const { normalizeWebsiteUrl } = await import("../shared/urlUtils");
     
-    expect(normalizeWebsiteUrl("connectgroup.com")).toMatch(/^https:\/\/connectgroup\.com/);
-    expect(normalizeWebsiteUrl("www.connectgroup.com")).toMatch(/^https:\/\/www\.connectgroup\.com/);
-    expect(normalizeWebsiteUrl("https://connectgroup.com")).toMatch(/^https:\/\/connectgroup\.com/);
+    expect(normalizeWebsiteUrl("example.com")).toMatch(/^https:\/\/example\.com/);
+    expect(normalizeWebsiteUrl("www.example.com")).toMatch(/^https:\/\/www\.example\.com/);
+    expect(normalizeWebsiteUrl("https://example.com")).toMatch(/^https:\/\/example\.com/);
     // Note: normalizer converts http:// to https://
-    expect(normalizeWebsiteUrl("http://connectgroup.com")).toMatch(/^https:\/\/connectgroup\.com/);
+    expect(normalizeWebsiteUrl("http://example.com")).toMatch(/^https:\/\/example\.com/);
   });
 
   it("handles domains without TLD", async () => {
     const { normalizeWebsiteUrl } = await import("../shared/urlUtils");
     
-    const result = normalizeWebsiteUrl("connectgroup");
-    expect(result).toContain("connectgroup");
+    const result = normalizeWebsiteUrl("acmecorp");
+    expect(result).toContain("acmecorp");
     expect(result).toMatch(/^https?:\/\//);
   });
 });

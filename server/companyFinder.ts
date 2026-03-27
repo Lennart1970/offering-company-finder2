@@ -90,7 +90,7 @@ async function assertCompanyAccess(companyId: number, userId: number) {
 }
 
 export const companyFinderRouter = router({
-  // Create a new search with hardcoded ConnectGroup offering (skip extraction)
+  // Create a new search using the active Offering Brain (brain-agnostic)
   startSearch: protectedProcedure
     .input(
       z.object({
@@ -98,72 +98,57 @@ export const companyFinderRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      // Hardcoded ConnectGroup offering data (EXPANDED for wider reach)
-      const connectGroupOffering = {
-        name: "Electronics Manufacturing Services (EMS) - PCB Assembly, Cable Assembly & Module Building",
-        description: "ConnectGroup is a full-service EMS subcontractor providing PCB assembly, cable assembly (from complex harnesses to automated large-scale), and module building (integration of cables, electronics, and mechanics). With 33 years of industrial experience and 9 locations across 8 countries, they support companies from design to successful product with focus on efficiency, quality, and shorter time-to-market.",
-        targetMarket: "Railway • Healthcare/MedTech • Infrastructure • Automotive & Off-road • Defense & Avionics • Industrial Manufacturing • Electronics • Telecommunications • Energy • Automation • Instrumentation • Aerospace • Marine • Agricultural Equipment • Construction Equipment • Mining • Oil & Gas • Renewable Energy • IoT • Embedded Systems",
-        keywords: ["ems", "electronics manufacturing", "pcb assembly", "cable assembly", "module building", "industrial", "railway", "healthcare", "automotive", "defense"],
+      // Load the active Offering Brain for this user
+      const brain = await getActiveBrain(ctx.user.id);
+      if (!brain || brain.status !== "completed") {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "No active Offering Brain found. Please create one first on the Brain page.",
+        });
+      }
+
+      // Build offering data dynamically from the brain
+      const coreCapabilities: string[] = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
+      const icpIndustries: string[] = brain.icpIndustries ? JSON.parse(brain.icpIndustries) : [];
+      const valuePropositions: Array<{ audience: string; value: string }> = brain.valuePropositions ? JSON.parse(brain.valuePropositions) : [];
+
+      const brainOffering = {
+        name: brain.offeringSummary || brain.brainName,
+        description: `${brain.companyName}: ${brain.offeringSummary || ""} ${brain.competitiveAdvantages || ""}`.trim(),
+        targetMarket: icpIndustries.join(" • ") || "General B2B",
+        keywords: coreCapabilities.slice(0, 10),
         targetMarketKeywordTags: [
-          "railway",
-          "rail",
-          "medical devices",
-          "healthcare",
-          "automotive",
-          "off-road",
-          "defense",
-          "avionics",
-          "infrastructure",
-          "industrial",
-          "manufacturing",
-          "electronics",
-          "telecommunications",
-          "energy",
-          "power systems",
-          "automation",
-          "instrumentation",
-          "measurement",
-          "control systems",
-          "process control",
-          "robotics",
-          "aerospace",
-          "marine",
-          "agricultural equipment",
-          "construction equipment",
-          "mining",
-          "oil and gas",
-          "renewable energy",
-          "smart grid",
-          "iot",
-          "industrial iot",
-          "embedded systems",
-          "electrical equipment"
-        ],
+          ...icpIndustries.map(i => i.toLowerCase()),
+          ...coreCapabilities.map(c => c.toLowerCase()),
+        ].slice(0, 40),
       };
 
+      const vpSummary = valuePropositions.map(vp => vp.value).join("; ") || brain.competitiveAdvantages || "";
+
       // STEP 1: Select relevant SIC/NAICS codes using LLM
-      console.log(`[Search] Selecting industry codes for offering: ${connectGroupOffering.name}`);
+      console.log(`[Search] Selecting industry codes for offering: ${brainOffering.name}`);
       const codeSelection = await selectIndustryCodes({
-        offeringName: connectGroupOffering.name,
-        offeringDescription: connectGroupOffering.description,
-        targetMarket: connectGroupOffering.targetMarket,
-        valueProposition: "Full-service EMS with 33 years experience, 9 global locations, design-to-product support",
+        offeringName: brainOffering.name,
+        offeringDescription: brainOffering.description,
+        targetMarket: brainOffering.targetMarket,
+        valueProposition: vpSummary,
       });
 
       const searchId = await createSearch({
         userId: ctx.user.id,
-        companyWebsite: "https://www.connectgroup.com/en/",
+        companyWebsite: brain.companyWebsite,
         location: input.location,
         status: "code_targeting", // STOP here for user review
-        offeringName: connectGroupOffering.name,
-        offeringDescription: connectGroupOffering.description,
-        targetMarket: connectGroupOffering.targetMarket,
-        keywords: JSON.stringify(connectGroupOffering.keywords),
-        keywordTagsUsed: JSON.stringify(connectGroupOffering.targetMarketKeywordTags),
+        offeringName: brainOffering.name,
+        offeringDescription: brainOffering.description,
+        targetMarket: brainOffering.targetMarket,
+        keywords: JSON.stringify(brainOffering.keywords),
+        keywordTagsUsed: JSON.stringify(brainOffering.targetMarketKeywordTags),
         selectedSicCodes: JSON.stringify(codeSelection.sicCodes),
         selectedNaicsCodes: JSON.stringify(codeSelection.naicsCodes),
         codeSelectionReasoning: codeSelection.reasoning,
         excludedSectors: JSON.stringify([]), // Empty initially, user can exclude sectors
+        brainId: brain.id,
       });
 
       // DO NOT start search yet - wait for user confirmation
@@ -2535,7 +2520,7 @@ export const companyFinderRouter = router({
       if (!company) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
 
       let brainContext = "";
-      let sellerName = "ConnectGroup";
+      let sellerName = "Your Company";
       try {
         const brain = await getActiveBrain(ctx.user.id);
         if (brain && brain.status === "completed") {
@@ -2630,7 +2615,7 @@ Return ONLY the profile description.`;
 
       // Load Offering Brain for seller context
       let brainContext = "";
-      let sellerName = "ConnectGroup";
+      let sellerName = "Your Company";
       try {
         const brain = await getActiveBrain(ctx.user.id);
         if (brain && brain.status === "completed") {
@@ -2808,8 +2793,8 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
     }),
 });
 
-// Background search function for hardcoded ConnectGroup offering (skip extraction)
-async function searchWithHardcodedOffering(
+// Background search function using brain offering data
+async function searchWithBrainOffering(
   searchId: number,
   offering: {
     name: string;
@@ -2822,7 +2807,7 @@ async function searchWithHardcodedOffering(
   codeSelection: { sicCodes: string[]; naicsCodes: string[]; reasoning: string }
 ) {
   try {
-    console.log(`[Search ${searchId}] Using hardcoded ConnectGroup offering`);
+    console.log(`[Search ${searchId}] Using brain-driven offering data`);
     console.log(`[Search ${searchId}] LLM selected ${codeSelection.sicCodes.length} SIC codes and ${codeSelection.naicsCodes.length} NAICS codes`);
     console.log(`[Search ${searchId}] SIC: ${codeSelection.sicCodes.join(", ")}`);
     console.log(`[Search ${searchId}] NAICS: ${codeSelection.naicsCodes.join(", ")}`);

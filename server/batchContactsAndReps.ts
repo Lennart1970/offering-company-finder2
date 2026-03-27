@@ -108,7 +108,7 @@ async function generateSalesRepForCompany(
   }
 
   let brainContext = "";
-  let sellerName = "ConnectGroup";
+  let sellerName = "Your Company";
   try {
     const brain = await getActiveBrain(userId);
     if (brain && brain.status === "completed") {

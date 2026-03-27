@@ -1,12 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { useLocation } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
+import { trpc } from "@/lib/trpc";
 
 export default function OfferingDetails() {
   const { user, loading, isAuthenticated } = useAuth();
   const [, navigate] = useLocation();
+  const { data: brainData, isLoading: brainLoading } = trpc.companyFinder.getActiveBrain.useQuery();
 
-  if (loading) {
+  if (loading || brainLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <div className="text-4xl font-black">LOADING</div>
@@ -18,6 +20,44 @@ export default function OfferingDetails() {
     navigate("/");
     return null;
   }
+
+  const brain = brainData?.brain;
+
+  if (!brain || brain.status !== "completed") {
+    return (
+      <div className="min-h-screen">
+        <div className="border-b-8 border-black p-8">
+          <div className="container flex justify-between items-center">
+            <h1 className="text-5xl md:text-7xl font-black leading-none">[CF]</h1>
+          </div>
+        </div>
+        <div className="container py-16">
+          <div className="max-w-4xl">
+            <h2 className="text-6xl font-black leading-none mb-8">NO BRAIN FOUND</h2>
+            <p className="text-xl font-bold text-muted-foreground mb-8">
+              You need to create an Offering Brain first before viewing offering details.
+            </p>
+            <Button
+              onClick={() => navigate("/brain")}
+              className="text-2xl px-12 py-8 font-black border-4 border-black bg-black text-white"
+            >
+              [CREATE BRAIN]
+            </Button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Parse brain data
+  const coreCapabilities: string[] = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
+  const icpIndustries: string[] = brain.icpIndustries ? JSON.parse(brain.icpIndustries) : [];
+  const valuePropositions: Array<{ audience: string; value: string }> = brain.valuePropositions ? JSON.parse(brain.valuePropositions) : [];
+
+  // Split industries into primary (first 6) and secondary (rest)
+  const primaryMarkets = icpIndustries.slice(0, 6);
+  const secondaryMarkets = icpIndustries.slice(6, 12);
+  const additionalMarkets = icpIndustries.slice(12);
 
   return (
     <div className="min-h-screen">
@@ -45,7 +85,7 @@ export default function OfferingDetails() {
             </h2>
             <div className="border-l-8 border-black pl-8">
               <p className="text-xl md:text-2xl font-bold text-muted-foreground">
-                Review the offering you're searching for
+                Review the offering from your active brain: <strong>{brain.brainName}</strong>
               </p>
             </div>
           </div>
@@ -55,101 +95,112 @@ export default function OfferingDetails() {
             {/* Offering Name & Description */}
             <div className="p-8 border-4 border-black bg-white">
               <div className="text-sm font-black mb-2 text-muted-foreground">[OFFERING]</div>
-              <h3 className="text-4xl font-black mb-6">Electronics Manufacturing Services (EMS)</h3>
+              <h3 className="text-4xl font-black mb-6">{brain.offeringSummary || brain.brainName}</h3>
               
               <div className="mb-8">
-                <div className="text-sm font-black mb-2 text-muted-foreground">[DESCRIPTION]</div>
+                <div className="text-sm font-black mb-2 text-muted-foreground">[COMPANY]</div>
                 <p className="text-lg font-bold leading-relaxed">
-                  Full-service EMS subcontractor providing PCB Assembly, Cable Assembly, Module Building, and Design to Product services. With 33 years of industrial experience and 9 locations across 8 countries, ConnectGroup supports companies from design to successful product with focus on efficiency, quality, and shorter time-to-market.
+                  {brain.companyName}
                 </p>
               </div>
 
-              <div className="mb-8">
-                <div className="text-sm font-black mb-2 text-muted-foreground">[CORE SERVICES]</div>
-                <div className="flex flex-wrap gap-3">
-                  {["PCB Assembly", "Cable Assembly", "Module Building", "Design to Product"].map((service) => (
-                    <div key={service} className="px-4 py-2 border-2 border-black font-bold">
-                      {service}
+              {brain.competitiveAdvantages && (
+                <div className="mb-8">
+                  <div className="text-sm font-black mb-2 text-muted-foreground">[COMPETITIVE ADVANTAGES]</div>
+                  <p className="text-lg font-bold leading-relaxed">
+                    {brain.competitiveAdvantages}
+                  </p>
+                </div>
+              )}
+
+              {coreCapabilities.length > 0 && (
+                <div className="mb-8">
+                  <div className="text-sm font-black mb-2 text-muted-foreground">[CORE CAPABILITIES]</div>
+                  <div className="flex flex-wrap gap-3">
+                    {coreCapabilities.map((cap) => (
+                      <div key={cap} className="px-4 py-2 border-2 border-black font-bold">
+                        {cap}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Target Markets */}
+            {icpIndustries.length > 0 && (
+              <div className="p-8 border-4 border-black bg-gray-50">
+                <div className="text-sm font-black mb-4 text-muted-foreground">[TARGET MARKETS]</div>
+                <div className="grid md:grid-cols-2 gap-6">
+                  {primaryMarkets.length > 0 && (
+                    <div>
+                      <h4 className="font-black mb-3 text-lg">PRIMARY MARKETS</h4>
+                      <ul className="space-y-2">
+                        {primaryMarkets.map((market) => (
+                          <li key={market} className="font-bold flex items-start gap-2">
+                            <span className="text-black font-black">▪</span>
+                            <span>{market}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {secondaryMarkets.length > 0 && (
+                    <div>
+                      <h4 className="font-black mb-3 text-lg">SECONDARY MARKETS</h4>
+                      <ul className="space-y-2">
+                        {secondaryMarkets.map((market) => (
+                          <li key={market} className="font-bold flex items-start gap-2">
+                            <span className="text-black font-black">▪</span>
+                            <span>{market}</span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+                {additionalMarkets.length > 0 && (
+                  <div className="mt-6 pt-6 border-t-2 border-black">
+                    <h4 className="font-black mb-3 text-lg">ADDITIONAL MARKETS</h4>
+                    <p className="font-bold leading-relaxed">
+                      {additionalMarkets.join(" • ")}
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Value Propositions */}
+            {valuePropositions.length > 0 && (
+              <div className="p-8 border-4 border-black bg-white">
+                <div className="text-sm font-black mb-4 text-muted-foreground">[VALUE PROPOSITIONS]</div>
+                <div className="space-y-4">
+                  {valuePropositions.map((vp, i) => (
+                    <div key={i} className="border-l-4 border-black pl-4">
+                      <div className="text-sm font-black text-muted-foreground">{vp.audience}</div>
+                      <p className="font-bold">{vp.value}</p>
                     </div>
                   ))}
                 </div>
               </div>
-            </div>
-
-            {/* Target Markets */}
-            <div className="p-8 border-4 border-black bg-gray-50">
-              <div className="text-sm font-black mb-4 text-muted-foreground">[TARGET MARKETS]</div>
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <h4 className="font-black mb-3 text-lg">PRIMARY MARKETS</h4>
-                  <ul className="space-y-2">
-                    {[
-                      "Railway",
-                      "Healthcare/MedTech",
-                      "Infrastructure",
-                      "Automotive & Off-road",
-                      "Defense & Avionics",
-                      "Industrial Manufacturing"
-                    ].map((market) => (
-                      <li key={market} className="font-bold flex items-start gap-2">
-                        <span className="text-black font-black">▪</span>
-                        <span>{market}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-                <div>
-                  <h4 className="font-black mb-3 text-lg">SECONDARY MARKETS</h4>
-                  <ul className="space-y-2">
-                    {[
-                      "Electronics",
-                      "Telecommunications",
-                      "Energy",
-                      "Automation",
-                      "Instrumentation",
-                      "Aerospace"
-                    ].map((market) => (
-                      <li key={market} className="font-bold flex items-start gap-2">
-                        <span className="text-black font-black">▪</span>
-                        <span>{market}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-              <div className="mt-6 pt-6 border-t-2 border-black">
-                <h4 className="font-black mb-3 text-lg">ADDITIONAL MARKETS</h4>
-                <p className="font-bold leading-relaxed">
-                  Marine • Agricultural Equipment • Construction Equipment • Mining • Oil & Gas • Renewable Energy • IoT • Embedded Systems
-                </p>
-              </div>
-            </div>
+            )}
 
             {/* Offering Keywords */}
-            <div className="p-8 border-4 border-black bg-white">
-              <div className="text-sm font-black mb-4 text-muted-foreground">[OFFERING KEYWORDS]</div>
-              <p className="text-sm font-bold mb-4 text-muted-foreground">
-                These keywords are used to find companies matching this offering across Apollo database
-              </p>
-              <div className="flex flex-wrap gap-2">
-                {[
-                  "ems",
-                  "electronics manufacturing",
-                  "pcb assembly",
-                  "cable assembly",
-                  "module building",
-                  "industrial",
-                  "railway",
-                  "healthcare",
-                  "automotive",
-                  "defense"
-                ].map((keyword) => (
-                  <div key={keyword} className="px-3 py-1 border-2 border-black text-sm font-bold">
-                    {keyword}
-                  </div>
-                ))}
+            {coreCapabilities.length > 0 && (
+              <div className="p-8 border-4 border-black bg-white">
+                <div className="text-sm font-black mb-4 text-muted-foreground">[SEARCH KEYWORDS]</div>
+                <p className="text-sm font-bold mb-4 text-muted-foreground">
+                  These keywords are derived from your Offering Brain and used to find matching companies
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {[...coreCapabilities, ...icpIndustries.slice(0, 5)].map((keyword) => (
+                    <div key={keyword} className="px-3 py-1 border-2 border-black text-sm font-bold">
+                      {keyword.toLowerCase()}
+                    </div>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Action Buttons */}
             <div className="flex gap-4 pt-8">

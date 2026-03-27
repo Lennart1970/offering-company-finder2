@@ -87,7 +87,7 @@ export async function runBatchSignalOpeners() {
       .limit(1);
 
     let brainContext = "";
-    let sellerName = "ConnectGroup";
+    let sellerName = "Your Company";
     if (brains.length > 0) {
       const brain = brains[0];
       sellerName = brain.companyName || sellerName;

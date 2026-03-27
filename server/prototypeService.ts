@@ -25,7 +25,8 @@ export interface ProductExtraction {
  */
 export async function extractProductFromImages(
   imageUrls: string[],
-  productUrl?: string
+  productUrl?: string,
+  brainContext?: { companyName: string; offering: string; capabilities: string[] }
 ): Promise<ProductExtraction> {
   console.log(`[Prototype] Analyzing ${imageUrls.length} image(s)...`);
 
@@ -42,9 +43,12 @@ export async function extractProductFromImages(
 
   // Add the analysis prompt
   const urlContext = productUrl ? `\nProduct URL for additional context: ${productUrl}` : "";
+  const roleContext = brainContext
+    ? `You are a technical engineer at ${brainContext.companyName}, which provides: ${brainContext.offering}. Core capabilities: ${brainContext.capabilities.join(", ")}. A potential customer has sent you pictures of a product they want manufactured or a competing product.`
+    : `You are a technical engineer at a contract manufacturer. A potential customer has sent you pictures of a competing product or a product they want manufactured.`;
   content.push({
     type: "text" as const,
-    text: `You are an electronics manufacturing engineer at a contract electronics manufacturer (EMS/PCBA company). A potential customer has sent you pictures of a competing product or a product they want manufactured.${urlContext}
+    text: `${roleContext}${urlContext}
 
 Analyze the product image(s) and extract:
 

@@ -33,14 +33,33 @@ function createAuthContext(): TrpcContext {
 
 describe("companyFinder router", () => {
   describe("startSearch", () => {
-    it("creates a search record with hardcoded ConnectGroup offering", async () => {
+    it("creates a search record using active brain offering data", async () => {
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
+      // Mock active brain
+      const mockBrain = {
+        id: 1,
+        userId: 1,
+        brainName: "Test Brain",
+        companyName: "Acme Corp",
+        companyWebsite: "https://www.acme.com",
+        status: "completed" as const,
+        offeringSummary: "Industrial Automation Solutions",
+        coreCapabilities: JSON.stringify(["robotics", "PLC programming", "SCADA"]),
+        icpIndustries: JSON.stringify(["Manufacturing", "Automotive"]),
+        valuePropositions: JSON.stringify([{ audience: "Manufacturers", value: "Reduce downtime by 40%" }]),
+        competitiveAdvantages: "20 years experience, ISO certified",
+        isActive: true,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      const mockGetActiveBrain = vi.spyOn(db, "getActiveBrain").mockResolvedValue(mockBrain as any);
+
       // Mock LLM code selection
       const mockSelectCodes = vi.spyOn(codeSelectionService, "selectIndustryCodes").mockResolvedValue({
-        sicCodes: ["3663", "3674"],
-        naicsCodes: ["334220", "334510"],
+        sicCodes: ["3559", "3825"],
+        naicsCodes: ["333249", "334513"],
         reasoning: "Test reasoning"
       });
 
@@ -48,23 +67,37 @@ describe("companyFinder router", () => {
       const mockCreateSearch = vi.spyOn(db, "createSearch").mockResolvedValue(123);
 
       const result = await caller.companyFinder.startSearch({
-        location: "Atlanta, GA",
+        location: "Detroit, MI",
       });
 
       expect(result).toEqual({ searchId: 123 });
       expect(mockCreateSearch).toHaveBeenCalledWith(
         expect.objectContaining({
           userId: 1,
-          companyWebsite: "https://www.connectgroup.com/en/",
-          location: "Atlanta, GA",
-          status: "code_targeting", // Changed from "searching" to "code_targeting" for two-step flow
-          offeringName: "Electronics Manufacturing Services (EMS) - PCB Assembly, Cable Assembly & Module Building",
+          companyWebsite: "https://www.acme.com",
+          location: "Detroit, MI",
+          status: "code_targeting",
+          offeringName: "Industrial Automation Solutions",
         })
       );
 
+      mockGetActiveBrain.mockRestore();
       mockCreateSearch.mockRestore();
       mockSelectCodes.mockRestore();
-    }, 10000); // 10 second timeout for LLM call
+    }, 10000);
+
+    it("throws PRECONDITION_FAILED when no active brain exists", async () => {
+      const ctx = createAuthContext();
+      const caller = appRouter.createCaller(ctx);
+
+      const mockGetActiveBrain = vi.spyOn(db, "getActiveBrain").mockResolvedValue(null);
+
+      await expect(
+        caller.companyFinder.startSearch({ location: "Atlanta, GA" })
+      ).rejects.toThrow("No active Offering Brain found");
+
+      mockGetActiveBrain.mockRestore();
+    });
 
     it("validates location is required", async () => {
       const ctx = createAuthContext();
@@ -79,7 +112,7 @@ describe("companyFinder router", () => {
   });
 
   describe("getSearch", () => {
-    it("returns search and companies data", async () => {
+    it("returns search and companies data with pagination", async () => {
       const ctx = createAuthContext();
       const caller = appRouter.createCaller(ctx);
 
@@ -113,22 +146,33 @@ describe("companyFinder router", () => {
           foundedYear: 2020,
           revenue: "5M",
           headcountGrowth: "6mo: 10%, 12mo: 20%",
+          enrichmentStatus: "enriched",
           createdAt: new Date(),
         },
       ];
 
       const mockGetSearchById = vi.spyOn(db, "getSearchById").mockResolvedValue(mockSearch);
-      const mockGetCompaniesBySearchId = vi
-        .spyOn(db, "getCompaniesBySearchId")
+      const mockGetCompaniesBySearchIdPaged = vi
+        .spyOn(db, "getCompaniesBySearchIdPaged")
         .mockResolvedValue(mockCompanies);
+      const mockGetDecisionsBySearch = vi
+        .spyOn(db, "getDecisionsBySearch")
+        .mockResolvedValue([]);
+      const mockCountCompaniesBySearchId = vi
+        .spyOn(db, "countCompaniesBySearchId")
+        .mockResolvedValue(1);
 
       const result = await caller.companyFinder.getSearch({ searchId: 123 });
 
       expect(result.search).toEqual(mockSearch);
       expect(result.companies).toEqual(mockCompanies);
+      expect(result.pagination).toBeDefined();
+      expect(result.enrichmentStats).toBeDefined();
 
       mockGetSearchById.mockRestore();
-      mockGetCompaniesBySearchId.mockRestore();
+      mockGetCompaniesBySearchIdPaged.mockRestore();
+      mockGetDecisionsBySearch.mockRestore();
+      mockCountCompaniesBySearchId.mockRestore();
     });
 
     it("throws error when search not found", async () => {

@@ -16,7 +16,7 @@ describe("confirmAndSearch", () => {
     const mockSearch = {
       id: 1,
       userId: 1,
-      companyWebsite: "https://connectgroup.com",
+      companyWebsite: "https://example.com",
       location: "Atlanta, GA",
       status: "code_targeting",
       selectedNaicsCodes: JSON.stringify(["33", "333", "334412", "48", "49"]),
@@ -85,11 +85,11 @@ describe("confirmAndSearch", () => {
     expect(createCompaniesCall[0].apolloId).toBe("apollo-1");
   });
 
-  it("should run separate Apollo search per keyword tag", async () => {
+  it("should run dynamic brain-driven slices (employee bands × industries × keyword sets)", async () => {
     const mockSearch = {
       id: 2,
       userId: 1,
-      companyWebsite: "https://connectgroup.com",
+      companyWebsite: "https://example.com",
       location: "Charlotte, NC",
       status: "code_targeting",
       selectedNaicsCodes: JSON.stringify(["33"]),
@@ -117,10 +117,11 @@ describe("confirmAndSearch", () => {
 
     await confirmAndSearch({ searchId: 2, location: "Charlotte, NC" });
 
-    // Multi-slice search: 3 employee bands × 7 industries × 3 keyword sets = 63 calls
-    // Each slice combines industry keywords + keyword set keywords
-    const { EMPLOYEE_BANDS, INDUSTRY_SLICES, KEYWORD_SETS } = await import("./searchSlices");
-    const expectedCalls = EMPLOYEE_BANDS.length * INDUSTRY_SLICES.length * KEYWORD_SETS.length;
+    // With no brain config, defaults are used:
+    // 3 employee bands × 1 general industry × 1 general keyword set = 3 slices
+    const { DEFAULT_EMPLOYEE_BANDS, generateSearchSlices } = await import("./searchSlices");
+    const defaultSlices = generateSearchSlices(); // No brain config → defaults
+    const expectedCalls = defaultSlices.length;
     expect(apolloSearch.searchApolloCompanies).toHaveBeenCalledTimes(expectedCalls);
 
     // Each call should include the location
@@ -130,7 +131,7 @@ describe("confirmAndSearch", () => {
       })
     );
 
-    // Each call should include targetMarketKeywordTags (combined industry + keyword set)
+    // Each call should include targetMarketKeywordTags
     expect(apolloSearch.searchApolloCompanies).toHaveBeenCalledWith(
       expect.objectContaining({
         targetMarketKeywordTags: expect.arrayContaining([expect.any(String)]),
@@ -142,7 +143,7 @@ describe("confirmAndSearch", () => {
     const mockSearch = {
       id: 3,
       userId: 1,
-      companyWebsite: "https://connectgroup.com",
+      companyWebsite: "https://example.com",
       location: "Nashville, TN",
       status: "code_targeting",
       selectedNaicsCodes: JSON.stringify(["33"]),
@@ -205,11 +206,11 @@ describe("confirmAndSearch", () => {
     expect(createCompaniesCall).toHaveLength(1); // Only one company, not two
   });
 
-  it("should update progress after each keyword search", async () => {
+  it("should update progress after each slice search", async () => {
     const mockSearch = {
       id: 4,
       userId: 1,
-      companyWebsite: "https://connectgroup.com",
+      companyWebsite: "https://example.com",
       location: "Miami, FL",
       status: "code_targeting",
       selectedNaicsCodes: JSON.stringify(["33"]),
@@ -237,9 +238,12 @@ describe("confirmAndSearch", () => {
 
     await confirmAndSearch({ searchId: 4, location: "Miami, FL" });
 
-    // Should have updated progress 3 times (once per keyword)
-    expect(db.updateSearch).toHaveBeenCalledWith(4, { codesSearched: 1 });
-    expect(db.updateSearch).toHaveBeenCalledWith(4, { codesSearched: 2 });
-    expect(db.updateSearch).toHaveBeenCalledWith(4, { codesSearched: 3 });
+    // With default config, should have 3 slices (3 bands × 1 industry × 1 keyword set)
+    // Progress should be updated for each slice
+    const { generateSearchSlices } = await import("./searchSlices");
+    const defaultSlices = generateSearchSlices();
+    for (let i = 1; i <= defaultSlices.length; i++) {
+      expect(db.updateSearch).toHaveBeenCalledWith(4, { codesSearched: i });
+    }
   });
 });

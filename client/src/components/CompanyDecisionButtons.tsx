@@ -17,7 +17,7 @@ const REASON_CODES = [
   { code: "wrong_industry", label: "WRONG INDUSTRY", description: "SIC/NAICS codes don't match our target market" },
   { code: "too_small", label: "TOO SMALL", description: "Company is below our minimum size threshold" },
   { code: "wrong_geo", label: "WRONG GEOGRAPHY", description: "Company is outside our serviceable area" },
-  { code: "competitor", label: "COMPETITOR", description: "This company competes with ConnectGroup" },
+  { code: "competitor", label: "COMPETITOR", description: "This company competes with our offering" },
   { code: "already_customer", label: "ALREADY CUSTOMER", description: "We already work with this company" },
   { code: "other", label: "OTHER", description: "Different reason — add notes" },
 ] as const;

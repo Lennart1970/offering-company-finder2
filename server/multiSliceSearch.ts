@@ -1,20 +1,21 @@
 /**
  * Multi-slice search: Employee bands × Industry keywords × Keyword sets
  * 
- * This replaces the simple batched keyword search with a comprehensive
- * multi-dimensional search strategy that maximizes company coverage.
+ * BRAIN-AGNOSTIC: Slices are generated dynamically from the Offering Brain.
+ * No hardcoded industries, keywords, or employee ranges.
  */
 
 import { updateSearch, createCompanies } from "./db";
 import { searchApolloCompanies, ApolloSearchParams } from "./apolloSearch";
 import { naicsMatchesHierarchically } from "../shared/naicsHierarchy";
-import { generateSearchSlices, getTotalSlices } from "./searchSlices";
+import { generateSearchSlices, getTotalSlices, type BrainSliceConfig } from "./searchSlices";
 
 interface MultiSliceSearchParams {
   searchId: number;
   location: string;
   confirmedSectors: string[];
   targetMarket: string;
+  brainConfig?: BrainSliceConfig;
 }
 
 export async function multiSliceSearch({
@@ -22,13 +23,13 @@ export async function multiSliceSearch({
   location,
   confirmedSectors,
   targetMarket,
+  brainConfig,
 }: MultiSliceSearchParams) {
   const companiesMap = new Map<string, any>(); // Deduplicate by Apollo organization_id
-  const slices = generateSearchSlices();
-  const totalSlices = getTotalSlices();
+  const slices = generateSearchSlices(brainConfig);
+  const totalSlices = getTotalSlices(brainConfig);
 
-  console.log(`[Multi-Slice Search] Starting search with ${totalSlices} slices`);
-  console.log(`[Multi-Slice Search] Employee bands: 3, Industries: 7, Keyword sets: 3`);
+  console.log(`[Multi-Slice Search] Starting search with ${totalSlices} slices (brain-driven)`);
 
   // Update search with total slice count
   await updateSearch(searchId, {

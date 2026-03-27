@@ -91,17 +91,22 @@ export function normaliseDomain(urlOrDomain: string): string {
 
 // ── Intent Signal Detection ──────────────────────────────────────────────
 
+// Generic intent patterns that work for any B2B offering.
+// Product-specific page patterns (e.g., PCB, cable) are no longer hardcoded.
+// The engagement score and page-view count already capture depth of interest.
 const INTENT_PATTERNS: Array<{ pattern: RegExp; signal: string; weight: number }> = [
   { pattern: /contact/i, signal: "Visited contact page", weight: 3 },
-  { pattern: /services|diensten|servicii/i, signal: "Browsed services", weight: 2 },
-  { pattern: /prototyp/i, signal: "Viewed prototyping page", weight: 3 },
-  { pattern: /cable|kabel/i, signal: "Viewed cable assembly", weight: 2 },
-  { pattern: /pcba|pcb|smd/i, signal: "Viewed PCBA/electronics", weight: 2 },
-  { pattern: /location|vestiging|locatie/i, signal: "Checked locations", weight: 1 },
-  { pattern: /vacanc|vacatur|career|baan/i, signal: "Viewed careers (hiring signal)", weight: 1 },
-  { pattern: /news|nieuws|stiri/i, signal: "Read news/updates", weight: 1 },
-  { pattern: /sustainab|duurzaam/i, signal: "Checked sustainability", weight: 1 },
-  { pattern: /quote|offerte|rfq/i, signal: "Requested quote", weight: 4 },
+  { pattern: /services|diensten|servicii|solutions|capabilities/i, signal: "Browsed services/capabilities", weight: 2 },
+  { pattern: /product|offering|solution/i, signal: "Viewed product/offering pages", weight: 2 },
+  { pattern: /case.?stud|reference|portfolio/i, signal: "Viewed case studies/references", weight: 2 },
+  { pattern: /pric|tarif|cost|quote|offerte|rfq/i, signal: "Viewed pricing / requested quote", weight: 4 },
+  { pattern: /demo|trial|free|sample/i, signal: "Explored demo/trial options", weight: 3 },
+  { pattern: /about|over.?ons|team|company/i, signal: "Checked company info", weight: 1 },
+  { pattern: /location|vestiging|locatie|office/i, signal: "Checked locations", weight: 1 },
+  { pattern: /vacanc|vacatur|career|baan|job/i, signal: "Viewed careers (hiring signal)", weight: 1 },
+  { pattern: /news|nieuws|stiri|blog|article/i, signal: "Read news/updates", weight: 1 },
+  { pattern: /sustainab|duurzaam|esg|csr/i, signal: "Checked sustainability/ESG", weight: 1 },
+  { pattern: /partner|integrat|reseller/i, signal: "Explored partnerships", weight: 2 },
 ];
 
 function detectIntentSignals(pageViews: LeadinfoPageView[]): string[] {

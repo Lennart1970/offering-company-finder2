@@ -1993,3 +1993,11 @@
 - [x] P3: Fix Brain.tsx default form values and placeholders
 - [x] P3: Fix CompanyDecisionButtons competitor label to use brain company name
 - [x] Run tests and verify (441/441 passing, 0 ConnectGroup/EMS references in production code)
+
+## Force Service vs Manufacturing Split in Niche Clustering
+- [x] Understand current clustering pipeline and where to inject pre-split
+- [x] Implement deterministic Service/Manufacturing classifier (companyTypeClassifier.ts)
+- [x] Modify clusterAndSaveNiches to pre-split before k-means (each group clustered independently)
+- [x] Add type-aware assignment to assignRemainingCompanies (service→service niches, mfg→mfg niches)
+- [x] Add type-aware assignment to expandClusterSample (same logic)
+- [x] Write tests for classifier (14 tests) — all 459 tests passing

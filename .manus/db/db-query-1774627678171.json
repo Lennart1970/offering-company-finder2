@@ -1,0 +1,14 @@
+{
+  "query": "\nSELECT COUNT(DISTINCT JSON_EXTRACT(sliceMetadata, '$.industry')) as unique_industries,\n       COUNT(*) as total_companies\nFROM companies \nWHERE searchId IN (1500002, 1500003, 1530001);\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT COUNT(DISTINCT JSON_EXTRACT(sliceMetadata, '$.industry')) as unique_industries,\n       COUNT(*) as total_companies\nFROM companies \nWHERE searchId IN (1500002, 1500003, 1530001);\n",
+  "rows": [
+    {
+      "unique_industries": "74",
+      "total_companies": "10338"
+    }
+  ],
+  "messages": [],
+  "stdout": "unique_industries\ttotal_companies\n74\t10338\n",
+  "stderr": "",
+  "execution_time_ms": 2450
+}

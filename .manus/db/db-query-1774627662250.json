@@ -1,0 +1,130 @@
+{
+  "query": "\nSELECT \n  JSON_EXTRACT(sliceMetadata, '$.industry') as industry,\n  COUNT(*) as cnt\nFROM companies \nWHERE searchId IN (1500002, 1500003, 1530001)\nGROUP BY industry\nORDER BY cnt DESC\nLIMIT 30;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  JSON_EXTRACT(sliceMetadata, '$.industry') as industry,\n  COUNT(*) as cnt\nFROM companies \nWHERE searchId IN (1500002, 1500003, 1530001)\nGROUP BY industry\nORDER BY cnt DESC\nLIMIT 30;\n",
+  "rows": [
+    {
+      "industry": "\"information technology & services\"",
+      "cnt": "4929"
+    },
+    {
+      "industry": "\"construction\"",
+      "cnt": "1672"
+    },
+    {
+      "industry": "\"food production\"",
+      "cnt": "1001"
+    },
+    {
+      "industry": "\"electrical/electronic manufacturing\"",
+      "cnt": "704"
+    },
+    {
+      "industry": "\"medical devices\"",
+      "cnt": "459"
+    },
+    {
+      "industry": "\"building materials\"",
+      "cnt": "408"
+    },
+    {
+      "industry": "\"aviation & aerospace\"",
+      "cnt": "264"
+    },
+    {
+      "industry": "\"medical practice\"",
+      "cnt": "200"
+    },
+    {
+      "industry": "\"machinery\"",
+      "cnt": "104"
+    },
+    {
+      "industry": "\"defense & space\"",
+      "cnt": "93"
+    },
+    {
+      "industry": "\"real estate\"",
+      "cnt": "59"
+    },
+    {
+      "industry": "\"glass, ceramics & concrete\"",
+      "cnt": "52"
+    },
+    {
+      "industry": "\"industrial automation\"",
+      "cnt": "40"
+    },
+    {
+      "industry": "\"telecommunications\"",
+      "cnt": "31"
+    },
+    {
+      "industry": "\"information services\"",
+      "cnt": "29"
+    },
+    {
+      "industry": "\"automotive\"",
+      "cnt": "27"
+    },
+    {
+      "industry": "\"computer games\"",
+      "cnt": "23"
+    },
+    {
+      "industry": "null",
+      "cnt": "19"
+    },
+    {
+      "industry": "\"architecture & planning\"",
+      "cnt": "17"
+    },
+    {
+      "industry": "\"mechanical or industrial engineering\"",
+      "cnt": "16"
+    },
+    {
+      "industry": "\"airlines/aviation\"",
+      "cnt": "16"
+    },
+    {
+      "industry": "\"wholesale\"",
+      "cnt": "15"
+    },
+    {
+      "industry": "\"semiconductors\"",
+      "cnt": "15"
+    },
+    {
+      "industry": "\"hospital & health care\"",
+      "cnt": "14"
+    },
+    {
+      "industry": "\"computer & network security\"",
+      "cnt": "13"
+    },
+    {
+      "industry": "\"civil engineering\"",
+      "cnt": "10"
+    },
+    {
+      "industry": "\"computer hardware\"",
+      "cnt": "9"
+    },
+    {
+      "industry": "\"logistics & supply chain\"",
+      "cnt": "5"
+    },
+    {
+      "industry": "\"printing\"",
+      "cnt": "5"
+    },
+    {
+      "industry": "\"research\"",
+      "cnt": "5"
+    }
+  ],
+  "messages": [],
+  "stdout": "industry\tcnt\n\"information technology & services\"\t4929\n\"construction\"\t1672\n\"food production\"\t1001\n\"electrical/electronic manufacturing\"\t704\n\"medical devices\"\t459\n\"building materials\"\t408\n\"aviation & aerospace\"\t264\n\"medical practice\"\t200\n\"machinery\"\t104\n\"defense & space\"\t93\n\"real estate\"\t59\n\"glass, ceramics & concrete\"\t52\n\"industrial automation\"\t40\n\"telecommunications\"\t31\n\"information services\"\t29\n\"automotive\"\t27\n\"computer games\"\t23\nnull\t19\n\"architecture & planning\"\t17\n\"mechanical or industrial engineering\"\t16\n\"airlines/aviation\"\t16\n\"wholesale\"\t15\n\"semiconductors\"\t15\n\"hospital & health care\"\t14\n\"computer & network security\"\t13\n\"civil engineering\"\t10\n\"computer hardware\"\t9\n\"logistics & supply chain\"\t5\n\"printing\"\t5\n\"research\"\t5\n",
+  "stderr": "",
+  "execution_time_ms": 1161
+}

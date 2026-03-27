@@ -1,0 +1,90 @@
+{
+  "query": "\nSELECT \n  JSON_EXTRACT(sliceMetadata, '$.industry') as industry,\n  COUNT(*) as cnt\nFROM companies \nWHERE searchId IN (1500002, 1500003, 1530001)\nGROUP BY industry\nORDER BY cnt DESC\nLIMIT 20 OFFSET 20;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  JSON_EXTRACT(sliceMetadata, '$.industry') as industry,\n  COUNT(*) as cnt\nFROM companies \nWHERE searchId IN (1500002, 1500003, 1530001)\nGROUP BY industry\nORDER BY cnt DESC\nLIMIT 20 OFFSET 20;\n",
+  "rows": [
+    {
+      "industry": "\"airlines/aviation\"",
+      "cnt": "16"
+    },
+    {
+      "industry": "\"wholesale\"",
+      "cnt": "15"
+    },
+    {
+      "industry": "\"semiconductors\"",
+      "cnt": "15"
+    },
+    {
+      "industry": "\"hospital & health care\"",
+      "cnt": "14"
+    },
+    {
+      "industry": "\"computer & network security\"",
+      "cnt": "13"
+    },
+    {
+      "industry": "\"civil engineering\"",
+      "cnt": "10"
+    },
+    {
+      "industry": "\"computer hardware\"",
+      "cnt": "9"
+    },
+    {
+      "industry": "\"printing\"",
+      "cnt": "5"
+    },
+    {
+      "industry": "\"research\"",
+      "cnt": "5"
+    },
+    {
+      "industry": "\"mining & metals\"",
+      "cnt": "5"
+    },
+    {
+      "industry": "\"logistics & supply chain\"",
+      "cnt": "5"
+    },
+    {
+      "industry": "\"computer networking\"",
+      "cnt": "4"
+    },
+    {
+      "industry": "\"furniture\"",
+      "cnt": "4"
+    },
+    {
+      "industry": "\"textiles\"",
+      "cnt": "4"
+    },
+    {
+      "industry": "\"outsourcing/offshoring\"",
+      "cnt": "4"
+    },
+    {
+      "industry": "\"internet\"",
+      "cnt": "4"
+    },
+    {
+      "industry": "\"wireless\"",
+      "cnt": "3"
+    },
+    {
+      "industry": "\"plastics\"",
+      "cnt": "3"
+    },
+    {
+      "industry": "\"management consulting\"",
+      "cnt": "3"
+    },
+    {
+      "industry": "\"utilities\"",
+      "cnt": "3"
+    }
+  ],
+  "messages": [],
+  "stdout": "industry\tcnt\n\"airlines/aviation\"\t16\n\"wholesale\"\t15\n\"semiconductors\"\t15\n\"hospital & health care\"\t14\n\"computer & network security\"\t13\n\"civil engineering\"\t10\n\"computer hardware\"\t9\n\"printing\"\t5\n\"research\"\t5\n\"mining & metals\"\t5\n\"logistics & supply chain\"\t5\n\"computer networking\"\t4\n\"furniture\"\t4\n\"textiles\"\t4\n\"outsourcing/offshoring\"\t4\n\"internet\"\t4\n\"wireless\"\t3\n\"plastics\"\t3\n\"management consulting\"\t3\n\"utilities\"\t3\n",
+  "stderr": "",
+  "execution_time_ms": 496
+}

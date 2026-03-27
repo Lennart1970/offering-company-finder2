@@ -35,13 +35,17 @@ import {
 import { scoreNicheFit, NicheClusterInput } from "./nicheFitScorer";
 import { generateEmbeddings } from "./embeddingService";
 import { clusterCompanies, assignRemainingByProximity, expandWithDiscovery } from "./clusteringService";
+import { splitByCompanyType } from "./companyTypeClassifier";
 import { companies, searches } from "../drizzle/schema";
 import { eq, isNull, inArray } from "drizzle-orm";
 import { getDb } from "./db";
 
 export const nicheRouter = router({
   /**
-   * Full pipeline: generate embeddings → k-means clustering → save niches → score against Brain.
+   * Full pipeline: pre-split (Manufacturing vs Service) → generate embeddings → k-means clustering → save niches → score against Brain.
+   * Forces a top-level split between manufacturing and service companies before
+   * running independent k-means clustering within each group. This prevents
+   * mixed niches where service and manufacturing companies are grouped together.
    * Called automatically after CSV import completes.
    */
   clusterAndSaveNiches: adminProcedure
@@ -75,53 +79,120 @@ export const nicheRouter = router({
       // 2. Delete any existing niches for this search (re-clustering)
       await deleteNichesBySearchId(input.searchId);
 
-      // 3. Generate embeddings
-      console.log(`[nicheRouter] Generating embeddings...`);
-      const embeddings = await generateEmbeddings(allCompanies);
+      // 3. Pre-split: Manufacturing vs Service
+      const { manufacturing, service } = splitByCompanyType(allCompanies);
+      const companyIdSet = new Map(allCompanies.map((c) => [c.id, c]));
 
-      // 4. Cluster
-      console.log(`[nicheRouter] Running k-means clustering (targetGroupSize=${input.targetGroupSize ?? 'auto'})...`);
-      const clusters = await clusterCompanies(embeddings, allCompanies, {
-        targetGroupSize: input.targetGroupSize,
-      });
-
-      // 5. Persist niches
-      console.log(`[nicheRouter] Saving ${clusters.length} niches...`);
-      const nicheIds: number[] = [];
-      // Map clusterIndex → nicheId for Phase 1 company assignment
-      const clusterIndexToNicheId = new Map<number, number>();
-      for (const cluster of clusters) {
-        const id = await createNiche({
-          userId,
-          searchId: input.searchId,
-          brainId: null,
-          name: cluster.name,
-          description: cluster.description,
-          companyCount: cluster.companyIds.length,
-          topKeywords: JSON.stringify(cluster.topKeywords),
-          sampleCompanies: JSON.stringify(cluster.sampleCompanies),
-          companyIds: JSON.stringify(cluster.companyIds),
-          centroid: JSON.stringify(cluster.centroid),
-          rationale: null,
-        });
-        nicheIds.push(id);
-        clusterIndexToNicheId.set(cluster.clusterIndex, id);
-      }
-
-      // 5b. Assign seed companies' nicheId in DB (Phase 1 companies only)
-      console.log(`[nicheRouter] Assigning nicheId to seed companies...`);
-      for (const cluster of clusters) {
-        const nicheId = clusterIndexToNicheId.get(cluster.clusterIndex);
-        if (!nicheId) continue;
-        for (const companyId of cluster.companyIds) {
-          await updateCompany(companyId, { nicheId });
+      // Helper: cluster a group independently and persist niches
+      const clusterAndPersistGroup = async (
+        groupCompanies: typeof allCompanies,
+        groupLabel: string
+      ) => {
+        if (groupCompanies.length < 9) {
+          console.log(`[nicheRouter] ${groupLabel} group has only ${groupCompanies.length} companies — too few to cluster independently, will merge into other group`);
+          return { clusters: [], nicheIds: [] as number[], seedCount: 0 };
         }
+
+        console.log(`[nicheRouter] === ${groupLabel} group: ${groupCompanies.length} companies ===`);
+
+        // Generate embeddings for this group
+        console.log(`[nicheRouter] [${groupLabel}] Generating embeddings...`);
+        const groupEmbeddings = await generateEmbeddings(groupCompanies);
+
+        // Cluster this group
+        console.log(`[nicheRouter] [${groupLabel}] Running k-means clustering (targetGroupSize=${input.targetGroupSize ?? 'auto'})...`);
+        const groupClusters = await clusterCompanies(groupEmbeddings, groupCompanies, {
+          targetGroupSize: input.targetGroupSize,
+        });
+
+        // Persist niches with group label prefix
+        console.log(`[nicheRouter] [${groupLabel}] Saving ${groupClusters.length} niches...`);
+        const groupNicheIds: number[] = [];
+        const clusterIndexToNicheId = new Map<number, number>();
+
+        for (const cluster of groupClusters) {
+          const nicheName = `[${groupLabel}] ${cluster.name}`;
+          const id = await createNiche({
+            userId,
+            searchId: input.searchId,
+            brainId: null,
+            name: nicheName,
+            description: cluster.description,
+            companyCount: cluster.companyIds.length,
+            topKeywords: JSON.stringify(cluster.topKeywords),
+            sampleCompanies: JSON.stringify(cluster.sampleCompanies),
+            companyIds: JSON.stringify(cluster.companyIds),
+            centroid: JSON.stringify(cluster.centroid),
+            rationale: `${groupLabel} group — classified by industry/SIC before clustering.`,
+          });
+          groupNicheIds.push(id);
+          clusterIndexToNicheId.set(cluster.clusterIndex, id);
+        }
+
+        // Assign seed companies' nicheId
+        console.log(`[nicheRouter] [${groupLabel}] Assigning nicheId to seed companies...`);
+        for (const cluster of groupClusters) {
+          const nicheId = clusterIndexToNicheId.get(cluster.clusterIndex);
+          if (!nicheId) continue;
+          for (const companyId of cluster.companyIds) {
+            await updateCompany(companyId, { nicheId });
+          }
+        }
+
+        const seedCount = groupClusters.reduce((sum, c) => sum + c.companyIds.length, 0);
+        return { clusters: groupClusters, nicheIds: groupNicheIds, seedCount };
+      };
+
+      // 4. Cluster each group independently
+      // If one group is too small (<9), merge it into the other
+      let mfgResult = { clusters: [] as any[], nicheIds: [] as number[], seedCount: 0 };
+      let svcResult = { clusters: [] as any[], nicheIds: [] as number[], seedCount: 0 };
+
+      if (manufacturing.length < 9 && service.length < 9) {
+        // Both groups too small — cluster everything together (no pre-split)
+        console.log(`[nicheRouter] Both groups too small for independent clustering — clustering all together`);
+        const embeddings = await generateEmbeddings(allCompanies);
+        const clusters = await clusterCompanies(embeddings, allCompanies, { targetGroupSize: input.targetGroupSize });
+        const nicheIds: number[] = [];
+        for (const cluster of clusters) {
+          const id = await createNiche({
+            userId, searchId: input.searchId, brainId: null,
+            name: cluster.name, description: cluster.description,
+            companyCount: cluster.companyIds.length,
+            topKeywords: JSON.stringify(cluster.topKeywords),
+            sampleCompanies: JSON.stringify(cluster.sampleCompanies),
+            companyIds: JSON.stringify(cluster.companyIds),
+            centroid: JSON.stringify(cluster.centroid),
+            rationale: null,
+          });
+          nicheIds.push(id);
+          for (const companyId of cluster.companyIds) {
+            await updateCompany(companyId, { nicheId: id });
+          }
+        }
+        mfgResult = { clusters, nicheIds, seedCount: clusters.reduce((s, c) => s + c.companyIds.length, 0) };
+      } else if (manufacturing.length < 9) {
+        // Manufacturing too small — merge into service
+        console.log(`[nicheRouter] Manufacturing group too small (${manufacturing.length}) — merging into Service group`);
+        svcResult = await clusterAndPersistGroup([...service, ...manufacturing], "Service");
+      } else if (service.length < 9) {
+        // Service too small — merge into manufacturing
+        console.log(`[nicheRouter] Service group too small (${service.length}) — merging into Manufacturing group`);
+        mfgResult = await clusterAndPersistGroup([...manufacturing, ...service], "Manufacturing");
+      } else {
+        // Both groups large enough — cluster independently
+        mfgResult = await clusterAndPersistGroup(manufacturing, "Manufacturing");
+        svcResult = await clusterAndPersistGroup(service, "Service");
       }
 
-      // 6. Auto-score against active Brain (if requested)
+      const allClusters = [...mfgResult.clusters, ...svcResult.clusters];
+      const allNicheIds = [...mfgResult.nicheIds, ...svcResult.nicheIds];
+      const totalSeedCount = mfgResult.seedCount + svcResult.seedCount;
+
+      // 5. Auto-score against active Brain (if requested)
       let scoredCount = 0;
       if (input.autoScore) {
-        console.log(`[nicheRouter] Auto-scoring ${clusters.length} niches against active Brain...`);
+        console.log(`[nicheRouter] Auto-scoring ${allNicheIds.length} niches against active Brain...`);
         const savedNiches = await getNichesBySearchId(input.searchId);
         for (const niche of savedNiches) {
           try {
@@ -149,17 +220,19 @@ export const nicheRouter = router({
         }
       }
 
-      const seedCount = clusters.reduce((sum, c) => sum + c.companyIds.length, 0);
-
       return {
         searchId: input.searchId,
-        seedCount,
+        seedCount: totalSeedCount,
         totalCompanies: allCompanies.length,
-        companiesProcessed: allCompanies.length, // kept for backward compat
-        nichesCreated: clusters.length,
+        companiesProcessed: allCompanies.length,
+        nichesCreated: allClusters.length,
         nichesScored: scoredCount,
-        nicheIds,
-        clusters: clusters.map((c) => ({
+        nicheIds: allNicheIds,
+        preSplit: {
+          manufacturing: manufacturing.length,
+          service: service.length,
+        },
+        clusters: allClusters.map((c: any) => ({
           name: c.name,
           description: c.description,
           companyCount: c.companyIds.length,
@@ -400,19 +473,27 @@ export const nicheRouter = router({
         });
       }
 
-      const nicheCentroids = savedNiches
-        .filter((n) => n.centroid)
-        .map((n) => ({
-          nicheId: n.id,
-          centroid: JSON.parse(n.centroid!) as number[],
-        }));
+      // Build type-aware centroid lists: [Manufacturing] niches vs [Service] niches
+      const mfgCentroids = savedNiches
+        .filter((n) => n.centroid && n.name.startsWith("[Manufacturing]"))
+        .map((n) => ({ nicheId: n.id, centroid: JSON.parse(n.centroid!) as number[] }));
+      const svcCentroids = savedNiches
+        .filter((n) => n.centroid && n.name.startsWith("[Service]"))
+        .map((n) => ({ nicheId: n.id, centroid: JSON.parse(n.centroid!) as number[] }));
+      // Fallback: niches without prefix (legacy or no pre-split)
+      const untaggedCentroids = savedNiches
+        .filter((n) => n.centroid && !n.name.startsWith("[Manufacturing]") && !n.name.startsWith("[Service]"))
+        .map((n) => ({ nicheId: n.id, centroid: JSON.parse(n.centroid!) as number[] }));
 
-      if (nicheCentroids.length === 0) {
+      const allCentroids = [...mfgCentroids, ...svcCentroids, ...untaggedCentroids];
+      if (allCentroids.length === 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Niches have no centroid data. Re-run Phase 1 clustering.",
         });
       }
+
+      const hasTypeSplit = mfgCentroids.length > 0 && svcCentroids.length > 0;
 
       // 2. Load unassigned companies
       const allCompanies = await db
@@ -426,26 +507,63 @@ export const nicheRouter = router({
         return { assigned: 0, message: "All companies are already assigned to niches." };
       }
 
-      console.log(`[nicheRouter] Phase 2: Assigning ${unassigned.length} unassigned companies to ${nicheCentroids.length} niches`);
+      console.log(`[nicheRouter] Phase 2: Assigning ${unassigned.length} unassigned companies to ${allCentroids.length} niches (type-split: ${hasTypeSplit})`);
 
-      // 3. Generate embeddings for unassigned companies
-      const embeddings = await generateEmbeddings(unassigned);
-
-      // 4. Assign by proximity
-      const assignments = await assignRemainingByProximity(embeddings, nicheCentroids);
-
-      // 5. Update companies.nicheId in DB
+      // 3. Type-aware assignment: split unassigned by company type, assign each to matching centroids
       let assigned = 0;
-      for (const [companyId, nicheId] of Array.from(assignments)) {
-        await updateCompany(companyId, { nicheId });
-        assigned++;
+      if (hasTypeSplit) {
+        const { manufacturing: mfgCompanies, service: svcCompanies } = splitByCompanyType(unassigned);
+
+        // Assign manufacturing companies to manufacturing niches only
+        if (mfgCompanies.length > 0 && mfgCentroids.length > 0) {
+          const mfgEmbeddings = await generateEmbeddings(mfgCompanies);
+          const mfgAssignments = await assignRemainingByProximity(mfgEmbeddings, mfgCentroids);
+          for (const [companyId, nicheId] of Array.from(mfgAssignments)) {
+            await updateCompany(companyId, { nicheId });
+            assigned++;
+          }
+        } else if (mfgCompanies.length > 0) {
+          // No manufacturing niches — assign to all centroids as fallback
+          const mfgEmbeddings = await generateEmbeddings(mfgCompanies);
+          const mfgAssignments = await assignRemainingByProximity(mfgEmbeddings, allCentroids);
+          for (const [companyId, nicheId] of Array.from(mfgAssignments)) {
+            await updateCompany(companyId, { nicheId });
+            assigned++;
+          }
+        }
+
+        // Assign service companies to service niches only
+        if (svcCompanies.length > 0 && svcCentroids.length > 0) {
+          const svcEmbeddings = await generateEmbeddings(svcCompanies);
+          const svcAssignments = await assignRemainingByProximity(svcEmbeddings, svcCentroids);
+          for (const [companyId, nicheId] of Array.from(svcAssignments)) {
+            await updateCompany(companyId, { nicheId });
+            assigned++;
+          }
+        } else if (svcCompanies.length > 0) {
+          // No service niches — assign to all centroids as fallback
+          const svcEmbeddings = await generateEmbeddings(svcCompanies);
+          const svcAssignments = await assignRemainingByProximity(svcEmbeddings, allCentroids);
+          for (const [companyId, nicheId] of Array.from(svcAssignments)) {
+            await updateCompany(companyId, { nicheId });
+            assigned++;
+          }
+        }
+      } else {
+        // No type split — legacy behavior: assign to nearest centroid
+        const embeddings = await generateEmbeddings(unassigned);
+        const assignments = await assignRemainingByProximity(embeddings, allCentroids);
+        for (const [companyId, nicheId] of Array.from(assignments)) {
+          await updateCompany(companyId, { nicheId });
+          assigned++;
+        }
       }
 
-      // 6. Update companyCount on each niche
+      // 6. Update companyCount on each niche (re-query to get fresh assignments)
+      const updatedCompanies = await db.select().from(companies).where(eq(companies.searchId, input.searchId));
       const nicheCounts = new Map<number, number>();
-      for (const company of allCompanies) {
-        const nId = assignments.get(company.id) ?? company.nicheId;
-        if (nId) nicheCounts.set(nId, (nicheCounts.get(nId) ?? 0) + 1);
+      for (const company of updatedCompanies) {
+        if (company.nicheId) nicheCounts.set(company.nicheId, (nicheCounts.get(company.nicheId) ?? 0) + 1);
       }
       for (const [nicheId, count] of Array.from(nicheCounts)) {
         await updateNiche(nicheId, { companyCount: count });
@@ -490,12 +608,17 @@ export const nicheRouter = router({
         });
       }
 
-      const nicheCentroids = savedNiches
-        .filter((n) => n.centroid)
-        .map((n) => ({
-          nicheId: n.id,
-          centroid: JSON.parse(n.centroid!) as number[],
-        }));
+      // Build type-aware centroid lists
+      const mfgCentroids = savedNiches
+        .filter((n) => n.centroid && n.name.startsWith("[Manufacturing]"))
+        .map((n) => ({ nicheId: n.id, centroid: JSON.parse(n.centroid!) as number[] }));
+      const svcCentroids = savedNiches
+        .filter((n) => n.centroid && n.name.startsWith("[Service]"))
+        .map((n) => ({ nicheId: n.id, centroid: JSON.parse(n.centroid!) as number[] }));
+      const untaggedCentroids = savedNiches
+        .filter((n) => n.centroid && !n.name.startsWith("[Manufacturing]") && !n.name.startsWith("[Service]"))
+        .map((n) => ({ nicheId: n.id, centroid: JSON.parse(n.centroid!) as number[] }));
+      const nicheCentroids = [...mfgCentroids, ...svcCentroids, ...untaggedCentroids];
 
       if (nicheCentroids.length === 0) {
         throw new TRPCError({
@@ -503,6 +626,8 @@ export const nicheRouter = router({
           message: "Niches have no centroid data. Re-run Phase 1 clustering.",
         });
       }
+
+      const hasTypeSplit = mfgCentroids.length > 0 && svcCentroids.length > 0;
 
       // 2. Load next batch of unassigned companies
       const allCompanies = await db
@@ -524,17 +649,47 @@ export const nicheRouter = router({
 
       const totalUnassigned = allCompanies.filter((c) => c.nicheId === null || c.nicheId === undefined).length;
 
-      console.log(`[nicheRouter] Expand Sample: assigning ${unassigned.length} of ${totalUnassigned} unassigned companies`);
+      console.log(`[nicheRouter] Expand Sample: assigning ${unassigned.length} of ${totalUnassigned} unassigned companies (type-split: ${hasTypeSplit})`);
 
-      // 3. Generate embeddings for this batch
-      const embeddings = await generateEmbeddings(unassigned);
+      // 3. Type-aware expand: split batch by company type, expand each against matching centroids
+      let rawAssignments = new Map<number, number>();
+      let newClusters: Awaited<ReturnType<typeof expandWithDiscovery>>["newClusters"] = [];
 
-      // 4. Assign by proximity WITH discovery of new niches for poor-fit companies
-      const { assignments: rawAssignments, newClusters } = await expandWithDiscovery(
-        embeddings,
-        allCompanies,
-        nicheCentroids
-      );
+      if (hasTypeSplit) {
+        const { manufacturing: mfgBatch, service: svcBatch } = splitByCompanyType(unassigned);
+
+        // Expand manufacturing batch against manufacturing centroids
+        if (mfgBatch.length > 0 && mfgCentroids.length > 0) {
+          const mfgEmb = await generateEmbeddings(mfgBatch);
+          const mfgResult = await expandWithDiscovery(mfgEmb, allCompanies, mfgCentroids);
+          for (const [k, v] of Array.from(mfgResult.assignments)) rawAssignments.set(k, v);
+          newClusters.push(...mfgResult.newClusters);
+        } else if (mfgBatch.length > 0) {
+          const mfgEmb = await generateEmbeddings(mfgBatch);
+          const mfgResult = await expandWithDiscovery(mfgEmb, allCompanies, nicheCentroids);
+          for (const [k, v] of Array.from(mfgResult.assignments)) rawAssignments.set(k, v);
+          newClusters.push(...mfgResult.newClusters);
+        }
+
+        // Expand service batch against service centroids
+        if (svcBatch.length > 0 && svcCentroids.length > 0) {
+          const svcEmb = await generateEmbeddings(svcBatch);
+          const svcResult = await expandWithDiscovery(svcEmb, allCompanies, svcCentroids);
+          for (const [k, v] of Array.from(svcResult.assignments)) rawAssignments.set(k, v);
+          newClusters.push(...svcResult.newClusters);
+        } else if (svcBatch.length > 0) {
+          const svcEmb = await generateEmbeddings(svcBatch);
+          const svcResult = await expandWithDiscovery(svcEmb, allCompanies, nicheCentroids);
+          for (const [k, v] of Array.from(svcResult.assignments)) rawAssignments.set(k, v);
+          newClusters.push(...svcResult.newClusters);
+        }
+      } else {
+        // Legacy: no type split
+        const embeddings = await generateEmbeddings(unassigned);
+        const result = await expandWithDiscovery(embeddings, allCompanies, nicheCentroids);
+        rawAssignments = result.assignments;
+        newClusters = result.newClusters;
+      }
 
       // 5. Persist any newly discovered niches and build clusterIndex → nicheId map
       const newClusterToNicheId = new Map<number, number>(); // sentinel index → real nicheId

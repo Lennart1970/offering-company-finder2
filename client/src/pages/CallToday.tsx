@@ -2,6 +2,7 @@ import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
+import BrainBadge from "@/components/BrainBadge";
 
 const OUTCOME_LABELS: Record<string, { label: string; color: string }> = {
   reached:        { label: "✅ Reached",        color: "bg-green-600 text-white" },
@@ -16,6 +17,10 @@ export default function CallToday() {
 
   // Cross-campaign: all companies marked Call Today for this user
   const { data, isLoading } = trpc.companyFinder.getCallToday.useQuery();
+
+  // Active brain — for mismatch detection
+  const { data: activeBrainData } = trpc.companyFinder.getActiveBrain.useQuery();
+  const activeBrain = activeBrainData?.brain ?? null;
 
   const sorted = useMemo(() => {
     const companies = data?.companies ?? [];
@@ -174,6 +179,13 @@ export default function CallToday() {
                             {outcomeInfo.label}
                           </span>
                         )}
+                        <BrainBadge
+                          generatedWithBrainId={c.generatedWithBrainId}
+                          generatedWithBrainName={c.generatedWithBrainName}
+                          activeBrainId={activeBrain?.id}
+                          activeBrainName={activeBrain?.brainName}
+                          compact
+                        />
                       </div>
                       <div className="text-xl font-black leading-tight">{c.name}</div>
                       {c.websiteUrl && (

@@ -7,6 +7,7 @@ import { useLocation, useParams } from "wouter";
 import CompanyDecisionButtons from "@/components/CompanyDecisionButtons";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
+import BrainBadge from "@/components/BrainBadge";
 import { normaliseSalesApproach } from "@shared/normaliseStarters";
 
 // Format revenue to human-readable string
@@ -45,6 +46,10 @@ export default function SearchResults() {
 
   const isSelectMode = searchIdParam === "select" || !searchIdParam;
   const searchId = isSelectMode ? null : parseInt(searchIdParam, 10);
+
+  // Active brain — used for mismatch detection in BrainBadge
+  const { data: activeBrainData } = trpc.companyFinder.getActiveBrain.useQuery();
+  const activeBrain = activeBrainData?.brain ?? null;
 
   const [page, setPage] = useState(0);
   const [allCompanies, setAllCompanies] = useState<any[]>([]);
@@ -1096,6 +1101,8 @@ export default function SearchResults() {
                 index={index}
                 searchId={searchId!}
                 isWebsiteVisitor={leadinfoSet.has(company.id)}
+                activeBrainId={activeBrain?.id}
+                activeBrainName={activeBrain?.brainName}
                 onViewResearch={(id) => { setQuickViewCompanyId(id); setQuickViewMode("research"); }}
                 onViewApproach={(id) => { setQuickViewCompanyId(id); setQuickViewMode("approach"); }}
               />
@@ -1254,13 +1261,15 @@ export default function SearchResults() {
 // ============================================================================
 // Company Card — Compact Layout
 // ============================================================================
-function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach, isWebsiteVisitor }: {
+function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach, isWebsiteVisitor, activeBrainId, activeBrainName }: {
   company: any;
   index: number;
   searchId: number;
   onViewResearch?: (companyId: number) => void;
   onViewApproach?: (companyId: number) => void;
   isWebsiteVisitor?: boolean;
+  activeBrainId?: number | null;
+  activeBrainName?: string | null;
 }) {
   const [, navigate] = useLocation();
   // Build a URL to this company's detail page, optionally with a chapter and the full queue for PREV/NEXT nav
@@ -1308,6 +1317,13 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach,
                   ⚡ {company.urgencyScore}
                 </button>
               )}
+              <BrainBadge
+                generatedWithBrainId={company.generatedWithBrainId}
+                generatedWithBrainName={company.generatedWithBrainName}
+                activeBrainId={activeBrainId}
+                activeBrainName={activeBrainName}
+                compact
+              />
             </div>
             <h4 className="text-lg md:text-xl font-bold leading-tight truncate text-gray-900">{company.name}</h4>
             {company.websiteUrl && (

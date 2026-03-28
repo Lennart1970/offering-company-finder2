@@ -1,6 +1,6 @@
 import { Router } from "express";
 import multer from "multer";
-import { getDb, createSearch, createCompanies, getPendingCompaniesBySearchId, getCompaniesBySearchId, updateCompany, getSearchById } from "../db";
+import { getDb, createSearch, createCompanies, getPendingCompaniesBySearchId, getCompaniesBySearchId, updateCompany, getSearchById, getActiveBrain } from "../db";
 import { companies, searches, users } from "../../drizzle/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { parseApolloCSV, mapApolloRowToCompany } from "../apolloCSVParser";
@@ -640,6 +640,16 @@ router.post("/re-research-campaign", async (req: any, res: any) => {
           briefData: JSON.stringify(brief),
           briefGeneratedAt: new Date(),
         });
+        // Stamp brain traceability
+        try {
+          const brain = await getActiveBrain(1); // userId=1 for SSE endpoint
+          if (brain) {
+            await updateCompany(company.id, {
+              generatedWithBrainId: brain.id,
+              generatedWithBrainName: brain.brainName,
+            });
+          }
+        } catch { /* non-fatal */ }
         researched++;
         send({
           status: "progress",

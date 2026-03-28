@@ -89,6 +89,20 @@ async function assertCompanyAccess(companyId: number, userId: number) {
   return company;
 }
 
+// Helper: stamp the active brain on a company after any generation pass
+// Call this after every updateCompany that stores LLM-generated content
+async function stampBrainOnCompany(companyId: number, userId: number) {
+  try {
+    const brain = await getActiveBrain(userId);
+    if (brain) {
+      await updateCompany(companyId, {
+        generatedWithBrainId: brain.id,
+        generatedWithBrainName: brain.brainName,
+      });
+    }
+  } catch { /* non-fatal — don't break generation if brain lookup fails */ }
+}
+
 export const companyFinderRouter = router({
   // Create a new search using the active Offering Brain (brain-agnostic)
   startSearch: protectedProcedure
@@ -891,6 +905,7 @@ export const companyFinderRouter = router({
           briefData: JSON.stringify(brief),
           briefGeneratedAt: new Date(),
         });
+        await stampBrainOnCompany(input.companyId, ctx.user.id);
 
         console.log(`[generateBrief] ✓ Brief generated with urgency score: ${brief.urgencyScore}`);
 
@@ -956,6 +971,7 @@ export const companyFinderRouter = router({
           salesApproachData: JSON.stringify(salesApproach),
           salesApproachGeneratedAt: new Date(),
         });
+        await stampBrainOnCompany(input.companyId, ctx.user.id);
 
         console.log(`[generateSalesApproach] ✓ Sales approach generated for ${company.name}`);
 
@@ -1839,6 +1855,7 @@ export const companyFinderRouter = router({
           briefData: JSON.stringify(brief),
           briefGeneratedAt: new Date(),
         });
+        await stampBrainOnCompany(input.companyId, ctx.user.id);
         console.log(`[reResearch] ✓ Brief regenerated for ${company.name} — urgency: ${brief.urgencyScore}`);
         return { success: true, brief };
       } catch (error: any) {
@@ -2138,6 +2155,7 @@ export const companyFinderRouter = router({
           fitScore: result.fitScore,
           fitScoreData: JSON.stringify(result),
         });
+        await stampBrainOnCompany(input.companyId, ctx.user.id);
         console.log(`[Fit Score] ✓ ${company.name} → ${result.fitScore}`);
         return { success: true, result };
       } catch (error: any) {
@@ -2353,6 +2371,7 @@ export const companyFinderRouter = router({
       const rawContent = result.choices?.[0]?.message?.content;
       const summary = typeof rawContent === "string" ? rawContent.trim().replace(/^"|"$/g, "") : "";
       await updateCompany(input.companyId, { callReadinessSummary: summary });
+      await stampBrainOnCompany(input.companyId, ctx.user.id);
       return { summary };
     }),
 
@@ -2760,6 +2779,7 @@ Return ONLY the profile description.`;
         salesRepProfile: profile,
         salesRepProfileGeneratedAt: new Date(),
       });
+      await stampBrainOnCompany(input.companyId, ctx.user.id);
 
       return { profile };
     }),

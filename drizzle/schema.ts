@@ -104,6 +104,9 @@ export const companies = mysqlTable("companies", {
   signalOpeners: text("signalOpeners"), // JSON array of pre-generated per-signal openers [{signalIndex, opener}]
   signalOpenersGeneratedAt: timestamp("signalOpenersGeneratedAt"), // When signal openers were batch-generated
   enrichmentStatus: mysqlEnum("enrichmentStatus", ["pending", "enriched", "failed"]).default("pending").notNull(),
+  // Brain traceability — which brain was used for the latest generation pass
+  generatedWithBrainId: int("generatedWithBrainId"), // FK to offering_brain.id — stamped on every generation
+  generatedWithBrainName: varchar("generatedWithBrainName", { length: 255 }), // Denormalised for fast display without JOIN
   // Niche cluster assignment (set during Phase 1 seed clustering or Phase 2 proximity assignment)
   // Note: FK constraint added via SQL migration to avoid circular reference in schema definition
   nicheId: int("nicheId"),

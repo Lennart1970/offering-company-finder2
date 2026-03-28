@@ -75,9 +75,22 @@ async function processJob() {
   console.log(`[CampaignQueue] ▶ Worker claiming Job ${job.id} — ${job.companyName} (companyId: ${job.companyId})`);
 
   try {
-    const { getDb, getCompanyById, updateCompany } = await import("./db");
+    const { getDb, getCompanyById, updateCompany, getActiveBrain } = await import("./db");
     const db = await getDb();
     if (!db) throw new Error("DB unavailable");
+
+    // Helper: stamp brain traceability on this company
+    const stampBrain = async () => {
+      try {
+        const brain = await getActiveBrain(job.userId);
+        if (brain) {
+          await updateCompany(job.companyId, {
+            generatedWithBrainId: brain.id,
+            generatedWithBrainName: brain.brainName,
+          });
+        }
+      } catch { /* non-fatal */ }
+    };
 
     // Fetch fresh company data
     let company = await getCompanyById(job.companyId);
@@ -224,7 +237,10 @@ async function processJob() {
       }
     }
 
-    // ── Mark complete ──────────────────────────────────────────────────────
+    // Stamp brain traceability after all generation steps
+    await stampBrain();
+
+    // ── Mark complete ────────────────────────────────────────────────────────────────────
     await db!.update(campaignQueue).set({
       status: "completed",
       completedAt: new Date(),

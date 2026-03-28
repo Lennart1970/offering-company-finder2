@@ -2018,3 +2018,14 @@
 - [x] Add batchRefreshCallReadiness server procedure for bulk regeneration per campaign
 - [x] Add "REFRESH ALL WHY CALL TODAY" button to CallToday page with progress feedback
 - [x] All 459 tests passing, TypeScript compiles cleanly
+
+## Brain Traceability & UX Flagging (Governance)
+- [x] Audit current brain tracking — what's stored per company/output, what's missing
+- [x] Add generatedWithBrainId + generatedWithBrainName columns to companies table (migration 0038)
+- [x] Update all generation procedures to stamp brainId/brainName: generateBrief, generateSalesApproach, scoreCompanyFit, generateCallReadiness, generateSalesRepProfile, reResearch
+- [x] Stamp brain in campaign queue worker (campaignQueueWorker.ts) and re-research SSE endpoint (api.ts)
+- [x] Create reusable BrainBadge component with mismatch detection (purple badge normal, amber warning on mismatch)
+- [x] Add BrainBadge to Search Results company cards (compact mode)
+- [x] Add BrainBadge to Company Detail header badges
+- [x] Add BrainBadge to Call Today company cards (compact mode)
+- [x] Write brainTraceability.test.ts — 6 tests passing, all 470 tests passing

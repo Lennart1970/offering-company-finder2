@@ -4,6 +4,7 @@ import { useState, useMemo, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { useLocation, useParams } from "wouter";
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
+import BrainBadge from "@/components/BrainBadge";
 import { Button } from "@/components/ui/button";
 import { normaliseSalesApproach } from "@shared/normaliseStarters";
 
@@ -779,6 +780,12 @@ export default function CompanyDetail() {
                 {company.salesApproachData && (
                   <span className="text-[10px] font-black border border-green-600 text-green-600 px-1.5 py-0.5">SALES READY</span>
                 )}
+                <BrainBadge
+                  generatedWithBrainId={company.generatedWithBrainId}
+                  generatedWithBrainName={company.generatedWithBrainName}
+                  activeBrainId={activeBrain?.id}
+                  activeBrainName={activeBrain?.brainName}
+                />
               </div>
 
               {/* Name + URL */}

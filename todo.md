@@ -2029,3 +2029,13 @@
 - [x] Add BrainBadge to Company Detail header badges
 - [x] Add BrainBadge to Call Today company cards (compact mode)
 - [x] Write brainTraceability.test.ts — 6 tests passing, all 470 tests passing
+
+## Supabase Bidirectional Sync — Offering Brains → lt_mns_offering_brains
+- [x] Investigate current brain data structure and Supabase connection (two Supabase projects discovered: yeowqyeafylynavufueo for REST, pwwbemvdjaezgwxdosbg for pg)
+- [x] Add 13 new columns to lt_mns_offering_brains via SQL (company_website, core_capabilities, competitive_advantages, icp_geography, icp_pain_points, fit_criteria, urgency_triggers, sic_codes, nace_codes, raw_research_data, status, local_brain_id, updated_at)
+- [x] Enrich syncBrainsToSupabase with all 25 fields via mapBrainToSupabaseRow helper (was only pushing 12)
+- [x] Build pushSingleBrainToSupabase function for per-brain push
+- [x] Build pullSingleBrainFromSupabase function for bidirectional sync (17-field mapping)
+- [x] Add pushBrainToSupabase and pullBrainFromSupabase tRPC procedures
+- [x] Add ⬆ PUSH TO SUPABASE and ⬇ PULL FROM SUPABASE buttons per brain on Offering Brain page
+- [x] Write supabaseBrainSync.test.ts — 6 tests passing, all 471 tests passing

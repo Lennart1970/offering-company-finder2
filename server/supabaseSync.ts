@@ -268,7 +268,39 @@ export async function syncContactsToSupabase(companyIds: number[]): Promise<{
   };
 }
 
-// ─── Sync offering brains ────────────────────────────────────────────────────
+// ─── Map a local brain row to the Supabase column shape ─────────────────────
+
+function mapBrainToSupabaseRow(brain: BrainRow) {
+  return {
+    id: String(brain.id),
+    brain_name: brain.brainName,
+    company_name: brain.companyName ?? null,
+    company_website: brain.companyWebsite ?? null,
+    offering_summary: brain.offeringSummary ?? null,
+    core_capabilities: brain.coreCapabilities ?? null,
+    competitive_advantages: brain.competitiveAdvantages ?? null,
+    target_sectors: brain.icpIndustries ?? null,
+    icp_description: brain.icpCompanySize ?? null,
+    icp_geography: brain.icpGeography ?? null,
+    icp_pain_points: brain.icpPainPoints ?? null,
+    value_propositions: brain.valuePropositions ?? null,
+    strong_fit_signals: brain.icpBuyingSignals ?? null,
+    fit_criteria: brain.fitCriteria ?? null,
+    urgency_triggers: brain.urgencyTriggers ?? null,
+    sic_codes: brain.sicCodes ?? null,
+    nace_codes: brain.naceCodes ?? null,
+    raw_research_data: brain.rawResearchData ?? null,
+    weak_fit_signals: null,
+    dream_clients: null,
+    status: brain.status ?? "completed",
+    is_active: brain.isActive === 1,
+    local_brain_id: brain.id,
+    updated_at: brain.updatedAt?.toISOString() ?? new Date().toISOString(),
+    synced_at: new Date().toISOString(),
+  };
+}
+
+// ─── Sync ALL offering brains ───────────────────────────────────────────────
 
 export async function syncBrainsToSupabase(): Promise<{
   synced: number;
@@ -282,20 +314,7 @@ export async function syncBrainsToSupabase(): Promise<{
   const brains = await db.select().from(offeringBrain);
   if (brains.length === 0) return { synced: 0, errors: 0, message: "No brains found" };
 
-  const brainRows = brains.map((brain: BrainRow) => ({
-    id: String(brain.id),
-    brain_name: brain.brainName,
-    company_name: brain.companyName ?? null,
-    offering_summary: brain.offeringSummary ?? null,
-    target_sectors: brain.icpIndustries ?? null,
-    icp_description: brain.icpCompanySize ?? null,
-    value_propositions: brain.valuePropositions ?? null,
-    strong_fit_signals: brain.icpBuyingSignals ?? null,
-    weak_fit_signals: null,
-    dream_clients: null,
-    is_active: brain.status === "completed",
-    synced_at: new Date().toISOString(),
-  }));
+  const brainRows = brains.map((brain: BrainRow) => mapBrainToSupabaseRow(brain));
 
   const { error } = await (supabase
     .from("lt_mns_offering_brains") as any)
@@ -310,6 +329,108 @@ export async function syncBrainsToSupabase(): Promise<{
     synced: brainRows.length,
     errors: 0,
     message: `Synced ${brainRows.length} brains to Supabase`,
+  };
+}
+
+// ─── Push a SINGLE brain to Supabase ────────────────────────────────────────
+
+export async function pushSingleBrainToSupabase(brainId: number): Promise<{
+  success: boolean;
+  message: string;
+}> {
+  const supabase = getSupabaseClient();
+  const db = await getDb();
+  if (!db) return { success: false, message: "Database not available" };
+
+  const [brain] = await db.select().from(offeringBrain).where(eq(offeringBrain.id, brainId));
+  if (!brain) return { success: false, message: `Brain ${brainId} not found` };
+
+  const row = mapBrainToSupabaseRow(brain);
+
+  const { error } = await (supabase
+    .from("lt_mns_offering_brains") as any)
+    .upsert(row, { onConflict: "id" });
+
+  if (error) {
+    console.error("[SupabaseSync] Error pushing brain:", error.message);
+    return { success: false, message: error.message };
+  }
+
+  return {
+    success: true,
+    message: `Pushed "${brain.brainName}" to Supabase (${Object.keys(row).length} fields)`,
+  };
+}
+
+// ─── Pull a SINGLE brain FROM Supabase ──────────────────────────────────────
+
+export async function pullSingleBrainFromSupabase(brainId: number): Promise<{
+  success: boolean;
+  message: string;
+  updatedFields?: string[];
+}> {
+  const supabase = getSupabaseClient();
+  const db = await getDb();
+  if (!db) return { success: false, message: "Database not available" };
+
+  // Fetch the remote row
+  const { data, error } = await (supabase
+    .from("lt_mns_offering_brains") as any)
+    .select("*")
+    .eq("id", String(brainId))
+    .single();
+
+  if (error || !data) {
+    return {
+      success: false,
+      message: error?.message ?? `Brain ${brainId} not found in Supabase`,
+    };
+  }
+
+  // Map Supabase snake_case back to local camelCase
+  const updatedFields: string[] = [];
+  const updates: Record<string, unknown> = {};
+
+  const fieldMap: Array<{ remote: string; local: string }> = [
+    { remote: "brain_name", local: "brainName" },
+    { remote: "company_name", local: "companyName" },
+    { remote: "company_website", local: "companyWebsite" },
+    { remote: "offering_summary", local: "offeringSummary" },
+    { remote: "core_capabilities", local: "coreCapabilities" },
+    { remote: "competitive_advantages", local: "competitiveAdvantages" },
+    { remote: "target_sectors", local: "icpIndustries" },
+    { remote: "icp_description", local: "icpCompanySize" },
+    { remote: "icp_geography", local: "icpGeography" },
+    { remote: "icp_pain_points", local: "icpPainPoints" },
+    { remote: "value_propositions", local: "valuePropositions" },
+    { remote: "strong_fit_signals", local: "icpBuyingSignals" },
+    { remote: "fit_criteria", local: "fitCriteria" },
+    { remote: "urgency_triggers", local: "urgencyTriggers" },
+    { remote: "sic_codes", local: "sicCodes" },
+    { remote: "nace_codes", local: "naceCodes" },
+    { remote: "raw_research_data", local: "rawResearchData" },
+  ];
+
+  for (const { remote, local } of fieldMap) {
+    if (data[remote] !== undefined && data[remote] !== null) {
+      updates[local] = data[remote];
+      updatedFields.push(local);
+    }
+  }
+
+  if (updatedFields.length === 0) {
+    return { success: true, message: "No fields to update from Supabase", updatedFields: [] };
+  }
+
+  await db
+    .update(offeringBrain)
+    .set(updates)
+    .where(eq(offeringBrain.id, brainId));
+
+  return {
+    success: true,
+    message: `Pulled ${updatedFields.length} fields from Supabase into "${data.brain_name}"`,
+    updatedFields,
   };
 }
 

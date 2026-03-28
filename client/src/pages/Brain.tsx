@@ -101,6 +101,34 @@ export default function Brain() {
     },
   });
 
+  const pushToSupabaseMutation = trpc.companyFinder.pushBrainToSupabase.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(data.message);
+      } else {
+        toast.error(`Push failed: ${data.message}`);
+      }
+    },
+    onError: (error) => {
+      toast.error(`Push failed: ${error.message}`);
+    },
+  });
+
+  const pullFromSupabaseMutation = trpc.companyFinder.pullBrainFromSupabase.useMutation({
+    onSuccess: (data) => {
+      if (data.success) {
+        toast.success(data.message);
+        utils.companyFinder.getActiveBrain.invalidate();
+        utils.companyFinder.getBrainHistory.invalidate();
+      } else {
+        toast.error(`Pull failed: ${data.message}`);
+      }
+    },
+    onError: (error) => {
+      toast.error(`Pull failed: ${error.message}`);
+    },
+  });
+
   const brain = brainData?.brain;
   const brainHistory = historyData?.history || [];
 
@@ -317,7 +345,25 @@ export default function Brain() {
                       </div>
                     )}
                   </div>
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
+                    <Button
+                      onClick={() => pushToSupabaseMutation.mutate({ brainId: b.id })}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs font-black border-2 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white"
+                      disabled={pushToSupabaseMutation.isPending}
+                    >
+                      {pushToSupabaseMutation.isPending ? "PUSHING..." : "⬆ PUSH TO SUPABASE"}
+                    </Button>
+                    <Button
+                      onClick={() => pullFromSupabaseMutation.mutate({ brainId: b.id })}
+                      variant="outline"
+                      size="sm"
+                      className="text-xs font-black border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
+                      disabled={pullFromSupabaseMutation.isPending}
+                    >
+                      {pullFromSupabaseMutation.isPending ? "PULLING..." : "⬇ PULL FROM SUPABASE"}
+                    </Button>
                     {b.isActive !== 1 && (
                       <>
                         <Button

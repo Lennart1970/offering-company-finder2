@@ -2994,6 +2994,20 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         message: `${searchResult.message} | ${brainResult.message}`,
       };
     }),
+
+  pushBrainToSupabase: protectedProcedure
+    .input(z.object({ brainId: z.number() }))
+    .mutation(async ({ input }) => {
+      const { pushSingleBrainToSupabase } = await import("./supabaseSync");
+      return pushSingleBrainToSupabase(input.brainId);
+    }),
+
+  pullBrainFromSupabase: protectedProcedure
+    .input(z.object({ brainId: z.number() }))
+    .mutation(async ({ input }) => {
+      const { pullSingleBrainFromSupabase } = await import("./supabaseSync");
+      return pullSingleBrainFromSupabase(input.brainId);
+    }),
 });
 
 // Background search function using brain offering data

@@ -2242,39 +2242,222 @@ export const companyFinderRouter = router({
     }),
 
   // Generate a 1-sentence call readiness summary for a company
+  // v2: Rich context from brief, approach, leadinfo, fit score, and brain
   generateCallReadiness: protectedProcedure
     .input(z.object({ companyId: z.number() }))
     .mutation(async ({ ctx, input }) => {
       const company = await assertCompanyAccess(input.companyId, ctx.user.id);
       const { invokeLLM } = await import("./_core/llm");
+      const { WHY_CALL_TODAY } = await import("./prompts/index");
 
+      // Parse all available intelligence
       const brief = company.briefData ? (() => { try { return JSON.parse(company.briefData); } catch { return null; } })() : null;
       const approach = company.salesApproachData ? (() => { try { return JSON.parse(company.salesApproachData); } catch { return null; } })() : null;
+      const fitData = company.fitScoreData ? (() => { try { return JSON.parse(company.fitScoreData); } catch { return null; } })() : null;
+      const signalOpeners = company.signalOpeners ? (() => { try { return JSON.parse(company.signalOpeners); } catch { return null; } })() : null;
 
-      const context = [
-        `Company: ${company.name}`,
-        company.revenue ? `Revenue: ${company.revenue}` : "",
-        company.city ? `Location: ${company.city}, ${company.country ?? ""}` : "",
-        company.urgencyScore ? `Urgency score: ${company.urgencyScore}/100` : "",
-        brief?.recentDevelopments?.length ? `Recent: ${brief.recentDevelopments.slice(0, 2).map((d: any) => d.headline || d.summary || d).join("; ")}` : "",
-        brief?.productsAndServices?.length ? `Products: ${brief.productsAndServices.slice(0, 2).map((p: any) => p.name || p).join(", ")}` : "",
-        approach?.conversationStarters?.length ? `Hook: ${approach.conversationStarters[0]}` : "",
-      ].filter(Boolean).join("\n");
+      // Fetch Leadinfo visitor data if available
+      let leadinfoVisit: any = null;
+      try {
+        const { getDb } = await import("./db");
+        const { leadinfoVisits } = await import("../drizzle/schema");
+        const { eq, sql } = await import("drizzle-orm");
+        const db = await getDb();
+        if (db) {
+          const rows = await db.select().from(leadinfoVisits)
+            .where(eq(leadinfoVisits.companyId, input.companyId))
+            .orderBy(sql`${leadinfoVisits.importedAt} DESC`)
+            .limit(1);
+          leadinfoVisit = rows[0] || null;
+        }
+      } catch { /* Leadinfo not available, continue without it */ }
+
+      // Load Brain context for offering awareness
+      let brainOffering = "";
+      try {
+        const brain = await getActiveBrain(ctx.user.id);
+        if (brain && brain.status === "completed") {
+          brainOffering = brain.offeringSummary || "";
+        }
+      } catch { /* no brain, continue */ }
+
+      // Build rich context — prioritise actionable signals over generic facts
+      const contextParts: string[] = [];
+
+      contextParts.push(`COMPANY: ${company.name}`);
+      if (company.city) contextParts.push(`Location: ${company.city}, ${company.country ?? ""}`);
+
+      // Seller's offering (so the LLM can connect trigger to offering)
+      if (brainOffering) {
+        contextParts.push(`\nSELLER'S OFFERING: ${brainOffering}`);
+      }
+
+      // HIGHEST PRIORITY: Website visitor data (Leadinfo)
+      if (leadinfoVisit) {
+        const visitParts = [`\nWEBSITE VISITOR (STRONGEST SIGNAL):`];
+        visitParts.push(`- This company visited your website`);
+        if (leadinfoVisit.totalSessions) visitParts.push(`- Sessions: ${leadinfoVisit.totalSessions}`);
+        if (leadinfoVisit.totalPages) visitParts.push(`- Pages viewed: ${leadinfoVisit.totalPages}`);
+        if (leadinfoVisit.engagementScore) visitParts.push(`- Engagement score: ${leadinfoVisit.engagementScore}`);
+        const intentSignals = leadinfoVisit.intentSignals ? (() => { try { return JSON.parse(leadinfoVisit.intentSignals); } catch { return []; } })() : [];
+        if (intentSignals.length) visitParts.push(`- Intent signals: ${intentSignals.join(", ")}`);
+        const topPages = leadinfoVisit.topPages ? (() => { try { return JSON.parse(leadinfoVisit.topPages); } catch { return []; } })() : [];
+        if (topPages.length) visitParts.push(`- Top pages: ${topPages.join(", ")}`);
+        contextParts.push(visitParts.join("\n"));
+      }
+
+      // Urgency signals — the concrete trigger events
+      if (brief?.urgencySignals?.length) {
+        const topSignals = brief.urgencySignals
+          .sort((a: any, b: any) => (b.weight ?? 0) - (a.weight ?? 0))
+          .slice(0, 3);
+        contextParts.push(`\nURGENCY SIGNALS (trigger events):`);
+        topSignals.forEach((s: any) => {
+          contextParts.push(`- [${s.category}/${s.type}] ${s.description}`);
+        });
+      }
+
+      // Recent developments — concrete news
+      if (brief?.recentDevelopments?.length) {
+        const topDevs = brief.recentDevelopments.slice(0, 3);
+        contextParts.push(`\nRECENT NEWS:`);
+        topDevs.forEach((d: any) => {
+          const text = d.text || d.headline || d.summary || d;
+          const date = d.date ? ` (${d.date})` : "";
+          contextParts.push(`- ${text}${date}`);
+        });
+      }
+
+      // Pre-generated signal openers (if available, use the best one as a hint)
+      if (Array.isArray(signalOpeners) && signalOpeners.length > 0) {
+        const best = signalOpeners[0];
+        if (best?.opener) {
+          contextParts.push(`\nBEST SIGNAL OPENER (for reference): "${best.opener}"`);
+        }
+      }
+
+      // Fit rationale (brief, not the score number)
+      if (fitData?.overallRationale) {
+        contextParts.push(`\nFIT RATIONALE: ${fitData.overallRationale}`);
+      }
+
+      const context = contextParts.join("\n");
 
       const result = await invokeLLM({
         messages: [
-          {
-            role: "system",
-            content: "You are a B2B sales coach. Write exactly ONE sentence (max 25 words) that tells a sales rep WHY this company is worth calling TODAY. Be specific — mention a real trigger event or signal if available. No fluff, no generic phrases.",
-          },
+          { role: "system", content: WHY_CALL_TODAY.systemPrompt },
           { role: "user", content: context },
         ],
       });
 
       const rawContent = result.choices?.[0]?.message?.content;
-      const summary = typeof rawContent === "string" ? rawContent.trim() : "";
+      const summary = typeof rawContent === "string" ? rawContent.trim().replace(/^"|"$/g, "") : "";
       await updateCompany(input.companyId, { callReadinessSummary: summary });
       return { summary };
+    }),
+
+  // Batch-refresh "Why Call Today" summaries for all companies in a campaign
+  // Uses the v2 rich-context prompt for every company that has briefData
+  batchRefreshCallReadiness: protectedProcedure
+    .input(z.object({ searchId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await assertSearchAccess(input.searchId, ctx.user.id);
+      const allCompanies = await getCompaniesBySearchId(input.searchId);
+      const { invokeLLM } = await import("./_core/llm");
+      const { WHY_CALL_TODAY } = await import("./prompts/index");
+      const { getDb } = await import("./db");
+      const { leadinfoVisits } = await import("../drizzle/schema");
+      const { eq, sql } = await import("drizzle-orm");
+
+      // Only process companies that have brief data (enriched + researched)
+      const eligible = allCompanies.filter(c => c.briefData && c.enrichmentStatus === "enriched");
+
+      // Load brain offering once
+      let brainOffering = "";
+      try {
+        const brain = await getActiveBrain(ctx.user.id);
+        if (brain && brain.status === "completed") brainOffering = brain.offeringSummary || "";
+      } catch { /* no brain */ }
+
+      // Pre-load all Leadinfo visits for this campaign in one query
+      const db = await getDb();
+      const leadinfoMap = new Map<number, any>();
+      if (db) {
+        try {
+          const allVisits = await db.select().from(leadinfoVisits)
+            .where(eq(leadinfoVisits.searchId, input.searchId));
+          for (const v of allVisits) {
+            if (v.companyId) leadinfoMap.set(v.companyId, v);
+          }
+        } catch { /* no leadinfo table or data */ }
+      }
+
+      let completed = 0;
+      let failed = 0;
+
+      for (const company of eligible) {
+        try {
+          const brief = JSON.parse(company.briefData!);
+          const fitData = company.fitScoreData ? JSON.parse(company.fitScoreData) : null;
+          const signalOpeners = company.signalOpeners ? JSON.parse(company.signalOpeners) : null;
+          const leadinfoVisit = leadinfoMap.get(company.id) || null;
+
+          // Build rich context (same logic as single-company version)
+          const contextParts: string[] = [`COMPANY: ${company.name}`];
+          if (company.city) contextParts.push(`Location: ${company.city}, ${company.country ?? ""}`);
+          if (brainOffering) contextParts.push(`\nSELLER'S OFFERING: ${brainOffering}`);
+
+          if (leadinfoVisit) {
+            const vp = [`\nWEBSITE VISITOR (STRONGEST SIGNAL):`, `- This company visited your website`];
+            if (leadinfoVisit.totalSessions) vp.push(`- Sessions: ${leadinfoVisit.totalSessions}`);
+            if (leadinfoVisit.totalPages) vp.push(`- Pages viewed: ${leadinfoVisit.totalPages}`);
+            const intentSigs = leadinfoVisit.intentSignals ? (() => { try { return JSON.parse(leadinfoVisit.intentSignals); } catch { return []; } })() : [];
+            if (intentSigs.length) vp.push(`- Intent signals: ${intentSigs.join(", ")}`);
+            contextParts.push(vp.join("\n"));
+          }
+
+          if (brief?.urgencySignals?.length) {
+            const topSigs = brief.urgencySignals.sort((a: any, b: any) => (b.weight ?? 0) - (a.weight ?? 0)).slice(0, 3);
+            contextParts.push(`\nURGENCY SIGNALS:`);
+            topSigs.forEach((s: any) => contextParts.push(`- [${s.category}/${s.type}] ${s.description}`));
+          }
+
+          if (brief?.recentDevelopments?.length) {
+            contextParts.push(`\nRECENT NEWS:`);
+            brief.recentDevelopments.slice(0, 3).forEach((d: any) => {
+              const text = d.text || d.headline || d.summary || d;
+              const date = d.date ? ` (${d.date})` : "";
+              contextParts.push(`- ${text}${date}`);
+            });
+          }
+
+          if (Array.isArray(signalOpeners) && signalOpeners[0]?.opener) {
+            contextParts.push(`\nBEST SIGNAL OPENER: "${signalOpeners[0].opener}"`);
+          }
+
+          if (fitData?.overallRationale) {
+            contextParts.push(`\nFIT RATIONALE: ${fitData.overallRationale}`);
+          }
+
+          const result = await invokeLLM({
+            messages: [
+              { role: "system", content: WHY_CALL_TODAY.systemPrompt },
+              { role: "user", content: contextParts.join("\n") },
+            ],
+          });
+
+          const raw = result.choices?.[0]?.message?.content;
+          const summary = typeof raw === "string" ? raw.trim().replace(/^"|"$/g, "") : "";
+          await updateCompany(company.id, { callReadinessSummary: summary });
+          completed++;
+          console.log(`[BatchCallReadiness] ✓ ${company.name}: ${summary.slice(0, 60)}...`);
+        } catch (err: any) {
+          failed++;
+          console.error(`[BatchCallReadiness] ✗ ${company.name}: ${err.message}`);
+        }
+      }
+
+      return { total: eligible.length, completed, failed };
     }),
 
   // Fetch and cache product images for a company via Serper Images API

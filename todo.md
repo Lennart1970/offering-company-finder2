@@ -2009,3 +2009,12 @@
 - [x] Added completion/paused banners
 - [x] Type-aware assignment preserved (service→service niches, mfg→mfg niches)
 - [x] All 459 tests passing, server compiles cleanly
+
+## Improve "Why Call Today" Statement Quality
+- [x] Investigate current whyCallToday generation prompt and logic
+- [x] Redesign prompt v2.0 to produce specific, trigger-based statements grounded in actual urgency signals/news
+- [x] Update generation code to inject rich context: urgency signals, recent news, Leadinfo visits, fit rationale, brain offering, signal openers
+- [x] Update WHY_CALL_TODAY prompt in prompt repository (v1.0 → v2.0) with strict rules against generic statements
+- [x] Add batchRefreshCallReadiness server procedure for bulk regeneration per campaign
+- [x] Add "REFRESH ALL WHY CALL TODAY" button to CallToday page with progress feedback
+- [x] All 459 tests passing, TypeScript compiles cleanly

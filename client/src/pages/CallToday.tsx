@@ -1,6 +1,7 @@
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
 
 const OUTCOME_LABELS: Record<string, { label: string; color: string }> = {
   reached:        { label: "✅ Reached",        color: "bg-green-600 text-white" },
@@ -31,6 +32,46 @@ export default function CallToday() {
     navigate(`/company/${companyId}?from=call-today&queue=${queue}&qi=${index}`);
   }
 
+  // Batch refresh "Why Call Today" summaries
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshResult, setRefreshResult] = useState<{ completed: number; total: number } | null>(null);
+
+  // Collect unique searchIds from the call-today list
+  const searchIds = useMemo(() => {
+    const ids = new Set<number>();
+    for (const row of sorted) {
+      if (row.company.searchId) ids.add(row.company.searchId);
+    }
+    return Array.from(ids);
+  }, [sorted]);
+
+  const batchRefresh = trpc.companyFinder.batchRefreshCallReadiness.useMutation({
+    onSuccess: (d) => {
+      setRefreshResult({ completed: (refreshResult?.completed ?? 0) + d.completed, total: (refreshResult?.total ?? 0) + d.total });
+    },
+    onError: (err) => {
+      toast.error(`Refresh failed: ${err.message}`);
+    },
+  });
+
+  async function handleBatchRefresh() {
+    if (searchIds.length === 0) return;
+    setRefreshing(true);
+    setRefreshResult(null);
+    let totalCompleted = 0;
+    let totalTotal = 0;
+    for (const sid of searchIds) {
+      try {
+        const res = await batchRefresh.mutateAsync({ searchId: sid });
+        totalCompleted += res.completed;
+        totalTotal += res.total;
+      } catch { /* error handled by onError */ }
+    }
+    setRefreshResult({ completed: totalCompleted, total: totalTotal });
+    setRefreshing(false);
+    toast.success(`Refreshed ${totalCompleted}/${totalTotal} "Why Call Today" summaries`);
+  }
+
   return (
     <div className="p-6 max-w-5xl mx-auto">
       {/* Header */}
@@ -44,15 +85,37 @@ export default function CallToday() {
               : `${sorted.length} ${sorted.length === 1 ? "company" : "companies"} across all campaigns · sorted by urgency`}
           </p>
         </div>
-        <a
-          href="https://voicedebt-rd2i5zsv.manus.space/debrief"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="shrink-0 flex items-center gap-2 border-2 border-black bg-amber-400 px-4 py-2 text-xs font-black hover:bg-amber-500 transition-colors shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px]"
-        >
-          🎙️ VOICE DEBRIEF →
-        </a>
+        <div className="flex items-center gap-2 shrink-0">
+          {sorted.length > 0 && (
+            <button
+              onClick={handleBatchRefresh}
+              disabled={refreshing}
+              className="flex items-center gap-2 border-2 border-black px-4 py-2 text-xs font-black hover:bg-black hover:text-white transition-colors cursor-pointer disabled:opacity-50"
+            >
+              {refreshing ? (
+                <>↻ REFRESHING...</>
+              ) : (
+                <>↻ REFRESH ALL "WHY CALL TODAY"</>
+              )}
+            </button>
+          )}
+          <a
+            href="https://voicedebt-rd2i5zsv.manus.space/debrief"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center gap-2 border-2 border-black bg-amber-400 px-4 py-2 text-xs font-black hover:bg-amber-500 transition-colors shadow-[3px_3px_0px_0px_rgba(0,0,0,1)] hover:shadow-[1px_1px_0px_0px_rgba(0,0,0,1)] hover:translate-x-[2px] hover:translate-y-[2px]"
+          >
+            🎙️ VOICE DEBRIEF →
+          </a>
+        </div>
       </div>
+
+      {/* Refresh result banner */}
+      {refreshResult && !refreshing && (
+        <div className="mb-4 border-2 border-green-600 bg-green-50 p-3 text-sm font-bold text-green-800">
+          ✓ Refreshed {refreshResult.completed}/{refreshResult.total} summaries with improved trigger-based statements
+        </div>
+      )}
 
       {isLoading && (
         <div className="text-center py-16 text-muted-foreground font-bold">Loading call queue...</div>

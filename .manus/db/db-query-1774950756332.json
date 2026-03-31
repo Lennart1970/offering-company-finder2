@@ -1,0 +1,26 @@
+{
+  "query": "\nSELECT \n  c.searchId,\n  COUNT(*) AS total,\n  SUM(CASE WHEN c.productImages IS NOT NULL AND c.productImages != '' AND c.productImages != '[]' AND c.productImages != 'null' THEN 1 ELSE 0 END) AS has_product_images,\n  SUM(CASE WHEN c.productImages IS NULL OR c.productImages = '' OR c.productImages = '[]' OR c.productImages = 'null' THEN 1 ELSE 0 END) AS missing_product_images,\n  SUM(CASE WHEN c.urgencyImages IS NOT NULL AND c.urgencyImages != '' AND c.urgencyImages != '[]' AND c.urgencyImages != 'null' THEN 1 ELSE 0 END) AS has_urgency_images,\n  SUM(CASE WHEN c.urgencyImages IS NULL OR c.urgencyImages = '' OR c.urgencyImages = '[]' OR c.urgencyImages = 'null' THEN 1 ELSE 0 END) AS missing_urgency_images\nFROM companies c\nWHERE c.searchId IN (1500003, 1350004)\nGROUP BY c.searchId;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  c.searchId,\n  COUNT(*) AS total,\n  SUM(CASE WHEN c.productImages IS NOT NULL AND c.productImages != '' AND c.productImages != '[]' AND c.productImages != 'null' THEN 1 ELSE 0 END) AS has_product_images,\n  SUM(CASE WHEN c.productImages IS NULL OR c.productImages = '' OR c.productImages = '[]' OR c.productImages = 'null' THEN 1 ELSE 0 END) AS missing_product_images,\n  SUM(CASE WHEN c.urgencyImages IS NOT NULL AND c.urgencyImages != '' AND c.urgencyImages != '[]' AND c.urgencyImages != 'null' THEN 1 ELSE 0 END) AS has_urgency_images,\n  SUM(CASE WHEN c.urgencyImages IS NULL OR c.urgencyImages = '' OR c.urgencyImages = '[]' OR c.urgencyImages = 'null' THEN 1 ELSE 0 END) AS missing_urgency_images\nFROM companies c\nWHERE c.searchId IN (1500003, 1350004)\nGROUP BY c.searchId;\n",
+  "rows": [
+    {
+      "searchId": "1350004",
+      "total": "59",
+      "has_product_images": "3",
+      "missing_product_images": "56",
+      "has_urgency_images": "2",
+      "missing_urgency_images": "57"
+    },
+    {
+      "searchId": "1500003",
+      "total": "108",
+      "has_product_images": "1",
+      "missing_product_images": "107",
+      "has_urgency_images": "4",
+      "missing_urgency_images": "104"
+    }
+  ],
+  "messages": [],
+  "stdout": "searchId\ttotal\thas_product_images\tmissing_product_images\thas_urgency_images\tmissing_urgency_images\n1350004\t59\t3\t56\t2\t57\n1500003\t108\t1\t107\t4\t104\n",
+  "stderr": "",
+  "execution_time_ms": 59
+}

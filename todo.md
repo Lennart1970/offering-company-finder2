@@ -2044,3 +2044,12 @@
 - [x] Investigate: callReadinessSummary showing wrong company data on detail page (Ingeteam data on Arteca Caucho Metal SA page)
 - [x] Root cause: useState only uses initial value on first mount — navigating PREV/NEXT doesn't remount the component
 - [x] Fix: added useEffect to sync callReadinessSummary state with company?.id and company?.callReadinessSummary
+
+## Batch Image Fetch for Demo Readiness
+- [x] Investigate existing fetchProductImages and fetchUrgencyImages logic
+- [x] Build batchFetchImages tRPC procedure + standalone batch script
+- [x] Run batch fetch for campaign #1500003: 107 product + 108 urgency images (0 failures)
+- [x] Run batch fetch for campaign #1350004: 58 product + 58 urgency images (0 failures)
+- [x] Verify image coverage: 99%+ across both campaigns
+- [x] Batch refresh Why Call Today for #1500003: 108/108 (0 failed)
+- [x] Batch refresh Why Call Today for #1350004: 55/55 (0 failed)

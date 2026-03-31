@@ -1,0 +1,8 @@
+{
+  "query": "\nSELECT \n  s.id as searchId,\n  s.searchName,\n  COUNT(*) as total,\n  SUM(CASE WHEN c.productImages IS NOT NULL AND c.productImages != '[]' AND c.productImages != 'null' THEN 1 ELSE 0 END) as hasProductImages,\n  SUM(CASE WHEN c.urgencyImages IS NOT NULL AND c.urgencyImages != '[]' AND c.urgencyImages != 'null' THEN 1 ELSE 0 END) as hasUrgencyImages,\n  SUM(CASE WHEN c.callReadinessSummary IS NOT NULL AND c.callReadinessSummary != '' THEN 1 ELSE 0 END) as hasWhyCallToday\nFROM companies c\nJOIN searches s ON c.searchId = s.id\nWHERE s.id IN (1500003, 1350004)\nGROUP BY s.id, s.searchName;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  s.id as searchId,\n  s.searchName,\n  COUNT(*) as total,\n  SUM(CASE WHEN c.productImages IS NOT NULL AND c.productImages != '[]' AND c.productImages != 'null' THEN 1 ELSE 0 END) as hasProductImages,\n  SUM(CASE WHEN c.urgencyImages IS NOT NULL AND c.urgencyImages != '[]' AND c.urgencyImages != 'null' THEN 1 ELSE 0 END) as hasUrgencyImages,\n  SUM(CASE WHEN c.callReadinessSummary IS NOT NULL AND c.callReadinessSummary != '' THEN 1 ELSE 0 END) as hasWhyCallToday\nFROM companies c\nJOIN searches s ON c.searchId = s.id\nWHERE s.id IN (1500003, 1350004)\nGROUP BY s.id, s.searchName;\n",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 2: Unknown column 's.searchname' in 'group statement'"
+  ]
+}

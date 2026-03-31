@@ -1,0 +1,8 @@
+{
+  "query": "\nSELECT \n  c.searchId,\n  COUNT(*) AS total,\n  SUM(CASE WHEN c.logoUrl IS NOT NULL AND c.logoUrl != '' THEN 1 ELSE 0 END) AS has_logo,\n  SUM(CASE WHEN c.logoUrl IS NULL OR c.logoUrl = '' THEN 1 ELSE 0 END) AS missing_logo\nFROM companies c\nWHERE c.searchId IN (1500003, 1350004)\nGROUP BY c.searchId;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  c.searchId,\n  COUNT(*) AS total,\n  SUM(CASE WHEN c.logoUrl IS NOT NULL AND c.logoUrl != '' THEN 1 ELSE 0 END) AS has_logo,\n  SUM(CASE WHEN c.logoUrl IS NULL OR c.logoUrl = '' THEN 1 ELSE 0 END) AS missing_logo\nFROM companies c\nWHERE c.searchId IN (1500003, 1350004)\nGROUP BY c.searchId;\n",
+  "returncode": 1,
+  "logs": [
+    "ERROR 1054 (42S22) at line 2: Unknown column 'c.logourl' in 'where clause'"
+  ]
+}

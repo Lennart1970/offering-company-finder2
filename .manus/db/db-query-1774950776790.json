@@ -1,0 +1,34 @@
+{
+  "query": "SHOW COLUMNS FROM companies WHERE Field LIKE '%mage%' OR Field LIKE '%ogo%' OR Field LIKE '%hoto%' OR Field LIKE '%roduct%' OR Field LIKE '%rgency%';",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SHOW COLUMNS FROM companies WHERE Field LIKE '%mage%' OR Field LIKE '%ogo%' OR Field LIKE '%hoto%' OR Field LIKE '%roduct%' OR Field LIKE '%rgency%';",
+  "rows": [
+    {
+      "Field": "urgencyScore",
+      "Type": "int",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "productImages",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    },
+    {
+      "Field": "urgencyImages",
+      "Type": "text",
+      "Null": "YES",
+      "Key": "",
+      "Default": "NULL",
+      "Extra": ""
+    }
+  ],
+  "messages": [],
+  "stdout": "Field\tType\tNull\tKey\tDefault\tExtra\nurgencyScore\tint\tYES\t\tNULL\t\nproductImages\ttext\tYES\t\tNULL\t\nurgencyImages\ttext\tYES\t\tNULL\t\n",
+  "stderr": "",
+  "execution_time_ms": 58
+}

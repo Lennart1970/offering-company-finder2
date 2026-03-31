@@ -1,0 +1,67 @@
+{
+  "query": "SHOW TABLES;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SHOW TABLES;",
+  "rows": [
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "__drizzle_migrations"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "batch_jobs"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "bom_calculations"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "bom_items"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "callOutcomes"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "campaign_queue"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "code_descriptions"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "companies"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "companyDecisions"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "contacts"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "excludedCodes"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "leadinfo_visits"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "niches"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "offering_brain"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "prototype_requests"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "research_queue"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "salesPackages"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "searches"
+    },
+    {
+      "Tables_in_jD7AgpCX9VGnkJhgqHKmjt": "users"
+    }
+  ],
+  "messages": [],
+  "stdout": "Tables_in_jD7AgpCX9VGnkJhgqHKmjt\n__drizzle_migrations\nbatch_jobs\nbom_calculations\nbom_items\ncallOutcomes\ncampaign_queue\ncode_descriptions\ncompanies\ncompanyDecisions\ncontacts\nexcludedCodes\nleadinfo_visits\nniches\noffering_brain\nprototype_requests\nresearch_queue\nsalesPackages\nsearches\nusers\n",
+  "stderr": "",
+  "execution_time_ms": 51
+}

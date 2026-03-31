@@ -1,0 +1,24 @@
+{
+  "query": "\nSELECT \n  s.id as searchId,\n  COUNT(*) as total,\n  SUM(CASE WHEN c.productImages IS NOT NULL AND c.productImages != '[]' AND c.productImages != 'null' THEN 1 ELSE 0 END) as hasProductImages,\n  SUM(CASE WHEN c.urgencyImages IS NOT NULL AND c.urgencyImages != '[]' AND c.urgencyImages != 'null' THEN 1 ELSE 0 END) as hasUrgencyImages,\n  SUM(CASE WHEN c.callReadinessSummary IS NOT NULL AND c.callReadinessSummary != '' THEN 1 ELSE 0 END) as hasWhyCallToday\nFROM companies c\nJOIN searches s ON c.searchId = s.id\nWHERE s.id IN (1500003, 1350004)\nGROUP BY s.id;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \nSELECT \n  s.id as searchId,\n  COUNT(*) as total,\n  SUM(CASE WHEN c.productImages IS NOT NULL AND c.productImages != '[]' AND c.productImages != 'null' THEN 1 ELSE 0 END) as hasProductImages,\n  SUM(CASE WHEN c.urgencyImages IS NOT NULL AND c.urgencyImages != '[]' AND c.urgencyImages != 'null' THEN 1 ELSE 0 END) as hasUrgencyImages,\n  SUM(CASE WHEN c.callReadinessSummary IS NOT NULL AND c.callReadinessSummary != '' THEN 1 ELSE 0 END) as hasWhyCallToday\nFROM companies c\nJOIN searches s ON c.searchId = s.id\nWHERE s.id IN (1500003, 1350004)\nGROUP BY s.id;\n",
+  "rows": [
+    {
+      "searchId": "1500003",
+      "total": "108",
+      "hasProductImages": "107",
+      "hasUrgencyImages": "108",
+      "hasWhyCallToday": "108"
+    },
+    {
+      "searchId": "1350004",
+      "total": "59",
+      "hasProductImages": "58",
+      "hasUrgencyImages": "58",
+      "hasWhyCallToday": "55"
+    }
+  ],
+  "messages": [],
+  "stdout": "searchId\ttotal\thasProductImages\thasUrgencyImages\thasWhyCallToday\n1500003\t108\t107\t108\t108\n1350004\t59\t58\t58\t55\n",
+  "stderr": "",
+  "execution_time_ms": 89
+}

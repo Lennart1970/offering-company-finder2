@@ -1,0 +1,16 @@
+{
+  "query": "\n-- Campaign 1500003: Diverse Industrial & Manufacturing Solutions\nSELECT \n  'Run #1500003' AS campaign,\n  COUNT(*) AS total_companies,\n  SUM(CASE WHEN enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) AS enriched,\n  SUM(CASE WHEN briefData IS NOT NULL THEN 1 ELSE 0 END) AS has_brief\nFROM companies \nWHERE searchId = 1500003;\n",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute \n-- Campaign 1500003: Diverse Industrial & Manufacturing Solutions\nSELECT \n  'Run #1500003' AS campaign,\n  COUNT(*) AS total_companies,\n  SUM(CASE WHEN enrichmentStatus = 'enriched' THEN 1 ELSE 0 END) AS enriched,\n  SUM(CASE WHEN briefData IS NOT NULL THEN 1 ELSE 0 END) AS has_brief\nFROM companies \nWHERE searchId = 1500003;\n",
+  "rows": [
+    {
+      "campaign": "Run #1500003",
+      "total_companies": "108",
+      "enriched": "108",
+      "has_brief": "108"
+    }
+  ],
+  "messages": [],
+  "stdout": "campaign\ttotal_companies\tenriched\thas_brief\nRun #1500003\t108\t108\t108\n",
+  "stderr": "",
+  "execution_time_ms": 69
+}

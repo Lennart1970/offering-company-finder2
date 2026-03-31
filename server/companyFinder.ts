@@ -3008,6 +3008,132 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       const { pullSingleBrainFromSupabase } = await import("./supabaseSync");
       return pullSingleBrainFromSupabase(input.brainId);
     }),
+
+  // ---------------------------------------------------------------------------
+  // batchFetchImages — fetch product images + urgency images for all companies
+  // in a campaign that are missing them. Designed for demo prep.
+  // ---------------------------------------------------------------------------
+  batchFetchImages: protectedProcedure
+    .input(z.object({ searchId: z.number(), type: z.enum(["product", "urgency", "both"]).default("both") }))
+    .mutation(async ({ ctx, input }) => {
+      await assertSearchAccess(input.searchId, ctx.user.id);
+      const allCompanies = await getCompaniesBySearchId(input.searchId);
+      const enriched = allCompanies.filter(c => c.enrichmentStatus === "enriched");
+
+      const needProduct = (input.type === "both" || input.type === "product")
+        ? enriched.filter(c => !c.productImages || c.productImages === "[]" || c.productImages === "null")
+        : [];
+      const needUrgency = (input.type === "both" || input.type === "urgency")
+        ? enriched.filter(c => !c.urgencyImages || c.urgencyImages === "[]" || c.urgencyImages === "null")
+        : [];
+
+      console.log(`[batchFetchImages] searchId=${input.searchId} — ${needProduct.length} need product images, ${needUrgency.length} need urgency images`);
+
+      let productDone = 0, productFailed = 0;
+      let urgencyDone = 0, urgencyFailed = 0;
+
+      // Fetch product images (uses serperImages module)
+      if (needProduct.length > 0) {
+        const { fetchSerperImages } = await import("./serperImages");
+        for (const company of needProduct) {
+          try {
+            const images = await fetchSerperImages(company.name, company.primaryDomain, 6);
+            await updateCompany(company.id, { productImages: JSON.stringify(images) });
+            productDone++;
+            if (productDone % 10 === 0) console.log(`[batchFetchImages] product: ${productDone}/${needProduct.length}`);
+            // Rate limit: 200ms between Serper calls
+            await new Promise(r => setTimeout(r, 200));
+          } catch (err: any) {
+            productFailed++;
+            console.warn(`[batchFetchImages] product ✗ ${company.name}: ${err.message}`);
+          }
+        }
+      }
+
+      // Fetch urgency images (inline Serper call matching existing logic)
+      if (needUrgency.length > 0) {
+        const apiKey = process.env.SERPER_API_KEY;
+        if (!apiKey) {
+          console.warn("[batchFetchImages] SERPER_API_KEY not configured — skipping urgency images");
+        } else {
+          const BLOCKED = new Set(["amazon.com","ebay.com","alibaba.com","pinterest.com",
+            "shutterstock.com","gettyimages.com","istockphoto.com","dreamstime.com",
+            "alamy.com","depositphotos.com","123rf.com","google.com","bing.com"]);
+
+          for (const company of needUrgency) {
+            try {
+              const query = `"${company.name}" news 2025 2026 -site:amazon.com -site:pinterest.com -site:shutterstock.com -site:gettyimages.com`;
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 10_000);
+              let response: Response;
+              try {
+                response = await fetch("https://google.serper.dev/images", {
+                  method: "POST",
+                  headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+                  body: JSON.stringify({ q: query, num: 12 }),
+                  signal: controller.signal,
+                });
+              } finally {
+                clearTimeout(timeoutId);
+              }
+              let images: any[] = [];
+              if (response.ok) {
+                const data = await response.json() as { images?: any[] };
+                images = (data.images ?? [])
+                  .filter((img: any) => {
+                    const d = (img.domain ?? "").replace(/^www\./, "").toLowerCase();
+                    return img.imageUrl && !BLOCKED.has(d);
+                  })
+                  .slice(0, 8)
+                  .map((img: any) => ({
+                    imageUrl: img.imageUrl ?? "",
+                    thumbnailUrl: img.thumbnailUrl ?? "",
+                    title: img.title ?? "",
+                    source: img.source ?? img.domain ?? "",
+                    domain: img.domain ?? "",
+                    link: img.link ?? "",
+                  }));
+              }
+              // Fallback to company website if no news images found
+              if (images.length === 0) {
+                const websiteUrl = company.websiteUrl || company.primaryDomain;
+                if (websiteUrl) {
+                  const rawDomain = websiteUrl.replace(/^https?:\/\//i, "").replace(/^www\./i, "").split("/")[0].toLowerCase();
+                  if (rawDomain) {
+                    try {
+                      const wsResp = await fetch("https://google.serper.dev/images", {
+                        method: "POST",
+                        headers: { "X-API-KEY": apiKey, "Content-Type": "application/json" },
+                        body: JSON.stringify({ q: `site:${rawDomain}`, num: 12 }),
+                      });
+                      if (wsResp.ok) {
+                        const wsData = await wsResp.json() as { images?: any[] };
+                        images = (wsData.images ?? []).filter((img: any) => img.imageUrl).slice(0, 8)
+                          .map((img: any) => ({ imageUrl: img.imageUrl ?? "", thumbnailUrl: img.thumbnailUrl ?? "", title: img.title ?? "", source: img.source ?? img.domain ?? "", domain: img.domain ?? "", link: img.link ?? "", _fallback: "website" }));
+                      }
+                    } catch { /* ignore fallback errors */ }
+                  }
+                }
+              }
+              await updateCompany(company.id, { urgencyImages: JSON.stringify(images) });
+              urgencyDone++;
+              if (urgencyDone % 10 === 0) console.log(`[batchFetchImages] urgency: ${urgencyDone}/${needUrgency.length}`);
+              await new Promise(r => setTimeout(r, 200));
+            } catch (err: any) {
+              urgencyFailed++;
+              console.warn(`[batchFetchImages] urgency ✗ ${company.name}: ${err.message}`);
+            }
+          }
+        }
+      }
+
+      console.log(`[batchFetchImages] DONE — product: ${productDone}/${needProduct.length} (${productFailed} failed), urgency: ${urgencyDone}/${needUrgency.length} (${urgencyFailed} failed)`);
+      return {
+        success: true,
+        product: { total: needProduct.length, done: productDone, failed: productFailed },
+        urgency: { total: needUrgency.length, done: urgencyDone, failed: urgencyFailed },
+      };
+    }),
 });
 
 // Background search function using brain offering data

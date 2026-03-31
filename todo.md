@@ -2039,3 +2039,8 @@
 - [x] Add pushBrainToSupabase and pullBrainFromSupabase tRPC procedures
 - [x] Add ⬆ PUSH TO SUPABASE and ⬇ PULL FROM SUPABASE buttons per brain on Offering Brain page
 - [x] Write supabaseBrainSync.test.ts — 6 tests passing, all 471 tests passing
+
+## Bug: Why Call Today Not Persistent Per Company
+- [x] Investigate: callReadinessSummary showing wrong company data on detail page (Ingeteam data on Arteca Caucho Metal SA page)
+- [x] Root cause: useState only uses initial value on first mount — navigating PREV/NEXT doesn't remount the component
+- [x] Fix: added useEffect to sync callReadinessSummary state with company?.id and company?.callReadinessSummary

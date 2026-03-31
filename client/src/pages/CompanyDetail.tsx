@@ -228,6 +228,11 @@ export default function CompanyDetail() {
   // Call readiness + outcomes
   const [callReadinessLoading, setCallReadinessLoading] = useState(false);
   const [callReadinessSummary, setCallReadinessSummary] = useState<string | null>(company?.callReadinessSummary ?? null);
+
+  // Sync callReadinessSummary when navigating between companies (useState ignores new initial values)
+  useEffect(() => {
+    setCallReadinessSummary(company?.callReadinessSummary ?? null);
+  }, [company?.id, company?.callReadinessSummary]);
   const [outcomeSelected, setOutcomeSelected] = useState<string | null>(null);
   const [outcomeNotes, setOutcomeNotes] = useState("");
   const [followUpDate, setFollowUpDate] = useState("");

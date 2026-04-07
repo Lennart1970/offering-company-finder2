@@ -13,9 +13,18 @@
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import { v5 as uuidv5 } from "uuid";
 import { getDb } from "./db";
 import { companies, contacts, offeringBrain, searches } from "../drizzle/schema";
 import type { InferSelectModel } from "drizzle-orm";
+
+// Deterministic UUID namespace for LeadTrigger entities
+const LT_NAMESPACE = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+
+/** Convert a local integer ID to a stable UUID for Supabase */
+function toUUID(prefix: string, id: number): string {
+  return uuidv5(`${prefix}-${id}`, LT_NAMESPACE);
+}
 
 type CompanyRow = InferSelectModel<typeof companies>;
 type ContactRow = InferSelectModel<typeof contacts>;
@@ -91,7 +100,7 @@ export async function syncCompaniesToSupabase(companyIds: number[]): Promise<{
       (company.urgencyScore ?? 0) >= 40 ? "MEDIUM" : "LOW";
 
     return {
-      id: String(company.id),
+      id: toUUID("company", company.id),
       name: company.name,
       domain: company.websiteUrl ?? null,
       linkedin_url: company.linkedinUrl ?? null,
@@ -164,8 +173,8 @@ async function syncSignalsForCompanies(
 
     signals.slice(0, 3).forEach((signal, idx) => {
       signalRows.push({
-        id: `${company.id}-signal-${idx + 1}`,
-        company_id: String(company.id),
+        id: toUUID("signal", company.id * 100 + idx),
+        company_id: toUUID("company", company.id),
         company_name: company.name,
         company_domain: company.websiteUrl ?? null,
         signal_type: signal.type ?? null,
@@ -248,9 +257,9 @@ export async function syncContactsToSupabase(companyIds: number[]): Promise<{
   }
 
   // Update has_contacts and contact_count on prospect_companies
-  const countByCompany = new Map<string, number>();
+  const countByCompany = new Map<number, number>();
   for (const row of rows) {
-    const cid = String(row.contact.companyId);
+    const cid = row.contact.companyId;
     countByCompany.set(cid, (countByCompany.get(cid) ?? 0) + 1);
   }
 
@@ -258,7 +267,7 @@ export async function syncContactsToSupabase(companyIds: number[]): Promise<{
     await supabase
       .from("lt_mns_prospect_companies")
       .update({ has_contacts: true, contact_count: count, synced_at: new Date().toISOString() })
-      .eq("id", companyId);
+      .eq("id", toUUID("company", companyId));
   }
 
   return {

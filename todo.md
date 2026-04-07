@@ -2053,3 +2053,11 @@
 - [x] Verify image coverage: 99%+ across both campaigns
 - [x] Batch refresh Why Call Today for #1500003: 108/108 (0 failed)
 - [x] Batch refresh Why Call Today for #1350004: 55/55 (0 failed)
+
+## Bug: Sync to Supabase Button Not Working (Search Results Page)
+- [x] Investigate syncToSupabase tRPC procedure and frontend handler
+- [x] Root cause 1: lt_mns_prospect_companies.id is UUID type but code sent integer IDs → added deterministic UUID v5 generation
+- [x] Root cause 2: Missing columns in Supabase tables (annual_revenue_usd, company_name, etc.) → user added 46 columns across 3 tables
+- [x] Root cause 3: lt_mns_offering_brains had only 8 columns → expanded to 28 columns
+- [x] Test sync: Campaign #1500003 (108 companies, 232 contacts), #1350004 (59 companies, 53 contacts), 4 brains — all 0 errors
+- [x] All 471 tests passing, TypeScript clean

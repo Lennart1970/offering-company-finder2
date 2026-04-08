@@ -2061,3 +2061,8 @@
 - [x] Root cause 3: lt_mns_offering_brains had only 8 columns → expanded to 28 columns
 - [x] Test sync: Campaign #1500003 (108 companies, 232 contacts), #1350004 (59 companies, 53 contacts), 4 brains — all 0 errors
 - [x] All 471 tests passing, TypeScript clean
+
+## Bug: DO ALL Shows 228 Companies Instead of 100
+- [x] Investigate: queue was built by concatenating 3 overlapping lists (pending + needsBrief + needsApproach), so one company appeared up to 3x
+- [x] Fix: replaced with single deduplicated filter — each company appears once, all steps handled inside the loop
+- [x] All 471 tests passing, TypeScript clean

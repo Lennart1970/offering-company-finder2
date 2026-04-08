@@ -489,10 +489,13 @@ export const companyFinderRouter = router({
           const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
           const { generateSalesApproach } = await import("./salesApproachGenerator");
           const all = await getCompaniesBySearchId(input.searchId);
-          const pending = all.filter((c) => c.enrichmentStatus === "pending" && !!c.apolloId);
-          const needsBrief = all.filter((c) => c.enrichmentStatus === "enriched" && !c.briefData);
-          const needsApproach = all.filter((c) => c.enrichmentStatus === "enriched" && !!c.briefData && !c.salesApproachData);
-          const queue = [...pending, ...needsBrief, ...needsApproach]; // NO slice — process everything
+          // Build a deduplicated queue of unique companies that need ANY work
+          const needsWork = all.filter((c) =>
+            (c.enrichmentStatus === "pending" && !!c.apolloId) ||
+            (c.enrichmentStatus === "enriched" && !c.briefData) ||
+            (c.enrichmentStatus === "enriched" && !!c.briefData && !c.salesApproachData)
+          );
+          const queue = needsWork; // Each company appears once — all steps handled inside the loop
 
           await updateBatchJob(jobId, { totalCompanies: queue.length });
           console.log(`[doAll] jobId=${jobId} searchId=${input.searchId} — ${queue.length} companies queued`);

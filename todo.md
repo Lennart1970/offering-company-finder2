@@ -2066,3 +2066,9 @@
 - [x] Investigate: queue was built by concatenating 3 overlapping lists (pending + needsBrief + needsApproach), so one company appeared up to 3x
 - [x] Fix: replaced with single deduplicated filter — each company appears once, all steps handled inside the loop
 - [x] All 471 tests passing, TypeScript clean
+
+## Bug Fix: Supabase sync broken after lt_mns_companies table change
+- [x] Change target table from lt_mns_prospect_companies → lt_mns_companies
+- [x] Fix column renames: name→company_name, company_country→country, company_city→city, primary_sector→sector
+- [x] Add missing fields: sub_sector, description, profile_text, twitter_url, facebook_url, phone, pipeline_stage, niche_id, priority, updated_at
+- [x] Fix contact sync: update has_contacts reference to use lt_mns_companies

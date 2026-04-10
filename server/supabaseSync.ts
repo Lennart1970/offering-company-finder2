@@ -99,47 +99,70 @@ export async function syncCompaniesToSupabase(companyIds: number[]): Promise<{
       (company.urgencyScore ?? 0) >= 70 ? "HIGH" :
       (company.urgencyScore ?? 0) >= 40 ? "MEDIUM" : "LOW";
 
+    // Parse sliceMetadata once
+    const slice = company.sliceMetadata ? JSON.parse(company.sliceMetadata) as { employeeBand?: string; employeeCount?: number; industry?: string; description?: string; logoUrl?: string } : {};
+
+    // Build a profile_text from available intelligence
+    const profileParts: string[] = [];
+    if (brief.whyThisCompanyMatters) profileParts.push(brief.whyThisCompanyMatters);
+    if (brief.recommendedApproach) profileParts.push(`Approach: ${brief.recommendedApproach}`);
+    const profileText = profileParts.join(' | ') || null;
+
     return {
       id: toUUID("company", company.id),
-      name: company.name,
+      company_name: company.name,
       domain: company.websiteUrl ?? null,
       linkedin_url: company.linkedinUrl ?? null,
+      twitter_url: company.twitterUrl ?? null,
+      facebook_url: company.facebookUrl ?? null,
+      phone: company.phone ?? null,
       apollo_id: company.apolloId ?? null,
-      company_country: company.country ?? null,
-      company_city: company.city ?? null,
-      company_region: null,
-      employee_count: null,
-      employee_range: company.sliceMetadata ? (JSON.parse(company.sliceMetadata) as { employeeBand?: string }).employeeBand ?? null : null,
+      country: company.country ?? null,
+      city: company.city ?? null,
+      company_region: company.state ?? null,
+      employee_count: slice.employeeCount ?? null,
+      employee_range: slice.employeeBand ?? null,
       annual_revenue_usd: null,
       revenue_range: company.revenue ?? null,
-      primary_sector: company.sliceMetadata ? (JSON.parse(company.sliceMetadata) as { industry?: string }).industry ?? null : null,
-      industry_description: company.sliceMetadata ? (JSON.parse(company.sliceMetadata) as { industry?: string }).industry ?? null : null,
+      sector: slice.industry ?? null,
+      sub_sector: null,
+      industry_description: slice.industry ?? null,
+      description: slice.description ?? null,
+      profile_text: profileText,
       sic_codes: company.sicCodes ?? null,
-      nace_codes: null,
+      nace_codes: company.naicsCodes ?? null,
       urgency_score: company.urgencyScore ?? null,
       fit_score: company.fitScore ?? null,
       urgency_label: urgencyLabel,
       fit_label: fitData.label ?? null,
+      fit_tier: fitData.label ?? null,
       why_this_company_matters: brief.whyThisCompanyMatters ?? null,
       conversation_starter: brief.conversationStarter ?? null,
       recommended_approach: brief.recommendedApproach ?? null,
       top_signal_type: topSignal?.type ?? null,
       top_signal_headline: topSignal?.headline ?? null,
       top_signal_source_url: topSignal?.sourceUrl ?? null,
-      brain_name: null,
+      brain_name: search?.offeringName ?? null,
       search_name: search?.offeringName ?? null,
       segment_name: null,
+      pipeline_stage: "prospect",
       research_status: company.enrichmentStatus ?? "pending",
       has_contacts: false, // updated separately after contacts sync
       contact_count: 0,
+      notes: null,
+      niche_id: company.nicheId ?? null,
+      niche_name: null, // populated by niche clustering — not available here
+      dimension_scores: null, // populated by fit scoring engine — not available here
+      priority: urgencyLabel, // mirror urgency label as a simple priority indicator
       researched_at: company.briefGeneratedAt?.toISOString() ?? null,
+      updated_at: new Date().toISOString(),
       synced_at: new Date().toISOString(),
       created_at: company.createdAt?.toISOString() ?? new Date().toISOString(),
     };
   });
 
   const { error } = await (supabase
-    .from("lt_mns_prospect_companies") as any)
+    .from("lt_mns_companies") as any)
     .upsert(companyRows, { onConflict: "id" });
 
   if (error) {
@@ -265,7 +288,7 @@ export async function syncContactsToSupabase(companyIds: number[]): Promise<{
 
   for (const [companyId, count] of Array.from(countByCompany.entries())) {
     await supabase
-      .from("lt_mns_prospect_companies")
+      .from("lt_mns_companies")
       .update({ has_contacts: true, contact_count: count, synced_at: new Date().toISOString() })
       .eq("id", toUUID("company", companyId));
   }

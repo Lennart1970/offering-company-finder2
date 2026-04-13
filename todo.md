@@ -2159,3 +2159,11 @@
 - [x] Fix: Made appBaseUrl optional in syncCompanyPages procedure (no longer needed)
 - [x] Intelligence page navigation already uses client-side `navigate()` — no change needed
 - [ ] User action: Re-sync company pages from production to update existing rows in Supabase
+
+## Bug: lt_mns_companies sync fails with duplicate key constraint violations
+
+- [x] Root cause: Multiple local companies share the same domain (same company in different campaigns), violating lt_mns_companies_domain_unique_idx
+- [x] Also triggers lt_mns_watchlist_company_name_domain_key (likely a Supabase trigger or related table)
+- [x] Fix: Deduplicate by domain before upserting — keep the row with highest urgency score per domain
+- [x] Fix: Batch upsert with fallback to one-by-one for remaining constraint conflicts
+- [x] Fix: Return accurate synced/errors counts instead of batch-level success/fail

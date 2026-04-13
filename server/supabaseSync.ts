@@ -89,7 +89,10 @@ export async function syncCompaniesToSupabase(companyIds: number[]): Promise<{
 
   if (rows.length === 0) return { synced: 0, errors: 0, message: "No companies found" };
 
-  const companyRows = rows.map(({ company, search }: { company: CompanyRow; search: SearchRow | null }) => {
+  // Build rows, then deduplicate by domain to avoid unique constraint violations.
+  // When multiple local companies share the same domain (e.g., same company in different campaigns),
+  // keep the one with the highest urgency score.
+  const allRows = rows.map(({ company, search }: { company: CompanyRow; search: SearchRow | null }) => {
     const brief: BriefData = company.briefData ? JSON.parse(company.briefData) : {};
     const fitData: FitScoreData = company.fitScoreData ? JSON.parse(company.fitScoreData) : {};
     const signals = brief.urgencySignals ?? [];
@@ -112,6 +115,7 @@ export async function syncCompaniesToSupabase(companyIds: number[]): Promise<{
       id: toUUID("company", company.id),
       company_name: company.name,
       domain: company.websiteUrl ?? null,
+      _urgencyScore: company.urgencyScore ?? 0, // temp field for dedup sorting
       linkedin_url: company.linkedinUrl ?? null,
       twitter_url: company.twitterUrl ?? null,
       facebook_url: company.facebookUrl ?? null,
@@ -161,22 +165,56 @@ export async function syncCompaniesToSupabase(companyIds: number[]): Promise<{
     };
   });
 
-  const { error } = await (supabase
-    .from("lt_mns_companies") as any)
-    .upsert(companyRows, { onConflict: "id" });
+  // Deduplicate by domain: keep the row with the highest urgency score per domain
+  const domainMap = new Map<string, (typeof allRows)[0]>();
+  const noDomainRows: (typeof allRows)[0][] = [];
+  for (const row of allRows) {
+    if (!row.domain) {
+      noDomainRows.push(row);
+      continue;
+    }
+    const existing = domainMap.get(row.domain);
+    if (!existing || row._urgencyScore > existing._urgencyScore) {
+      domainMap.set(row.domain, row);
+    }
+  }
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  const companyRows = [...Array.from(domainMap.values()), ...noDomainRows].map(({ _urgencyScore, ...rest }) => rest);
 
-  if (error) {
-    console.error("[SupabaseSync] Error syncing companies:", error.message);
-    return { synced: 0, errors: companyRows.length, message: error.message };
+  // Upsert one-by-one to handle rows that conflict on domain unique constraint
+  let synced = 0;
+  let errors = 0;
+  const BATCH = 50;
+  for (let i = 0; i < companyRows.length; i += BATCH) {
+    const batch = companyRows.slice(i, i + BATCH);
+    const { error } = await (supabase
+      .from("lt_mns_companies") as any)
+      .upsert(batch, { onConflict: "id", ignoreDuplicates: false });
+    if (error) {
+      // If batch fails, try one-by-one to isolate the problematic rows
+      for (const row of batch) {
+        const { error: singleError } = await (supabase
+          .from("lt_mns_companies") as any)
+          .upsert([row], { onConflict: "id", ignoreDuplicates: false });
+        if (singleError) {
+          console.error(`[SupabaseSync] Error syncing company ${row.company_name} (${row.domain}):`, singleError.message);
+          errors++;
+        } else {
+          synced++;
+        }
+      }
+    } else {
+      synced += batch.length;
+    }
   }
 
   // Now sync signals for these companies
   await syncSignalsForCompanies(supabase, rows.map((r: { company: CompanyRow; search: typeof searches.$inferSelect | null }) => r.company));
 
   return {
-    synced: companyRows.length,
-    errors: 0,
-    message: `Synced ${companyRows.length} companies to Supabase`,
+    synced,
+    errors,
+    message: `Synced ${synced} companies to Supabase${errors > 0 ? ` (${errors} errors)` : ""}`,
   };
 }
 

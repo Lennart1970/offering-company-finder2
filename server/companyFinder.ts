@@ -3265,10 +3265,10 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
 
   // Sync all researched company pages to Supabase lt_mns_company_pages table
   syncCompanyPages: protectedProcedure
-    .input(z.object({ appBaseUrl: z.string() }))
+    .input(z.object({ appBaseUrl: z.string().optional() }).optional())
     .mutation(async ({ ctx, input }) => {
       const { syncCompanyPagesToSupabase } = await import("./supabaseSync");
-      const result = await syncCompanyPagesToSupabase(input.appBaseUrl);
+      const result = await syncCompanyPagesToSupabase();
       return result;
     }),
 

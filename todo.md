@@ -2151,3 +2151,11 @@
 - [x] Add syncAllCompanies + getCompaniesTableSyncStats tRPC procedures in companyFinder.ts
 - [x] Add sync button on the Sync page UI (blue card for companies, green card for pages)
 - [x] Write tests — 8 tests passing in syncAllCompanies.test.ts
+
+## Bug: Production links point to dev server URL
+
+- [x] Root cause: page_url stored full URL with `window.location.origin` — when synced from dev, it stored the sandbox URL
+- [x] Fix: page_url now stores relative path `/company/{id}` instead of full URL
+- [x] Fix: Made appBaseUrl optional in syncCompanyPages procedure (no longer needed)
+- [x] Intelligence page navigation already uses client-side `navigate()` — no change needed
+- [ ] User action: Re-sync company pages from production to update existing rows in Supabase

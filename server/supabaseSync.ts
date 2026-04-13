@@ -227,7 +227,7 @@ async function syncSignalsForCompanies(
 // ─── Sync company pages (shareable links) ──────────────────────────────────
 
 export async function syncCompanyPagesToSupabase(
-  appBaseUrl: string
+  appBaseUrl?: string
 ): Promise<{ synced: number; errors: number; message: string }> {
   const supabase = getSupabaseClient();
   const db = await getDb();
@@ -249,7 +249,8 @@ export async function syncCompanyPagesToSupabase(
     const urgencyLabel =
       (company.urgencyScore ?? 0) >= 70 ? "HIGH" :
       (company.urgencyScore ?? 0) >= 40 ? "MEDIUM" : "LOW";
-    const pageUrl = `${appBaseUrl}/company/${company.id}`;
+    // Store relative path so the URL works on any domain (dev, staging, production)
+    const pageUrl = `/company/${company.id}`;
 
     return {
       id: toUUID("page", company.id),

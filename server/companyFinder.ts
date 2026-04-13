@@ -3369,6 +3369,49 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       }
       return campaigns.sort((a, b) => a.name.localeCompare(b.name));
     }),
+
+  // Resolve a Supabase UUID to a local integer company ID
+  // Used when Intelligence page navigates with UUID instead of local ID
+  resolveCompanyUUID: protectedProcedure
+    .input(z.object({ uuid: z.string() }))
+    .query(async ({ input }) => {
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabase = createClient(
+          process.env.SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          { auth: { persistSession: false } }
+        );
+
+        // Try looking up by company_id (the UUID stored in lt_mns_company_pages)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase.from("lt_mns_company_pages") as any)
+          .select("local_id, page_url")
+          .eq("company_id", input.uuid)
+          .limit(1)
+          .single();
+
+        if (error || !data) {
+          // Also try looking up by the page row id itself
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          const { data: data2 } = await (supabase.from("lt_mns_company_pages") as any)
+            .select("local_id, page_url")
+            .eq("id", input.uuid)
+            .limit(1)
+            .single();
+          if (!data2) return { localId: null };
+          const localId = data2.local_id ?? (data2.page_url ? parseInt(data2.page_url.split('/company/')[1]?.split('?')[0], 10) : null);
+          return { localId: (localId && !isNaN(localId)) ? localId : null };
+        }
+
+        const localId = data.local_id ?? (data.page_url ? parseInt(data.page_url.split('/company/')[1]?.split('?')[0], 10) : null);
+        return { localId: (localId && !isNaN(localId)) ? localId : null };
+      } catch (e) {
+        // Table may not exist yet — return null gracefully
+        console.error("[resolveCompanyUUID] Error:", e);
+        return { localId: null };
+      }
+    }),
 });
 
 // Background search function using brain offering data

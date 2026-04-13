@@ -2136,3 +2136,11 @@
 - [x] Fix: Updated IntelligencePage.tsx to navigate using local_id with page_url fallback
 - [x] Fix: Added local_id to getIntelligenceCompanies return type in companyFinder.ts
 - [ ] User action: Add local_id integer column to lt_mns_company_pages in Supabase SQL Editor, then re-sync
+
+## Bug: Intelligence page still navigating with UUID (previous fix incomplete)
+
+- [x] Root cause: local_id column doesn't exist in Supabase yet, and page_url may be null in existing synced data
+- [x] Fix: Added resolveCompanyUUID tRPC procedure — queries Supabase by UUID, returns local integer ID from page_url
+- [x] Fix: CompanyDetailMagazine now detects UUID in URL, calls resolveCompanyUUID, and redirects to /company/{integerID}
+- [x] Fix: Graceful error handling — shows helpful message if UUID resolution fails (table not synced yet)
+- [x] 9 tests passing in intelligenceNav.test.ts, 480 total tests passing

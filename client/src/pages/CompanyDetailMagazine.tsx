@@ -72,14 +72,33 @@ function CacheBanner({ cachedAt, label, onRefresh, loading }: {
 }
 
 // ── Main Component ────────────────────────────────────────────────────────────
+// UUID regex: 8-4-4-4-12 hex pattern
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export default function CompanyDetailMagazine() {
   const { user } = useAuth();
   const [, navigate] = useLocation();
   const params = useParams<{ companyId: string }>();
-  const companyId = parseInt(params.companyId, 10);
+  const rawParam = params.companyId;
+  const isUUID = UUID_RE.test(rawParam);
+  const companyId = isUUID ? NaN : parseInt(rawParam, 10);
 
   const urlParams = new URLSearchParams(window.location.search);
   const fromParam = urlParams.get("from") || "";
+
+  // If the URL contains a UUID instead of an integer ID, resolve it via Supabase
+  const uuidResolve = trpc.companyFinder.resolveCompanyUUID.useQuery(
+    { uuid: rawParam },
+    { enabled: isUUID }
+  );
+
+  // Redirect to the correct integer-ID URL once resolved
+  useEffect(() => {
+    if (isUUID && uuidResolve.data?.localId) {
+      const qp = urlParams.toString();
+      navigate(`/company/${uuidResolve.data.localId}${qp ? `?${qp}` : ""}`, { replace: true });
+    }
+  }, [isUUID, uuidResolve.data?.localId]);
 
   const fromSearchId = useMemo(() => {
     const m = fromParam.match(/search\/(\d+)/);
@@ -359,6 +378,22 @@ export default function CompanyDetailMagazine() {
   };
 
   if (!user) return null;
+
+  // If UUID is being resolved, show loading state
+  if (isUUID && uuidResolve.isLoading) return (
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="text-2xl font-black animate-pulse">Resolving company...</div>
+    </div>
+  );
+
+  // If UUID resolution failed or returned no local ID
+  if (isUUID && !uuidResolve.isLoading && !uuidResolve.data?.localId) return (
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="text-2xl font-black text-red-600">Could not resolve company from Intelligence link.</div>
+      <p className="text-sm text-muted-foreground mt-2">The Supabase company_pages table may not have been synced yet. Try syncing from the Sync page first.</p>
+      <button onClick={goBack} className="mt-4 text-xs font-black border-2 border-black px-4 py-2 hover:bg-black hover:text-white transition-colors cursor-pointer">← BACK</button>
+    </div>
+  );
 
   if (isLoading) return (
     <div className="max-w-5xl mx-auto px-4 py-8">

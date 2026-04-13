@@ -531,6 +531,81 @@ export async function pullSingleBrainFromSupabase(brainId: number): Promise<{
   };
 }
 
+// ─── Sync ALL companies to lt_mns_companies ────────────────────────────────
+
+export async function syncAllCompaniesToSupabase(): Promise<{
+  synced: number;
+  errors: number;
+  message: string;
+}> {
+  const db = await getDb();
+  if (!db) return { synced: 0, errors: 0, message: "Database not available" };
+
+  // Fetch all researched companies (those with briefData)
+  const allCompanies = await db
+    .select({ id: companies.id })
+    .from(companies)
+    .where(isNotNull(companies.briefData));
+
+  if (allCompanies.length === 0) {
+    return { synced: 0, errors: 0, message: "No researched companies found" };
+  }
+
+  // Batch in chunks of 200 to avoid memory issues
+  const CHUNK = 200;
+  const ids = allCompanies.map((c: { id: number }) => c.id);
+  let totalSynced = 0;
+  let totalErrors = 0;
+
+  for (let i = 0; i < ids.length; i += CHUNK) {
+    const chunk = ids.slice(i, i + CHUNK);
+    const result = await syncCompaniesToSupabase(chunk);
+    totalSynced += result.synced;
+    totalErrors += result.errors;
+  }
+
+  return {
+    synced: totalSynced,
+    errors: totalErrors,
+    message: `Synced ${totalSynced} companies to lt_mns_companies${totalErrors > 0 ? ` (${totalErrors} errors)` : ""}`,
+  };
+}
+
+// ─── Get sync stats for lt_mns_companies ────────────────────────────────────
+
+export async function getCompaniesTableSyncStats(): Promise<{
+  count: number;
+  lastSyncedAt: string | null;
+}> {
+  try {
+    const supabase = getSupabaseClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { count, error } = await (supabase.from("lt_mns_companies") as any)
+      .select("*", { count: "exact", head: true });
+
+    if (error) {
+      console.error("[SupabaseSync] Error getting companies stats:", error.message);
+      return { count: 0, lastSyncedAt: null };
+    }
+
+    // Get last synced_at
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: lastRow } = await (supabase.from("lt_mns_companies") as any)
+      .select("synced_at")
+      .order("synced_at", { ascending: false })
+      .limit(1)
+      .single();
+
+    return {
+      count: count ?? 0,
+      lastSyncedAt: lastRow?.synced_at ?? null,
+    };
+  } catch (e) {
+    console.error("[SupabaseSync] Error getting companies stats:", e);
+    return { count: 0, lastSyncedAt: null };
+  }
+}
+
 // ─── Full sync for a search run ──────────────────────────────────────────────
 
 export async function syncSearchRunToSupabase(searchId: number): Promise<{

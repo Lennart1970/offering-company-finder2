@@ -3248,6 +3248,21 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       });
     }),
 
+  // Sync ALL researched companies to Supabase lt_mns_companies table
+  syncAllCompanies: protectedProcedure
+    .mutation(async () => {
+      const { syncAllCompaniesToSupabase } = await import("./supabaseSync");
+      const result = await syncAllCompaniesToSupabase();
+      return result;
+    }),
+
+  // Get sync stats for lt_mns_companies table
+  getCompaniesTableSyncStats: protectedProcedure
+    .query(async () => {
+      const { getCompaniesTableSyncStats } = await import("./supabaseSync");
+      return await getCompaniesTableSyncStats();
+    }),
+
   // Sync all researched company pages to Supabase lt_mns_company_pages table
   syncCompanyPages: protectedProcedure
     .input(z.object({ appBaseUrl: z.string() }))

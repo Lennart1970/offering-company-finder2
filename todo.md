@@ -2144,3 +2144,10 @@
 - [x] Fix: CompanyDetailMagazine now detects UUID in URL, calls resolveCompanyUUID, and redirects to /company/{integerID}
 - [x] Fix: Graceful error handling — shows helpful message if UUID resolution fails (table not synced yet)
 - [x] 9 tests passing in intelligenceNav.test.ts, 480 total tests passing
+
+## Feature: Separate sync button for lt_mns_companies table
+
+- [x] Create syncAllCompaniesToSupabase + getCompaniesTableSyncStats in supabaseSync.ts
+- [x] Add syncAllCompanies + getCompaniesTableSyncStats tRPC procedures in companyFinder.ts
+- [x] Add sync button on the Sync page UI (blue card for companies, green card for pages)
+- [x] Write tests — 8 tests passing in syncAllCompanies.test.ts

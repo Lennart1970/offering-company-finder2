@@ -254,6 +254,7 @@ export async function syncCompanyPagesToSupabase(
     return {
       id: toUUID("page", company.id),
       company_id: toUUID("company", company.id),
+      local_id: company.id,
       company_name: company.name,
       domain: company.websiteUrl ?? null,
       campaign_id: company.searchId ?? null,

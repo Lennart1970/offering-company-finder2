@@ -2128,3 +2128,11 @@
 
 - [x] Pass ?from=intelligence / ?from=sales-menu / ?from=search-results when navigating to company magazine page
 - [x] Fix back button in CompanyDetailMagazine to use ?from= param for explicit return navigation
+
+## Bug: Companies not found after smart back button changes
+
+- [x] Root cause: Intelligence page passed UUID company_id from Supabase lt_mns_company_pages, but magazine page route expects local integer ID
+- [x] Fix: Added local_id (integer) to syncCompanyPages row mapping in supabaseSync.ts
+- [x] Fix: Updated IntelligencePage.tsx to navigate using local_id with page_url fallback
+- [x] Fix: Added local_id to getIntelligenceCompanies return type in companyFinder.ts
+- [ ] User action: Add local_id integer column to lt_mns_company_pages in Supabase SQL Editor, then re-sync

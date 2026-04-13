@@ -196,8 +196,10 @@ export default function IntelligencePage() {
                   key={c.id}
                   className="grid grid-cols-[40px_1fr_160px_80px_80px_80px_32px] gap-3 items-center px-3 py-2.5 rounded-lg hover:bg-muted/60 transition-colors cursor-pointer group"
                   onClick={() => {
-                    if (!c.company_id) return;
-                    navigate(`/company/${c.company_id}?from=intelligence`);
+                    // Use local_id (integer) for navigation; fall back to extracting from page_url
+                    const localId = c.local_id ?? (c.page_url ? c.page_url.split('/company/')[1]?.split('?')[0] : null);
+                    if (!localId) return;
+                    navigate(`/company/${localId}?from=intelligence`);
                   }}
                 >
                   {/* Position */}

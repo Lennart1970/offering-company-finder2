@@ -3328,6 +3328,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         companies: (data ?? []) as Array<{
           id: string;
           company_id: string;
+          local_id: number | null;
           company_name: string;
           domain: string | null;
           campaign_id: number | null;

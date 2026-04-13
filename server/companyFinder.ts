@@ -3247,6 +3247,42 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         };
       });
     }),
+
+  // Sync all researched company pages to Supabase lt_mns_company_pages table
+  syncCompanyPages: protectedProcedure
+    .input(z.object({ appBaseUrl: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const { syncCompanyPagesToSupabase } = await import("./supabaseSync");
+      const result = await syncCompanyPagesToSupabase(input.appBaseUrl);
+      return result;
+    }),
+
+  // Get last sync stats for the company pages table
+  getCompanyPagesSyncStats: protectedProcedure
+    .query(async () => {
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { persistSession: false } }
+      );
+      const { count, error } = await (supabase.from("lt_mns_company_pages") as any)
+        .select("*", { count: "exact", head: true });
+      if (error) return { count: 0, lastSyncedAt: null, error: error.message };
+
+      // Get the most recent synced_at
+      const { data: latest } = await (supabase.from("lt_mns_company_pages") as any)
+        .select("synced_at")
+        .order("synced_at", { ascending: false })
+        .limit(1)
+        .single();
+
+      return {
+        count: count ?? 0,
+        lastSyncedAt: latest?.synced_at ?? null,
+        error: null,
+      };
+    }),
 });
 
 // Background search function using brain offering data

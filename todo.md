@@ -2108,3 +2108,11 @@
 ## Fix: Remove all headers from SearchResults page (keep only company list rows)
 - [x] Remove cockpit header, segment banner, big text block, match stats, sync/export buttons, filter tabs, sort bar, list/card toggle
 - [x] Keep only the company list rows (default to list view, sorted by urgency)
+
+## Feature: Dedicated Sync Page — Company Pages to Supabase
+
+- [x] Create lt_mns_company_pages table in Supabase with: id, company_id, company_name, domain, campaign_name, campaign_id, urgency_score, fit_score, page_url, synced_at, created_at
+- [x] Build tRPC syncCompanyPages procedure: upsert all researched companies across all campaigns
+- [x] Build SyncPage UI: sync button, progress indicator, last sync timestamp, results table
+- [x] Add "Sync" entry to sidebar navigation
+- [x] Wire /sync route in App.tsx

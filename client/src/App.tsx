@@ -25,6 +25,7 @@ import FastPrototype from "./pages/FastPrototype";
 import PrototypeRequests from "./pages/PrototypeRequests";
 import LeadinfoImport from "@/pages/LeadinfoImport";
 import SalesMenu from "@/pages/SalesMenu";
+import SyncPage from "@/pages/SyncPage";
 
 
 function Router() {
@@ -34,6 +35,7 @@ function Router() {
         <Route path={"/"} component={Brain} />
         <Route path={"/search-scenario"} component={SearchScenario} />
         <Route path={"/sales-menu"} component={SalesMenu} />
+        <Route path={"/sync"} component={SyncPage} />
         <Route path={"/search-results"} component={SearchResults} />
         <Route path={"/search-results/:searchId"} component={SearchResults} />
         <Route path={"/deep-research"} component={DeepResearchDashboard} />

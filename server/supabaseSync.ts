@@ -224,6 +224,70 @@ async function syncSignalsForCompanies(
   }
 }
 
+// ─── Sync company pages (shareable links) ──────────────────────────────────
+
+export async function syncCompanyPagesToSupabase(
+  appBaseUrl: string
+): Promise<{ synced: number; errors: number; message: string }> {
+  const supabase = getSupabaseClient();
+  const db = await getDb();
+  if (!db) return { synced: 0, errors: 0, message: "Database not available" };
+
+  // Fetch all researched companies with their campaign context
+  type SearchRow = typeof searches.$inferSelect;
+  const rows = await db
+    .select({ company: companies, search: searches })
+    .from(companies)
+    .leftJoin(searches, eq(companies.searchId, searches.id))
+    .where(isNotNull(companies.briefData));
+
+  if (rows.length === 0) return { synced: 0, errors: 0, message: "No researched companies found" };
+
+  const pageRows = rows.map(({ company, search }: { company: CompanyRow; search: SearchRow | null }) => {
+    const brief: BriefData = company.briefData ? JSON.parse(company.briefData) : {};
+    const fitData: FitScoreData = company.fitScoreData ? JSON.parse(company.fitScoreData) : {};
+    const urgencyLabel =
+      (company.urgencyScore ?? 0) >= 70 ? "HIGH" :
+      (company.urgencyScore ?? 0) >= 40 ? "MEDIUM" : "LOW";
+    const pageUrl = `${appBaseUrl}/company/${company.id}`;
+
+    return {
+      id: toUUID("page", company.id),
+      company_id: toUUID("company", company.id),
+      company_name: company.name,
+      domain: company.websiteUrl ?? null,
+      campaign_id: company.searchId ?? null,
+      campaign_name: search?.offeringName ?? null,
+      urgency_score: company.urgencyScore ?? null,
+      fit_score: company.fitScore ?? null,
+      urgency_label: urgencyLabel,
+      fit_label: fitData.label ?? null,
+      page_url: pageUrl,
+      synced_at: new Date().toISOString(),
+      created_at: company.createdAt?.toISOString() ?? new Date().toISOString(),
+    };
+  });
+
+  // Batch upsert in chunks of 500
+  const CHUNK = 500;
+  let totalErrors = 0;
+  for (let i = 0; i < pageRows.length; i += CHUNK) {
+    const chunk = pageRows.slice(i, i + CHUNK);
+    const { error } = await (supabase.from("lt_mns_company_pages") as any)
+      .upsert(chunk, { onConflict: "id" });
+    if (error) {
+      console.error("[SupabaseSync] Error syncing company pages:", error.message);
+      totalErrors += chunk.length;
+    }
+  }
+
+  return {
+    synced: pageRows.length - totalErrors,
+    errors: totalErrors,
+    message: `Synced ${pageRows.length - totalErrors} company pages to Supabase`,
+  };
+}
+
 // ─── Sync contacts for companies ─────────────────────────────────────────────
 
 export async function syncContactsToSupabase(companyIds: number[]): Promise<{

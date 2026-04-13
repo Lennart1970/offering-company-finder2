@@ -3283,6 +3283,91 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         error: null,
       };
     }),
+
+  // Query lt_mns_company_pages from Supabase with search/filter support
+  getIntelligenceCompanies: protectedProcedure
+    .input(z.object({
+      search: z.string().optional(),
+      campaignId: z.number().optional(),
+      urgencyLabel: z.enum(["HIGH", "MEDIUM", "LOW", "ALL"]).optional(),
+      minFit: z.number().optional(),
+      limit: z.number().default(100),
+      offset: z.number().default(0),
+    }))
+    .query(async ({ input }) => {
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { persistSession: false } }
+      );
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      let query = (supabase.from("lt_mns_company_pages") as any)
+        .select("*", { count: "exact" })
+        .order("urgency_score", { ascending: false })
+        .range(input.offset, input.offset + input.limit - 1);
+
+      if (input.search) {
+        query = query.or(`company_name.ilike.%${input.search}%,domain.ilike.%${input.search}%,campaign_name.ilike.%${input.search}%`);
+      }
+      if (input.campaignId) {
+        query = query.eq("campaign_id", input.campaignId);
+      }
+      if (input.urgencyLabel && input.urgencyLabel !== "ALL") {
+        query = query.eq("urgency_label", input.urgencyLabel);
+      }
+      if (input.minFit) {
+        query = query.gte("fit_score", input.minFit);
+      }
+
+      const { data, count, error } = await query;
+      if (error) throw new Error(error.message);
+
+      return {
+        companies: (data ?? []) as Array<{
+          id: string;
+          company_id: string;
+          company_name: string;
+          domain: string | null;
+          campaign_id: number | null;
+          campaign_name: string | null;
+          urgency_score: number | null;
+          fit_score: number | null;
+          urgency_label: string | null;
+          fit_label: string | null;
+          page_url: string | null;
+          synced_at: string | null;
+        }>,
+        total: count ?? 0,
+      };
+    }),
+
+  // Get distinct campaigns from lt_mns_company_pages for the filter dropdown
+  getIntelligenceCampaigns: protectedProcedure
+    .query(async () => {
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { persistSession: false } }
+      );
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { data, error } = await (supabase.from("lt_mns_company_pages") as any)
+        .select("campaign_id, campaign_name")
+        .not("campaign_id", "is", null);
+      if (error) throw new Error(error.message);
+      // Deduplicate by campaign_id
+      const seen = new Set<number>();
+      const campaigns: Array<{ id: number; name: string }> = [];
+      for (const row of (data ?? [])) {
+        if (!seen.has(row.campaign_id)) {
+          seen.add(row.campaign_id);
+          campaigns.push({ id: row.campaign_id, name: row.campaign_name ?? `Campaign ${row.campaign_id}` });
+        }
+      }
+      return campaigns.sort((a, b) => a.name.localeCompare(b.name));
+    }),
 });
 
 // Background search function using brain offering data

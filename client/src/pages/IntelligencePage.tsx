@@ -1,0 +1,279 @@
+import { useState, useMemo } from "react";
+import { trpc } from "@/lib/trpc";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Search, ExternalLink, Zap, Target, RefreshCw, Building2 } from "lucide-react";
+
+type UrgencyFilter = "ALL" | "HIGH" | "MEDIUM" | "LOW";
+
+function urgencyColor(label: string | null) {
+  if (label === "HIGH") return "bg-red-600 text-white";
+  if (label === "MEDIUM") return "bg-amber-500 text-white";
+  if (label === "LOW") return "bg-slate-400 text-white";
+  return "bg-slate-200 text-slate-700";
+}
+
+function fitColor(score: number | null) {
+  if (!score) return "text-slate-400";
+  if (score >= 80) return "text-emerald-600 font-bold";
+  if (score >= 60) return "text-amber-600 font-semibold";
+  return "text-slate-500";
+}
+
+export default function IntelligencePage() {
+  const [search, setSearch] = useState("");
+  const [campaignId, setCampaignId] = useState<number | undefined>(undefined);
+  const [urgencyLabel, setUrgencyLabel] = useState<UrgencyFilter>("ALL");
+  const [minFit, setMinFit] = useState<number | undefined>(undefined);
+  const [page, setPage] = useState(0);
+  const LIMIT = 50;
+
+  // Debounced search value
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const handleSearchChange = (val: string) => {
+    setSearch(val);
+    clearTimeout((window as any)._searchTimer);
+    (window as any)._searchTimer = setTimeout(() => {
+      setDebouncedSearch(val);
+      setPage(0);
+    }, 300);
+  };
+
+  const { data: campaigns } = trpc.companyFinder.getIntelligenceCampaigns.useQuery();
+
+  const { data, isLoading, isFetching } = trpc.companyFinder.getIntelligenceCompanies.useQuery({
+    search: debouncedSearch || undefined,
+    campaignId,
+    urgencyLabel: urgencyLabel === "ALL" ? undefined : urgencyLabel,
+    minFit,
+    limit: LIMIT,
+    offset: page * LIMIT,
+  });
+
+  const companies = data?.companies ?? [];
+  const total = data?.total ?? 0;
+  const totalPages = Math.ceil(total / LIMIT);
+
+  const stats = useMemo(() => {
+    const high = companies.filter(c => c.urgency_label === "HIGH").length;
+    const avgFit = companies.length
+      ? Math.round(companies.reduce((s, c) => s + (c.fit_score ?? 0), 0) / companies.length)
+      : 0;
+    return { high, avgFit };
+  }, [companies]);
+
+  return (
+    <div className="min-h-screen bg-background text-foreground">
+      {/* Header */}
+      <div className="border-b border-border bg-card px-6 py-5">
+        <div className="flex items-center justify-between gap-4 flex-wrap">
+          <div>
+            <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+              <Zap className="w-6 h-6 text-amber-500" />
+              Intelligence
+            </h1>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              All synced companies across campaigns — sorted by urgency
+            </p>
+          </div>
+          <div className="flex items-center gap-3 text-sm">
+            <span className="text-muted-foreground">{total} companies</span>
+            {stats.high > 0 && (
+              <Badge className="bg-red-600 text-white">
+                {stats.high} HIGH urgency
+              </Badge>
+            )}
+            {stats.avgFit > 0 && (
+              <Badge variant="outline" className="text-emerald-600 border-emerald-600">
+                Avg fit {stats.avgFit}
+              </Badge>
+            )}
+          </div>
+        </div>
+
+        {/* Filters */}
+        <div className="mt-4 flex flex-wrap gap-3 items-center">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[200px] max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <Input
+              className="pl-9"
+              placeholder="Search company, domain, campaign…"
+              value={search}
+              onChange={e => handleSearchChange(e.target.value)}
+            />
+          </div>
+
+          {/* Campaign filter */}
+          <Select
+            value={campaignId ? String(campaignId) : "all"}
+            onValueChange={v => { setCampaignId(v === "all" ? undefined : Number(v)); setPage(0); }}
+          >
+            <SelectTrigger className="w-[200px]">
+              <SelectValue placeholder="All campaigns" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All campaigns</SelectItem>
+              {(campaigns ?? []).map(c => (
+                <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          {/* Urgency filter */}
+          <div className="flex gap-1">
+            {(["ALL", "HIGH", "MEDIUM", "LOW"] as UrgencyFilter[]).map(u => (
+              <Button
+                key={u}
+                size="sm"
+                variant={urgencyLabel === u ? "default" : "outline"}
+                className={urgencyLabel === u && u === "HIGH" ? "bg-red-600 hover:bg-red-700 text-white" :
+                           urgencyLabel === u && u === "MEDIUM" ? "bg-amber-500 hover:bg-amber-600 text-white" :
+                           urgencyLabel === u && u === "LOW" ? "bg-slate-500 hover:bg-slate-600 text-white" : ""}
+                onClick={() => { setUrgencyLabel(u); setPage(0); }}
+              >
+                {u}
+              </Button>
+            ))}
+          </div>
+
+          {/* Min fit filter */}
+          <div className="flex gap-1">
+            {[undefined, 60, 70, 80, 90].map(f => (
+              <Button
+                key={f ?? "any"}
+                size="sm"
+                variant={minFit === f ? "default" : "outline"}
+                onClick={() => { setMinFit(f); setPage(0); }}
+              >
+                {f ? `FIT ${f}+` : "Any fit"}
+              </Button>
+            ))}
+          </div>
+
+          {isFetching && <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />}
+        </div>
+      </div>
+
+      {/* Table */}
+      <div className="px-6 py-4">
+        {isLoading ? (
+          <div className="space-y-2">
+            {Array.from({ length: 10 }).map((_, i) => (
+              <div key={i} className="h-12 rounded bg-muted animate-pulse" />
+            ))}
+          </div>
+        ) : companies.length === 0 ? (
+          <div className="flex flex-col items-center justify-center py-24 text-muted-foreground gap-3">
+            <Building2 className="w-12 h-12 opacity-20" />
+            <p className="text-lg font-medium">No companies found</p>
+            <p className="text-sm">
+              {total === 0
+                ? "Run a sync from the Sync page to populate this table."
+                : "Try adjusting your filters."}
+            </p>
+          </div>
+        ) : (
+          <>
+            {/* Column headers */}
+            <div className="grid grid-cols-[40px_1fr_160px_80px_80px_80px_32px] gap-3 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border mb-1">
+              <span>#</span>
+              <span>Company</span>
+              <span>Campaign</span>
+              <span className="text-center">Urgency</span>
+              <span className="text-center">Fit</span>
+              <span className="text-center">Synced</span>
+              <span />
+            </div>
+
+            <div className="space-y-0.5">
+              {companies.map((c, idx) => (
+                <div
+                  key={c.id}
+                  className="grid grid-cols-[40px_1fr_160px_80px_80px_80px_32px] gap-3 items-center px-3 py-2.5 rounded-lg hover:bg-muted/60 transition-colors cursor-pointer group"
+                  onClick={() => c.page_url && window.open(c.page_url, "_blank")}
+                >
+                  {/* Position */}
+                  <span className="text-xs text-muted-foreground font-mono">
+                    [{String(page * LIMIT + idx + 1).padStart(2, "0")}]
+                  </span>
+
+                  {/* Company name + domain */}
+                  <div className="min-w-0">
+                    <p className="font-semibold text-sm truncate group-hover:text-primary transition-colors">
+                      {c.company_name ?? "—"}
+                    </p>
+                    <p className="text-xs text-muted-foreground truncate">{c.domain ?? ""}</p>
+                  </div>
+
+                  {/* Campaign */}
+                  <span className="text-xs text-muted-foreground truncate">{c.campaign_name ?? "—"}</span>
+
+                  {/* Urgency badge */}
+                  <div className="flex justify-center">
+                    {c.urgency_score != null ? (
+                      <span className={`inline-flex items-center gap-1 text-xs font-bold px-2 py-0.5 rounded ${urgencyColor(c.urgency_label)}`}>
+                        <Zap className="w-3 h-3" />
+                        {c.urgency_score}
+                      </span>
+                    ) : <span className="text-xs text-muted-foreground">—</span>}
+                  </div>
+
+                  {/* Fit score */}
+                  <div className="flex justify-center">
+                    <span className={`text-sm ${fitColor(c.fit_score)}`}>
+                      {c.fit_score != null ? `${c.fit_score}` : "—"}
+                    </span>
+                  </div>
+
+                  {/* Synced at */}
+                  <div className="flex justify-center">
+                    <span className="text-xs text-muted-foreground">
+                      {c.synced_at ? new Date(c.synced_at).toLocaleDateString("en-GB", { day: "2-digit", month: "short" }) : "—"}
+                    </span>
+                  </div>
+
+                  {/* External link icon */}
+                  <div className="flex justify-center">
+                    {c.page_url && (
+                      <ExternalLink className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between mt-6 pt-4 border-t border-border">
+                <span className="text-sm text-muted-foreground">
+                  Showing {page * LIMIT + 1}–{Math.min((page + 1) * LIMIT, total)} of {total}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page === 0}
+                    onClick={() => setPage(p => p - 1)}
+                  >
+                    Previous
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={page >= totalPages - 1}
+                    onClick={() => setPage(p => p + 1)}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </div>
+  );
+}

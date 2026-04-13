@@ -2116,3 +2116,10 @@
 - [x] Build SyncPage UI: sync button, progress indicator, last sync timestamp, results table
 - [x] Add "Sync" entry to sidebar navigation
 - [x] Wire /sync route in App.tsx
+
+## Feature: Intelligence Page (Supabase company_pages explorer)
+
+- [x] Add tRPC getIntelligenceCompanies procedure: query lt_mns_company_pages with search, campaign, urgency, fit filters
+- [x] Build IntelligencePage UI: search bar, campaign dropdown, urgency/fit filter chips, company rows with click-through to magazine page
+- [x] Add "Intelligence" entry to sidebar navigation
+- [x] Wire /intelligence route in App.tsx

@@ -2186,3 +2186,7 @@
 - [x] CheckCircle2 checkmark shown on Intelligence rows after sending (session-local tracking via sentIds Set)
 - [x] TELEGRAM button added to CompanyDetailMagazine breadcrumb bar (blue border, sends full intelligence card)
 - [x] All 8 telegramRouter tests passing
+
+## Bug: Telegram message links point to 3000 sandbox URL
+
+- [x] Fix formatCompanyCard in telegramRouter.ts: use URL().pathname to strip any origin, always build link with leadtrigger-connectgroup.com

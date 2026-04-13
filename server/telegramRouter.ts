@@ -95,9 +95,10 @@ function formatCompanyCard(params: {
   }
 
   if (pageUrl) {
-    const fullUrl = pageUrl.startsWith("http")
-      ? pageUrl
-      : `https://leadtrigger-connectgroup.com${pageUrl}`;
+    // Always use production domain — strip any origin (dev sandbox or otherwise)
+    let path = pageUrl;
+    try { path = new URL(pageUrl).pathname; } catch { /* already a relative path */ }
+    const fullUrl = `https://leadtrigger-connectgroup.com${path}`;
     lines.push("");
     lines.push(`🔗 <a href="${fullUrl}">View full intelligence →</a>`);
   }

@@ -2104,3 +2104,7 @@
 - [x] Add tRPC procedure: list all campaigns with name, upload date, company count, average fit score
 - [x] Build SalesMenu page: table/list of campaigns, click → search results in list view
 - [x] Add "Sales Menu" entry to sidebar navigation
+
+## Fix: Remove all headers from SearchResults page (keep only company list rows)
+- [x] Remove cockpit header, segment banner, big text block, match stats, sync/export buttons, filter tabs, sort bar, list/card toggle
+- [x] Keep only the company list rows (default to list view, sorted by urgency)

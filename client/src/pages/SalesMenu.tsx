@@ -66,7 +66,7 @@ export default function SalesMenu() {
             {campaigns.map((c, i) => (
               <div
                 key={c.id}
-                onClick={() => navigate(`/search-results/${c.id}`)}
+                onClick={() => navigate(`/search-results/${c.id}?from=sales-menu`)}
                 className="grid grid-cols-[2fr_1fr_1fr_80px_80px] gap-4 px-5 py-3.5 border-t border-gray-100 hover:bg-gray-50 cursor-pointer transition-colors group items-center"
               >
                 {/* Campaign name + location + status */}

@@ -40,12 +40,15 @@ export default function SearchResults() {
     },
     onError: (err) => toast.error(err.message),
   });
-  const [, navigate] = useLocation();
+  const [location, navigate] = useLocation();
   const params = useParams<{ searchId: string }>();
   const searchIdParam = params.searchId;
 
   const isSelectMode = searchIdParam === "select" || !searchIdParam;
   const searchId = isSelectMode ? null : parseInt(searchIdParam, 10);
+
+  // When navigated from Sales Menu, hide all header chrome — show only the company list
+  const fromSalesMenu = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("from") === "sales-menu";
 
   // Active brain — used for mismatch detection in BrainBadge
   const { data: activeBrainData } = trpc.companyFinder.getActiveBrain.useQuery();
@@ -745,6 +748,7 @@ export default function SearchResults() {
 
   return (
     <div className="max-w-6xl">
+      {!fromSalesMenu && <>
       {/* Page Header — minimal, secondary */}
       <div className="mb-2 flex items-center justify-between">
         <div className="text-xs font-black text-muted-foreground">
@@ -772,6 +776,7 @@ export default function SearchResults() {
           <span className="text-xs text-blue-600 ml-auto">Click to view segment</span>
         </div>
       )}
+      </>}
 
       {/* Search still in progress */}
       {searchData.search.status === "searching" && (
@@ -797,6 +802,8 @@ export default function SearchResults() {
 
       {(searchData.search.status === "completed" || searchData.search.status === "searching") && allCompanies.length > 0 && (
         <>
+          {/* Header chrome — hidden when coming from Sales Menu */}
+          {!fromSalesMenu && <>
           {/* HERO SENTENCE — the main message for sales reps */}
           <div className="mb-6 mt-4">
             <p className="text-2xl md:text-3xl font-black leading-snug text-foreground">
@@ -1109,6 +1116,7 @@ export default function SearchResults() {
             >▦ CARDS</button>
           </div>
 
+          </>}
           {/* Company Cards / List */}
           {viewMode === "list" ? (
             <div className="border border-gray-200 divide-y divide-gray-100">

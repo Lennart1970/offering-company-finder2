@@ -2176,3 +2176,13 @@
 - [x] Add Send to Telegram button (Send icon) on each Intelligence page row
 - [x] Pulsing blue animation while sending, sonner toast on success/error
 - [x] 8 tests passing in telegramRouter.test.ts
+
+## Feature: Telegram enhancements (batch send, sent tracking, detail page button)
+
+- [x] markSentInSupabase helper in telegramRouter.ts updates Supabase telegram_sent_at (best-effort, non-fatal)
+- [x] sendCompanyCard now accepts companyId and calls markSentInSupabase after success
+- [x] Send All HIGH batch button added to Intelligence page header (red border, rate-limited 1/sec)
+- [x] sendAllHigh tRPC mutation fetches HIGH urgency companies from Supabase and sends each as a card
+- [x] CheckCircle2 checkmark shown on Intelligence rows after sending (session-local tracking via sentIds Set)
+- [x] TELEGRAM button added to CompanyDetailMagazine breadcrumb bar (blue border, sends full intelligence card)
+- [x] All 8 telegramRouter tests passing

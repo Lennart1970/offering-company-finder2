@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ExternalLink, Zap, Target, RefreshCw, Building2, Send } from "lucide-react";
+import { Search, ExternalLink, Zap, Target, RefreshCw, Building2, Send, CheckCircle2 } from "lucide-react";
 import { toast } from "sonner";
 
 type UrgencyFilter = "ALL" | "HIGH" | "MEDIUM" | "LOW";
@@ -29,14 +29,34 @@ export default function IntelligencePage() {
   const [search, setSearch] = useState("");
   const [sendingTelegram, setSendingTelegram] = useState<string | null>(null);
 
+  // Track locally which company_ids have been sent this session
+  const [sentIds, setSentIds] = useState<Set<string>>(new Set());
+
   const sendToTelegram = trpc.telegram.sendCompanyCard.useMutation({
-    onSuccess: () => {
+    onSuccess: (_, variables) => {
       toast.success("Sent to Telegram ✈️", { description: "Company card delivered to your Telegram." });
       setSendingTelegram(null);
+      if (variables.companyId) {
+        setSentIds(prev => new Set(Array.from(prev).concat(variables.companyId!)));
+      }
     },
     onError: (err) => {
       toast.error("Telegram error", { description: err.message });
       setSendingTelegram(null);
+    },
+  });
+
+  const [sendingAllHigh, setSendingAllHigh] = useState(false);
+  const sendAllHigh = trpc.telegram.sendAllHigh.useMutation({
+    onSuccess: (result) => {
+      toast.success(`Sent ${result.sent} HIGH companies to Telegram`, {
+        description: result.failed > 0 ? `${result.failed} failed` : "All delivered successfully.",
+      });
+      setSendingAllHigh(false);
+    },
+    onError: (err) => {
+      toast.error("Batch send failed", { description: err.message });
+      setSendingAllHigh(false);
     },
   });
   const [campaignId, setCampaignId] = useState<number | undefined>(undefined);
@@ -169,6 +189,25 @@ export default function IntelligencePage() {
           </div>
 
           {isFetching && <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />}
+
+          {/* Send All HIGH button */}
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto flex items-center gap-1.5 border-red-300 text-red-600 hover:bg-red-50"
+            disabled={sendingAllHigh}
+            onClick={() => {
+              setSendingAllHigh(true);
+              sendAllHigh.mutate({ campaignId });
+            }}
+          >
+            {sendingAllHigh ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Send className="w-3.5 h-3.5" />
+            )}
+            {sendingAllHigh ? "Sending…" : "Send All HIGH"}
+          </Button>
         </div>
       </div>
 
@@ -193,13 +232,14 @@ export default function IntelligencePage() {
         ) : (
           <>
             {/* Column headers */}
-            <div className="grid grid-cols-[40px_1fr_160px_80px_80px_80px_32px] gap-3 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border mb-1">
+            <div className="grid grid-cols-[40px_1fr_160px_80px_80px_80px_32px_32px] gap-3 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border mb-1">
               <span>#</span>
               <span>Company</span>
               <span>Campaign</span>
               <span className="text-center">Urgency</span>
               <span className="text-center">Fit</span>
               <span className="text-center">Synced</span>
+              <span />
               <span />
             </div>
 
@@ -262,6 +302,13 @@ export default function IntelligencePage() {
                     )}
                   </div>
 
+                  {/* Sent checkmark */}
+                  <div className="flex justify-center">
+                    {sentIds.has(c.company_id ?? "") ? (
+                      <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500" />
+                    ) : <span />}
+                  </div>
+
                   {/* Send to Telegram */}
                   <div
                     className="flex justify-center"
@@ -270,6 +317,7 @@ export default function IntelligencePage() {
                       const key = c.company_id ?? c.company_name ?? String(idx);
                       setSendingTelegram(key);
                       sendToTelegram.mutate({
+                        companyId: c.company_id ?? undefined,
                         companyName: c.company_name ?? "Unknown",
                         domain: c.domain,
                         urgencyScore: c.urgency_score,

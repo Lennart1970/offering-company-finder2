@@ -7,6 +7,7 @@ import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
 import BrainBadge from "@/components/BrainBadge";
 import { Button } from "@/components/ui/button";
 import { normaliseSalesApproach } from "@shared/normaliseStarters";
+import { Send } from "lucide-react";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 function safeStarterText(s: any): string {
@@ -368,6 +369,18 @@ export default function CompanyDetailMagazine() {
 
   const copyText = (text: string, label: string) => { navigator.clipboard.writeText(text); toast.success(`${label} copied`); };
 
+  const [sendingTelegram, setSendingTelegram] = useState(false);
+  const sendToTelegram = trpc.telegram.sendCompanyCard.useMutation({
+    onSuccess: () => {
+      toast.success("Sent to Telegram ✈️", { description: `${company?.name} card delivered to your group.` });
+      setSendingTelegram(false);
+    },
+    onError: (err) => {
+      toast.error("Telegram error", { description: err.message });
+      setSendingTelegram(false);
+    },
+  });
+
   const goBack = () => {
     if (fromParam === "call-today") navigate("/call-today");
     else if (fromParam.startsWith("call-today/")) navigate(`/call-today/${fromParam.replace("call-today/", "")}`);
@@ -421,6 +434,33 @@ export default function CompanyDetailMagazine() {
             {fromParam.startsWith("search/") ? "Search Results" : fromParam === "intelligence" ? "Intelligence" : fromParam === "sales-menu" ? "Sales Menu" : fromParam === "call-today" ? "Call Today" : "Back"} / {company.name}
           </span>
         </div>
+        {/* Send to Telegram */}
+        {company && (
+          <button
+            onClick={() => {
+              setSendingTelegram(true);
+              const starter = briefData?.conversationStarters?.[0];
+              sendToTelegram.mutate({
+                companyName: company.name,
+                domain: company.websiteUrl ?? undefined,
+                urgencyScore: company.urgencyScore ?? undefined,
+                urgencyLabel: (company.urgencyScore ?? 0) >= 70 ? "HIGH" : (company.urgencyScore ?? 0) >= 50 ? "MEDIUM" : "LOW",
+                fitScore: company.fitScore ?? undefined,
+                conversationStarter: starter ? safeStarterText(starter) : undefined,
+                topSignalHeadline: briefData?.urgencySignals?.[0]?.headline ?? undefined,
+                topSignalType: briefData?.urgencySignals?.[0]?.type ?? undefined,
+                pageUrl: `/company/${companyId}`,
+                brainName: company.generatedWithBrainName ?? undefined,
+              });
+            }}
+            disabled={sendingTelegram}
+            className="text-xs font-black border-2 border-blue-500 text-blue-600 px-3 py-1.5 hover:bg-blue-500 hover:text-white transition-colors cursor-pointer disabled:opacity-50 flex items-center gap-1.5"
+          >
+            <Send className="w-3 h-3" />
+            {sendingTelegram ? "SENDING…" : "TELEGRAM"}
+          </button>
+        )}
+
         {fromSearchId && adjacent && (
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-muted-foreground">{adjacent.position} / {adjacent.total}</span>

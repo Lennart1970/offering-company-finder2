@@ -129,6 +129,7 @@ export default function SearchResults() {
   const [showCallTodayOnly, setShowCallTodayOnly] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
   const [sortBy, setSortBy] = useState<"default" | "urgency" | "fit_urgency">("urgency");
+  const [viewMode, setViewMode] = useState<"list" | "card">("list");
   const [enrichmentFilter, setEnrichmentFilter] = useState<"all" | "enriched" | "pending" | "outreach" | "visitors">("all");
   const [urgencyCtaAdded, setUrgencyCtaAdded] = useState(false);
   const [quickViewCompanyId, setQuickViewCompanyId] = useState<number | null>(null);
@@ -1070,7 +1071,7 @@ export default function SearchResults() {
             </Button>
           </div>
 
-          {/* Sort Controls */}
+          {/* Sort Controls + View Toggle */}
           <div className="mb-4 flex items-center gap-2 flex-wrap">
             <span className="text-xs font-black text-muted-foreground">SORT:</span>
             {([
@@ -1092,7 +1093,38 @@ export default function SearchResults() {
             ))}
           </div>
 
-          {/* Company Cards */}
+          {/* View Toggle */}
+          <div className="mb-3 flex items-center gap-1">
+            <button
+              onClick={() => setViewMode("list")}
+              className={`border-2 px-3 py-1 text-xs font-black transition-colors ${
+                viewMode === "list" ? "border-black bg-black text-white" : "border-gray-300 hover:border-black"
+              }`}
+            >☰ LIST</button>
+            <button
+              onClick={() => setViewMode("card")}
+              className={`border-2 px-3 py-1 text-xs font-black transition-colors ${
+                viewMode === "card" ? "border-black bg-black text-white" : "border-gray-300 hover:border-black"
+              }`}
+            >▦ CARDS</button>
+          </div>
+
+          {/* Company Cards / List */}
+          {viewMode === "list" ? (
+            <div className="border border-gray-200 divide-y divide-gray-100">
+              {displayedCompanies?.map((company, index) => (
+                <CompanyListRow
+                  key={company.id}
+                  company={company}
+                  index={index}
+                  searchId={searchId!}
+                  isWebsiteVisitor={leadinfoSet.has(company.id)}
+                  activeBrainId={activeBrain?.id}
+                  activeBrainName={activeBrain?.brainName}
+                />
+              ))}
+            </div>
+          ) : (
           <div className="space-y-4">
             {displayedCompanies?.map((company, index) => (
               <CompanyCard
@@ -1107,8 +1139,10 @@ export default function SearchResults() {
                 onViewApproach={(id) => { setQuickViewCompanyId(id); setQuickViewMode("approach"); }}
               />
             ))}
+          </div>
+          )}
 
-            {/* Load More button */}
+          {/* Load More button */}
             {searchData?.pagination?.hasMore && (
               <div className="pt-6 pb-2 text-center">
                 <button
@@ -1237,7 +1271,6 @@ export default function SearchResults() {
                 </div>
               );
             })()}
-          </div>
         </>
       )}
 
@@ -1254,6 +1287,74 @@ export default function SearchResults() {
           <div className="text-sm font-bold mt-2">{searchData.search.errorMessage}</div>
         </div>
       )}
+    </div>
+  );
+}
+
+// ============================================================================
+// Company List Row — Ultra-compact magazine list view
+// ============================================================================
+function CompanyListRow({ company, index, searchId, isWebsiteVisitor, activeBrainId, activeBrainName }: {
+  company: any;
+  index: number;
+  searchId: number;
+  isWebsiteVisitor?: boolean;
+  activeBrainId?: number | null;
+  activeBrainName?: string | null;
+}) {
+  const [, navigate] = useLocation();
+  const url = `/company/${company.id}?from=search/${searchId}`;
+
+  return (
+    <div
+      className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors group"
+      onClick={() => navigate(url)}
+    >
+      {/* Position */}
+      <span className="text-[11px] font-medium text-gray-400 w-6 shrink-0 tabular-nums">[{String(index + 1).padStart(2, "0")}]</span>
+
+      {/* Urgency badge */}
+      {company.urgencyScore > 0 ? (
+        <span className={`text-[10px] font-black px-2 py-0.5 shrink-0 ${
+          company.urgencyScore >= 70 ? "bg-red-600 text-white" :
+          company.urgencyScore >= 50 ? "bg-amber-500 text-white" :
+          "bg-gray-200 text-gray-600"
+        }`}>⚡ {company.urgencyScore}</span>
+      ) : (
+        <span className="w-10 shrink-0" />
+      )}
+
+      {/* Brain badge */}
+      <BrainBadge
+        generatedWithBrainId={company.generatedWithBrainId}
+        generatedWithBrainName={company.generatedWithBrainName}
+        activeBrainId={activeBrainId}
+        activeBrainName={activeBrainName}
+        compact
+      />
+
+      {/* Site visitor dot */}
+      {isWebsiteVisitor && (
+        <span className="w-2 h-2 rounded-full bg-emerald-500 shrink-0" title="Website visitor" />
+      )}
+
+      {/* Company name + domain */}
+      <div className="flex-1 min-w-0">
+        <span className="font-bold text-sm text-gray-900 truncate block">{company.name}</span>
+        {company.websiteUrl && (
+          <span className="text-[11px] text-gray-400 truncate block">
+            {company.websiteUrl.replace(/^https?:\/\/(www\.)?/, "")}
+          </span>
+        )}
+      </div>
+
+      {/* Fit score (if available) */}
+      {company.fitScore != null && (
+        <span className="text-[10px] font-black text-blue-600 shrink-0">FIT {company.fitScore}</span>
+      )}
+
+      {/* Arrow */}
+      <span className="text-gray-300 group-hover:text-gray-700 transition-colors shrink-0 text-sm font-bold">→</span>
     </div>
   );
 }

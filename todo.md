@@ -2094,3 +2094,7 @@
 - [x] Sticky slim jump-nav at top for anchor links to each section
 - [x] Preserve all existing action buttons (research, approach, contacts, images)
 - [x] PDF-export-ready layout (clean sections, print-friendly structure)
+
+## Feature: Compact Company Card Row in Search Results
+
+- [x] Update search results list to show compact rows: [pos] [urgency badge] [brain badge] [company name] [domain] → link to magazine page

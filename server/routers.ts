@@ -10,6 +10,7 @@ import { bomRouter } from "./bomRouter";
 import { ALL_PROMPTS } from "./prompts/index";
 import { campaignQueueRouter } from "./campaignQueueRouter";
 import { leadinfoRouter } from "./leadinfoRouter";
+import { telegramRouter } from "./telegramRouter";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -32,6 +33,7 @@ export const appRouter = router({
   bom: bomRouter,
   campaignQueue: campaignQueueRouter,
   leadinfo: leadinfoRouter,
+  telegram: telegramRouter,
 
   // Prompt Repository — exposes the full prompt catalogue for transparency
   prompts: router({

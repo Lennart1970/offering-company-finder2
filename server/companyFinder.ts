@@ -3354,6 +3354,10 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
           fit_label: string | null;
           page_url: string | null;
           synced_at: string | null;
+          conversation_starter: string | null;
+          top_signal_headline: string | null;
+          top_signal_type: string | null;
+          brain_name: string | null;
         }>,
         total: count ?? 0,
       };

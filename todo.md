@@ -2167,3 +2167,12 @@
 - [x] Fix: Deduplicate by domain before upserting — keep the row with highest urgency score per domain
 - [x] Fix: Batch upsert with fallback to one-by-one for remaining constraint conflicts
 - [x] Fix: Return accurate synced/errors counts instead of batch-level success/fail
+
+## Feature: Telegram integration — Send to Telegram button on Intelligence page
+
+- [x] Store TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID as secrets
+- [x] Add telegramRouter.ts with sendCompanyCard and sendMessage procedures
+- [x] Format message: company name, urgency, fit, conversation starter, LeadTrigger link (HTML format)
+- [x] Add Send to Telegram button (Send icon) on each Intelligence page row
+- [x] Pulsing blue animation while sending, sonner toast on success/error
+- [x] 8 tests passing in telegramRouter.test.ts

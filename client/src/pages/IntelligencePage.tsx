@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ExternalLink, Zap, Target, RefreshCw, Building2 } from "lucide-react";
+import { Search, ExternalLink, Zap, Target, RefreshCw, Building2, Send } from "lucide-react";
+import { toast } from "sonner";
 
 type UrgencyFilter = "ALL" | "HIGH" | "MEDIUM" | "LOW";
 
@@ -26,6 +27,18 @@ function fitColor(score: number | null) {
 export default function IntelligencePage() {
   const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
+  const [sendingTelegram, setSendingTelegram] = useState<string | null>(null);
+
+  const sendToTelegram = trpc.telegram.sendCompanyCard.useMutation({
+    onSuccess: () => {
+      toast.success("Sent to Telegram ✈️", { description: "Company card delivered to your Telegram." });
+      setSendingTelegram(null);
+    },
+    onError: (err) => {
+      toast.error("Telegram error", { description: err.message });
+      setSendingTelegram(null);
+    },
+  });
   const [campaignId, setCampaignId] = useState<number | undefined>(undefined);
   const [urgencyLabel, setUrgencyLabel] = useState<UrgencyFilter>("ALL");
   const [minFit, setMinFit] = useState<number | undefined>(undefined);
@@ -194,7 +207,7 @@ export default function IntelligencePage() {
               {companies.map((c, idx) => (
                 <div
                   key={c.id}
-                  className="grid grid-cols-[40px_1fr_160px_80px_80px_80px_32px] gap-3 items-center px-3 py-2.5 rounded-lg hover:bg-muted/60 transition-colors cursor-pointer group"
+                  className="grid grid-cols-[40px_1fr_160px_80px_80px_80px_32px_32px] gap-3 items-center px-3 py-2.5 rounded-lg hover:bg-muted/60 transition-colors cursor-pointer group"
                   onClick={() => {
                     // Use local_id (integer) for navigation; fall back to extracting from page_url
                     const localId = c.local_id ?? (c.page_url ? c.page_url.split('/company/')[1]?.split('?')[0] : null);
@@ -247,6 +260,37 @@ export default function IntelligencePage() {
                     {c.company_id && (
                       <ExternalLink className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
                     )}
+                  </div>
+
+                  {/* Send to Telegram */}
+                  <div
+                    className="flex justify-center"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      const key = c.company_id ?? c.company_name ?? String(idx);
+                      setSendingTelegram(key);
+                      sendToTelegram.mutate({
+                        companyName: c.company_name ?? "Unknown",
+                        domain: c.domain,
+                        urgencyScore: c.urgency_score,
+                        urgencyLabel: c.urgency_label,
+                        fitScore: c.fit_score,
+                        fitLabel: c.fit_label,
+                        conversationStarter: c.conversation_starter,
+                        topSignalHeadline: c.top_signal_headline,
+                        topSignalType: c.top_signal_type,
+                        pageUrl: c.page_url ?? (c.local_id ? `/company/${c.local_id}` : null),
+                        brainName: c.brain_name,
+                      });
+                    }}
+                  >
+                    <Send
+                      className={`w-3.5 h-3.5 transition-colors ${
+                        sendingTelegram === (c.company_id ?? c.company_name ?? String(idx))
+                          ? "text-blue-500 animate-pulse"
+                          : "text-muted-foreground group-hover:text-blue-500"
+                      }`}
+                    />
                   </div>
                 </div>
               ))}

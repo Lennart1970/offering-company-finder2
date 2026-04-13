@@ -2123,3 +2123,8 @@
 - [x] Build IntelligencePage UI: search bar, campaign dropdown, urgency/fit filter chips, company rows with click-through to magazine page
 - [x] Add "Intelligence" entry to sidebar navigation
 - [x] Wire /intelligence route in App.tsx
+
+## Fix: Smart back navigation on magazine page
+
+- [x] Pass ?from=intelligence / ?from=sales-menu / ?from=search-results when navigating to company magazine page
+- [x] Fix back button in CompanyDetailMagazine to use ?from= param for explicit return navigation

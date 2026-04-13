@@ -353,7 +353,9 @@ export default function CompanyDetailMagazine() {
     if (fromParam === "call-today") navigate("/call-today");
     else if (fromParam.startsWith("call-today/")) navigate(`/call-today/${fromParam.replace("call-today/", "")}`);
     else if (fromParam.startsWith("search/")) navigate(`/search-results/${fromParam.replace("search/", "")}`);
-    else navigate(-1 as any);
+    else if (fromParam === "intelligence") navigate("/intelligence");
+    else if (fromParam === "sales-menu") navigate("/sales-menu");
+    else navigate("/sales-menu");
   };
 
   if (!user) return null;
@@ -381,7 +383,7 @@ export default function CompanyDetailMagazine() {
         <div className="flex items-center gap-3">
           <button onClick={goBack} className="text-xs font-black border-2 border-black px-3 py-1.5 hover:bg-black hover:text-white transition-colors cursor-pointer">← BACK</button>
           <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
-            {fromParam.startsWith("search/") ? "Search Results" : "Back"} / {company.name}
+            {fromParam.startsWith("search/") ? "Search Results" : fromParam === "intelligence" ? "Intelligence" : fromParam === "sales-menu" ? "Sales Menu" : fromParam === "call-today" ? "Call Today" : "Back"} / {company.name}
           </span>
         </div>
         {fromSearchId && adjacent && (

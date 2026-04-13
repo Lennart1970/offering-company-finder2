@@ -1,4 +1,5 @@
 import { useState, useMemo } from "react";
+import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -23,6 +24,7 @@ function fitColor(score: number | null) {
 }
 
 export default function IntelligencePage() {
+  const [, navigate] = useLocation();
   const [search, setSearch] = useState("");
   const [campaignId, setCampaignId] = useState<number | undefined>(undefined);
   const [urgencyLabel, setUrgencyLabel] = useState<UrgencyFilter>("ALL");
@@ -193,7 +195,10 @@ export default function IntelligencePage() {
                 <div
                   key={c.id}
                   className="grid grid-cols-[40px_1fr_160px_80px_80px_80px_32px] gap-3 items-center px-3 py-2.5 rounded-lg hover:bg-muted/60 transition-colors cursor-pointer group"
-                  onClick={() => c.page_url && window.open(c.page_url, "_blank")}
+                  onClick={() => {
+                    if (!c.company_id) return;
+                    navigate(`/company/${c.company_id}?from=intelligence`);
+                  }}
                 >
                   {/* Position */}
                   <span className="text-xs text-muted-foreground font-mono">
@@ -237,7 +242,7 @@ export default function IntelligencePage() {
 
                   {/* External link icon */}
                   <div className="flex justify-center">
-                    {c.page_url && (
+                    {c.company_id && (
                       <ExternalLink className="w-3.5 h-3.5 text-muted-foreground group-hover:text-primary transition-colors" />
                     )}
                   </div>

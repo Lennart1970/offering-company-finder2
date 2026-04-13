@@ -1,0 +1,1027 @@
+import { trpc } from "@/lib/trpc";
+import { useState, useMemo, useEffect, useRef } from "react";
+import { toast } from "sonner";
+import { useLocation, useParams } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
+import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
+import BrainBadge from "@/components/BrainBadge";
+import { Button } from "@/components/ui/button";
+import { normaliseSalesApproach } from "@shared/normaliseStarters";
+
+// ── Helpers ──────────────────────────────────────────────────────────────────
+function safeStarterText(s: any): string {
+  if (typeof s === "string") return s;
+  if (s && typeof s === "object") {
+    return s.opener ?? s.conversationStarter ?? s.description ?? JSON.stringify(s);
+  }
+  return String(s ?? "");
+}
+
+function formatRevenue(revenue: number | string | null): string {
+  if (!revenue) return "—";
+  const num = typeof revenue === "string" ? parseFloat(revenue) : revenue;
+  if (isNaN(num)) return String(revenue);
+  if (num >= 1_000_000_000) return `$${(num / 1_000_000_000).toFixed(1)}B`;
+  if (num >= 1_000_000) return `$${(num / 1_000_000).toFixed(0)}M`;
+  if (num >= 1_000) return `$${(num / 1_000).toFixed(0)}K`;
+  return `$${num}`;
+}
+
+const SECTION_ANCHORS = [
+  { id: "urgency",  label: "⚡ URGENCY",     color: "text-red-600 border-red-600",    activeBg: "bg-red-600" },
+  { id: "fit",      label: "🎯 FIT",          color: "text-blue-600 border-blue-600",  activeBg: "bg-blue-600" },
+  { id: "news",     label: "📰 NEWS",         color: "text-amber-600 border-amber-600",activeBg: "bg-amber-600" },
+  { id: "approach", label: "💬 APPROACH",     color: "text-green-600 border-green-600",activeBg: "bg-green-600" },
+  { id: "contacts", label: "👤 CONTACTS",     color: "text-purple-600 border-purple-600",activeBg: "bg-purple-600" },
+  { id: "media",    label: "🖼 MEDIA",        color: "text-gray-600 border-gray-600",  activeBg: "bg-gray-700" },
+];
+
+// ── Section Header ────────────────────────────────────────────────────────────
+function SectionHeader({ id, emoji, title, color, action }: {
+  id: string; emoji: string; title: string; color: string; action?: React.ReactNode;
+}) {
+  return (
+    <div id={id} className={`flex items-center justify-between border-b-4 ${color} pb-2 mb-6 scroll-mt-20`}>
+      <h2 className={`text-xl font-black tracking-tight ${color.replace("border-", "text-")}`}>
+        {emoji} {title}
+      </h2>
+      {action}
+    </div>
+  );
+}
+
+// ── Cache Banner ──────────────────────────────────────────────────────────────
+function CacheBanner({ cachedAt, label, onRefresh, loading }: {
+  cachedAt: Date | string | null | undefined; label: string; onRefresh: () => void; loading: boolean;
+}) {
+  if (!cachedAt) return null;
+  const d = new Date(cachedAt);
+  const diffMs = Date.now() - d.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+  const ageLabel = diffDays >= 1 ? `${diffDays}d ago` : diffHours >= 1 ? `${diffHours}h ago` : "just now";
+  const isStale = diffDays >= 7;
+  return (
+    <div className={`inline-flex items-center gap-2 px-3 py-1.5 border text-xs font-bold mb-4 ${isStale ? "border-orange-400 bg-orange-50 text-orange-700" : "border-amber-300 bg-amber-50 text-amber-700"}`}>
+      <span>⚠ {label} cached {ageLabel}{isStale ? " — STALE" : ""}</span>
+      <button onClick={onRefresh} disabled={loading} className="font-black underline hover:no-underline disabled:opacity-50 cursor-pointer">
+        {loading ? "..." : "↻ refresh"}
+      </button>
+    </div>
+  );
+}
+
+// ── Main Component ────────────────────────────────────────────────────────────
+export default function CompanyDetailMagazine() {
+  const { user } = useAuth();
+  const [, navigate] = useLocation();
+  const params = useParams<{ companyId: string }>();
+  const companyId = parseInt(params.companyId, 10);
+
+  const urlParams = new URLSearchParams(window.location.search);
+  const fromParam = urlParams.get("from") || "";
+
+  const fromSearchId = useMemo(() => {
+    const m = fromParam.match(/search\/(\d+)/);
+    return m ? parseInt(m[1], 10) : null;
+  }, [fromParam]);
+
+  const adjacentQuery = trpc.companyFinder.getAdjacentCompany.useQuery(
+    { searchId: fromSearchId!, companyId },
+    { enabled: !!fromSearchId && !!companyId }
+  );
+  const adjacent = adjacentQuery.data;
+
+  const goToAdjacent = (targetId: number | null | undefined) => {
+    if (!targetId) return;
+    navigate(`/company/${targetId}?from=${fromParam}`);
+  };
+
+  const [contactSeniorityFilter, setContactSeniorityFilter] = useState<string>("all");
+  const [contactDeptFilter, setContactDeptFilter] = useState<string>("all");
+  const [activeSection, setActiveSection] = useState<string>("urgency");
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+
+  const { data, isLoading, refetch } = trpc.companyFinder.getCompany.useQuery(
+    { companyId },
+    { enabled: !!companyId && !isNaN(companyId) }
+  );
+  const company = data?.company ?? null;
+  const rawContacts = data?.contacts ?? [];
+
+  const { data: leadinfoVisit } = trpc.leadinfo.getByCompany.useQuery(
+    { companyId }, { enabled: !!companyId && !isNaN(companyId) }
+  );
+
+  // ── Derived data ─────────────────────────────────────────────────────────────
+  const seniorityKeywords: Record<string, RegExp> = {
+    "C-Suite / VP": /\b(ceo|cto|coo|cfo|cmo|cso|cpo|chief|president|vp|vice president)\b/i,
+    "Director": /\bdirector\b/i,
+    "Manager": /\bmanager\b/i,
+    "Head of": /\bhead of\b/i,
+    "Lead / Senior": /\b(lead|senior|sr\.)\b/i,
+    "Engineer / Developer": /\b(engineer|developer|dev)\b/i,
+    "Consultant": /\bconsultant\b/i,
+  };
+  const deptKeywords: Record<string, RegExp> = {
+    "Sales & BD": /\b(sales|business development|bd|account)\b/i,
+    "Engineering": /\b(engineer|engineering|software|hardware|dev|developer|technical)\b/i,
+    "Operations": /\b(operations|ops|supply chain|logistics|facility|office)\b/i,
+    "Finance": /\b(finance|financial|cfo|accounting|controller)\b/i,
+    "Marketing": /\b(marketing|cmo|brand|growth|content)\b/i,
+    "HR / People": /\b(hr|human resources|people|talent|recruiting)\b/i,
+    "Product": /\b(product|cpo|ux|design|ui)\b/i,
+    "Strategy": /\b(strategy|strategic|cso|transformation|innovation)\b/i,
+  };
+
+  const seniorityOptions = useMemo(() => {
+    const labels = Object.keys(seniorityKeywords);
+    const present = new Set<string>();
+    rawContacts.forEach((c: any) => {
+      const title = (c.title || c.jobTitle || "");
+      for (const [label, rx] of Object.entries(seniorityKeywords)) {
+        if (rx.test(title)) { present.add(label); break; }
+      }
+    });
+    return labels.filter(l => present.has(l));
+  }, [rawContacts]);
+
+  const deptOptions = useMemo(() => {
+    const labels = Object.keys(deptKeywords);
+    const present = new Set<string>();
+    rawContacts.forEach((c: any) => {
+      const title = (c.title || c.jobTitle || "");
+      for (const [label, rx] of Object.entries(deptKeywords)) {
+        if (rx.test(title)) { present.add(label); break; }
+      }
+    });
+    return labels.filter(l => present.has(l));
+  }, [rawContacts]);
+
+  const contacts = useMemo(() => rawContacts.filter((c: any) => {
+    const title = (c.title || c.jobTitle || "");
+    const matchSeniority = contactSeniorityFilter === "all" || (() => {
+      const rx = seniorityKeywords[contactSeniorityFilter];
+      if (!rx) return !Object.values(seniorityKeywords).some(r => r.test(title));
+      return rx.test(title);
+    })();
+    const matchDept = contactDeptFilter === "all" || (() => {
+      const rx = deptKeywords[contactDeptFilter];
+      if (!rx) return !Object.values(deptKeywords).some(r => r.test(title));
+      return rx.test(title);
+    })();
+    return matchSeniority && matchDept;
+  }), [rawContacts, contactSeniorityFilter, contactDeptFilter]);
+
+  const briefData = useMemo(() => {
+    if (!company?.briefData) return null;
+    try {
+      const raw = typeof company.briefData === "string" ? JSON.parse(company.briefData) : company.briefData;
+      if (!raw) return null;
+      if (!raw.productsAndServices && raw.productsServices) raw.productsAndServices = raw.productsServices;
+      if (!raw.companyOverview && raw.executiveSummary) {
+        const es = raw.executiveSummary;
+        raw.companyOverview = [es.company, es.industry !== "Unknown" ? es.industry : null, es.revenue !== "Unknown" ? `Revenue: ${es.revenue}` : null].filter(Boolean).join(" · ");
+      }
+      return raw;
+    } catch { return null; }
+  }, [company?.briefData]);
+
+  const salesApproach = useMemo(() => {
+    if (!company?.salesApproachData) return null;
+    try { return normaliseSalesApproach(typeof company.salesApproachData === "string" ? JSON.parse(company.salesApproachData) : company.salesApproachData); }
+    catch { return null; }
+  }, [company?.salesApproachData]);
+
+  const location = company && company.enrichmentStatus === "enriched" && (company.city || company.state || company.country)
+    ? [company.city, company.state, company.country].filter(Boolean).join(", ")
+    : company?.searchLocation || "—";
+
+  const industryLabel = useMemo(() => {
+    if (!company) return null;
+    const naics = company.naicsCodes ? (() => { try { return JSON.parse(company.naicsCodes as string); } catch { return []; } })() : [];
+    if (naics.length > 0) {
+      const first = Array.isArray(naics[0]) ? naics[0][1] : null;
+      if (first) return first;
+    }
+    return null;
+  }, [company]);
+
+  const growthLabel = useMemo(() => {
+    if (!company?.headcountGrowth) return null;
+    const g = company.headcountGrowth;
+    const match12 = g.match(/12mo:\s*([+-]?[\d.]+)%/);
+    if (match12) {
+      const pct = parseFloat(match12[1]);
+      if (pct > 15) return `Growing fast — +${pct.toFixed(0)}% headcount (12mo)`;
+      if (pct > 0)  return `Stable growth — +${pct.toFixed(0)}% headcount (12mo)`;
+      if (pct < 0)  return `Shrinking — ${pct.toFixed(0)}% headcount (12mo)`;
+    }
+    return g;
+  }, [company?.headcountGrowth]);
+
+  // ── Mutations ─────────────────────────────────────────────────────────────────
+  const [reResearchLoading, setReResearchLoading] = useState(false);
+  const reResearchUtils = trpc.useUtils();
+  const reResearchMutation = trpc.companyFinder.generateBrief.useMutation({
+    onSuccess: () => { setReResearchLoading(false); reResearchUtils.companyFinder.getCompany.invalidate({ companyId }); toast.success("Research refreshed"); },
+    onError: () => { setReResearchLoading(false); toast.error("Re-research failed"); },
+  });
+
+  const [reApproachLoading, setReApproachLoading] = useState(false);
+  const reApproachUtils = trpc.useUtils();
+  const reApproachMutation = trpc.companyFinder.generateSalesApproach.useMutation({
+    onSuccess: () => { setReApproachLoading(false); reApproachUtils.companyFinder.getCompany.invalidate({ companyId }); toast.success("Approach refreshed"); },
+    onError: () => { setReApproachLoading(false); toast.error("Re-approach failed"); },
+  });
+
+  // Product images
+  const [productImagesLoading, setProductImagesLoading] = useState(false);
+  const productImagesUtils = trpc.useUtils();
+  const { data: productImagesData } = trpc.companyFinder.getProductImages.useQuery(
+    { companyId }, { enabled: !!companyId && !isNaN(companyId) }
+  );
+  const productImages: Array<{ imageUrl: string; thumbnailUrl: string; title: string; source: string; domain: string; link: string }> = productImagesData?.images ?? [];
+
+  const fetchProductImages = trpc.companyFinder.fetchProductImages.useMutation({
+    onSuccess: () => { setProductImagesLoading(false); productImagesUtils.companyFinder.getProductImages.invalidate({ companyId }); },
+    onError: () => { setProductImagesLoading(false); toast.error("Could not fetch product images"); },
+  });
+
+  // Urgency images
+  const [urgencyImagesLoading, setUrgencyImagesLoading] = useState(false);
+  const urgencyImagesUtils = trpc.useUtils();
+  const { data: urgencyImagesData } = trpc.companyFinder.getUrgencyImages.useQuery(
+    { companyId }, { enabled: !!companyId && !isNaN(companyId) }
+  );
+  const urgencyImages: Array<{ imageUrl: string; thumbnailUrl: string; title: string; source: string; domain: string; link: string }> = urgencyImagesData?.images ?? [];
+  const urgencyImagesFetched = urgencyImagesData !== undefined;
+  const usingWebsiteFallback = urgencyImages.length > 0 && (urgencyImages[0] as any)._fallback === "website";
+  const trueNewsImages = usingWebsiteFallback ? [] : urgencyImages;
+  const displayImages = trueNewsImages.length > 0 ? trueNewsImages : usingWebsiteFallback ? urgencyImages : (!urgencyImagesLoading && urgencyImagesFetched ? productImages : []);
+
+  const fetchUrgencyImagesMutation = trpc.companyFinder.fetchUrgencyImages.useMutation({
+    onSuccess: () => { setUrgencyImagesLoading(false); urgencyImagesUtils.companyFinder.getUrgencyImages.invalidate({ companyId }); },
+    onError: () => { setUrgencyImagesLoading(false); toast.error("Could not fetch urgency images"); },
+  });
+
+  // Auto-fetch urgency images on mount if briefData exists
+  const urgencyImagesFetchedRef = useRef(false);
+  useEffect(() => {
+    if (briefData && !urgencyImagesLoading && urgencyImages.length === 0 && !urgencyImagesFetchedRef.current && urgencyImagesFetched) {
+      urgencyImagesFetchedRef.current = true;
+      setUrgencyImagesLoading(true);
+      fetchUrgencyImagesMutation.mutate({ companyId });
+    }
+  }, [briefData, urgencyImagesFetched]);
+
+  // Active Brain
+  const { data: activeBrainData } = trpc.companyFinder.getActiveBrain.useQuery();
+  const activeBrain = activeBrainData?.brain ?? null;
+
+  // Rep profile
+  const [repProfile, setRepProfile] = useState<string | null>(null);
+  const [repProfileLoading, setRepProfileLoading] = useState(false);
+  const { data: persistedRepProfile } = trpc.companyFinder.getSalesRepProfile.useQuery(
+    { companyId }, { enabled: !isNaN(companyId) }
+  );
+  useEffect(() => {
+    if (persistedRepProfile?.profile && !repProfile) setRepProfile(persistedRepProfile.profile);
+  }, [persistedRepProfile]);
+  const generateRepProfileMutation = trpc.companyFinder.generateSalesRepProfile.useMutation({
+    onSuccess: (d) => { setRepProfile(d.profile); setRepProfileLoading(false); },
+    onError: () => { toast.error("Could not generate rep profile"); setRepProfileLoading(false); },
+  });
+
+  // Feed items (NEWS section)
+  const { data: feedItemsData } = trpc.companyFinder.getCompanyFeedItems.useQuery(
+    { companyId, limit: 20 }, { enabled: !!companyId && !isNaN(companyId) }
+  );
+  const feedItems = feedItemsData?.items ?? [];
+
+  // Signal openers
+  const [signalOpeners, setSignalOpeners] = useState<Record<number, string | null>>({});
+  const [signalOpenerLoading, setSignalOpenerLoading] = useState<Record<number, boolean>>({});
+  const trpcClient = trpc.useUtils().client;
+
+  const generateOpenerForSignal = async (signal: any, index: number) => {
+    if (signalOpeners[index] !== undefined || signalOpenerLoading[index]) return;
+    setSignalOpenerLoading(prev => ({ ...prev, [index]: true }));
+    try {
+      const data = await trpcClient.companyFinder.generateSignalApproach.mutate(
+        { companyId, signal: { category: signal.category ?? "", type: signal.type, description: signal.description ?? "", snippet: signal.snippet, sourceUrl: signal.sourceUrl } }
+      );
+      setSignalOpeners(prev => ({ ...prev, [index]: data.opener }));
+    } catch {
+      setSignalOpeners(prev => ({ ...prev, [index]: null }));
+    } finally {
+      setSignalOpenerLoading(prev => ({ ...prev, [index]: false }));
+    }
+  };
+
+  const signalOpenersFiredRef = useRef(false);
+  useEffect(() => {
+    if (briefData?.urgencySignals?.length > 0 && !signalOpenersFiredRef.current) {
+      signalOpenersFiredRef.current = true;
+      let cachedOpeners: Array<{ signalIndex: number; opener: string }> = [];
+      try { if (company?.signalOpeners) cachedOpeners = JSON.parse(company.signalOpeners); } catch { /* ignore */ }
+      briefData.urgencySignals.forEach((signal: any, index: number) => {
+        const cached = cachedOpeners.find((o: any) => o.signalIndex === index);
+        if (cached?.opener) setSignalOpeners(prev => ({ ...prev, [index]: cached.opener }));
+        else generateOpenerForSignal(signal, index);
+      });
+    }
+  }, [briefData]);
+
+  // Scroll spy — update active section as user scrolls
+  useEffect(() => {
+    const handleScroll = () => {
+      const sections = SECTION_ANCHORS.map(s => document.getElementById(s.id));
+      const scrollY = window.scrollY + 120;
+      for (let i = sections.length - 1; i >= 0; i--) {
+        const el = sections[i];
+        if (el && el.offsetTop <= scrollY) { setActiveSection(SECTION_ANCHORS[i].id); break; }
+      }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  const copyText = (text: string, label: string) => { navigator.clipboard.writeText(text); toast.success(`${label} copied`); };
+
+  const goBack = () => {
+    if (fromParam === "call-today") navigate("/call-today");
+    else if (fromParam.startsWith("call-today/")) navigate(`/call-today/${fromParam.replace("call-today/", "")}`);
+    else if (fromParam.startsWith("search/")) navigate(`/search-results/${fromParam.replace("search/", "")}`);
+    else navigate(-1 as any);
+  };
+
+  if (!user) return null;
+
+  if (isLoading) return (
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="text-2xl font-black animate-pulse">Loading company...</div>
+    </div>
+  );
+
+  if (!company) return (
+    <div className="max-w-5xl mx-auto px-4 py-8">
+      <div className="text-2xl font-black text-red-600">Company not found.</div>
+      <button onClick={goBack} className="mt-4 text-xs font-black border-2 border-black px-4 py-2 hover:bg-black hover:text-white transition-colors cursor-pointer">← BACK</button>
+    </div>
+  );
+
+  const urgency = briefData?.urgencySignals ?? [];
+
+  return (
+    <div className="max-w-5xl mx-auto px-4 pb-24">
+
+      {/* ── Breadcrumb / Navigation ── */}
+      <div className="flex items-center justify-between gap-3 py-4 flex-wrap">
+        <div className="flex items-center gap-3">
+          <button onClick={goBack} className="text-xs font-black border-2 border-black px-3 py-1.5 hover:bg-black hover:text-white transition-colors cursor-pointer">← BACK</button>
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
+            {fromParam.startsWith("search/") ? "Search Results" : "Back"} / {company.name}
+          </span>
+        </div>
+        {fromSearchId && adjacent && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-muted-foreground">{adjacent.position} / {adjacent.total}</span>
+            <button onClick={() => goToAdjacent(adjacent?.prevId)} disabled={!adjacent?.prevId}
+              className="text-xs font-black border-2 border-black px-3 py-1.5 disabled:opacity-30 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:cursor-default">← PREV</button>
+            <button onClick={() => goToAdjacent(adjacent?.nextId)} disabled={!adjacent?.nextId}
+              className="text-xs font-black border-2 border-black px-3 py-1.5 disabled:opacity-30 hover:bg-black hover:text-white transition-colors cursor-pointer disabled:cursor-default">NEXT →</button>
+          </div>
+        )}
+      </div>
+
+      {/* ── COMPANY HEADER ── */}
+      <div className="border-4 border-black bg-white mb-6 print:border-2">
+        {/* Hero image strip */}
+        {displayImages.length > 0 && (
+          <div className="h-40 overflow-hidden border-b-4 border-black grid grid-cols-4 gap-0">
+            {displayImages.slice(0, 4).map((img, i) => (
+              <div key={i} className="relative overflow-hidden bg-gray-100 cursor-pointer" onClick={() => setLightboxImage(img.imageUrl)}>
+                <img src={img.thumbnailUrl || img.imageUrl} alt={img.title} className="w-full h-full object-cover hover:scale-105 transition-transform duration-300" />
+              </div>
+            ))}
+          </div>
+        )}
+
+        <div className="p-6">
+          {/* Badges row */}
+          <div className="flex items-center gap-2 mb-3 flex-wrap">
+            {company.enrichmentStatus === "enriched" && <span className="text-[10px] font-black bg-black text-white px-1.5 py-0.5">ENRICHED</span>}
+            {company.briefData && <span className="text-[10px] font-black border border-blue-600 text-blue-600 px-1.5 py-0.5">RESEARCHED</span>}
+            {(company.urgencyScore ?? 0) > 0 && (
+              <span className={`text-[10px] font-black px-1.5 py-0.5 ${(company.urgencyScore ?? 0) >= 70 ? "bg-red-600 text-white" : (company.urgencyScore ?? 0) >= 50 ? "bg-yellow-500 text-white" : "bg-gray-200 text-gray-700"}`}>
+                ⚡ {company.urgencyScore}/100
+              </span>
+            )}
+            {company.salesApproachData && <span className="text-[10px] font-black border border-green-600 text-green-600 px-1.5 py-0.5">SALES READY</span>}
+            <BrainBadge generatedWithBrainId={company.generatedWithBrainId} generatedWithBrainName={company.generatedWithBrainName} activeBrainId={activeBrain?.id} activeBrainName={activeBrain?.brainName} />
+          </div>
+
+          <div className="flex items-start justify-between gap-6 flex-wrap">
+            <div className="flex-1 min-w-0">
+              <h1 className="text-4xl font-black leading-tight mb-1">{company.name}</h1>
+              {company.websiteUrl && (
+                <a href={company.websiteUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-muted-foreground underline">
+                  {company.websiteUrl.replace(/^https?:\/\//, "")}
+                </a>
+              )}
+              {briefData?.companyOverview && (
+                <p className="text-sm text-muted-foreground mt-2 leading-relaxed max-w-2xl">{briefData.companyOverview}</p>
+              )}
+            </div>
+
+            {/* Quick stats */}
+            <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm shrink-0">
+              <div><div className="text-[10px] font-black text-muted-foreground">LOCATION</div><div className="font-bold">{location}</div></div>
+              {company.revenue && <div><div className="text-[10px] font-black text-muted-foreground">REVENUE</div><div className="font-bold">{formatRevenue(company.revenue)}</div></div>}
+              {company.sliceMetadata && (() => { try { const m = JSON.parse(company.sliceMetadata as string); return m.employeeBand ? <div><div className="text-[10px] font-black text-muted-foreground">EMPLOYEES</div><div className="font-bold">{m.employeeBand}</div></div> : null; } catch { return null; } })()}
+              {company.linkedinUrl && (
+                <div className="col-span-2">
+                  <div className="text-[10px] font-black text-muted-foreground">LINKEDIN</div>
+                  <a href={company.linkedinUrl} target="_blank" rel="noopener noreferrer" className="font-bold underline text-sm truncate block">{company.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}</a>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Industry / growth tags */}
+          {(industryLabel || growthLabel) && (
+            <div className="mt-3 flex flex-wrap gap-3 text-xs">
+              {industryLabel && <span className="bg-gray-100 px-2 py-1 font-bold">{industryLabel}</span>}
+              {growthLabel && <span className={`px-2 py-1 font-bold ${growthLabel.startsWith("Growing") ? "bg-green-100 text-green-700" : growthLabel.startsWith("Shrinking") ? "bg-red-100 text-red-700" : "bg-gray-100 text-gray-700"}`}>{growthLabel}</span>}
+            </div>
+          )}
+
+          {/* Codes */}
+          {company.enrichmentStatus === "enriched" && (
+            <div className="mt-3">
+              <CompanyCodeDisplay sicCodes={company.sicCodes} naicsCodes={company.naicsCodes} />
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* ── STICKY JUMP NAV ── */}
+      <div className="sticky top-0 z-30 bg-white border-b-4 border-black flex overflow-x-auto print:hidden mb-8">
+        {SECTION_ANCHORS.map((s) => (
+          <a key={s.id} href={`#${s.id}`}
+            className={`shrink-0 px-4 py-2.5 text-xs font-black border-r-2 border-black transition-colors ${activeSection === s.id ? `${s.activeBg} text-white` : `hover:bg-gray-50 ${s.color}`}`}>
+            {s.label}
+          </a>
+        ))}
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          SECTION 1 — URGENCY
+      ════════════════════════════════════════════════════════════════════════ */}
+      <section className="mb-12">
+        <SectionHeader id="urgency" emoji="⚡" title="URGENCY" color="border-red-600"
+          action={
+            <div className="flex items-center gap-2">
+              {briefData && <CacheBanner cachedAt={company.briefGeneratedAt} label="Urgency" onRefresh={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: true }); }} loading={reResearchLoading} />}
+              {!briefData && (
+                <button onClick={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId }); }} disabled={reResearchLoading}
+                  className="text-xs font-black border-2 border-red-600 text-red-600 px-4 py-1.5 hover:bg-red-600 hover:text-white transition-colors cursor-pointer disabled:opacity-50">
+                  {reResearchLoading ? "RESEARCHING..." : "⚡ RUN DEEP RESEARCH"}
+                </button>
+              )}
+            </div>
+          }
+        />
+
+        {!briefData ? (
+          <div className="border-4 border-dashed border-gray-200 p-10 text-center">
+            <p className="text-muted-foreground font-bold mb-4">No research data yet. Run Deep Research to populate this section.</p>
+            <button onClick={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId }); }} disabled={reResearchLoading}
+              className="text-sm font-black border-4 border-red-600 text-red-600 px-8 py-3 hover:bg-red-600 hover:text-white transition-colors cursor-pointer disabled:opacity-50">
+              {reResearchLoading ? "RESEARCHING..." : "⚡ RUN DEEP RESEARCH"}
+            </button>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Score masthead */}
+            <div className="border-4 border-red-600 p-6 bg-red-50">
+              <div className="flex items-end justify-between flex-wrap gap-4">
+                <div className="flex items-baseline gap-3">
+                  <span className="text-7xl font-black text-red-600 leading-none">{briefData.urgencyScore}</span>
+                  <span className="text-3xl font-black text-gray-400">/100</span>
+                  <span className="text-xs font-black text-gray-500 uppercase tracking-widest ml-2">Urgency Score</span>
+                </div>
+                {briefData.urgencyBreakdown && (
+                  <div className="flex gap-8 text-sm">
+                    <div className="text-center"><div className="text-[10px] font-black text-gray-400 tracking-widest">COMPANY</div><div className="text-2xl font-black">{briefData.urgencyBreakdown.companyContext}<span className="text-xs text-gray-400">/40</span></div></div>
+                    <div className="text-center"><div className="text-[10px] font-black text-gray-400 tracking-widest">MARKET</div><div className="text-2xl font-black">{briefData.urgencyBreakdown.marketSignals}<span className="text-xs text-gray-400">/35</span></div></div>
+                    <div className="text-center"><div className="text-[10px] font-black text-gray-400 tracking-widest">ACTIVITY</div><div className="text-2xl font-black">{briefData.urgencyBreakdown.recentActivity}<span className="text-xs text-gray-400">/25</span></div></div>
+                  </div>
+                )}
+              </div>
+              {briefData.urgencyLabel && (
+                <div className="mt-3 text-sm font-bold text-red-700">{briefData.urgencyLabel}</div>
+              )}
+            </div>
+
+            {/* Urgency signals grid */}
+            {urgency.length > 0 && (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {urgency.map((signal: any, i: number) => {
+                  const sourceUrl = signal.sourceUrl ?? signal.source_url ?? signal.url ?? null;
+                  const sourceDomain = sourceUrl ? (() => { try { return new URL(sourceUrl).hostname.replace(/^www\./, ""); } catch { return sourceUrl; } })() : null;
+                  return (
+                    <div key={i} className="border-2 border-gray-200 hover:border-red-400 transition-colors p-4 space-y-2">
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-[10px] font-black px-2 py-0.5 bg-red-100 text-red-700 uppercase">{signal.category ?? signal.type ?? "Signal"}</span>
+                        {signal.urgencyContribution && <span className="text-[10px] font-black text-muted-foreground">+{signal.urgencyContribution} pts</span>}
+                      </div>
+                      <p className="text-sm font-bold leading-snug">{signal.description ?? signal.headline ?? ""}</p>
+                      {signal.snippet && <blockquote className="border-l-4 border-red-200 pl-3 text-xs text-muted-foreground italic line-clamp-3">{signal.snippet}</blockquote>}
+                      {sourceUrl && sourceDomain && (
+                        <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-black hover:underline">
+                          <span className="inline-block w-4 h-4 bg-gray-100 border border-gray-300 rounded-sm text-[9px] font-black text-gray-500 flex items-center justify-center">{sourceDomain.charAt(0).toUpperCase()}</span>
+                          <span className="truncate max-w-[180px]">{sourceDomain}</span>
+                          <span className="text-gray-400">↗</span>
+                        </a>
+                      )}
+                      {/* Signal opener */}
+                      {signalOpeners[i] !== undefined ? (
+                        <div className="mt-2 p-2 bg-amber-50 border border-amber-200 text-xs font-medium text-amber-900 leading-relaxed">
+                          💬 {signalOpeners[i]}
+                        </div>
+                      ) : signalOpenerLoading[i] ? (
+                        <div className="mt-2 flex items-center gap-1.5 text-xs text-muted-foreground">
+                          <span className="w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full animate-spin" />
+                          Generating opener...
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            {/* Recent developments */}
+            {briefData.recentDevelopments?.length > 0 && (
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-widest mb-3 border-b border-gray-200 pb-1">Recent Developments</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {briefData.recentDevelopments.map((item: any, i: number) => {
+                    const headline = typeof item === "string" ? item : item.headline ?? item.title ?? item.development ?? "";
+                    const snippet = typeof item !== "string" ? item.snippet ?? item.description ?? null : null;
+                    const sourceUrl = typeof item !== "string" ? item.sourceUrl ?? item.url ?? null : null;
+                    const date = typeof item !== "string" ? item.date ?? item.publishedAt ?? null : null;
+                    const sourceDomain = sourceUrl ? (() => { try { return new URL(sourceUrl).hostname.replace(/^www\./, ""); } catch { return sourceUrl; } })() : null;
+                    return (
+                      <div key={i} className="border-2 border-gray-200 hover:border-black transition-colors p-4">
+                        <p className="font-black text-sm leading-snug mb-2">{headline}</p>
+                        {snippet && <blockquote className="border-l-4 border-gray-300 pl-3 mb-3"><p className="text-xs text-muted-foreground italic leading-relaxed line-clamp-3">{snippet}</p></blockquote>}
+                        <div className="flex items-center justify-between gap-2 mt-1">
+                          {sourceUrl && sourceDomain ? (
+                            <a href={sourceUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-gray-700 hover:text-black hover:underline">
+                              <span className="inline-block w-4 h-4 bg-gray-100 border border-gray-300 rounded-sm text-[9px] font-black text-gray-500 flex items-center justify-center">{sourceDomain.charAt(0).toUpperCase()}</span>
+                              <span className="truncate max-w-[180px]">{sourceDomain}</span>
+                              <span className="text-gray-400">↗</span>
+                            </a>
+                          ) : <span />}
+                          {date && <span className="text-[10px] font-bold text-muted-foreground shrink-0">{date}</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          SECTION 2 — FIT
+      ════════════════════════════════════════════════════════════════════════ */}
+      <section className="mb-12">
+        <SectionHeader id="fit" emoji="🎯" title="FIT" color="border-blue-600"
+          action={
+            briefData
+              ? <CacheBanner cachedAt={company.briefGeneratedAt} label="Research" onRefresh={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: true }); }} loading={reResearchLoading} />
+              : null
+          }
+        />
+
+        {!briefData ? (
+          <div className="border-4 border-dashed border-gray-200 p-10 text-center">
+            <p className="text-muted-foreground font-bold">Run Deep Research first to see fit analysis.</p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Why this company matters */}
+            {briefData.whyThisCompanyMatters && (
+              <div className="border-4 border-blue-600 p-6 bg-blue-50">
+                <div className="text-[10px] font-black text-blue-600 tracking-widest mb-2">WHY THIS COMPANY MATTERS</div>
+                <p className="text-base font-bold leading-relaxed text-blue-900">{briefData.whyThisCompanyMatters}</p>
+              </div>
+            )}
+
+            {/* Fit score */}
+            {(company.fitScore != null || briefData.fitScore != null) && (
+              <div className="flex items-center gap-4 p-4 border-2 border-blue-200 bg-white">
+                <div>
+                  <div className="text-[10px] font-black text-muted-foreground">FIT SCORE</div>
+                  <div className="text-4xl font-black text-blue-600">{company.fitScore ?? briefData.fitScore}<span className="text-lg text-gray-400">/100</span></div>
+                </div>
+                {briefData.fitLabel && (
+                  <div className="text-sm font-bold text-blue-800">{briefData.fitLabel}</div>
+                )}
+              </div>
+            )}
+
+            {/* Products & Services */}
+            {briefData.productsAndServices?.length > 0 && (
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-widest mb-3 border-b border-gray-200 pb-1">Products & Services</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {briefData.productsAndServices.map((p: any, i: number) => (
+                    <div key={i} className="p-4 border-2 border-gray-200 hover:border-blue-400 transition-colors">
+                      <div className="font-black text-sm mb-1">{typeof p === "string" ? p : p.name ?? p.product ?? ""}</div>
+                      {typeof p !== "string" && p.description && <p className="text-xs text-muted-foreground">{p.description}</p>}
+                      {typeof p !== "string" && p.category && <div className="text-[10px] font-black text-muted-foreground mt-1 uppercase">{p.category}</div>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Key Technologies */}
+            {briefData.keyTechnologies?.length > 0 && (
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-widest mb-3 border-b border-gray-200 pb-1">Key Technologies</h3>
+                <div className="flex flex-wrap gap-2">
+                  {briefData.keyTechnologies.map((t: any, i: number) => (
+                    <span key={i} className="text-sm font-bold border-2 border-black px-3 py-1.5 bg-gray-50">
+                      {typeof t === "string" ? t : t.name ?? t.technology ?? ""}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Target Markets */}
+            {briefData.targetMarkets?.length > 0 && (
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-widest mb-3 border-b border-gray-200 pb-1">Target Markets</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  {briefData.targetMarkets.map((m: any, i: number) => (
+                    <div key={i} className="p-4 border-2 border-gray-200">
+                      <div className="font-black text-sm mb-1">{typeof m === "string" ? m : m.market ?? m.segment ?? m.name ?? ""}</div>
+                      {typeof m !== "string" && m.description && <p className="text-xs text-muted-foreground">{m.description}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Sources */}
+            {briefData.sources?.length > 0 && (
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-widest mb-3 border-b border-gray-200 pb-1">Sources ({briefData.sources.length})</h3>
+                <div className="space-y-2">
+                  {briefData.sources.map((s: any, i: number) => (
+                    <div key={i} className="flex items-start gap-3 p-3 border border-gray-200 hover:border-black transition-colors">
+                      <span className="text-xs font-black text-muted-foreground shrink-0">[{i + 1}]</span>
+                      <div className="flex-1 min-w-0">
+                        {(s.url || s.sourceUrl) ? (
+                          <a href={s.url || s.sourceUrl} target="_blank" rel="noopener noreferrer" className="text-sm font-bold text-blue-600 underline truncate block">{s.title || s.url || s.sourceUrl}</a>
+                        ) : <div className="text-sm font-bold">{s.title || String(s)}</div>}
+                        {s.snippet && <p className="text-xs text-muted-foreground mt-0.5 line-clamp-2">{s.snippet}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          SECTION 3 — LATEST NEWS
+      ════════════════════════════════════════════════════════════════════════ */}
+      <section className="mb-12">
+        <SectionHeader id="news" emoji="📰" title="LATEST NEWS" color="border-amber-600" />
+
+        {feedItems.length === 0 ? (
+          <div className="border-4 border-dashed border-gray-200 p-10 text-center">
+            <p className="text-muted-foreground font-bold text-sm">No news feed items found for this company.</p>
+            <p className="text-xs text-muted-foreground mt-1">Feed items are populated by the Serper Analyst edge function when this company is monitored.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {feedItems.map((item) => {
+              const domain = item.link ? (() => { try { return new URL(item.link).hostname.replace(/^www\./, ""); } catch { return ""; } })() : "";
+              const pubDate = item.publishedAt ? new Date(item.publishedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
+              return (
+                <div key={item.id} className="border-2 border-gray-200 hover:border-amber-400 transition-colors p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-black px-1.5 py-0.5 uppercase ${item.kind === "news" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>{item.kind}</span>
+                    {pubDate && <span className="text-[10px] font-bold text-muted-foreground">{pubDate}</span>}
+                  </div>
+                  <p className="font-black text-sm leading-snug">{item.title}</p>
+                  {item.description && <p className="text-xs text-muted-foreground line-clamp-3">{item.description}</p>}
+                  {item.link && domain && (
+                    <a href={item.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-black hover:underline">
+                      <span className="inline-block w-4 h-4 bg-gray-100 border border-gray-300 rounded-sm text-[9px] font-black text-gray-500 flex items-center justify-center">{domain.charAt(0).toUpperCase()}</span>
+                      <span className="truncate max-w-[200px]">{domain}</span>
+                      <span className="text-gray-400">↗</span>
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          SECTION 4 — APPROACH
+      ════════════════════════════════════════════════════════════════════════ */}
+      <section className="mb-12">
+        <SectionHeader id="approach" emoji="💬" title="APPROACH" color="border-green-600"
+          action={
+            <div className="flex items-center gap-2">
+              {salesApproach && <CacheBanner cachedAt={company.salesApproachGeneratedAt} label="Approach" onRefresh={() => { setReApproachLoading(true); reApproachMutation.mutate({ companyId }); }} loading={reApproachLoading} />}
+              {!salesApproach && company.briefData && (
+                <button onClick={() => { setReApproachLoading(true); reApproachMutation.mutate({ companyId }); }} disabled={reApproachLoading}
+                  className="text-xs font-black border-2 border-green-600 text-green-600 px-4 py-1.5 hover:bg-green-600 hover:text-white transition-colors cursor-pointer disabled:opacity-50">
+                  {reApproachLoading ? "GENERATING..." : "💬 CREATE SALES APPROACH"}
+                </button>
+              )}
+            </div>
+          }
+        />
+
+        {/* Right Sales Rep */}
+        <div className="mb-6 rounded-lg border border-indigo-200 bg-gradient-to-r from-indigo-50 to-slate-50 p-5">
+          <div className="flex items-center justify-between gap-4 flex-wrap mb-3">
+            <div>
+              <div className="text-[10px] font-black tracking-[0.15em] uppercase text-indigo-400">RIGHT SALES REP</div>
+              <div className="text-xs font-bold text-slate-700">Decision-Maker Match</div>
+            </div>
+            {!repProfile ? (
+              <button onClick={() => { setRepProfileLoading(true); generateRepProfileMutation.mutate({ companyId }); }} disabled={repProfileLoading}
+                className="flex items-center gap-2 rounded-md bg-indigo-600 text-white font-bold text-xs px-5 py-2.5 hover:bg-indigo-700 shadow-sm transition-colors disabled:opacity-50 cursor-pointer">
+                {repProfileLoading ? <><span className="animate-spin inline-block w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full" /> ANALYSING...</> : "FIND BEST SALES REP"}
+              </button>
+            ) : (
+              <button onClick={() => { setRepProfile(null); setRepProfileLoading(true); generateRepProfileMutation.mutate({ companyId }); }} disabled={repProfileLoading}
+                className="text-[10px] font-bold text-indigo-400 border border-indigo-200 rounded px-2 py-1 hover:border-indigo-500 hover:text-indigo-600 transition-colors disabled:opacity-40 cursor-pointer">
+                {repProfileLoading ? "..." : "↺ REFRESH"}
+              </button>
+            )}
+          </div>
+          {repProfileLoading && !repProfile && (
+            <div className="flex items-center gap-2 text-xs font-bold text-slate-500">
+              <span className="w-3 h-3 border-2 border-indigo-400 border-t-transparent rounded-full animate-spin" />
+              Analysing company profile and offering fit...
+            </div>
+          )}
+          {repProfile && <p className="text-sm leading-relaxed text-slate-700">{repProfile}</p>}
+        </div>
+
+        {!salesApproach ? (
+          <div className="border-4 border-dashed border-gray-200 p-10 text-center">
+            <p className="text-muted-foreground font-bold">
+              {company.briefData ? "Research is ready — generate your personalised sales approach." : "Run Deep Research first, then generate the sales approach."}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-6">
+            {/* Conversation Starters */}
+            {salesApproach.conversationStarters?.length > 0 && (
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-widest mb-3 border-b border-gray-200 pb-1">Conversation Starters</h3>
+                <div className="space-y-3">
+                  {salesApproach.conversationStarters.map((s: any, i: number) => (
+                    <div key={i} className="p-4 bg-amber-50 border-2 border-amber-200">
+                      <p className="text-sm font-medium">{safeStarterText(s)}</p>
+                      {typeof s !== "string" && s.basedOn && <p className="text-xs text-muted-foreground mt-1">Based on: {s.basedOn}</p>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Email Draft */}
+            {salesApproach.emailDraft && (
+              <div>
+                <div className="flex items-center justify-between border-b border-gray-200 pb-1 mb-3">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-green-700">Email Draft</h3>
+                  <button onClick={() => copyText(`Subject: ${salesApproach.emailDraft.subject}\n\n${salesApproach.emailDraft.body}`, "Email")}
+                    className="text-xs font-black border-2 border-green-600 text-green-600 px-3 py-1 cursor-pointer hover:bg-green-600 hover:text-white transition-colors">COPY EMAIL</button>
+                </div>
+                <div className="p-5 border-4 border-green-600 bg-green-50">
+                  <div className="mb-3 p-2 bg-white border border-green-200">
+                    <span className="text-xs font-black text-muted-foreground">SUBJECT: </span>
+                    <span className="text-sm font-bold">{salesApproach.emailDraft.subject}</span>
+                  </div>
+                  <div className="whitespace-pre-wrap text-sm bg-white p-3 border border-green-200">{salesApproach.emailDraft.body}</div>
+                </div>
+              </div>
+            )}
+
+            {/* LinkedIn Message */}
+            {salesApproach.linkedinMessage && (
+              <div>
+                <h3 className="text-sm font-black uppercase tracking-widest mb-3 border-b border-gray-200 pb-1 text-blue-700">LinkedIn Message</h3>
+                <div className="p-5 border-4 border-blue-600 bg-blue-50 space-y-4">
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-xs font-black">CONNECTION REQUEST</span>
+                      <button onClick={() => copyText(salesApproach.linkedinMessage.connectionRequest, "Connection Request")} className="text-xs font-black border border-blue-600 text-blue-600 px-2 py-0.5 cursor-pointer hover:bg-blue-600 hover:text-white transition-colors">COPY</button>
+                    </div>
+                    <div className="text-sm bg-white p-3 border border-blue-200">{salesApproach.linkedinMessage.connectionRequest}</div>
+                  </div>
+                  {salesApproach.linkedinMessage.followUp && (
+                    <div>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-xs font-black">FOLLOW-UP</span>
+                        <button onClick={() => copyText(salesApproach.linkedinMessage.followUp, "Follow-up")} className="text-xs font-black border border-blue-600 text-blue-600 px-2 py-0.5 cursor-pointer hover:bg-blue-600 hover:text-white transition-colors">COPY</button>
+                      </div>
+                      <div className="text-sm bg-white p-3 border border-blue-200">{salesApproach.linkedinMessage.followUp}</div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {/* Call Script */}
+            {salesApproach.callScript && (
+              <div>
+                <div className="flex items-center justify-between border-b border-gray-200 pb-1 mb-3">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-purple-700">Call Script</h3>
+                  <button onClick={() => copyText(salesApproach.callScript.fullScript || salesApproach.callScript.opening || "", "Call Script")}
+                    className="text-xs font-black border-2 border-purple-600 text-purple-600 px-3 py-1 cursor-pointer hover:bg-purple-600 hover:text-white transition-colors">COPY SCRIPT</button>
+                </div>
+                <div className="p-5 border-4 border-purple-600 bg-purple-50 space-y-3">
+                  {salesApproach.callScript.opening && <div><div className="text-xs font-black mb-1">OPENING</div><div className="text-sm bg-white p-3 border border-purple-200">{salesApproach.callScript.opening}</div></div>}
+                  {salesApproach.callScript.valueProposition && <div><div className="text-xs font-black mb-1">VALUE PROPOSITION</div><div className="text-sm bg-white p-3 border border-purple-200">{salesApproach.callScript.valueProposition}</div></div>}
+                  {salesApproach.callScript.fullScript && <div><div className="text-xs font-black mb-1">FULL SCRIPT</div><div className="whitespace-pre-wrap text-sm bg-white p-4 border border-purple-200">{salesApproach.callScript.fullScript}</div></div>}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          SECTION 5 — CONTACTS
+      ════════════════════════════════════════════════════════════════════════ */}
+      <section className="mb-12">
+        <SectionHeader id="contacts" emoji="👤" title={`CONTACTS (${rawContacts.length})`} color="border-purple-600" />
+
+        {/* Action buttons */}
+        <div className="flex gap-3 flex-wrap mb-5">
+          <CompanyDetailFindDecisionMakersButton companyId={company.id} companyName={company.name} onDone={() => refetch()} />
+          <CompanyDetailGetAllPersonnelButton companyId={company.id} companyName={company.name} onDone={() => refetch()} />
+        </div>
+
+        {/* Filters */}
+        {rawContacts.length > 0 && (
+          <div className="flex items-center gap-3 mb-5 flex-wrap border-2 border-gray-200 p-3 bg-gray-50">
+            <span className="text-[10px] font-black text-muted-foreground shrink-0">FILTER:</span>
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-black">SENIORITY</span>
+              {["all", ...seniorityOptions].map((opt) => (
+                <button key={opt} onClick={() => setContactSeniorityFilter(opt)}
+                  className={`text-[10px] font-black px-2 py-0.5 border transition-colors cursor-pointer ${contactSeniorityFilter === opt ? "bg-purple-600 text-white border-purple-600" : "border-gray-300 hover:border-purple-400 hover:text-purple-600"}`}>
+                  {opt === "all" ? "ALL" : opt}
+                </button>
+              ))}
+            </div>
+            <div className="w-px h-4 bg-gray-300 shrink-0 hidden md:block" />
+            <div className="flex items-center gap-1.5 flex-wrap">
+              <span className="text-[10px] font-black">DEPT</span>
+              {["all", ...deptOptions].map((opt) => (
+                <button key={opt} onClick={() => setContactDeptFilter(opt)}
+                  className={`text-[10px] font-black px-2 py-0.5 border transition-colors cursor-pointer ${contactDeptFilter === opt ? "bg-blue-600 text-white border-blue-600" : "border-gray-300 hover:border-blue-400 hover:text-blue-600"}`}>
+                  {opt === "all" ? "ALL" : opt}
+                </button>
+              ))}
+            </div>
+            {(contactSeniorityFilter !== "all" || contactDeptFilter !== "all") && (
+              <button onClick={() => { setContactSeniorityFilter("all"); setContactDeptFilter("all"); }}
+                className="text-[10px] font-black text-red-600 border border-red-300 px-2 py-0.5 hover:bg-red-50 transition-colors cursor-pointer ml-auto shrink-0">✕ CLEAR</button>
+            )}
+          </div>
+        )}
+
+        {contacts.length === 0 ? (
+          <div className="text-center py-16 border-4 border-dashed border-gray-300">
+            <div className="text-lg font-black text-muted-foreground mb-2">No contacts yet</div>
+            <div className="text-sm font-bold text-muted-foreground">Use the buttons above to find decision-makers or all personnel.</div>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {contacts.map((c: any, i: number) => (
+              <div key={i} className="p-4 border-2 border-gray-200 hover:border-purple-400 transition-colors">
+                <div className="font-black text-base mb-0.5">{c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim() || "—"}</div>
+                <div className="text-sm font-bold text-muted-foreground mb-2">{c.title || c.jobTitle || "—"}</div>
+                {c.email && <a href={`mailto:${c.email}`} className="text-sm text-blue-600 underline font-bold block">{c.email}</a>}
+                {c.phone && <a href={`tel:${c.phone}`} className="text-sm text-green-600 underline font-bold block">{c.phone}</a>}
+                {c.linkedinUrl && (
+                  <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 underline block mt-1">
+                    {c.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}
+                  </a>
+                )}
+                {!c.email && <CompanyDetailEnrichButton contactId={c.id} companyId={company.id} onDone={() => refetch()} />}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          SECTION 6 — MEDIA (Product Pictures)
+      ════════════════════════════════════════════════════════════════════════ */}
+      <section className="mb-12">
+        <SectionHeader id="media" emoji="🖼" title="MEDIA" color="border-gray-600"
+          action={
+            <button onClick={() => { setProductImagesLoading(true); fetchProductImages.mutate({ companyId }); }} disabled={productImagesLoading}
+              className="text-xs font-black border-2 border-gray-600 text-gray-600 px-4 py-1.5 hover:bg-gray-700 hover:text-white transition-colors cursor-pointer disabled:opacity-50">
+              {productImagesLoading ? "FETCHING..." : productImages.length > 0 ? "↻ REFRESH" : "FETCH IMAGES"}
+            </button>
+          }
+        />
+
+        {productImages.length === 0 ? (
+          <div className="border-4 border-dashed border-gray-200 p-10 text-center">
+            <p className="text-muted-foreground font-bold text-sm">No product images yet.</p>
+            <p className="text-xs text-muted-foreground mt-1">Click "FETCH IMAGES" to pull product visuals from the web.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+            {productImages.map((img, i) => (
+              <div key={i} className="border-2 border-gray-200 hover:border-black transition-colors overflow-hidden group cursor-pointer"
+                onClick={() => setLightboxImage(img.imageUrl)}>
+                <div className="aspect-video bg-gray-50 overflow-hidden">
+                  <img src={img.thumbnailUrl || img.imageUrl} alt={img.title} loading="lazy"
+                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-200" />
+                </div>
+                {img.title && <div className="px-2 py-1.5 text-[10px] font-bold text-muted-foreground truncate">{img.title}</div>}
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      {/* ── Lightbox ── */}
+      {lightboxImage && (
+        <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setLightboxImage(null)}>
+          <img src={lightboxImage} alt="Product image" className="max-w-full max-h-full object-contain" onClick={(e) => e.stopPropagation()} />
+          <button className="absolute top-4 right-4 text-white font-black text-2xl hover:text-gray-300" onClick={() => setLightboxImage(null)}>✕</button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── Inline action buttons ─────────────────────────────────────────────────────
+function CompanyDetailFindDecisionMakersButton({ companyId, companyName, onDone }: { companyId: number; companyName: string; onDone: () => void }) {
+  const findCSuiteMutation = trpc.companyFinder.findAllCSuite.useMutation({
+    onSuccess: (data) => { toast.success(`Found ${data.contacts.length} decision-makers at ${companyName}`); onDone(); },
+    onError: (error) => toast.error(`Search failed: ${error.message}`),
+  });
+  return (
+    <button onClick={() => findCSuiteMutation.mutate({ companyId })} disabled={findCSuiteMutation.isPending}
+      className="font-black border-4 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white px-5 py-2.5 text-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default">
+      {findCSuiteMutation.isPending ? "SEARCHING..." : "👤 FIND DECISION-MAKERS"}
+    </button>
+  );
+}
+
+function CompanyDetailGetAllPersonnelButton({ companyId, companyName, onDone }: { companyId: number; companyName: string; onDone: () => void }) {
+  const getAllPersonnelMutation = trpc.companyFinder.getAllPersonnel.useMutation({
+    onSuccess: (data) => { toast.success(`Found ${data.contacts.length} personnel at ${companyName}`); onDone(); },
+    onError: (error) => toast.error(`Search failed: ${error.message}`),
+  });
+  return (
+    <button onClick={() => getAllPersonnelMutation.mutate({ companyId, limit: 25 })} disabled={getAllPersonnelMutation.isPending}
+      className="font-black border-4 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-5 py-2.5 text-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default">
+      {getAllPersonnelMutation.isPending ? "FETCHING..." : "🏢 GET ALL PERSONNEL"}
+    </button>
+  );
+}
+
+function CompanyDetailEnrichButton({ contactId, companyId, onDone }: { contactId: number; companyId: number; onDone: () => void }) {
+  const enrichMutation = trpc.companyFinder.enrichContact.useMutation({
+    onSuccess: () => { toast.success("Contact enriched!"); onDone(); },
+    onError: (error) => toast.error(`Enrichment failed: ${error.message}`),
+  });
+  return (
+    <Button size="sm" variant="outline" onClick={() => enrichMutation.mutate({ contactId })} disabled={enrichMutation.isPending}
+      className="text-xs font-black border-2 border-purple-600 text-purple-600 mt-2 cursor-pointer w-full">
+      {enrichMutation.isPending ? "..." : "GET EMAIL"}
+    </Button>
+  );
+}

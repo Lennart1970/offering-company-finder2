@@ -28,16 +28,26 @@ function formatRevenue(revenue: number | string | null): string {
   return `$${num}`;
 }
 
-type Chapter = "overview" | "urgency" | "research" | "approach" | "contacts";
-type ResearchSub = "recent-developments" | "products-services" | "key-technologies" | "target-markets" | "sources" | "product-images";
+type Chapter = "overview" | "urgency" | "fit" | "research" | "news" | "approach" | "contacts" | "media";
+type ResearchSub = "recent-developments" | "products-services" | "key-technologies" | "target-markets" | "product-images" | "sources";
+type FitSub = "why-them" | "products-services" | "key-technologies" | "target-markets" | "sources";
 type ApproachSub = "conversation-starters" | "email-draft" | "linkedin-message" | "call-script";
 
 const CHAPTERS: { id: Chapter; label: string; color: string; activeColor: string }[] = [
-  { id: "overview",  label: "OVERVIEW",         color: "border-black text-black",           activeColor: "bg-black text-white border-black" },
-  { id: "urgency",   label: "⚡ INTEL",          color: "border-red-600 text-red-600",        activeColor: "bg-red-600 text-white border-red-600" },
-  { id: "research",  label: "🔬 RESEARCH",       color: "border-blue-600 text-blue-600",      activeColor: "bg-blue-600 text-white border-blue-600" },
-  { id: "approach",  label: "💬 APPROACH",       color: "border-green-600 text-green-600",    activeColor: "bg-green-600 text-white border-green-600" },
-  { id: "contacts",  label: "👤 CONTACTS",       color: "border-purple-600 text-purple-600",  activeColor: "bg-purple-600 text-white border-purple-600" },
+  { id: "urgency",  label: "⚡ URGENCY",         color: "border-red-600 text-red-600",        activeColor: "bg-red-600 text-white border-red-600" },
+  { id: "fit",      label: "🎯 FIT",             color: "border-blue-600 text-blue-600",      activeColor: "bg-blue-600 text-white border-blue-600" },
+  { id: "news",     label: "📰 LATEST NEWS",     color: "border-amber-600 text-amber-600",    activeColor: "bg-amber-600 text-white border-amber-600" },
+  { id: "approach", label: "💬 APPROACH",        color: "border-green-600 text-green-600",    activeColor: "bg-green-600 text-white border-green-600" },
+  { id: "contacts", label: "👤 CONTACTS",        color: "border-purple-600 text-purple-600",  activeColor: "bg-purple-600 text-white border-purple-600" },
+  { id: "media",    label: "🖼 MEDIA",           color: "border-gray-600 text-gray-600",      activeColor: "bg-gray-700 text-white border-gray-700" },
+];
+
+const FIT_SUBS: { id: FitSub; label: string }[] = [
+  { id: "why-them",          label: "Why This Company" },
+  { id: "products-services", label: "Products & Services" },
+  { id: "key-technologies",  label: "Key Technologies" },
+  { id: "target-markets",    label: "Target Markets" },
+  { id: "sources",           label: "Sources" },
 ];
 
 const RESEARCH_SUBS: { id: ResearchSub; label: string }[] = [

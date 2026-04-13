@@ -16,6 +16,7 @@ import ConferenceImport from "./pages/ConferenceImport";
 import ExcelImport from "./pages/ExcelImport";
 import CallToday from "./pages/CallToday";
 import CompanyDetail from "./pages/CompanyDetail";
+import CompanyDetailMagazine from "./pages/CompanyDetailMagazine";
 import NurtureList from "./pages/NurtureList";
 import PromptRepository from "./pages/PromptRepository";
 import NicheReview from "./pages/NicheReview";
@@ -41,7 +42,7 @@ function Router() {
         <Route path={"/brain"} component={Brain} />
         <Route path={"/call-today"} component={CallToday} />
         <Route path={"/call-today/:searchId"} component={CallToday} />
-        <Route path={"/company/:companyId"} component={CompanyDetail} />
+        <Route path={"/company/:companyId"} component={CompanyDetailMagazine} />
         <Route path={"/nurture"} component={NurtureList} />
         <Route path={"/prompts"} component={PromptRepository} />
         <Route path={"/niche-review"} component={NicheReview} />

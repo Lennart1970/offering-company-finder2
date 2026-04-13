@@ -3005,6 +3005,58 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       return pushSingleBrainToSupabase(input.brainId);
     }),
 
+  // ---------------------------------------------------------------------------
+  // getCompanyFeedItems — fetch raw Serper feed_items from Supabase for the
+  // NEWS chapter of the company detail page. Looks up the company domain and
+  // queries feed_items by matching the raw_content query field.
+  // ---------------------------------------------------------------------------
+  getCompanyFeedItems: protectedProcedure
+    .input(z.object({ companyId: z.number(), limit: z.number().default(20) }))
+    .query(async ({ input }) => {
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (!supabaseUrl || !supabaseKey) return { items: [] };
+
+      const company = await getCompanyById(input.companyId);
+      if (!company) return { items: [] };
+
+      const supabase = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+
+      // Search feed_items where the raw_content JSON contains the company name
+      const { data, error } = await supabase
+        .from("feed_items")
+        .select("id, title, link, description, author, published_at, created_at, raw_content")
+        .ilike("raw_content", `%${company.name}%`)
+        .order("created_at", { ascending: false })
+        .limit(input.limit);
+
+      if (error || !data) return { items: [] };
+
+      const items = data.map((row: any) => {
+        let kind = "web";
+        let query = "";
+        try {
+          const rc = typeof row.raw_content === "string" ? JSON.parse(row.raw_content) : row.raw_content;
+          kind = rc?.kind ?? rc?.serper_type ?? "web";
+          query = rc?.query ?? "";
+        } catch { /* ignore */ }
+        return {
+          id: row.id as string,
+          title: (row.title as string) || "",
+          link: (row.link as string) || "",
+          description: (row.description as string) || "",
+          author: (row.author as string) || null,
+          publishedAt: row.published_at as string | null,
+          createdAt: row.created_at as string,
+          kind,
+          query,
+        };
+      });
+
+      return { items };
+    }),
+
   pullBrainFromSupabase: protectedProcedure
     .input(z.object({ brainId: z.number() }))
     .mutation(async ({ input }) => {

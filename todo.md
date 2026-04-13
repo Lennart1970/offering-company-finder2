@@ -2072,3 +2072,25 @@
 - [x] Fix column renames: name→company_name, company_country→country, company_city→city, primary_sector→sector
 - [x] Add missing fields: sub_sector, description, profile_text, twitter_url, facebook_url, phone, pipeline_stage, niche_id, priority, updated_at
 - [x] Fix contact sync: update has_contacts reference to use lt_mns_companies
+
+## Feature: Magazine-Style Company Detail Page
+- [ ] Audit existing company data fields and current detail view
+- [ ] Build CompanyDetail page with header zone (name, badges, quick facts)
+- [ ] Chapter tab bar: URGENCY | FIT | NEWS | APPROACH | CONTACTS | MEDIA
+- [ ] Urgency chapter: score gauge, signal type, top signals list, conversation starter
+- [ ] Fit chapter: fit score, fit label, dimension breakdown, why this company matters
+- [ ] News chapter: feed_items from serper-analyst, rendered as editorial cards
+- [ ] Approach chapter: conversation starter, email draft, recommended approach
+- [ ] Contacts chapter: filterable contact list with seniority/department filters
+- [ ] Media chapter: product images grid
+- [ ] Wire /company/:id route in App.tsx
+- [ ] Add tRPC getCompanyDetail procedure with all required joins
+- [ ] Add tRPC getCompanyFeedItems procedure for news chapter
+
+## Feature: Single-Page Magazine Company Detail (no tabs)
+
+- [x] Remove all tab/chapter navigation from CompanyDetail
+- [x] Render all 6 sections as a single scrollable page: Urgency, Fit, Latest News, Approach, Contacts, Media
+- [x] Sticky slim jump-nav at top for anchor links to each section
+- [x] Preserve all existing action buttons (research, approach, contacts, images)
+- [x] PDF-export-ready layout (clean sections, print-friendly structure)

@@ -4,7 +4,8 @@ import { ENV } from "./_core/env";
 
 /**
  * Send a message to Telegram via the Bot API.
- * Uses MarkdownV2 formatting for rich cards.
+ * v2: routes to LeadTrigger_CG group (-5201172306)
+ * Uses HTML formatting for rich cards.
  */
 async function sendTelegramMessage(text: string): Promise<{ ok: boolean; error?: string }> {
   const token = ENV.telegramBotToken;

@@ -2098,3 +2098,9 @@
 ## Feature: Compact Company Card Row in Search Results
 
 - [x] Update search results list to show compact rows: [pos] [urgency badge] [brain badge] [company name] [domain] → link to magazine page
+
+## Feature: Sales Menu Page
+
+- [x] Add tRPC procedure: list all campaigns with name, upload date, company count, average fit score
+- [x] Build SalesMenu page: table/list of campaigns, click → search results in list view
+- [x] Add "Sales Menu" entry to sidebar navigation

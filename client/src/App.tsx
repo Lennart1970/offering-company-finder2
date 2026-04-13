@@ -23,7 +23,8 @@ import NicheReview from "./pages/NicheReview";
 import NicheCompanyList from "./pages/NicheCompanyList";
 import FastPrototype from "./pages/FastPrototype";
 import PrototypeRequests from "./pages/PrototypeRequests";
-import LeadinfoImport from "./pages/LeadinfoImport";
+import LeadinfoImport from "@/pages/LeadinfoImport";
+import SalesMenu from "@/pages/SalesMenu";
 
 
 function Router() {
@@ -32,6 +33,7 @@ function Router() {
       <Switch>
         <Route path={"/"} component={Brain} />
         <Route path={"/search-scenario"} component={SearchScenario} />
+        <Route path={"/sales-menu"} component={SalesMenu} />
         <Route path={"/search-results"} component={SearchResults} />
         <Route path={"/search-results/:searchId"} component={SearchResults} />
         <Route path={"/deep-research"} component={DeepResearchDashboard} />

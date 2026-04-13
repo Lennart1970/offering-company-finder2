@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2, FileSpreadsheet, Phone, BookMarked, ScrollText, Network, UserPlus, Copy, Camera, Package, Globe } from "lucide-react";
+import { List, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2, FileSpreadsheet, Phone, BookMarked, ScrollText, Network, UserPlus, Copy, Camera, Package, Globe, LayoutList } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -30,6 +30,7 @@ import { Button } from "./ui/button";
 const menuItems = [
   { icon: BrainCircuit, label: "Offering Brain", path: "/brain" },
   { icon: FileSpreadsheet, label: "Excel Import", path: "/excel-import" },
+  { icon: LayoutList, label: "Sales Menu", path: "/sales-menu" },
   { icon: List, label: "Search Results", path: "/search-results" },
   { icon: Phone, label: "Call Today", path: "/call-today" },
   { icon: BookMarked, label: "Nurture List", path: "/nurture" },

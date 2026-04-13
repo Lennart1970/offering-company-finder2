@@ -3189,6 +3189,64 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         urgency: { total: needUrgency.length, done: urgencyDone, failed: urgencyFailed },
       };
     }),
+
+  // Sales Menu — list all campaigns with stats (company count + avg fit score)
+  getSalesMenuCampaigns: protectedProcedure
+    .query(async ({ ctx }) => {
+      const { getDb } = await import("./db");
+      const { searches, companies, offeringBrain } = await import("../drizzle/schema");
+      const { eq, and, or, desc, sql, inArray } = await import("drizzle-orm");
+      const db = await getDb();
+      if (!db) return [];
+
+      // Get all non-archived searches for this user (or shared with team)
+      const rows = await db
+        .select({
+          search: searches,
+          brainName: offeringBrain.brainName,
+        })
+        .from(searches)
+        .leftJoin(offeringBrain, eq(searches.brainId, offeringBrain.id))
+        .where(
+          and(
+            or(eq(searches.userId, ctx.user.id), eq(searches.sharedWithTeam, 1)),
+            eq(searches.isArchived, 0)
+          )
+        )
+        .orderBy(desc(searches.createdAt));
+
+      if (rows.length === 0) return [];
+
+      // For each search, compute company count and average fit score
+      const searchIds = rows.map(r => r.search.id);
+
+      // Batch query: count + avg fit per searchId
+      const statsRows = await db
+        .select({
+          searchId: companies.searchId,
+          companyCount: sql<number>`COUNT(*)`,
+          avgFit: sql<number>`ROUND(AVG(CASE WHEN ${companies.fitScore} IS NOT NULL THEN ${companies.fitScore} END), 0)`,
+        })
+        .from(companies)
+        .where(inArray(companies.searchId, searchIds))
+        .groupBy(companies.searchId);
+
+      const statsMap = new Map(statsRows.map(s => [s.searchId, s]));
+
+      return rows.map(r => {
+        const stats = statsMap.get(r.search.id);
+        return {
+          id: r.search.id,
+          offeringName: r.search.offeringName ?? "Untitled Campaign",
+          location: r.search.location,
+          brainName: r.brainName ?? null,
+          status: r.search.status,
+          createdAt: r.search.createdAt,
+          companyCount: stats?.companyCount ?? 0,
+          avgFitScore: stats?.avgFit ?? null,
+        };
+      });
+    }),
 });
 
 // Background search function using brain offering data

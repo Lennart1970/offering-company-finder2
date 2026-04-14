@@ -9,6 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
 import BrainBadge from "@/components/BrainBadge";
 import { normaliseSalesApproach } from "@shared/normaliseStarters";
+import { Send } from "lucide-react";
 
 // Format revenue to human-readable string
 function formatRevenue(revenue: number | string | null): string {
@@ -1312,6 +1313,17 @@ function CompanyListRow({ company, index, searchId, isWebsiteVisitor, activeBrai
 }) {
   const [, navigate] = useLocation();
   const url = `/company/${company.id}?from=search/${searchId}`;
+  const [sendingTelegram, setSendingTelegram] = useState(false);
+  const sendToTelegram = trpc.telegram.sendCompanyCard.useMutation({
+    onSuccess: () => {
+      toast.success("Sent to Telegram", { description: `${company.name} delivered to your group.` });
+      setSendingTelegram(false);
+    },
+    onError: (err) => {
+      toast.error("Telegram error", { description: err.message });
+      setSendingTelegram(false);
+    },
+  });
 
   return (
     <div
@@ -1361,6 +1373,34 @@ function CompanyListRow({ company, index, searchId, isWebsiteVisitor, activeBrai
         <span className="text-[10px] font-black text-blue-600 shrink-0">FIT {company.fitScore}</span>
       )}
 
+      {/* Telegram send button */}
+      <button
+        onClick={(e) => {
+          e.stopPropagation();
+          setSendingTelegram(true);
+          const briefData = company.briefData
+            ? (typeof company.briefData === "string" ? JSON.parse(company.briefData) : company.briefData)
+            : null;
+          sendToTelegram.mutate({
+            companyName: company.name,
+            domain: company.websiteUrl ?? undefined,
+            urgencyScore: company.urgencyScore ?? undefined,
+            urgencyLabel: (company.urgencyScore ?? 0) >= 70 ? "HIGH" : (company.urgencyScore ?? 0) >= 50 ? "MEDIUM" : "LOW",
+            fitScore: company.fitScore ?? undefined,
+            conversationStarter: briefData?.conversationStarters?.[0] ?? undefined,
+            topSignalHeadline: briefData?.urgencySignals?.[0]?.description ?? undefined,
+            topSignalType: briefData?.urgencySignals?.[0]?.type ?? undefined,
+            pageUrl: `/company/${company.id}`,
+            brainName: company.generatedWithBrainName ?? undefined,
+          });
+        }}
+        disabled={sendingTelegram}
+        title="Send to Telegram"
+        className="shrink-0 p-1 text-gray-300 hover:text-blue-500 transition-colors disabled:opacity-40"
+      >
+        <Send className="w-3.5 h-3.5" />
+      </button>
+
       {/* Arrow */}
       <span className="text-gray-300 group-hover:text-gray-700 transition-colors shrink-0 text-sm font-bold">→</span>
     </div>
@@ -1381,6 +1421,17 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach,
   activeBrainName?: string | null;
 }) {
   const [, navigate] = useLocation();
+  const [sendingTelegram, setSendingTelegram] = useState(false);
+  const sendToTelegram = trpc.telegram.sendCompanyCard.useMutation({
+    onSuccess: () => {
+      toast.success("Sent to Telegram", { description: `${company.name} delivered to your group.` });
+      setSendingTelegram(false);
+    },
+    onError: (err) => {
+      toast.error("Telegram error", { description: err.message });
+      setSendingTelegram(false);
+    },
+  });
   // Build a URL to this company's detail page, optionally with a chapter and the full queue for PREV/NEXT nav
   const buildCompanyUrl = (chapter?: string) => {
     let url = `/company/${company.id}?from=search/${searchId}`;
@@ -1455,14 +1506,41 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach,
               } catch { return null; }
             })()}
           </div>
-          {/* SALES BRIEF — prominent right-side CTA */}
-          <div className="shrink-0">
+          {/* SALES BRIEF + TELEGRAM — right-side CTAs */}
+          <div className="shrink-0 flex flex-col gap-1.5 items-end">
             <button
               onClick={(e) => { e.stopPropagation(); navigate(buildCompanyUrl()); }}
               className="flex flex-col items-center justify-center gap-0.5 border-2 border-gray-900 bg-gray-900 text-white hover:bg-gray-700 transition-colors px-4 py-3 min-w-[90px]"
             >
               <span className="text-[10px] font-medium tracking-widest uppercase text-gray-300">Sales</span>
               <span className="text-sm font-bold leading-tight">Brief →</span>
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setSendingTelegram(true);
+                const briefData = company.briefData
+                  ? (typeof company.briefData === "string" ? JSON.parse(company.briefData) : company.briefData)
+                  : null;
+                sendToTelegram.mutate({
+                  companyName: company.name,
+                  domain: company.websiteUrl ?? undefined,
+                  urgencyScore: company.urgencyScore ?? undefined,
+                  urgencyLabel: (company.urgencyScore ?? 0) >= 70 ? "HIGH" : (company.urgencyScore ?? 0) >= 50 ? "MEDIUM" : "LOW",
+                  fitScore: company.fitScore ?? undefined,
+                  conversationStarter: briefData?.conversationStarters?.[0] ?? undefined,
+                  topSignalHeadline: briefData?.urgencySignals?.[0]?.description ?? undefined,
+                  topSignalType: briefData?.urgencySignals?.[0]?.type ?? undefined,
+                  pageUrl: `/company/${company.id}`,
+                  brainName: company.generatedWithBrainName ?? undefined,
+                });
+              }}
+              disabled={sendingTelegram}
+              title="Send to Telegram"
+              className="flex items-center gap-1.5 border border-blue-400 text-blue-500 hover:bg-blue-500 hover:text-white transition-colors px-3 py-1.5 text-[10px] font-black disabled:opacity-40 min-w-[90px] justify-center"
+            >
+              <Send className="w-3 h-3" />
+              {sendingTelegram ? "SENDING…" : "TELEGRAM"}
             </button>
           </div>
         </div>

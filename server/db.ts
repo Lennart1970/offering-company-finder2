@@ -446,10 +446,13 @@ export async function getActiveBrain(userId: number): Promise<OfferingBrain | nu
   const db = await getDb();
   if (!db) return null;
 
-  // Fetch ALL active brains ordered by most recently updated first
+  // Fetch ALL active brains: own brains OR shared brains from others
   const activeBrains = await db.select().from(offeringBrain)
     .where(and(
-      eq(offeringBrain.userId, userId),
+      or(
+        eq(offeringBrain.userId, userId),
+        eq(offeringBrain.isShared, 1)
+      ),
       eq(offeringBrain.isActive, 1)
     ))
     .orderBy(desc(offeringBrain.updatedAt));
@@ -484,8 +487,12 @@ export async function getBrainHistory(userId: number): Promise<OfferingBrain[]> 
   const db = await getDb();
   if (!db) return [];
   
+  // Return own brains + shared brains from others
   return db.select().from(offeringBrain)
-    .where(eq(offeringBrain.userId, userId))
+    .where(or(
+      eq(offeringBrain.userId, userId),
+      eq(offeringBrain.isShared, 1)
+    ))
     .orderBy(desc(offeringBrain.createdAt));
 }
 
@@ -493,16 +500,19 @@ export async function setOfferingBrainActive(brainId: number, userId: number): P
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   
-  // Verify brain belongs to user
+  // Verify brain belongs to user OR is shared
   const [brain] = await db.select().from(offeringBrain)
     .where(and(
       eq(offeringBrain.id, brainId),
-      eq(offeringBrain.userId, userId)
+      or(
+        eq(offeringBrain.userId, userId),
+        eq(offeringBrain.isShared, 1)
+      )
     ))
     .limit(1);
   
   if (!brain) {
-    throw new Error("Brain not found or does not belong to user");
+    throw new Error("Brain not found or access denied");
   }
   
   // Deactivate all brains for this user
@@ -545,10 +555,14 @@ export async function getOfferingBrainById(brainId: number, userId: number): Pro
   const db = await getDb();
   if (!db) return null;
   
+  // Allow access to own brains OR shared brains
   const [brain] = await db.select().from(offeringBrain)
     .where(and(
       eq(offeringBrain.id, brainId),
-      eq(offeringBrain.userId, userId)
+      or(
+        eq(offeringBrain.userId, userId),
+        eq(offeringBrain.isShared, 1)
+      )
     ))
     .limit(1);
   

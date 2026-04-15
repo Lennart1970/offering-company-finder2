@@ -2190,3 +2190,15 @@
 ## Bug: Telegram message links point to 3000 sandbox URL
 
 - [x] Fix formatCompanyCard in telegramRouter.ts: use URL().pathname to strip any origin, always build link with leadtrigger-connectgroup.com
+
+## Feature: Share Offering Brains with Raquel and Lauren
+
+- [x] Query DB: found 3 brains (userId=1), Raquel=5970502, Lauren=5970525
+- [x] Add isShared column to offering_brain table (migration 0039)
+- [x] Update getActiveBrain, getBrainHistory, setOfferingBrainActive, getOfferingBrainById to include shared brains
+- [x] Add toggleBrainShared tRPC procedure (owner-only, FORBIDDEN for non-owners)
+- [x] Add 🔓 SHARED / 🔒 PRIVATE toggle button on Offering Brain page (owner only)
+- [x] Show SHARED badge + TEAM BRAIN label on shared brains for non-owners
+- [x] Non-owners can SET ACTIVE on shared brains but cannot DELETE or PUSH/PULL Supabase
+- [x] Mark all 3 existing brains as shared in DB
+- [x] 15 brain-management tests passing

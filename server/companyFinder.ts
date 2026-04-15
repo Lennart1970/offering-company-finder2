@@ -1591,6 +1591,21 @@ export const companyFinderRouter = router({
       return { brain };
     }),
 
+  // Toggle shared flag — owner only
+  toggleBrainShared: protectedProcedure
+    .input(z.object({
+      brainId: z.number(),
+      isShared: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Only the owner can change the shared flag
+      const brain = await getOfferingBrainById(input.brainId, ctx.user.id);
+      if (!brain) throw new Error("Brain not found or access denied");
+      if (brain.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "Only the brain owner can change sharing settings" });
+      await updateOfferingBrain(input.brainId, { isShared: input.isShared ? 1 : 0 });
+      return { success: true, isShared: input.isShared };
+    }),
+
   // ============================================================================
   // Find All C-Suite: Bulk Contact Search
   // ============================================================================

@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 // Helper to safely parse JSON fields
 function parseJson<T>(value: string | null | undefined, fallback: T): T {
@@ -49,6 +50,7 @@ export default function Brain() {
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [excelBrainName, setExcelBrainName] = useState("");
 
+  const { user } = useAuth();
   const { data: brainData, isLoading } = trpc.companyFinder.getActiveBrain.useQuery();
   const { data: historyData } = trpc.companyFinder.getBrainHistory.useQuery();
   const utils = trpc.useUtils();
@@ -98,6 +100,16 @@ export default function Brain() {
     },
     onError: (error) => {
       toast.error(`Deletion failed: ${error.message}`);
+    },
+  });
+
+  const toggleSharedMutation = trpc.companyFinder.toggleBrainShared.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.isShared ? "Brain is now shared with all users" : "Brain is now private");
+      utils.companyFinder.getBrainHistory.invalidate();
+    },
+    onError: (error) => {
+      toast.error(`Share toggle failed: ${error.message}`);
     },
   });
 
@@ -311,6 +323,12 @@ export default function Brain() {
                       {b.isActive === 1 && (
                         <span className="text-xs font-black bg-green-600 text-white px-2 py-1">ACTIVE</span>
                       )}
+                      {b.isShared === 1 && (
+                        <span className="text-xs font-black bg-blue-600 text-white px-2 py-1">SHARED</span>
+                      )}
+                      {b.userId !== user?.id && (
+                        <span className="text-xs font-bold text-blue-600 border border-blue-300 px-2 py-1">TEAM BRAIN</span>
+                      )}
                     </div>
                     <div className="text-sm font-bold text-muted-foreground ml-8">
                       {b.companyName} • {b.companyWebsite}
@@ -364,7 +382,22 @@ export default function Brain() {
                     >
                       {pullFromSupabaseMutation.isPending ? "PULLING..." : "⬇ PULL FROM SUPABASE"}
                     </Button>
-                    {b.isActive !== 1 && (
+                    {b.userId === user?.id && (
+                      <Button
+                        onClick={() => toggleSharedMutation.mutate({ brainId: b.id, isShared: b.isShared !== 1 })}
+                        variant="outline"
+                        size="sm"
+                        className={`text-xs font-black border-2 ${
+                          b.isShared === 1
+                            ? "border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
+                            : "border-gray-400 text-gray-600 hover:bg-gray-100"
+                        }`}
+                        disabled={toggleSharedMutation.isPending}
+                      >
+                        {b.isShared === 1 ? "🔓 SHARED" : "🔒 PRIVATE"}
+                      </Button>
+                    )}
+                    {b.isActive !== 1 && b.userId === user?.id && (
                       <>
                         <Button
                           onClick={() => handleSetActive(b.id)}
@@ -385,6 +418,17 @@ export default function Brain() {
                           DELETE
                         </Button>
                       </>
+                    )}
+                    {b.isActive !== 1 && b.userId !== user?.id && (
+                      <Button
+                        onClick={() => handleSetActive(b.id)}
+                        variant="outline"
+                        size="sm"
+                        className="text-xs font-black border-2 border-black"
+                        disabled={setActiveMutation.isPending}
+                      >
+                        SET ACTIVE
+                      </Button>
                     )}
                   </div>
                 </div>

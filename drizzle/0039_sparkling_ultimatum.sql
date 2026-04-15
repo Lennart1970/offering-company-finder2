@@ -1,0 +1,1 @@
+ALTER TABLE `offering_brain` ADD `isShared` int DEFAULT 0 NOT NULL;

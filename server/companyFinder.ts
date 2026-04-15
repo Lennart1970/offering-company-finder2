@@ -1850,6 +1850,8 @@ export const companyFinderRouter = router({
           phone: enriched.phone || contact.phone || null,
           linkedinUrl: enriched.linkedinUrl || contact.linkedinUrl || null,
           phonePending: enriched.phonePending ? 1 : 0,
+          // Save Apollo person ID so webhook can match this contact when phone arrives
+          ...(enriched.apolloPersonId ? { apolloPersonId: enriched.apolloPersonId } : {}),
         })
         .where(eq(contactsTable.id, contact.id));
 

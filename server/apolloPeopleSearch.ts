@@ -137,7 +137,7 @@ export async function enrichPerson(
   companyDomain: string,
   includePhone: boolean = false,
   webhookUrl?: string
-): Promise<{ email?: string; phone?: string; linkedinUrl?: string; phonePending?: boolean }> {
+): Promise<{ email?: string; phone?: string; linkedinUrl?: string; phonePending?: boolean; apolloPersonId?: string }> {
   const apiKey = process.env.APOLLO_API_KEY;
   if (!apiKey) {
     throw new Error("APOLLO_API_KEY environment variable not set");
@@ -216,6 +216,7 @@ export async function enrichPerson(
       phone: phoneNow,
       linkedinUrl: person.linkedin_url || undefined,
       phonePending,
+      apolloPersonId: person.id || undefined,
     };
   } catch (error) {
     if (axios.isAxiosError(error)) {

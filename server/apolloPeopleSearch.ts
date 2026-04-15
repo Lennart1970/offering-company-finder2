@@ -135,8 +135,9 @@ export async function enrichPerson(
   firstName: string,
   lastName: string,
   companyDomain: string,
-  includePhone: boolean = false
-): Promise<{ email?: string; phone?: string; linkedinUrl?: string }> {
+  includePhone: boolean = false,
+  webhookUrl?: string
+): Promise<{ email?: string; phone?: string; linkedinUrl?: string; phonePending?: boolean }> {
   const apiKey = process.env.APOLLO_API_KEY;
   if (!apiKey) {
     throw new Error("APOLLO_API_KEY environment variable not set");
@@ -163,6 +164,14 @@ export async function enrichPerson(
     if (includePhone) {
       requestBody.reveal_phone_number = true;
       console.log(`[Apollo People Enrich] ⚠️  WARNING: Phone enrichment enabled (8 credits per net-new phone)`);
+      // Apollo requires a webhook_url when reveal_phone_number=true (async delivery)
+      const effectiveWebhookUrl = webhookUrl || process.env.APP_URL && `${process.env.APP_URL}/api/apollo-webhook`;
+      if (effectiveWebhookUrl) {
+        requestBody.webhook_url = effectiveWebhookUrl;
+        console.log(`[Apollo People Enrich] Phone webhook URL: ${effectiveWebhookUrl}`);
+      } else {
+        console.warn(`[Apollo People Enrich] No webhook URL available — phone enrichment may fail. Set APP_URL env var.`);
+      }
     }
 
     console.log(`[Apollo People Enrich] Request body:`, JSON.stringify(requestBody, null, 2));
@@ -185,6 +194,15 @@ export async function enrichPerson(
       return {};
     }
 
+    // When webhook_url is provided, Apollo may return the phone synchronously OR
+    // deliver it asynchronously via webhook. Check if phone is already present.
+    const phoneNow = person.sanitized_phone || person.phone || undefined;
+    const phonePending = includePhone && !phoneNow;
+
+    if (phonePending) {
+      console.log(`[Apollo People Enrich] Phone pending — will be delivered via webhook for person ${person.id}`);
+    }
+
     console.log(`[Apollo People Enrich] Enriched result:`, JSON.stringify({
       name: person.name,
       email: person.email,
@@ -195,8 +213,9 @@ export async function enrichPerson(
 
     return {
       email: person.email || undefined,
-      phone: person.sanitized_phone || person.phone || undefined,
+      phone: phoneNow,
       linkedinUrl: person.linkedin_url || undefined,
+      phonePending,
     };
   } catch (error) {
     if (axios.isAxiosError(error)) {

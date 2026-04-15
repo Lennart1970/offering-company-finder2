@@ -2208,3 +2208,10 @@
 - [x] Root cause: enrichContact procedure called getContactsByCompanyId(0) — hardcoded 0 instead of actual ID
 - [x] Fix: added getContactById(contactId) to db.ts and updated enrichContact to use it directly
 - [x] Fix: changed throw new Error to TRPCError NOT_FOUND for proper error typing
+
+## Bug: Apollo phone enrichment requires webhook_url
+
+- [ ] Add /api/apollo-webhook endpoint to receive async phone enrichment callbacks
+- [ ] Update enrichPerson to pass webhook_url when reveal_phone_number is true
+- [ ] Store pending phone enrichment state in DB (contact.phonePending flag)
+- [ ] Update UI to show pending state on contacts while waiting for webhook callback

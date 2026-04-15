@@ -587,6 +587,41 @@ export async function getContactById(contactId: number): Promise<Contact | null>
   return results[0] ?? null;
 }
 
+/**
+ * Find a contact by Apollo person ID (used by webhook callback to match the contact).
+ */
+export async function getContactByApolloPersonId(apolloPersonId: string): Promise<Contact | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const results = await db.select().from(contacts)
+    .where(eq(contacts.apolloPersonId, apolloPersonId))
+    .limit(1);
+  return results[0] ?? null;
+}
+
+/**
+ * Update a contact's phone number and clear the phonePending flag.
+ * Called when Apollo delivers the async webhook callback.
+ */
+export async function updateContactPhone(contactId: number, phone: string): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(contacts)
+    .set({ phone, phonePending: 0 })
+    .where(eq(contacts.id, contactId));
+}
+
+/**
+ * Set phonePending flag on a contact (1 = waiting for Apollo webhook).
+ */
+export async function setContactPhonePending(contactId: number, pending: boolean): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(contacts)
+    .set({ phonePending: pending ? 1 : 0 })
+    .where(eq(contacts.id, contactId));
+}
+
 // ============================================================================
 // Niche Helpers
 // ============================================================================

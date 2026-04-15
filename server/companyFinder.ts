@@ -53,6 +53,8 @@ import {
   setOfferingBrainActive,
   deleteOfferingBrain,
   getOfferingBrainById,
+  setContactPhonePending,
+  updateContactPhone,
 } from "./db";
 import { extractOffering } from "./offeringExtractor";
 import { searchApolloCompanies, enrichCompanyDetails } from "./apolloSearch";
@@ -1821,31 +1823,44 @@ export const companyFinderRouter = router({
         throw new Error("Contact must have first name and last name for enrichment");
       }
 
+      // Build webhook URL for async phone delivery (Apollo requires this when reveal_phone_number=true)
+      const webhookUrl = process.env.APP_URL
+        ? `${process.env.APP_URL}/api/apollo-webhook`
+        : `https://leadtrigger-connectgroup.com/api/apollo-webhook`;
+
       const enriched = await enrichPerson(
         contact.firstName,
         contact.lastName,
         domain,
-        input.includePhone || false
+        input.includePhone || false,
+        webhookUrl
       );
 
-      // Update contact in database
-      const updatedContact = await createContact({
-        companyId: contact.companyId,
-        apolloPersonId: contact.apolloPersonId,
-        firstName: contact.firstName,
-        lastName: contact.lastName,
-        fullName: contact.fullName,
-        title: contact.title,
-        email: enriched.email || contact.email || null,
-        phone: enriched.phone || contact.phone || null,
-        linkedinUrl: enriched.linkedinUrl || contact.linkedinUrl || null,
-        searchedTitle: contact.searchedTitle,
-      });
+      // Update contact in database — use existing contact row (update in place)
+      const db = await import("./db");
+      const drizzleDb = await db.getDb();
+      if (!drizzleDb) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
 
-      console.log(`[Enrich Contact] Completed: ${updatedContact.fullName} enriched`);
+      const { contacts: contactsTable } = await import("../drizzle/schema");
+      const { eq } = await import("drizzle-orm");
+
+      await drizzleDb.update(contactsTable)
+        .set({
+          email: enriched.email || contact.email || null,
+          phone: enriched.phone || contact.phone || null,
+          linkedinUrl: enriched.linkedinUrl || contact.linkedinUrl || null,
+          phonePending: enriched.phonePending ? 1 : 0,
+        })
+        .where(eq(contactsTable.id, contact.id));
+
+      const updatedContact = await getContactById(contact.id);
+      if (!updatedContact) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to fetch updated contact" });
+
+      console.log(`[Enrich Contact] Completed: ${updatedContact.fullName} enriched. phonePending=${enriched.phonePending}`);
 
       return {
         contact: updatedContact,
+        phonePending: enriched.phonePending || false,
       };
     }),
 
@@ -3369,6 +3384,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
           fit_label: string | null;
           page_url: string | null;
           synced_at: string | null;
+          telegram_sent_at: string | null;
           conversation_starter: string | null;
           top_signal_headline: string | null;
           top_signal_type: string | null;

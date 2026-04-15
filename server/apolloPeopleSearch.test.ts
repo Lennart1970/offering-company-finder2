@@ -224,23 +224,47 @@ describe("Apollo People Search", () => {
   });
 
   describe("enrichPerson", () => {
-    it("should include reveal_phone_number only when includePhone is true", async () => {
+    it("should include reveal_phone_number and webhook_url when includePhone is true", async () => {
       const { enrichPerson } = await import("./apolloPeopleSearch");
 
       mockedAxios.post.mockResolvedValueOnce({
         data: {
           person: {
+            id: "person-123",
             email: "test@example.com",
             sanitized_phone: "+1-555-000-1234",
           },
         },
       });
 
-      await enrichPerson("John", "Doe", "example.com", true);
+      const result = await enrichPerson("John", "Doe", "example.com", true, "https://example.com/api/apollo-webhook");
 
       const call = mockedAxios.post.mock.calls[0];
       expect(call[1]).toHaveProperty("reveal_phone_number", true);
+      expect(call[1]).toHaveProperty("webhook_url", "https://example.com/api/apollo-webhook");
       expect(call[1]).toHaveProperty("reveal_personal_emails", true);
+      // Phone returned synchronously — phonePending should be false
+      expect(result.phone).toBe("+1-555-000-1234");
+      expect(result.phonePending).toBe(false);
+    });
+
+    it("should set phonePending=true when phone not returned synchronously", async () => {
+      const { enrichPerson } = await import("./apolloPeopleSearch");
+
+      mockedAxios.post.mockResolvedValueOnce({
+        data: {
+          person: {
+            id: "person-456",
+            email: "test@example.com",
+            // No sanitized_phone — Apollo will deliver via webhook
+          },
+        },
+      });
+
+      const result = await enrichPerson("Jane", "Smith", "example.com", true, "https://example.com/api/apollo-webhook");
+
+      expect(result.phone).toBeUndefined();
+      expect(result.phonePending).toBe(true);
     });
 
     it("should NOT include reveal_phone_number when includePhone is false", async () => {

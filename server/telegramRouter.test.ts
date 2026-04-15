@@ -97,7 +97,7 @@ describe("Telegram formatCompanyCard", () => {
     expect(body.text).toContain("leadtrigger-connectgroup.com/company/42");
   });
 
-  it("uses absolute URL as-is when page_url is already absolute", async () => {
+  it("always rewrites absolute URL to production domain", async () => {
     const { telegramRouter } = await import("./telegramRouter");
     const handler = (telegramRouter as any)._def.procedures.sendCompanyCard._def.resolver;
     await handler({
@@ -105,7 +105,9 @@ describe("Telegram formatCompanyCard", () => {
       ctx: { user: { id: 1 } },
     });
     const body = JSON.parse((global.fetch as ReturnType<typeof vi.fn>).mock.calls[0][1].body as string);
-    expect(body.text).toContain("https://example.com/company/99");
+    // Origin is always stripped and replaced with production domain
+    expect(body.text).toContain("leadtrigger-connectgroup.com/company/99");
+    expect(body.text).not.toContain("https://example.com/company/99");
   });
 
   it("uses HTML parse_mode", async () => {

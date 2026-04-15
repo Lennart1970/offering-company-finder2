@@ -62,6 +62,7 @@ export default function IntelligencePage() {
   const [campaignId, setCampaignId] = useState<number | undefined>(undefined);
   const [urgencyLabel, setUrgencyLabel] = useState<UrgencyFilter>("ALL");
   const [minFit, setMinFit] = useState<number | undefined>(undefined);
+  const [hideSent, setHideSent] = useState(false);
   const [page, setPage] = useState(0);
   const LIMIT = 50;
 
@@ -87,7 +88,11 @@ export default function IntelligencePage() {
     offset: page * LIMIT,
   });
 
-  const companies = data?.companies ?? [];
+  const allCompanies = data?.companies ?? [];
+  // Client-side filter: hide companies that have been sent (telegram_sent_at set OR in sentIds)
+  const companies = hideSent
+    ? allCompanies.filter(c => !c.telegram_sent_at && !sentIds.has(c.company_id ?? ""))
+    : allCompanies;
   const total = data?.total ?? 0;
   const totalPages = Math.ceil(total / LIMIT);
 
@@ -187,6 +192,17 @@ export default function IntelligencePage() {
               </Button>
             ))}
           </div>
+
+          {/* Hide Sent toggle */}
+          <Button
+            size="sm"
+            variant={hideSent ? "default" : "outline"}
+            className={hideSent ? "bg-emerald-600 hover:bg-emerald-700 text-white" : "border-emerald-600 text-emerald-600 hover:bg-emerald-50"}
+            onClick={() => setHideSent(v => !v)}
+          >
+            <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+            {hideSent ? "Showing unsent" : "Hide Sent"}
+          </Button>
 
           {isFetching && <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />}
 

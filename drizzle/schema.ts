@@ -194,6 +194,7 @@ export const contacts = mysqlTable("contacts", {
   phone: varchar("phone", { length: 64 }),
   linkedinUrl: varchar("linkedinUrl", { length: 512 }),
   searchedTitle: varchar("searchedTitle", { length: 256 }), // The job title user searched for
+  phonePending: tinyint("phonePending").default(0), // 1 while waiting for Apollo webhook callback
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

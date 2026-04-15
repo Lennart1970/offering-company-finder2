@@ -2507,27 +2507,30 @@ export default function CompanyDetail() {
                   <div className="text-sm font-bold text-muted-foreground">Use the buttons above to find decision-makers or all personnel.</div>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {contacts.map((c: any, i: number) => (
-                    <div key={i} className="p-4 border-2 border-gray-200 hover:border-black transition-colors">
-                      <div className="font-black text-base mb-0.5">{c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim() || "—"}</div>
-                      <div className="text-sm font-bold text-muted-foreground mb-2">{c.title || c.jobTitle || "—"}</div>
-                      {c.email && <a href={`mailto:${c.email}`} className="text-sm text-blue-600 underline font-bold block">{c.email}</a>}
-                      {c.phone && <a href={`tel:${c.phone}`} className="text-sm text-green-600 underline font-bold block">{c.phone}</a>}
-                      {c.linkedinUrl && (
-                        <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 underline block mt-1">
-                          {c.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}
-                        </a>
-                      )}
-                      {!c.email && (
-                        <CompanyDetailEnrichButton contactId={c.id} companyId={company.id} onDone={() => refetch()} />
-                      )}
-                      {!c.phone && (
-                        <CompanyDetailGetPhoneButton contactId={c.id} companyId={company.id} onDone={() => refetch()} />
-                      )}
-                    </div>
-                  ))}
-                </div>
+                <>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {contacts.map((c: any, i: number) => (
+                      <div key={i} className="p-4 border-2 border-gray-200 hover:border-black transition-colors">
+                        <div className="font-black text-base mb-0.5">{c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim() || "—"}</div>
+                        <div className="text-sm font-bold text-muted-foreground mb-2">{c.title || c.jobTitle || "—"}</div>
+                        {c.email && <a href={`mailto:${c.email}`} className="text-sm text-blue-600 underline font-bold block">{c.email}</a>}
+                        {c.phone && <a href={`tel:${c.phone}`} className="text-sm text-green-600 underline font-bold block">{c.phone}</a>}
+                        {c.linkedinUrl && (
+                          <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 underline block mt-1">
+                            {c.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}
+                          </a>
+                        )}
+                        {!c.email && (
+                          <CompanyDetailEnrichButton contactId={c.id} companyId={company.id} onDone={() => refetch()} />
+                        )}
+                        {!c.phone && (
+                          <CompanyDetailGetPhoneButton contactId={c.id} companyId={company.id} onDone={() => refetch()} />
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                  <CompanyDetailGetAllPhonesButton contacts={contacts} companyId={company.id} onDone={() => refetch()} />
+                </>
               )}
             </div>
           )}
@@ -2613,5 +2616,40 @@ function CompanyDetailGetPhoneButton({ contactId, companyId, onDone }: { contact
     >
       {phoneMutation.isPending ? "..." : "GET PHONE"}
     </Button>
+  );
+}
+
+function CompanyDetailGetAllPhonesButton({ contacts, companyId, onDone }: { contacts: any[]; companyId: number; onDone: () => void }) {
+  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
+  const enrichMutation = trpc.companyFinder.enrichContact.useMutation();
+
+  const missing = contacts.filter((c: any) => !c.phone);
+  if (missing.length === 0) return null;
+
+  async function handleClick() {
+    setProgress({ done: 0, total: missing.length });
+    for (let i = 0; i < missing.length; i++) {
+      try {
+        await enrichMutation.mutateAsync({ contactId: missing[i].id, includePhone: true });
+      } catch {
+        // skip failed contacts and continue
+      }
+      setProgress({ done: i + 1, total: missing.length });
+    }
+    setProgress(null);
+    toast.success(`Phone enrichment done for ${missing.length} contact${missing.length !== 1 ? "s" : ""}`);
+    onDone();
+  }
+
+  return (
+    <button
+      onClick={handleClick}
+      disabled={progress !== null}
+      className="font-black border-4 border-green-600 text-green-600 hover:bg-green-600 hover:text-white px-5 py-2.5 text-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-default mt-4 w-full"
+    >
+      {progress
+        ? `📞 FETCHING PHONES... (${progress.done} / ${progress.total})`
+        : `📞 GET ALL PHONES (${missing.length})`}
+    </button>
   );
 }

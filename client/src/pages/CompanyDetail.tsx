@@ -114,6 +114,14 @@ export default function CompanyDetail() {
   const company = data?.company ?? null;
   const rawContacts = data?.contacts ?? [];
 
+  // Auto-poll every 5 seconds while any contact has phonePending=1
+  const hasPendingPhone = rawContacts.some((c: any) => c.phonePending === 1 && !c.phone);
+  useEffect(() => {
+    if (!hasPendingPhone) return;
+    const interval = setInterval(() => { refetch(); }, 5000);
+    return () => clearInterval(interval);
+  }, [hasPendingPhone, refetch]);
+
   // Leadinfo — website visitor data for this company
   const { data: leadinfoVisit } = trpc.leadinfo.getByCompany.useQuery(
     { companyId },
@@ -2515,6 +2523,11 @@ export default function CompanyDetail() {
                         <div className="text-sm font-bold text-muted-foreground mb-2">{c.title || c.jobTitle || "—"}</div>
                         {c.email && <a href={`mailto:${c.email}`} className="text-sm text-blue-600 underline font-bold block">{c.email}</a>}
                         {c.phone && <a href={`tel:${c.phone}`} className="text-sm text-green-600 underline font-bold block">{c.phone}</a>}
+                        {c.phonePending === 1 && !c.phone && (
+                          <div className="text-xs text-amber-600 font-bold mt-1 flex items-center gap-1">
+                            <span className="animate-spin inline-block">⏳</span> Phone pending via webhook...
+                          </div>
+                        )}
                         {c.linkedinUrl && (
                           <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-xs text-blue-500 underline block mt-1">
                             {c.linkedinUrl.replace(/^https?:\/\/(www\.)?/, "")}
@@ -2523,7 +2536,7 @@ export default function CompanyDetail() {
                         {!c.email && (
                           <CompanyDetailEnrichButton contactId={c.id} companyId={company.id} onDone={() => refetch()} />
                         )}
-                        {!c.phone && (
+                        {!c.phone && c.phonePending !== 1 && (
                           <CompanyDetailGetPhoneButton contactId={c.id} companyId={company.id} onDone={() => refetch()} />
                         )}
                       </div>
@@ -2602,7 +2615,14 @@ function CompanyDetailEnrichButton({ contactId, companyId, onDone }: { contactId
 
 function CompanyDetailGetPhoneButton({ contactId, companyId, onDone }: { contactId: number; companyId: number; onDone: () => void }) {
   const phoneMutation = trpc.companyFinder.enrichContact.useMutation({
-    onSuccess: () => { toast.success("Phone number retrieved!"); onDone(); },
+    onSuccess: (data) => {
+      if (data.phonePending) {
+        toast.info("Phone request sent — Apollo will deliver it via webhook shortly.");
+      } else {
+        toast.success("Phone number retrieved!");
+      }
+      onDone();
+    },
     onError: (error) => toast.error(`Phone lookup failed: ${error.message}`),
   });
 

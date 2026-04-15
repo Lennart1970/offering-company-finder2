@@ -11,6 +11,7 @@ import conferenceImportRouter from "../routes/conferenceImport";
 import excelImportRouter from "../routes/excelImport";
 import exportExcelRouter from "../routes/exportExcel";
 import { serveStatic, setupVite } from "./vite";
+import apolloWebhookRouter from "../routes/apolloWebhook";
 import { startCampaignQueueWorker } from "../campaignQueueWorker";
 import { runBatchContactsAndReps, getBatchProgress } from "../batchContactsAndReps";
 import { runBatchSignalOpeners, batchSignalProgress } from "../batchSignalOpeners";
@@ -50,6 +51,8 @@ async function startServer() {
   app.use("/api/excel-import", excelImportRouter);
   // SharePoint-ready Excel export
   app.use("/api/export-excel", exportExcelRouter);
+  // Apollo async phone enrichment webhook
+  app.use("/api/apollo-webhook", apolloWebhookRouter);
 
   // Batch contacts + sales rep trigger (admin only, no auth for internal use)
   app.post("/api/batch-contacts-reps", (req, res) => {

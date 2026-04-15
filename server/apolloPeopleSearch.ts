@@ -135,8 +135,9 @@ export async function enrichPerson(
   firstName: string,
   lastName: string,
   companyDomain: string,
-  includePhone: boolean = false
-): Promise<{ email?: string; phone?: string; linkedinUrl?: string }> {
+  includePhone: boolean = false,
+  webhookUrl?: string
+): Promise<{ email?: string; phone?: string; linkedinUrl?: string; phonePending?: boolean; apolloPersonId?: string }> {
   const apiKey = process.env.APOLLO_API_KEY;
   if (!apiKey) {
     throw new Error("APOLLO_API_KEY environment variable not set");
@@ -163,6 +164,14 @@ export async function enrichPerson(
     if (includePhone) {
       requestBody.reveal_phone_number = true;
       console.log(`[Apollo People Enrich] ⚠️  WARNING: Phone enrichment enabled (8 credits per net-new phone)`);
+      // Apollo requires a webhook_url when reveal_phone_number=true (async delivery)
+      const effectiveWebhookUrl = webhookUrl || process.env.APP_URL && `${process.env.APP_URL}/api/apollo-webhook`;
+      if (effectiveWebhookUrl) {
+        requestBody.webhook_url = effectiveWebhookUrl;
+        console.log(`[Apollo People Enrich] Phone webhook URL: ${effectiveWebhookUrl}`);
+      } else {
+        console.warn(`[Apollo People Enrich] No webhook URL available — phone enrichment may fail. Set APP_URL env var.`);
+      }
     }
 
     console.log(`[Apollo People Enrich] Request body:`, JSON.stringify(requestBody, null, 2));
@@ -185,19 +194,26 @@ export async function enrichPerson(
       return {};
     }
 
-    // Extract phone from multiple possible locations in the response:
+    // Extract phone from multiple possible locations in the synchronous response:
     // 1. phone_numbers[] array (most reliable — contains sanitized_number, type, etc.)
     // 2. sanitized_phone (top-level convenience field)
     // 3. phone (legacy field)
+    // When webhook_url is provided, Apollo may return cached phone synchronously OR
+    // deliver new phone data asynchronously via webhook.
     const phoneFromArray = person.phone_numbers?.length
       ? (person.phone_numbers[0].sanitized_number || person.phone_numbers[0].raw_number)
       : undefined;
-    const phone = phoneFromArray || person.sanitized_phone || person.phone || undefined;
+    const phoneNow = phoneFromArray || person.sanitized_phone || person.phone || undefined;
+    const phonePending = includePhone && !phoneNow;
+
+    if (phonePending) {
+      console.log(`[Apollo People Enrich] Phone pending — will be delivered via webhook for person ${person.id}`);
+    }
 
     console.log(`[Apollo People Enrich] Enriched result:`, JSON.stringify({
       name: person.name,
       email: person.email,
-      phone,
+      phone: phoneNow,
       phone_numbers_count: person.phone_numbers?.length || 0,
       linkedin_url: person.linkedin_url,
       organization: person.organization?.name,
@@ -205,8 +221,10 @@ export async function enrichPerson(
 
     return {
       email: person.email || undefined,
-      phone,
+      phone: phoneNow,
       linkedinUrl: person.linkedin_url || undefined,
+      phonePending,
+      apolloPersonId: person.id || undefined,
     };
   } catch (error) {
     if (axios.isAxiosError(error)) {

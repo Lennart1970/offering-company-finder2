@@ -1,0 +1,1 @@
+ALTER TABLE `contacts` ADD `phonePending` tinyint DEFAULT 0;

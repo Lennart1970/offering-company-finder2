@@ -49,9 +49,12 @@ import {
   updateOfferingBrain,
   getBrainHistory,
   getContactsByCompanyId,
+  getContactById,
   setOfferingBrainActive,
   deleteOfferingBrain,
   getOfferingBrainById,
+  setContactPhonePending,
+  updateContactPhone,
 } from "./db";
 import { extractOffering } from "./offeringExtractor";
 import { searchApolloCompanies, enrichCompanyDetails } from "./apolloSearch";
@@ -1591,6 +1594,21 @@ export const companyFinderRouter = router({
       return { brain };
     }),
 
+  // Toggle shared flag — owner only
+  toggleBrainShared: protectedProcedure
+    .input(z.object({
+      brainId: z.number(),
+      isShared: z.boolean(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Only the owner can change the shared flag
+      const brain = await getOfferingBrainById(input.brainId, ctx.user.id);
+      if (!brain) throw new Error("Brain not found or access denied");
+      if (brain.userId !== ctx.user.id) throw new TRPCError({ code: "FORBIDDEN", message: "Only the brain owner can change sharing settings" });
+      await updateOfferingBrain(input.brainId, { isShared: input.isShared ? 1 : 0 });
+      return { success: true, isShared: input.isShared };
+    }),
+
   // ============================================================================
   // Find All C-Suite: Bulk Contact Search
   // ============================================================================
@@ -1787,9 +1805,8 @@ export const companyFinderRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       // Get contact from database
-      const contacts = await getContactsByCompanyId(0); // We need to add getContactById to db.ts
-      const contact = contacts.find((c: any) => c.id === input.contactId);
-      if (!contact) throw new Error("Contact not found");
+      const contact = await getContactById(input.contactId);
+      if (!contact) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
 
       // Get company to get domain (also checks access)
       const company = await assertCompanyAccess(contact.companyId, ctx.user.id);
@@ -1806,31 +1823,46 @@ export const companyFinderRouter = router({
         throw new Error("Contact must have first name and last name for enrichment");
       }
 
+      // Build webhook URL for async phone delivery (Apollo requires this when reveal_phone_number=true)
+      const webhookUrl = process.env.APP_URL
+        ? `${process.env.APP_URL}/api/apollo-webhook`
+        : `https://leadtrigger-connectgroup.com/api/apollo-webhook`;
+
       const enriched = await enrichPerson(
         contact.firstName,
         contact.lastName,
         domain,
-        input.includePhone || false
+        input.includePhone || false,
+        webhookUrl
       );
 
-      // Update contact in database
-      const updatedContact = await createContact({
-        companyId: contact.companyId,
-        apolloPersonId: contact.apolloPersonId,
-        firstName: contact.firstName,
-        lastName: contact.lastName,
-        fullName: contact.fullName,
-        title: contact.title,
-        email: enriched.email || contact.email || null,
-        phone: enriched.phone || contact.phone || null,
-        linkedinUrl: enriched.linkedinUrl || contact.linkedinUrl || null,
-        searchedTitle: contact.searchedTitle,
-      });
+      // Update contact in database — use existing contact row (update in place)
+      const db = await import("./db");
+      const drizzleDb = await db.getDb();
+      if (!drizzleDb) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
 
-      console.log(`[Enrich Contact] Completed: ${updatedContact.fullName} enriched`);
+      const { contacts: contactsTable } = await import("../drizzle/schema");
+      const { eq } = await import("drizzle-orm");
+
+      await drizzleDb.update(contactsTable)
+        .set({
+          email: enriched.email || contact.email || null,
+          phone: enriched.phone || contact.phone || null,
+          linkedinUrl: enriched.linkedinUrl || contact.linkedinUrl || null,
+          phonePending: enriched.phonePending ? 1 : 0,
+          // Save Apollo person ID so webhook can match this contact when phone arrives
+          ...(enriched.apolloPersonId ? { apolloPersonId: enriched.apolloPersonId } : {}),
+        })
+        .where(eq(contactsTable.id, contact.id));
+
+      const updatedContact = await getContactById(contact.id);
+      if (!updatedContact) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Failed to fetch updated contact" });
+
+      console.log(`[Enrich Contact] Completed: ${updatedContact.fullName} enriched. phonePending=${enriched.phonePending}`);
 
       return {
         contact: updatedContact,
+        phonePending: enriched.phonePending || false,
       };
     }),
 
@@ -3354,6 +3386,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
           fit_label: string | null;
           page_url: string | null;
           synced_at: string | null;
+          telegram_sent_at: string | null;
           conversation_starter: string | null;
           top_signal_headline: string | null;
           top_signal_type: string | null;

@@ -2522,6 +2522,9 @@ export default function CompanyDetail() {
                       {!c.email && (
                         <CompanyDetailEnrichButton contactId={c.id} companyId={company.id} onDone={() => refetch()} />
                       )}
+                      {!c.phone && (
+                        <CompanyDetailGetPhoneButton contactId={c.id} companyId={company.id} onDone={() => refetch()} />
+                      )}
                     </div>
                   ))}
                 </div>
@@ -2590,6 +2593,25 @@ function CompanyDetailEnrichButton({ contactId, companyId, onDone }: { contactId
       className="text-xs font-black border-2 border-purple-600 text-purple-600 mt-2 cursor-pointer w-full"
     >
       {enrichMutation.isPending ? "..." : "GET EMAIL"}
+    </Button>
+  );
+}
+
+function CompanyDetailGetPhoneButton({ contactId, companyId, onDone }: { contactId: number; companyId: number; onDone: () => void }) {
+  const phoneMutation = trpc.companyFinder.enrichContact.useMutation({
+    onSuccess: () => { toast.success("Phone number retrieved!"); onDone(); },
+    onError: (error) => toast.error(`Phone lookup failed: ${error.message}`),
+  });
+
+  return (
+    <Button
+      size="sm"
+      variant="outline"
+      onClick={() => phoneMutation.mutate({ contactId, includePhone: true })}
+      disabled={phoneMutation.isPending}
+      className="text-xs font-black border-2 border-green-600 text-green-600 mt-2 cursor-pointer w-full"
+    >
+      {phoneMutation.isPending ? "..." : "GET PHONE"}
     </Button>
   );
 }

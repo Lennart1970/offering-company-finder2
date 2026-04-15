@@ -2202,3 +2202,9 @@
 - [x] Non-owners can SET ACTIVE on shared brains but cannot DELETE or PUSH/PULL Supabase
 - [x] Mark all 3 existing brains as shared in DB
 - [x] 15 brain-management tests passing
+
+## Bug: "Contact not found" mutation error on company detail contacts page
+
+- [x] Root cause: enrichContact procedure called getContactsByCompanyId(0) — hardcoded 0 instead of actual ID
+- [x] Fix: added getContactById(contactId) to db.ts and updated enrichContact to use it directly
+- [x] Fix: changed throw new Error to TRPCError NOT_FOUND for proper error typing

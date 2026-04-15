@@ -49,6 +49,7 @@ import {
   updateOfferingBrain,
   getBrainHistory,
   getContactsByCompanyId,
+  getContactById,
   setOfferingBrainActive,
   deleteOfferingBrain,
   getOfferingBrainById,
@@ -1802,9 +1803,8 @@ export const companyFinderRouter = router({
     }))
     .mutation(async ({ ctx, input }) => {
       // Get contact from database
-      const contacts = await getContactsByCompanyId(0); // We need to add getContactById to db.ts
-      const contact = contacts.find((c: any) => c.id === input.contactId);
-      if (!contact) throw new Error("Contact not found");
+      const contact = await getContactById(input.contactId);
+      if (!contact) throw new TRPCError({ code: "NOT_FOUND", message: "Contact not found" });
 
       // Get company to get domain (also checks access)
       const company = await assertCompanyAccess(contact.companyId, ctx.user.id);

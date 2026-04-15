@@ -578,6 +578,15 @@ export async function getContactsByCompanyId(companyId: number): Promise<Contact
     .orderBy(desc(contacts.createdAt));
 }
 
+export async function getContactById(contactId: number): Promise<Contact | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const results = await db.select().from(contacts)
+    .where(eq(contacts.id, contactId))
+    .limit(1);
+  return results[0] ?? null;
+}
+
 // ============================================================================
 // Niche Helpers
 // ============================================================================

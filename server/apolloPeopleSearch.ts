@@ -185,17 +185,27 @@ export async function enrichPerson(
       return {};
     }
 
+    // Extract phone from multiple possible locations in the response:
+    // 1. phone_numbers[] array (most reliable — contains sanitized_number, type, etc.)
+    // 2. sanitized_phone (top-level convenience field)
+    // 3. phone (legacy field)
+    const phoneFromArray = person.phone_numbers?.length
+      ? (person.phone_numbers[0].sanitized_number || person.phone_numbers[0].raw_number)
+      : undefined;
+    const phone = phoneFromArray || person.sanitized_phone || person.phone || undefined;
+
     console.log(`[Apollo People Enrich] Enriched result:`, JSON.stringify({
       name: person.name,
       email: person.email,
-      phone: person.sanitized_phone,
+      phone,
+      phone_numbers_count: person.phone_numbers?.length || 0,
       linkedin_url: person.linkedin_url,
       organization: person.organization?.name,
     }, null, 2));
 
     return {
       email: person.email || undefined,
-      phone: person.sanitized_phone || person.phone || undefined,
+      phone,
       linkedinUrl: person.linkedin_url || undefined,
     };
   } catch (error) {

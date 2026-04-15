@@ -2215,3 +2215,14 @@
 - [ ] Update enrichPerson to pass webhook_url when reveal_phone_number is true
 - [ ] Store pending phone enrichment state in DB (contact.phonePending flag)
 - [ ] Update UI to show pending state on contacts while waiting for webhook callback
+
+## Apollo Webhook Audit Log
+- [ ] Add apollo_webhook_log table to drizzle schema
+- [ ] Generate and apply Drizzle migration for apollo_webhook_log
+- [ ] Add DB helpers: insertWebhookLog, getWebhookLogs
+- [ ] Update Apollo webhook handler to write audit rows on every callback
+- [ ] Add tRPC procedure: webhookLog.list (paginated, protected)
+- [ ] Build Webhook Log UI page in dashboard sidebar
+- [ ] Register route in App.tsx
+
+- [x] Show elapsed time on phone pending indicator (e.g. "⏳ Phone pending... (2m 30s)")

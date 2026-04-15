@@ -138,6 +138,43 @@ export default function CompanyDetailMagazine() {
     return () => clearInterval(interval);
   }, [hasPendingPhone, refetch]);
 
+  // Track when each contact's phone request started (stored in localStorage for persistence)
+  const PENDING_START_KEY = (contactId: number) => `phone_pending_start_${contactId}`;
+  const [, forceElapsedUpdate] = useState(0);
+
+  // Record start time when phonePending becomes 1
+  useEffect(() => {
+    rawContacts.forEach((c: any) => {
+      if (c.phonePending === 1 && !c.phone) {
+        const key = PENDING_START_KEY(c.id);
+        if (!localStorage.getItem(key)) {
+          localStorage.setItem(key, Date.now().toString());
+        }
+      } else {
+        // Clear when resolved
+        localStorage.removeItem(PENDING_START_KEY(c.id));
+      }
+    });
+  }, [rawContacts]);
+
+  // Tick every second to update elapsed display
+  useEffect(() => {
+    if (!hasPendingPhone) return;
+    const tick = setInterval(() => forceElapsedUpdate(n => n + 1), 1000);
+    return () => clearInterval(tick);
+  }, [hasPendingPhone]);
+
+  function getElapsedLabel(contactId: number): string {
+    const key = PENDING_START_KEY(contactId);
+    const startStr = localStorage.getItem(key);
+    if (!startStr) return "";
+    const elapsed = Math.floor((Date.now() - parseInt(startStr)) / 1000);
+    if (elapsed < 60) return `${elapsed}s`;
+    const m = Math.floor(elapsed / 60);
+    const s = elapsed % 60;
+    return `${m}m ${s.toString().padStart(2, "0")}s`;
+  }
+
   const { data: leadinfoVisit } = trpc.leadinfo.getByCompany.useQuery(
     { companyId }, { enabled: !!companyId && !isNaN(companyId) }
   );
@@ -1018,7 +1055,11 @@ export default function CompanyDetailMagazine() {
                   {c.phone && <a href={`tel:${c.phone}`} className="text-sm text-green-600 underline font-bold block">{c.phone}</a>}
                   {c.phonePending === 1 && !c.phone && (
                     <div className="text-xs text-amber-600 font-bold mt-1 flex items-center gap-1">
-                      <span className="animate-spin inline-block">⏳</span> Phone pending via webhook...
+                      <span className="animate-spin inline-block">⏳</span>
+                      Phone pending via webhook...
+                      {getElapsedLabel(c.id) && (
+                        <span className="text-amber-500 font-mono">({getElapsedLabel(c.id)})</span>
+                      )}
                     </div>
                   )}
                   {c.linkedinUrl && (

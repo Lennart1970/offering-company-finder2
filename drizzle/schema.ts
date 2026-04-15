@@ -478,3 +478,36 @@ export const leadinfoVisits = mysqlTable("leadinfo_visits", {
 });
 export type LeadinfoVisit = typeof leadinfoVisits.$inferSelect;
 export type InsertLeadinfoVisit = typeof leadinfoVisits.$inferInsert;
+
+/**
+ * Audit log for every Apollo webhook callback received.
+ * Stores the full payload summary so delivery issues can be diagnosed
+ * without reading server logs.
+ */
+export const apolloWebhookLogs = mysqlTable("apolloWebhookLogs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Raw status field from Apollo payload ("success" | "failed" | etc.) */
+  apolloStatus: varchar("apolloStatus", { length: 64 }),
+  /** Apollo person ID from the people[0].id field */
+  apolloPersonId: varchar("apolloPersonId", { length: 128 }),
+  /** Phone number delivered (sanitized_number from phone_numbers[0]) */
+  phoneDelivered: varchar("phoneDelivered", { length: 64 }),
+  /** Our internal contact ID if a match was found, null otherwise */
+  contactId: int("contactId"),
+  /** Contact full name for quick reference */
+  contactName: varchar("contactName", { length: 256 }),
+  /** Whether we successfully updated the contact record */
+  updated: tinyint("updated").default(0).notNull(),
+  /** Reason code when not updated: no_phone | contact_not_found | no_people | error */
+  failReason: varchar("failReason", { length: 64 }),
+  /** Number of people entries in the payload */
+  peopleCount: int("peopleCount").default(0),
+  /** Credits consumed as reported by Apollo */
+  creditsConsumed: int("creditsConsumed").default(0),
+  /** Full raw payload stored as JSON string for deep debugging */
+  rawPayload: text("rawPayload"),
+  receivedAt: timestamp("receivedAt").defaultNow().notNull(),
+});
+
+export type ApolloWebhookLog = typeof apolloWebhookLogs.$inferSelect;
+export type InsertApolloWebhookLog = typeof apolloWebhookLogs.$inferInsert;

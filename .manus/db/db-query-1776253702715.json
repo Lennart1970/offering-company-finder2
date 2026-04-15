@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `apolloWebhookLogs` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`apolloStatus` varchar(64),\n\t`apolloPersonId` varchar(128),\n\t`phoneDelivered` varchar(64),\n\t`contactId` int,\n\t`contactName` varchar(256),\n\t`updated` tinyint NOT NULL DEFAULT 0,\n\t`failReason` varchar(64),\n\t`peopleCount` int DEFAULT 0,\n\t`creditsConsumed` int DEFAULT 0,\n\t`rawPayload` text,\n\t`receivedAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `apolloWebhookLogs_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute CREATE TABLE `apolloWebhookLogs` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`apolloStatus` varchar(64),\n\t`apolloPersonId` varchar(128),\n\t`phoneDelivered` varchar(64),\n\t`contactId` int,\n\t`contactName` varchar(256),\n\t`updated` tinyint NOT NULL DEFAULT 0,\n\t`failReason` varchar(64),\n\t`peopleCount` int DEFAULT 0,\n\t`creditsConsumed` int DEFAULT 0,\n\t`rawPayload` text,\n\t`receivedAt` timestamp NOT NULL DEFAULT (now()),\n\tCONSTRAINT `apolloWebhookLogs_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 398
+}

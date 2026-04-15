@@ -21,7 +21,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2, FileSpreadsheet, Phone, BookMarked, ScrollText, Network, UserPlus, Copy, Camera, Package, Globe, LayoutList, RefreshCw, Zap } from "lucide-react";
+import { List, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2, FileSpreadsheet, Phone, BookMarked, ScrollText, Network, UserPlus, Copy, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -42,6 +42,7 @@ const menuItems = [
   { icon: Package, label: "Prototype Requests", path: "/prototype-requests" },
   { icon: Globe, label: "Leadinfo Import", path: "/leadinfo" },
   { icon: ScrollText, label: "Prompt Repository", path: "/prompts" },
+  { icon: Webhook, label: "Webhook Log", path: "/webhook-log" },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

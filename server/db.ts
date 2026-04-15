@@ -1,6 +1,6 @@
 import { eq, and, or, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob, bomCalculations, BomCalculation, InsertBomCalculation } from "../drizzle/schema";
+import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob, bomCalculations, BomCalculation, InsertBomCalculation, apolloWebhookLogs, ApolloWebhookLog, InsertApolloWebhookLog } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -799,4 +799,45 @@ export async function deleteBomCalculation(id: number, userId: string): Promise<
   await db
     .delete(bomCalculations)
     .where(and(eq(bomCalculations.id, id), eq(bomCalculations.userId, userId)));
+}
+
+// ─── Apollo Webhook Audit Log ────────────────────────────────────────────────
+
+/**
+ * Insert a new webhook audit row. Never throws — audit failures should not
+ * block the main webhook response.
+ */
+export async function insertWebhookLog(entry: InsertApolloWebhookLog): Promise<void> {
+  try {
+    const db = await getDb();
+    if (!db) return;
+    await db.insert(apolloWebhookLogs).values(entry);
+  } catch (err) {
+    console.error("[WebhookLog] Failed to insert audit row:", err);
+  }
+}
+
+/**
+ * Return webhook log entries, newest first, with optional pagination.
+ */
+export async function getWebhookLogs(limit = 50, offset = 0): Promise<ApolloWebhookLog[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(apolloWebhookLogs)
+    .orderBy(desc(apolloWebhookLogs.receivedAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+/**
+ * Count total webhook log entries for pagination.
+ */
+export async function countWebhookLogs(): Promise<number> {
+  const { count } = await import("drizzle-orm");
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.select({ total: count() }).from(apolloWebhookLogs);
+  return result[0]?.total ?? 0;
 }

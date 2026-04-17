@@ -136,6 +136,7 @@ function NicheCard({
   onCreateCampaign,
   creatingCampaign,
   onViewCompanies,
+  onRename,
 }: {
   niche: NicheItem;
   rank: number;
@@ -149,10 +150,26 @@ function NicheCard({
   onCreateCampaign?: (id: number) => void;
   creatingCampaign?: boolean;
   onViewCompanies?: (id: number) => void;
+  onRename?: (id: number, name: string) => void;
 }) {
   const [expanded, setExpanded] = useState(false);
   const hasScore = niche.fitScore !== null && niche.fitScore !== undefined;
   const score = niche.fitScore ?? 0;
+  const [editingName, setEditingName] = useState(false);
+  const [nameValue, setNameValue] = useState(niche.name);
+
+  // Sync nameValue when niche.name changes externally (e.g. after optimistic update)
+  React.useEffect(() => { setNameValue(niche.name); }, [niche.name]);
+
+  function commitRename(rename: ((id: number, name: string) => void) | undefined) {
+    const trimmed = nameValue.trim();
+    if (trimmed && trimmed !== niche.name && rename) {
+      rename(niche.id, trimmed);
+    } else {
+      setNameValue(niche.name); // reset if empty or unchanged
+    }
+    setEditingName(false);
+  }
 
   return (
     <div
@@ -183,7 +200,28 @@ function NicheCard({
         <div className="flex-1 min-w-0">
           <div className="flex items-start justify-between gap-2 flex-wrap">
             <div>
-              <h3 className="font-black text-base leading-tight">{niche.name}</h3>
+              {editingName ? (
+                <input
+                  autoFocus
+                  className="font-black text-base leading-tight border-b-2 border-gray-900 bg-transparent outline-none w-full max-w-xs"
+                  value={nameValue}
+                  onChange={(e) => setNameValue(e.target.value)}
+                  onBlur={() => commitRename(onRename)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') commitRename(onRename);
+                    if (e.key === 'Escape') { setNameValue(niche.name); setEditingName(false); }
+                  }}
+                />
+              ) : (
+                <h3
+                  className="font-black text-base leading-tight cursor-pointer hover:underline decoration-dotted underline-offset-2 group"
+                  title="Click to rename"
+                  onClick={() => setEditingName(true)}
+                >
+                  {niche.name}
+                  <span className="ml-1.5 text-[10px] font-bold text-gray-400 opacity-0 group-hover:opacity-100 transition-opacity">✎</span>
+                </h3>
+              )}
               {hasScore && (
                 <Badge
                   variant={scoreBadgeVariant(score)}
@@ -844,6 +882,18 @@ export default function NicheReview() {
     rescoreMutation.mutate({ nicheId });
   };
 
+  const renameMutation = trpc.niche.renameNiche.useMutation({
+    onSuccess: () => {
+      utils.niche.getNiches.invalidate();
+      utils.niche.getAllNiches.invalidate();
+    },
+    onError: (err) => toast.error(`Rename failed: ${err.message}`),
+  });
+
+  const handleRename = (nicheId: number, name: string) => {
+    renameMutation.mutate({ nicheId, name });
+  };
+
   const loading = isLoading || searchNichesLoading;
 
   // Stats
@@ -1221,6 +1271,7 @@ export default function NicheReview() {
                       onCreateCampaign={handleCreateCampaign}
                       creatingCampaign={creatingCampaignId === niche.id}
                       onViewCompanies={(id) => navigate(`/niche/${id}`)}
+                      onRename={handleRename}
                     />
                     {/* Sub-cluster progress banner */}
                     {subClusteringId === niche.id && (
@@ -1257,6 +1308,7 @@ export default function NicheReview() {
                             onCreateCampaign={handleCreateCampaign}
                             creatingCampaign={creatingCampaignId === child.id}
                             onViewCompanies={(id) => navigate(`/niche/${id}`)}
+                            onRename={handleRename}
                           />
                         ))}
                       </div>

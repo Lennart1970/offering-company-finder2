@@ -1043,6 +1043,14 @@ export const nicheRouter = router({
       ]);
       return { items, total };
     }),
+
+  // Rename a niche in-place
+  renameNiche: protectedProcedure
+    .input(z.object({ nicheId: z.number(), name: z.string().min(1).max(256) }))
+    .mutation(async ({ ctx, input }) => {
+      await updateNiche(input.nicheId, { name: input.name });
+      return { success: true };
+    }),
 });
 
 // ── Helper ─────────────────────────────────────────────────────────────────────

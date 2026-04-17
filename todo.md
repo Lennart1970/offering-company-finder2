@@ -2230,3 +2230,5 @@
 - [x] All users see all unarchived searches (remove owner-only filter on getSearches query)
 - [x] Admins can archive/unarchive any search (add role === admin OR condition)
 - [x] Add user filter bar on Search Results page
+
+- [x] Inline rename for niche names on Market Segments page (click name to edit in place)

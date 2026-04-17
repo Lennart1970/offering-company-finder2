@@ -2226,3 +2226,7 @@
 - [ ] Register route in App.tsx
 
 - [x] Show elapsed time on phone pending indicator (e.g. "⏳ Phone pending... (2m 30s)")
+
+- [x] All users see all unarchived searches (remove owner-only filter on getSearches query)
+- [x] Admins can archive/unarchive any search (add role === admin OR condition)
+- [x] Add user filter bar on Search Results page

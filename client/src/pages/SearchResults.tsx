@@ -89,7 +89,27 @@ export default function SearchResults() {
   }, [searchId]);
 
   const [showArchived, setShowArchived] = useState(false);
+  const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
   const { data: searchHistory, refetch: refetchHistory } = trpc.companyFinder.getSearchHistory.useQuery({ showArchived });
+
+  // Derive unique users from search history for the user filter
+  const uniqueUsers = useMemo(() => {
+    if (!searchHistory) return [];
+    const seen = new Map<number, { id: number; name: string | null; email: string | null }>();
+    for (const s of searchHistory as any[]) {
+      if (!seen.has(s.userId)) {
+        seen.set(s.userId, { id: s.userId, name: s.userName, email: s.userEmail });
+      }
+    }
+    return Array.from(seen.values()).sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+  }, [searchHistory]);
+
+  // Filtered search history based on selected user
+  const filteredSearchHistory = useMemo(() => {
+    if (!searchHistory) return [];
+    if (selectedUserId === null) return searchHistory as any[];
+    return (searchHistory as any[]).filter((s: any) => s.userId === selectedUserId);
+  }, [searchHistory, selectedUserId]);
   const archiveSearchMutation = trpc.companyFinder.archiveSearch.useMutation({
     onSuccess: () => { refetchHistory(); },
     onError: (err) => toast.error(err.message),
@@ -488,14 +508,42 @@ export default function SearchResults() {
           </div>
         )}
 
-        {/* Show archived toggle */}
-        <div className="flex items-center justify-between mb-4">
-          <span className="text-xs font-bold text-muted-foreground">
-            {showArchived ? "Showing all including archived" : "Showing active runs"}
-          </span>
+        {/* Filter bar: user filter + archived toggle */}
+        <div className="flex flex-wrap items-center gap-2 mb-4">
+          {/* User filter chips */}
+          {uniqueUsers.length > 1 && (
+            <div className="flex flex-wrap items-center gap-1.5 flex-1">
+              <span className="text-xs font-bold text-muted-foreground mr-1">USER:</span>
+              <button
+                onClick={() => setSelectedUserId(null)}
+                className={`text-xs font-black border px-2.5 py-0.5 transition-colors ${
+                  selectedUserId === null
+                    ? "border-gray-900 text-gray-900 bg-gray-100"
+                    : "border-gray-300 text-gray-400 hover:border-gray-600 hover:text-gray-700"
+                }`}
+              >
+                ALL
+              </button>
+              {uniqueUsers.map((u) => (
+                <button
+                  key={u.id}
+                  onClick={() => setSelectedUserId(selectedUserId === u.id ? null : u.id)}
+                  className={`text-xs font-black border px-2.5 py-0.5 transition-colors ${
+                    selectedUserId === u.id
+                      ? "border-blue-600 text-blue-700 bg-blue-50"
+                      : "border-gray-300 text-gray-400 hover:border-blue-400 hover:text-blue-600"
+                  }`}
+                  title={u.email ?? undefined}
+                >
+                  {u.name ?? u.email ?? `User #${u.id}`}
+                </button>
+              ))}
+            </div>
+          )}
+          {/* Archived toggle */}
           <button
             onClick={() => setShowArchived(v => !v)}
-            className={`text-xs font-black border px-3 py-1 transition-colors ${
+            className={`text-xs font-black border px-3 py-1 transition-colors ml-auto ${
               showArchived
                 ? "border-amber-500 text-amber-600 bg-amber-50"
                 : "border-gray-300 text-gray-500 hover:border-gray-500 hover:text-gray-700"
@@ -505,9 +553,9 @@ export default function SearchResults() {
           </button>
         </div>
 
-        {searchHistory && searchHistory.length > 0 ? (
+        {filteredSearchHistory && filteredSearchHistory.length > 0 ? (
           <div className="space-y-3">
-            {searchHistory
+            {filteredSearchHistory
               .filter((s: any) => s.status === "completed" || s.status === "searching")
               .map((search: any) => (
                 <div
@@ -551,8 +599,8 @@ export default function SearchResults() {
                           </button>
                         );
                       })()}
-                      {/* Archive button — only owner sees it */}
-                      {search.userId === user?.id && (
+                      {/* Archive button — owner or admin can archive/restore */}
+                      {(search.userId === user?.id || (user as any)?.role === 'admin') && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -570,7 +618,7 @@ export default function SearchResults() {
                         </button>
                       )}
                       {/* Share toggle — only owner sees it */}
-                      {search.userId === user?.id && (
+                      {(search.userId === user?.id || (user as any)?.role === 'admin') && (
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
@@ -590,6 +638,12 @@ export default function SearchResults() {
                       {search.userId !== user?.id && search.sharedWithTeam && (
                         <span className="text-xs font-black border-2 px-3 py-1 border-gray-700 text-gray-700">
                           SHARED
+                        </span>
+                      )}
+                      {/* Owner name badge — shown when viewing other users' searches */}
+                      {search.userId !== user?.id && (search as any).userName && (
+                        <span className="text-xs font-bold border px-2 py-0.5 border-blue-300 text-blue-600 bg-blue-50" title={(search as any).userEmail ?? undefined}>
+                          {(search as any).userName}
                         </span>
                       )}
                       <span className={`text-xs font-black border-2 px-3 py-1 ${

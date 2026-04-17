@@ -125,13 +125,14 @@ export async function getUserSearches(userId: number, showArchived = false) {
   const whereClause = archiveCondition ? and(baseCondition, archiveCondition) : baseCondition;
   
   const rows = await db
-    .select({ search: searches, brainName: offeringBrain.brainName })
+    .select({ search: searches, brainName: offeringBrain.brainName, userName: users.name, userEmail: users.email })
     .from(searches)
     .leftJoin(offeringBrain, eq(searches.brainId, offeringBrain.id))
+    .leftJoin(users, eq(searches.userId, users.id))
     .where(whereClause)
     .orderBy(desc(searches.createdAt));
 
-  return rows.map(r => ({ ...r.search, brainName: r.brainName ?? null }));
+  return rows.map(r => ({ ...r.search, brainName: r.brainName ?? null, userName: r.userName ?? null, userEmail: r.userEmail ?? null }));
 }
 
 export async function archiveSearch(searchId: number, userId: number, archive: boolean) {

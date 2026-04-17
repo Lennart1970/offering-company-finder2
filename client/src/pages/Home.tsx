@@ -175,7 +175,7 @@ export default function Home() {
   });
 
   const { data: searchData, isLoading: searchLoading } = trpc.companyFinder.getSearch.useQuery(
-    { searchId: searchId! },
+    { searchId: searchId!, pageSize: 2000 },
     {
       enabled: !!searchId,
       refetchInterval: (query) => {

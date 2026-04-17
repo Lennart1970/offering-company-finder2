@@ -2232,3 +2232,5 @@
 - [x] Add user filter bar on Search Results page
 
 - [x] Inline rename for niche names on Market Segments page (click name to edit in place)
+
+- [x] Fix 100-company cap on Full Pipeline page — should show all companies from niche (e.g. 414), not just 100

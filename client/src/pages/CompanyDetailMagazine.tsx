@@ -122,8 +122,22 @@ export default function CompanyDetailMagazine() {
   const [activeSection, setActiveSection] = useState<string>("urgency");
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
+  // Brain selector — read from URL ?brainId param, default to active brain
+  const urlBrainId = useMemo(() => {
+    const v = urlParams.get("brainId");
+    return v ? parseInt(v, 10) : undefined;
+  }, []);
+  const [selectedBrainId, setSelectedBrainId] = useState<number | undefined>(urlBrainId);
+
+  const handleBrainChange = (brainId: number) => {
+    setSelectedBrainId(brainId);
+    const sp = new URLSearchParams(window.location.search);
+    sp.set("brainId", String(brainId));
+    window.history.replaceState(null, "", `${window.location.pathname}?${sp.toString()}`);
+  };
+
   const { data, isLoading, refetch } = trpc.companyFinder.getCompany.useQuery(
-    { companyId },
+    { companyId, brainId: selectedBrainId },
     { enabled: !!companyId && !isNaN(companyId) }
   );
   const company = data?.company ?? null;
@@ -588,6 +602,69 @@ export default function CompanyDetailMagazine() {
           )}
         </div>
       </div>
+
+      {/* ── Brain Tabs ── */}
+      {(() => {
+        const outputBrains: any[] = data?.allBrainOutputs ?? [];
+        const outputBrainIds = new Set(outputBrains.map((o: any) => o.brainId));
+        const tabBrains: Array<{ brainId: number; brainName: string; fitScore: number | null; isActive: boolean }> = [
+          ...outputBrains.map((o: any) => ({
+            brainId: o.brainId,
+            brainName: o.brainName ?? `Brain #${o.brainId}`,
+            fitScore: o.fitScore ?? null,
+            isActive: o.brainId === activeBrain?.id,
+          })),
+          ...(activeBrain && !outputBrainIds.has(activeBrain.id) ? [{
+            brainId: activeBrain.id,
+            brainName: activeBrain.brainName ?? activeBrain.companyName ?? `Brain #${activeBrain.id}`,
+            fitScore: null,
+            isActive: true,
+          }] : []),
+        ];
+        if (tabBrains.length === 0) return null;
+        return (
+          <div className="flex overflow-x-auto border-b-2 border-black bg-gray-50 mb-0">
+            <span className="shrink-0 flex items-center px-3 text-[9px] font-black text-gray-400 uppercase tracking-widest border-r-2 border-black">
+              BRAIN
+            </span>
+            {tabBrains.map((tb) => {
+              const isSelected = selectedBrainId === tb.brainId;
+              const hasOutput = outputBrainIds.has(tb.brainId);
+              return (
+                <button
+                  key={tb.brainId}
+                  onClick={() => handleBrainChange(tb.brainId)}
+                  className={`shrink-0 flex items-center gap-2 px-4 py-2 text-xs font-black border-r-2 border-black cursor-pointer transition-colors ${
+                    isSelected ? "bg-black text-white" : "hover:bg-gray-100 text-gray-700"
+                  }`}
+                >
+                  <span className="truncate max-w-[140px]">{tb.brainName}</span>
+                  {tb.isActive && (
+                    <span className={`text-[9px] font-black px-1 py-0.5 ${
+                      isSelected ? "bg-white text-black" : "bg-black text-white"
+                    }`}>★</span>
+                  )}
+                  {hasOutput && tb.fitScore !== null && (
+                    <span className={`text-[10px] font-black px-1.5 py-0.5 ${
+                      isSelected ? "bg-white text-black"
+                        : tb.fitScore >= 80 ? "bg-green-600 text-white"
+                        : tb.fitScore >= 60 ? "bg-yellow-500 text-white"
+                        : "bg-gray-400 text-white"
+                    }`}>
+                      FIT {tb.fitScore}
+                    </span>
+                  )}
+                  {!hasOutput && (
+                    <span className={`text-[9px] font-black px-1 py-0.5 ${
+                      isSelected ? "bg-white text-black" : "bg-gray-200 text-gray-500"
+                    }`}>NO OUTPUT</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        );
+      })()}
 
       {/* ── STICKY JUMP NAV ── */}
       <div className="sticky top-0 z-30 bg-white border-b-4 border-black flex overflow-x-auto print:hidden mb-8">

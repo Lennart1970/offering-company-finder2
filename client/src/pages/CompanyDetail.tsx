@@ -34,12 +34,14 @@ type FitSub = "why-them" | "products-services" | "key-technologies" | "target-ma
 type ApproachSub = "conversation-starters" | "email-draft" | "linkedin-message" | "call-script";
 
 const CHAPTERS: { id: Chapter; label: string; color: string; activeColor: string }[] = [
-  { id: "urgency",  label: "⚡ URGENCY",         color: "border-red-600 text-red-600",        activeColor: "bg-red-600 text-white border-red-600" },
-  { id: "fit",      label: "🎯 FIT",             color: "border-blue-600 text-blue-600",      activeColor: "bg-blue-600 text-white border-blue-600" },
-  { id: "news",     label: "📰 LATEST NEWS",     color: "border-amber-600 text-amber-600",    activeColor: "bg-amber-600 text-white border-amber-600" },
-  { id: "approach", label: "💬 APPROACH",        color: "border-green-600 text-green-600",    activeColor: "bg-green-600 text-white border-green-600" },
-  { id: "contacts", label: "👤 CONTACTS",        color: "border-purple-600 text-purple-600",  activeColor: "bg-purple-600 text-white border-purple-600" },
-  { id: "media",    label: "🖼 MEDIA",           color: "border-gray-600 text-gray-600",      activeColor: "bg-gray-700 text-white border-gray-700" },
+  { id: "overview",  label: "🗂 OVERVIEW",        color: "border-slate-600 text-slate-600",     activeColor: "bg-slate-700 text-white border-slate-700" },
+  { id: "urgency",   label: "⚡ URGENCY",         color: "border-red-600 text-red-600",         activeColor: "bg-red-600 text-white border-red-600" },
+  { id: "fit",       label: "🎯 FIT",             color: "border-blue-600 text-blue-600",       activeColor: "bg-blue-600 text-white border-blue-600" },
+  { id: "research",  label: "🔬 RESEARCH",        color: "border-indigo-600 text-indigo-600",   activeColor: "bg-indigo-600 text-white border-indigo-600" },
+  { id: "news",      label: "📰 NEWS",            color: "border-amber-600 text-amber-600",     activeColor: "bg-amber-600 text-white border-amber-600" },
+  { id: "approach",  label: "💬 APPROACH",        color: "border-green-600 text-green-600",     activeColor: "bg-green-600 text-white border-green-600" },
+  { id: "contacts",  label: "👤 CONTACTS",        color: "border-purple-600 text-purple-600",   activeColor: "bg-purple-600 text-white border-purple-600" },
+  { id: "media",     label: "🖼 MEDIA",           color: "border-gray-600 text-gray-600",       activeColor: "bg-gray-700 text-white border-gray-700" },
 ];
 
 const FIT_SUBS: { id: FitSub; label: string }[] = [

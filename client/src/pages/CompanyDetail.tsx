@@ -308,6 +308,37 @@ export default function CompanyDetail() {
     not_interested: "Park this company and revisit in 90 days with a new angle.",
   };
 
+  // Run brain from NO OUTPUT tab — generates both brief + approach for a specific brain
+  const [runBrainLoading, setRunBrainLoading] = useState<number | null>(null); // brainId being run
+  const runBrainUtils = trpc.useUtils();
+  const runBrainBriefMutation = trpc.companyFinder.generateBrief.useMutation({
+    onSuccess: (_data, vars) => {
+      // After brief done, kick off approach
+      runBrainApproachMutation.mutate({ companyId, brainId: vars.brainId });
+    },
+    onError: (_err, vars) => {
+      setRunBrainLoading(null);
+      toast.error(`Brief generation failed for brain #${vars.brainId}`);
+    },
+  });
+  const runBrainApproachMutation = trpc.companyFinder.generateSalesApproach.useMutation({
+    onSuccess: (_data, vars) => {
+      setRunBrainLoading(null);
+      runBrainUtils.companyFinder.getCompany.invalidate({ companyId });
+      toast.success("Brain output generated — tabs updated");
+      // Switch to the newly generated brain tab
+      handleBrainChange(vars.brainId);
+    },
+    onError: (_err, vars) => {
+      setRunBrainLoading(null);
+      toast.error(`Approach generation failed for brain #${vars.brainId}`);
+    },
+  });
+  const handleRunBrain = (brainId: number) => {
+    setRunBrainLoading(brainId);
+    runBrainBriefMutation.mutate({ companyId, brainId });
+  };
+
   // Re-research mutation (force-regenerate brief)
   const [reResearchLoading, setReResearchLoading] = useState(false);
   const reResearchUtils = trpc.useUtils();
@@ -956,6 +987,15 @@ export default function CompanyDetail() {
                       <span className={`text-[9px] font-black px-1 py-0.5 ${
                         isSelected ? "bg-white text-black" : "bg-gray-200 text-gray-500"
                       }`}>NO OUTPUT</span>
+                    )}
+                    {!hasOutput && isSelected && (
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleRunBrain(tb.brainId); }}
+                        disabled={runBrainLoading === tb.brainId}
+                        className="text-[9px] font-black px-2 py-0.5 bg-white text-black border border-black hover:bg-gray-100 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer transition-colors"
+                      >
+                        {runBrainLoading === tb.brainId ? "RUNNING..." : "▶ RUN"}
+                      </button>
                     )}
                   </button>
                 );

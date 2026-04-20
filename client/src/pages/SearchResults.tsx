@@ -58,7 +58,7 @@ export default function SearchResults() {
   const [allCompanies, setAllCompanies] = useState<any[]>([]);
 
   const { data: searchData, isLoading: searchLoading } = trpc.companyFinder.getSearch.useQuery(
-    { searchId: searchId!, page, pageSize: 100 },
+    { searchId: searchId!, page, pageSize: 2000 },
     {
       enabled: !!searchId,
       refetchInterval: (query) => {
@@ -465,11 +465,16 @@ export default function SearchResults() {
   };
 
   // Remaining work = pending + no-brief + no-approach (must be before early returns)
-  const remainingWork = useMemo(() => {
-    return allCompanies.filter(
+  const remainingWorkBreakdown = useMemo(() => {
+    const pendingEnrich = allCompanies.filter((c: any) => c.enrichmentStatus === "pending").length;
+    const needsBrief = allCompanies.filter((c: any) => c.enrichmentStatus === "enriched" && !c.briefData).length;
+    const needsApproach = allCompanies.filter((c: any) => c.enrichmentStatus === "enriched" && !!c.briefData && !c.salesApproachData).length;
+    const total = allCompanies.filter(
       (c: any) => c.enrichmentStatus === "pending" || !c.briefData || !c.salesApproachData
     ).length;
+    return { pendingEnrich, needsBrief, needsApproach, total };
   }, [allCompanies]);
+  const remainingWork = remainingWorkBreakdown.total;
 
   // Search selector mode
   if (isSelectMode) {
@@ -1005,8 +1010,14 @@ export default function SearchResults() {
                             : `[DO ALL — ${remainingWork}]`}
                         </Button>
                       </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs text-sm">
-                        Processes ALL {remainingWork} remaining companies in the background. You can navigate away — the job continues and resumes on page reload.
+                      <TooltipContent side="bottom" className="max-w-sm text-sm">
+                        <p className="font-bold mb-1">Processes {remainingWork} companies in the background:</p>
+                        <ul className="space-y-0.5 text-xs">
+                          {remainingWorkBreakdown.pendingEnrich > 0 && <li>• <strong>{remainingWorkBreakdown.pendingEnrich}</strong> pending enrichment (fetch address, SIC, size from Apollo)</li>}
+                          {remainingWorkBreakdown.needsBrief > 0 && <li>• <strong>{remainingWorkBreakdown.needsBrief}</strong> need deep research brief (urgency score + conversation starter)</li>}
+                          {remainingWorkBreakdown.needsApproach > 0 && <li>• <strong>{remainingWorkBreakdown.needsApproach}</strong> need sales approach (personalised outreach script)</li>}
+                        </ul>
+                        <p className="mt-1 text-xs text-muted-foreground">You can navigate away — the job continues and resumes on page reload.</p>
                       </TooltipContent>
                     </Tooltip>
                   </TooltipProvider>

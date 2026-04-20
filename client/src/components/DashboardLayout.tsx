@@ -10,6 +10,9 @@ import {
   Sidebar,
   SidebarContent,
   SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
   SidebarHeader,
   SidebarInset,
   SidebarMenu,
@@ -21,28 +24,62 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, ShieldBan, Upload, LogOut, PanelLeft, BrainCircuit, Building2, FileSpreadsheet, Phone, BookMarked, ScrollText, Network, UserPlus, Copy, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook } from "lucide-react";
+import { List, LogOut, PanelLeft, BrainCircuit, FileSpreadsheet, Phone, ScrollText, Network, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook, UserPlus } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
 
-const menuItems = [
-  { icon: BrainCircuit, label: "Offering Brain", path: "/brain" },
-  { icon: FileSpreadsheet, label: "Excel Import", path: "/excel-import" },
-  { icon: LayoutList, label: "Sales Menu", path: "/sales-menu" },
-  { icon: RefreshCw, label: "Sync", path: "/sync" },
-  { icon: Zap, label: "Intelligence", path: "/intelligence" },
-  { icon: List, label: "Search Results", path: "/search-results" },
-  { icon: Phone, label: "Call Today", path: "/call-today" },
-  { icon: BookMarked, label: "Nurture List", path: "/nurture" },
-  { icon: ShieldBan, label: "Exclusions", path: "/exclusions" },
-  { icon: Network, label: "Market Segments", path: "/niche-review" },
-  { icon: Camera, label: "Fast Prototype", path: "/fast-prototype" },
-  { icon: Package, label: "Prototype Requests", path: "/prototype-requests" },
-  { icon: Globe, label: "Leadinfo Import", path: "/leadinfo" },
-  { icon: ScrollText, label: "Prompt Repository", path: "/prompts" },
-  { icon: Webhook, label: "Webhook Log", path: "/webhook-log" },
+interface NavItem {
+  icon: React.ElementType;
+  label: string;
+  path: string;
+}
+
+interface NavGroup {
+  label: string;
+  items: NavItem[];
+}
+
+const navGroups: NavGroup[] = [
+  {
+    label: "Intelligence",
+    items: [
+      { icon: BrainCircuit, label: "Offering Brain", path: "/brain" },
+      { icon: List, label: "Search Results", path: "/search-results" },
+      { icon: LayoutList, label: "Sales Menu", path: "/sales-menu" },
+      { icon: Zap, label: "Intelligence", path: "/intelligence" },
+      { icon: Network, label: "Market Segments", path: "/niche-review" },
+    ],
+  },
+  {
+    label: "CRM",
+    items: [
+      { icon: Phone, label: "Call Today", path: "/call-today" },
+    ],
+  },
+  {
+    label: "Import / Sync",
+    items: [
+      { icon: FileSpreadsheet, label: "Excel Import", path: "/excel-import" },
+      { icon: Globe, label: "Leadinfo Import", path: "/leadinfo" },
+      { icon: RefreshCw, label: "Sync", path: "/sync" },
+    ],
+  },
+  {
+    label: "Admin",
+    items: [
+      { icon: ScrollText, label: "Prompt Repository", path: "/prompts" },
+      { icon: Webhook, label: "Webhook Log", path: "/webhook-log" },
+    ],
+  },
+  {
+    label: "Under Development",
+    items: [
+      { icon: Camera, label: "Fast Prototype", path: "/fast-prototype" },
+      { icon: Package, label: "Prototype Requests", path: "/prototype-requests" },
+    ],
+  },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
@@ -129,7 +166,8 @@ function DashboardLayoutContent({
   const isMobile = useIsMobile();
 
   // Match active menu item - handle parameterized routes
-  const activeMenuItem = menuItems.find(item => {
+  const allNavItems = navGroups.flatMap(g => g.items);
+  const activeMenuItem = allNavItems.find((item: NavItem) => {
     if (item.path === "/search-results") {
       return location.startsWith("/search-results");
     }
@@ -221,30 +259,39 @@ function DashboardLayoutContent({
           </SidebarHeader>
 
           <SidebarContent className="gap-0">
-            <SidebarMenu className="px-2 py-1">
-              {menuItems.map(item => {
-                const isActive = item.path === "/search-results"
-                  ? location.startsWith("/search-results")
-                  : item.path === "/call-today"
-                  ? location.startsWith("/call-today")
-                  : location === item.path;
-                return (
-                  <SidebarMenuItem key={item.path}>
-                    <SidebarMenuButton
-                      isActive={isActive}
-                      onClick={() => handleNavClick(item.path)}
-                      tooltip={item.label}
-                      className="h-10 transition-all font-bold"
-                    >
-                      <item.icon
-                        className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
-                      />
-                      <span>{item.label}</span>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
+            {navGroups.map(group => (
+              <SidebarGroup key={group.label} className="py-1">
+                <SidebarGroupLabel className="px-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 group-data-[collapsible=icon]:hidden">
+                  {group.label}
+                </SidebarGroupLabel>
+                <SidebarGroupContent>
+                  <SidebarMenu className="px-2">
+                    {group.items.map((item: NavItem) => {
+                      const isActive = item.path === "/search-results"
+                        ? location.startsWith("/search-results")
+                        : item.path === "/call-today"
+                        ? location.startsWith("/call-today")
+                        : location === item.path;
+                      return (
+                        <SidebarMenuItem key={item.path}>
+                          <SidebarMenuButton
+                            isActive={isActive}
+                            onClick={() => handleNavClick(item.path)}
+                            tooltip={item.label}
+                            className="h-9 transition-all font-bold"
+                          >
+                            <item.icon
+                              className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
+                            />
+                            <span>{item.label}</span>
+                          </SidebarMenuButton>
+                        </SidebarMenuItem>
+                      );
+                    })}
+                  </SidebarMenu>
+                </SidebarGroupContent>
+              </SidebarGroup>
+            ))}
           </SidebarContent>
 
           <SidebarFooter className="p-3">

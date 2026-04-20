@@ -2240,3 +2240,7 @@
 - [ ] Fix DO ALL button not starting for search 1650002 (226 pending companies not being queued)
 
 - [x] Parallel DO ALL processing — 5 concurrent workers per job (configurable via DOALL_CONCURRENCY env var)
+
+## Sidebar Navigation Restructure
+- [x] Reorganise sidebar into grouped sections: Intelligence / CRM / Import+Sync / Admin / Under Development
+- [x] Remove Exclusions and Nurture List from sidebar

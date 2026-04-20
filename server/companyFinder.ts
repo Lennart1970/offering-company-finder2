@@ -540,16 +540,16 @@ export const companyFinderRouter = router({
       await assertSearchAccess(input.searchId, ctx.user.id);
       const job = await getLatestBatchJobForSearch(input.searchId);
       if (!job) return null;
-      // Treat stale "running" jobs (no update in >10 min) as failed — the server restarted
+      // Treat stale "running" jobs (no update in >5 min) as failed — server restarted or worker hung
       if (job.status === "running") {
-        const staleCutoff = new Date(Date.now() - 10 * 60 * 1000);
+        const staleCutoff = new Date(Date.now() - 5 * 60 * 1000);
         if (job.updatedAt < staleCutoff) {
-          await updateBatchJob(job.id, { status: "failed", errorMessage: "Job interrupted by server restart" });
+          await updateBatchJob(job.id, { status: "failed", errorMessage: "Job interrupted — no progress for 5 minutes" });
           return null; // Don't resume a stale job
         }
+        return { jobId: job.id };
       }
-      if (job.status !== "running") return null; // Only resume actively running jobs
-      return { jobId: job.id };
+      return null; // Only surface actively running jobs
     }),
 
   // ---------------------------------------------------------------------------
@@ -3678,6 +3678,62 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         // Table may not exist yet — return null gracefully
         console.error("[resolveCompanyUUID] Error:", e);
         return { localId: null };
+      }
+    }),
+
+  // ---------------------------------------------------------------------------
+  // deduplicateSearch — remove duplicate apolloId rows within a search
+  // Keeps the most-enriched row (enriched > pending, then most recent brief, then lowest id)
+  // ---------------------------------------------------------------------------
+  deduplicateSearch: protectedProcedure
+    .input(z.object({ searchId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      await assertSearchAccess(input.searchId, ctx.user.id);
+
+      // Use mysql2 directly for raw SQL dedup logic
+      const mysql = await import('mysql2/promise');
+      const conn = await mysql.createConnection(process.env.DATABASE_URL!);
+
+      try {
+        // Find all duplicate groups for this search
+        const [dups] = await conn.execute<any[]>(
+          `SELECT apolloId, COUNT(*) as cnt
+           FROM companies
+           WHERE searchId = ? AND apolloId IS NOT NULL
+           GROUP BY apolloId
+           HAVING cnt > 1`,
+          [input.searchId]
+        );
+
+        let totalDeleted = 0;
+
+        for (const dup of dups) {
+          const [rows] = await conn.execute<any[]>(
+            `SELECT id, enrichmentStatus, briefGeneratedAt
+             FROM companies
+             WHERE searchId = ? AND apolloId = ?
+             ORDER BY
+               CASE enrichmentStatus WHEN 'enriched' THEN 0 WHEN 'pending' THEN 1 ELSE 2 END ASC,
+               briefGeneratedAt DESC,
+               id ASC`,
+            [input.searchId, dup.apolloId]
+          );
+
+          const [, ...toDelete] = rows;
+          const deleteIds = toDelete.map((r: any) => Number(r.id));
+
+          if (deleteIds.length > 0) {
+            const placeholders = deleteIds.map(() => '?').join(',');
+            await conn.execute(`DELETE FROM company_brain_outputs WHERE companyId IN (${placeholders})`, deleteIds);
+            await conn.execute(`DELETE FROM companies WHERE id IN (${placeholders})`, deleteIds);
+            totalDeleted += deleteIds.length;
+          }
+        }
+
+        console.log(`[deduplicateSearch] search=${input.searchId} removed ${totalDeleted} duplicates from ${dups.length} groups`);
+        return { removed: totalDeleted, groups: dups.length };
+      } finally {
+        await conn.end();
       }
     }),
 });

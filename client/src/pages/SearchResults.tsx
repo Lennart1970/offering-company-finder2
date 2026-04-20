@@ -306,6 +306,14 @@ export default function SearchResults() {
 
 
 
+  const deduplicateMutation = trpc.companyFinder.deduplicateSearch.useMutation({
+    onSuccess: (data) => {
+      toast.success(`Removed ${data.removed} duplicate${data.removed !== 1 ? 's' : ''} from ${data.groups} group${data.groups !== 1 ? 's' : ''}`);
+      utils.companyFinder.getSearch.invalidate();
+    },
+    onError: (err) => toast.error(`Dedup failed: ${err.message}`),
+  });
+
   const exportCsvQuery = trpc.companyFinder.exportCsv.useQuery(
     { searchId: searchId! },
     { enabled: false }
@@ -1095,6 +1103,18 @@ export default function SearchResults() {
                 className="text-lg px-6 py-4 font-black border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors"
               >
                 📊 EXPORT TO SHAREPOINT
+              </Button>
+              <Button
+                onClick={() => {
+                  if (confirm('Remove duplicate companies (same Apollo ID) from this search? The most-enriched copy will be kept.')) {
+                    deduplicateMutation.mutate({ searchId: searchId! });
+                  }
+                }}
+                disabled={deduplicateMutation.isPending}
+                variant="outline"
+                className="text-lg px-6 py-4 font-black border-2 border-orange-500 text-orange-600 hover:bg-orange-50 disabled:opacity-50"
+              >
+                {deduplicateMutation.isPending ? '⏳ DEDUPLICATING...' : '🔁 DEDUPLICATE'}
               </Button>
             </div>
           </div>

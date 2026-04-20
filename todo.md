@@ -2256,3 +2256,11 @@
 - [ ] Phase 3: Update briefGenerator + salesApproachGenerator to upsert into company_brain_outputs; update doNext10/doAll to write to new table
 - [ ] Phase 4: Update getSearch/getCompaniesBySearchIdPaged to accept brainId param and join company_brain_outputs; fix remainingWork, outreach filter, badges to be brain-scoped
 - [ ] Phase 5: Company detail — add brain switcher dropdown and Re-run with Brain button (calls rerunCompanyWithBrain procedure)
+
+## Worker Hang Fix + Deduplication
+- [ ] Add 30s timeout to Apollo enrichment HTTP call — mark company as skipped on timeout
+- [ ] Add enrichmentStatus = 'skipped' value and skipReason column to companies table
+- [ ] Exclude skipped companies from DO 10 / DO ALL queue
+- [ ] Add deduplication tRPC procedure: remove duplicate apolloId rows per search (keep oldest)
+- [ ] Add Deduplicate button to Search Results action bar
+- [ ] Run dedup on existing data to clean up current duplicates

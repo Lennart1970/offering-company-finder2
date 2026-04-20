@@ -315,6 +315,31 @@ export default function CompanyDetailMagazine() {
     onError: () => { setReApproachLoading(false); toast.error("Re-approach failed"); },
   });
 
+  // Run brain on NO OUTPUT tab
+  const [runBrainLoadingId, setRunBrainLoadingId] = useState<number | null>(null);
+  const runBrainUtils = trpc.useUtils();
+  const runBrainBriefMutation = trpc.companyFinder.generateBrief.useMutation();
+  const runBrainApproachMutation = trpc.companyFinder.generateSalesApproach.useMutation({
+    onSuccess: (_, vars) => {
+      setRunBrainLoadingId(null);
+      runBrainUtils.companyFinder.getCompany.invalidate({ companyId });
+      toast.success("Brain output generated!");
+      handleBrainChange(vars.brainId!);
+    },
+    onError: () => { setRunBrainLoadingId(null); toast.error("Brain run failed"); },
+  });
+  const handleRunBrain = async (brainId: number, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setRunBrainLoadingId(brainId);
+    try {
+      await runBrainBriefMutation.mutateAsync({ companyId, brainId, force: true });
+      runBrainApproachMutation.mutate({ companyId, brainId });
+    } catch {
+      setRunBrainLoadingId(null);
+      toast.error("Brain run failed");
+    }
+  };
+
   // Product images
   const [productImagesLoading, setProductImagesLoading] = useState(false);
   const productImagesUtils = trpc.useUtils();
@@ -656,9 +681,24 @@ export default function CompanyDetailMagazine() {
                     </span>
                   )}
                   {!hasOutput && (
-                    <span className={`text-[9px] font-black px-1 py-0.5 ${
-                      isSelected ? "bg-white text-black" : "bg-gray-200 text-gray-500"
-                    }`}>NO OUTPUT</span>
+                    <>
+                      <span className={`text-[9px] font-black px-1 py-0.5 ${
+                        isSelected ? "bg-white text-black" : "bg-gray-200 text-gray-500"
+                      }`}>NO OUTPUT</span>
+                      <button
+                        onClick={(e) => handleRunBrain(tb.brainId, e)}
+                        disabled={runBrainLoadingId === tb.brainId}
+                        className={`text-[9px] font-black px-1.5 py-0.5 border transition-colors ${
+                          runBrainLoadingId === tb.brainId
+                            ? "border-gray-300 text-gray-400 cursor-not-allowed"
+                            : isSelected
+                            ? "border-white text-white hover:bg-white hover:text-black"
+                            : "border-blue-500 text-blue-600 hover:bg-blue-500 hover:text-white"
+                        }`}
+                      >
+                        {runBrainLoadingId === tb.brainId ? "⏳" : "▶ RUN"}
+                      </button>
+                    </>
                   )}
                 </button>
               );
@@ -882,6 +922,20 @@ export default function CompanyDetailMagazine() {
                 </div>
               </div>
             )}
+
+            {/* BOM Calculator CTA */}
+            <div className="border-4 border-amber-400 bg-amber-50 p-6 flex items-center justify-between gap-4">
+              <div>
+                <div className="text-[10px] font-black text-amber-700 tracking-widest mb-1">🧮 BOM + CAPABILITY STATEMENT</div>
+                <p className="text-sm font-bold text-amber-900">From product images to a full bill of materials — know exactly what you can supply and quote it on the spot.</p>
+              </div>
+              <a
+                href={`/company/${companyId}/extended${window.location.search}#bom`}
+                className="shrink-0 text-xs font-black border-2 border-amber-700 text-amber-800 px-4 py-2 hover:bg-amber-700 hover:text-white transition-colors no-underline"
+              >
+                OPEN BOM →
+              </a>
+            </div>
 
             {/* Sources */}
             {briefData.sources?.length > 0 && (

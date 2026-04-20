@@ -801,7 +801,7 @@ export default function CompanyDetail() {
           <button onClick={goBack} className="text-xs font-black border-2 border-black px-3 py-1.5 hover:bg-black hover:text-white transition-colors cursor-pointer">
             ← BACK
           </button>
-          <a href={`/company/${companyId}${window.location.search.replace('extended', '')}`} className="text-xs font-black border-2 border-blue-500 text-blue-600 px-3 py-1.5 hover:bg-blue-500 hover:text-white transition-colors cursor-pointer no-underline">← MAGAZINE VIEW</a>
+          <a href={`/company/${companyId}${window.location.search}`} className="text-xs font-black border-2 border-blue-500 text-blue-600 px-3 py-1.5 hover:bg-blue-500 hover:text-white transition-colors cursor-pointer no-underline">← MAGAZINE VIEW</a>
           <span className="text-xs font-bold text-muted-foreground">
             {(fromParam === "call-today" || fromParam.startsWith("call-today/")) ? "CALL TODAY" : fromParam.startsWith("search/") ? "SEARCH RESULTS" : "BACK"} / {company.name.toUpperCase()}
           </span>

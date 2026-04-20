@@ -2270,3 +2270,8 @@
 - [ ] Update Search Results company row links to append ?brainId=selectedBrainId
 - [ ] Replace brain dropdown with brain tabs in intelligence section (fit score shown in each tab label)
 - [ ] Brain-agnostic sections (identity, contacts, CRM) stay above tabs unaffected
+
+## Brain Tabs & Extended View Improvements (Apr 20 2026)
+- [ ] Add RUN button on NO OUTPUT brain tabs in CompanyDetailMagazine
+- [ ] Fix Extended View link to carry ?from= and ?brainId= params through
+- [ ] Add BOM section to Magazine FIT chapter

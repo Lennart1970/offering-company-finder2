@@ -1436,7 +1436,7 @@ function CompanyListRow({ company, index, searchId, isWebsiteVisitor, activeBrai
   activeBrainName?: string | null;
 }) {
   const [, navigate] = useLocation();
-  const url = `/company/${company.id}?from=search/${searchId}`;
+  const url = `/company/${company.id}?from=search/${searchId}${activeBrainId ? `&brainId=${activeBrainId}` : ""}`;
 
   return (
     <div
@@ -1509,6 +1509,7 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach,
   // Build a URL to this company's detail page, optionally with a chapter and the full queue for PREV/NEXT nav
   const buildCompanyUrl = (chapter?: string) => {
     let url = `/company/${company.id}?from=search/${searchId}`;
+    if (activeBrainId) url += `&brainId=${activeBrainId}`;
     if (chapter) url += `&chapter=${chapter}`;
     return url;
   };

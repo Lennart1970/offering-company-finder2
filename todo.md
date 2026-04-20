@@ -2264,3 +2264,9 @@
 - [ ] Add deduplication tRPC procedure: remove duplicate apolloId rows per search (keep oldest)
 - [ ] Add Deduplicate button to Search Results action bar
 - [ ] Run dedup on existing data to clean up current duplicates
+
+## Brain-Aware Company Detail Page
+- [ ] Add ?brainId URL parameter to CompanyDetail — read on mount, write on brain change
+- [ ] Update Search Results company row links to append ?brainId=selectedBrainId
+- [ ] Replace brain dropdown with brain tabs in intelligence section (fit score shown in each tab label)
+- [ ] Brain-agnostic sections (identity, contacts, CRM) stay above tabs unaffected

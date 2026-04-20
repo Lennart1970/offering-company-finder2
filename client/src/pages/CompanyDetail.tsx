@@ -73,10 +73,11 @@ export default function CompanyDetail() {
   const params = useParams<{ companyId: string }>();
   const companyId = parseInt(params.companyId, 10);
 
-  // Parse ?chapter=, ?from= from URL (queue is now server-side)
+  // Parse ?chapter=, ?from=, ?brainId= from URL
   const urlParams = new URLSearchParams(window.location.search);
   const initialChapter = (urlParams.get("chapter") as Chapter) || "overview";
   const fromParam = urlParams.get("from") || "";
+  const urlBrainId = urlParams.get("brainId") ? parseInt(urlParams.get("brainId")!, 10) : undefined;
 
   // Extract searchId from fromParam (e.g. "search/1260001")
   const fromSearchId = useMemo(() => {
@@ -97,7 +98,8 @@ export default function CompanyDetail() {
   const goToAdjacent = (targetId: number | null | undefined) => {
     if (!targetId) return;
     const chParam = chapter !== "overview" ? `&chapter=${chapter}` : "";
-    navigate(`/company/${targetId}?from=${fromParam}${chParam}`);
+    const brainParam = selectedBrainId ? `&brainId=${selectedBrainId}` : "";
+    navigate(`/company/${targetId}?from=${fromParam}${chParam}${brainParam}`);
   };
 
   const [chapter, setChapter] = useState<Chapter>(initialChapter);
@@ -106,8 +108,22 @@ export default function CompanyDetail() {
   const [contactSeniorityFilter, setContactSeniorityFilter] = useState<string>("all");
   const [contactDeptFilter, setContactDeptFilter] = useState<string>("all");
 
-  // Brain switcher — declared here so it can be passed to getCompany query below
-  const [selectedBrainId, setSelectedBrainId] = useState<number | undefined>(undefined);
+  // Brain switcher — initialise from URL ?brainId param if present
+  const [selectedBrainId, setSelectedBrainId] = useState<number | undefined>(urlBrainId);
+
+  // Sync selectedBrainId to URL without full navigation
+  const updateBrainInUrl = (brainId: number | undefined) => {
+    const params = new URLSearchParams(window.location.search);
+    if (brainId) params.set("brainId", String(brainId));
+    else params.delete("brainId");
+    const newUrl = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState(null, "", newUrl);
+  };
+
+  const handleBrainChange = (brainId: number | undefined) => {
+    setSelectedBrainId(brainId);
+    updateBrainInUrl(brainId);
+  };
 
   const { data, isLoading, refetch } = trpc.companyFinder.getCompany.useQuery(
     { companyId, brainId: selectedBrainId },
@@ -330,9 +346,12 @@ export default function CompanyDetail() {
   const { data: activeBrainData } = trpc.companyFinder.getActiveBrain.useQuery();
   const activeBrain = activeBrainData?.brain ?? null;
 
-  // Brain switcher — auto-select active brain once loaded
+  // Brain switcher — auto-select active brain once loaded (only if not set from URL)
   useEffect(() => {
-    if (activeBrain && selectedBrainId === undefined) setSelectedBrainId(activeBrain.id);
+    if (activeBrain && selectedBrainId === undefined) {
+      setSelectedBrainId(activeBrain.id);
+      updateBrainInUrl(activeBrain.id);
+    }
   }, [activeBrain, selectedBrainId]);
   const { data: brainHistoryData } = trpc.companyFinder.getBrainHistory.useQuery();
   const availableBrains: any[] = brainHistoryData?.history ?? [];
@@ -875,34 +894,75 @@ export default function CompanyDetail() {
           )}
         </div>
 
-        {/* ── Brain Switcher ── */}
-        {availableBrains.length > 1 && (
-          <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 border-b-2 border-black flex-wrap">
-            <span className="text-[10px] font-black text-muted-foreground shrink-0">VIEWING BRAIN:</span>
-            <select
-              className="text-xs font-bold border-2 border-black px-2 py-1 bg-white cursor-pointer"
-              value={selectedBrainId ?? ""}
-              onChange={(e) => setSelectedBrainId(e.target.value ? Number(e.target.value) : undefined)}
-            >
-              {availableBrains.map((b: any) => (
-                <option key={b.id} value={b.id}>
-                  {b.brainName ?? b.companyName}{b.isActive ? " ★ active" : ""}
-                </option>
-              ))}
-            </select>
-            {selectedBrainId && selectedBrainId !== activeBrain?.id && (
-              <span className="text-[10px] font-black text-yellow-700 bg-yellow-100 px-1.5 py-0.5 border border-yellow-400">
-                ⚠ NOT ACTIVE BRAIN
+        {/* ── Brain Tabs ── */}
+        {(() => {
+          // Build tab list: brains that have output for this company + active brain (even if no output yet)
+          const outputBrains: any[] = data?.allBrainOutputs ?? [];
+          const outputBrainIds = new Set(outputBrains.map((o: any) => o.brainId));
+          // Merge: output brains first, then active brain if not already present
+          const tabBrains: Array<{ brainId: number; brainName: string; fitScore: number | null; urgencyScore: number | null; isActive: boolean }> = [
+            ...outputBrains.map((o: any) => ({
+              brainId: o.brainId,
+              brainName: o.brainName ?? `Brain #${o.brainId}`,
+              fitScore: o.fitScore ?? null,
+              urgencyScore: o.urgencyScore ?? null,
+              isActive: o.brainId === activeBrain?.id,
+            })),
+            ...(activeBrain && !outputBrainIds.has(activeBrain.id) ? [{
+              brainId: activeBrain.id,
+              brainName: activeBrain.brainName ?? activeBrain.companyName ?? `Brain #${activeBrain.id}`,
+              fitScore: null,
+              urgencyScore: null,
+              isActive: true,
+            }] : []),
+          ];
+          if (tabBrains.length === 0) return null;
+          return (
+            <div className="flex overflow-x-auto border-b-2 border-black bg-gray-50">
+              <span className="shrink-0 flex items-center px-3 text-[9px] font-black text-gray-400 uppercase tracking-widest border-r-2 border-black">
+                BRAIN
               </span>
-            )}
-            {/* All brain outputs for this company */}
-            {(data?.allBrainOutputs ?? []).length > 0 && (
-              <span className="text-[10px] text-muted-foreground ml-auto">
-                {(data?.allBrainOutputs ?? []).length} brain output{(data?.allBrainOutputs ?? []).length !== 1 ? "s" : ""} stored
-              </span>
-            )}
-          </div>
-        )}
+              {tabBrains.map((tb) => {
+                const isSelected = selectedBrainId === tb.brainId;
+                const hasOutput = outputBrainIds.has(tb.brainId);
+                return (
+                  <button
+                    key={tb.brainId}
+                    onClick={() => handleBrainChange(tb.brainId)}
+                    className={`shrink-0 flex items-center gap-2 px-4 py-2 text-xs font-black border-r-2 border-black cursor-pointer transition-colors ${
+                      isSelected
+                        ? "bg-black text-white"
+                        : "hover:bg-gray-100 text-gray-700"
+                    }`}
+                  >
+                    <span className="truncate max-w-[140px]">{tb.brainName}</span>
+                    {tb.isActive && (
+                      <span className={`text-[9px] font-black px-1 py-0.5 ${
+                        isSelected ? "bg-white text-black" : "bg-black text-white"
+                      }`}>★</span>
+                    )}
+                    {hasOutput && tb.fitScore !== null && (
+                      <span className={`text-[10px] font-black px-1.5 py-0.5 ${
+                        isSelected
+                          ? "bg-white text-black"
+                          : tb.fitScore >= 80 ? "bg-green-600 text-white"
+                          : tb.fitScore >= 60 ? "bg-yellow-500 text-white"
+                          : "bg-gray-400 text-white"
+                      }`}>
+                        FIT {tb.fitScore}
+                      </span>
+                    )}
+                    {!hasOutput && (
+                      <span className={`text-[9px] font-black px-1 py-0.5 ${
+                        isSelected ? "bg-white text-black" : "bg-gray-200 text-gray-500"
+                      }`}>NO OUTPUT</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          );
+        })()}
 
         {/* ── Chapter Tab Bar ── */}
         <div className="flex overflow-x-auto border-b-4 border-black">

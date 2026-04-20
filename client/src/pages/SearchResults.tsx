@@ -413,7 +413,7 @@ export default function SearchResults() {
   const enrichmentFiltered = useMemo(() => {
     if (enrichmentFilter === "enriched") return filteredCompanies.filter(c => c.enrichmentStatus === "enriched");
     if (enrichmentFilter === "pending") return filteredCompanies.filter(c => c.enrichmentStatus === "pending" || c.enrichmentStatus === "failed");
-    if (enrichmentFilter === "outreach") return filteredCompanies.filter(c => !!c.salesApproachData);
+    if (enrichmentFilter === "outreach") return filteredCompanies.filter(c => !!c.salesApproachGeneratedAt);
     if (enrichmentFilter === "visitors") return filteredCompanies.filter(c => leadinfoSet.has(c.id));
     return filteredCompanies;
   }, [filteredCompanies, enrichmentFilter, leadinfoSet]);
@@ -483,11 +483,12 @@ export default function SearchResults() {
 
   // Remaining work = pending + no-brief + no-approach (must be before early returns)
   const remainingWorkBreakdown = useMemo(() => {
+    // Use timestamp fields as presence indicators — briefData/salesApproachData are excluded from the slim list query
     const pendingEnrich = allCompanies.filter((c: any) => c.enrichmentStatus === "pending").length;
-    const needsBrief = allCompanies.filter((c: any) => c.enrichmentStatus === "enriched" && !c.briefData).length;
-    const needsApproach = allCompanies.filter((c: any) => c.enrichmentStatus === "enriched" && !!c.briefData && !c.salesApproachData).length;
+    const needsBrief = allCompanies.filter((c: any) => c.enrichmentStatus === "enriched" && !c.briefGeneratedAt).length;
+    const needsApproach = allCompanies.filter((c: any) => c.enrichmentStatus === "enriched" && !!c.briefGeneratedAt && !c.salesApproachGeneratedAt).length;
     const total = allCompanies.filter(
-      (c: any) => c.enrichmentStatus === "pending" || !c.briefData || !c.salesApproachData
+      (c: any) => c.enrichmentStatus === "pending" || !c.briefGeneratedAt || !c.salesApproachGeneratedAt
     ).length;
     return { pendingEnrich, needsBrief, needsApproach, total };
   }, [allCompanies]);
@@ -729,7 +730,7 @@ export default function SearchResults() {
   const totalCount = filteredCompanies.length;
   const enrichedCount = enrichmentStats?.enriched ?? 0;
   const outreachReadyCount = enrichmentStats?.outreachReady ?? 0;
-  const researchedCount = allCompanies.filter((c: any) => !!c.briefData).length;
+  const researchedCount = allCompanies.filter((c: any) => !!c.briefGeneratedAt).length;
 
 
 
@@ -1544,20 +1545,12 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach,
                 {company.websiteUrl.replace(/^https?:\/\//, "")}
               </a>
             )}
-            {/* Company Overview snippet — first sentence from briefData */}
-            {company.briefData && (() => {
-              try {
-                const bd = typeof company.briefData === 'string' ? JSON.parse(company.briefData) : company.briefData;
-                const overview = bd?.companyOverview as string | undefined;
-                if (!overview) return null;
-                const firstSentence = overview.split(/(?<=[.!?])\s+/)[0] ?? overview;
-                return (
-                  <p className="text-xs text-muted-foreground mt-1 leading-snug line-clamp-2">
-                    {firstSentence}
-                  </p>
-                );
-              } catch { return null; }
-            })()}
+            {/* Company Overview snippet — show link to brief when research is done */}
+            {company.briefGeneratedAt && (
+              <p className="text-xs text-muted-foreground mt-1 leading-snug">
+                Research brief available — open card for details.
+              </p>
+            )}
           </div>
           {/* SALES BRIEF — prominent right-side CTA */}
           <div className="shrink-0">
@@ -1602,70 +1595,29 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach,
         </div>
 
         {/* Research / Approach Quick-Access Cards — only when data exists */}
-        {(company.briefData || company.salesApproachData) && (
+        {(company.briefGeneratedAt || company.salesApproachGeneratedAt) && (
           <div className="flex gap-3 mt-3">
-            {company.briefData && (() => {
-              let bd: any = null;
-              try { bd = typeof company.briefData === 'string' ? JSON.parse(company.briefData) : company.briefData; } catch {}
-              const sections = [
-                bd?.recentDevelopments?.length > 0 && 'Recent Developments',
-                bd?.productsServices?.length > 0 && 'Products & Services',
-                bd?.keyTechnologies?.length > 0 && 'Key Technologies',
-                bd?.targetMarkets?.length > 0 && 'Target Markets',
-                bd?.sources?.length > 0 && `Sources (${bd.sources.length})`,
-              ].filter(Boolean) as string[];
-              return (
-                <button
-                  onClick={(e) => { e.stopPropagation(); navigate(buildCompanyUrl("research")); }}
-                  className="flex-1 border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors p-3 text-left cursor-pointer"
-                >
-                  <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Research</div>
-                  <div className="text-sm font-semibold text-gray-800 leading-tight">View Research Brief →</div>
-                  {company.urgencyScore > 0 && (
-                    <div className="text-xs font-medium text-gray-500 mt-1">Urgency: {company.urgencyScore}/100</div>
-                  )}
-                  {sections.length > 0 && (
-                    <ul className="mt-2 space-y-0.5">
-                      {sections.map((s) => (
-                        <li key={s} className="text-[10px] font-medium text-gray-500 flex items-center gap-1">
-                          <span className="w-1 h-1 rounded-full bg-gray-400 shrink-0" />
-                          {s}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </button>
-              );
-            })()}
-            {company.salesApproachData && (() => {
-              let sa: any = null;
-              try { sa = normaliseSalesApproach(typeof company.salesApproachData === 'string' ? JSON.parse(company.salesApproachData) : company.salesApproachData); } catch {}
-              const approachSections = [
-                sa?.conversationStarters?.length > 0 && `Conversation Starters (${sa.conversationStarters.length})`,
-                sa?.emailDraft && 'Email Draft',
-                sa?.linkedinMessage && 'LinkedIn Message',
-                sa?.callScript && 'Call Script',
-              ].filter(Boolean) as string[];
-              return (
-                <button
-                  onClick={(e) => { e.stopPropagation(); navigate(buildCompanyUrl("approach")); }}
-                  className="flex-1 border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors p-3 text-left cursor-pointer"
-                >
-                  <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Approach</div>
-                  <div className="text-sm font-semibold text-gray-800 leading-tight">View Approach →</div>
-                  {approachSections.length > 0 && (
-                    <ul className="mt-2 space-y-0.5">
-                      {approachSections.map((s) => (
-                    <li key={s} className="text-[10px] font-medium text-gray-500 flex items-center gap-1">
-                            <span className="w-1 h-1 rounded-full bg-gray-400 shrink-0" />
-                          {s}
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                </button>
-              );
-            })()}
+            {company.briefGeneratedAt && (
+              <button
+                onClick={(e) => { e.stopPropagation(); navigate(buildCompanyUrl("research")); }}
+                className="flex-1 border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors p-3 text-left cursor-pointer"
+              >
+                <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Research</div>
+                <div className="text-sm font-semibold text-gray-800 leading-tight">View Research Brief →</div>
+                {company.urgencyScore > 0 && (
+                  <div className="text-xs font-medium text-gray-500 mt-1">Urgency: {company.urgencyScore}/100</div>
+                )}
+              </button>
+            )}
+            {company.salesApproachGeneratedAt && (
+              <button
+                onClick={(e) => { e.stopPropagation(); navigate(buildCompanyUrl("approach")); }}
+                className="flex-1 border border-gray-200 bg-gray-50 hover:bg-gray-100 transition-colors p-3 text-left cursor-pointer"
+              >
+                <div className="text-[10px] font-medium text-gray-400 uppercase tracking-wide mb-0.5">Approach</div>
+                <div className="text-sm font-semibold text-gray-800 leading-tight">View Approach →</div>
+              </button>
+            )}
           </div>
         )}
       </div>

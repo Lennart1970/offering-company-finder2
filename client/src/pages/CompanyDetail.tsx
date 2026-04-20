@@ -106,8 +106,11 @@ export default function CompanyDetail() {
   const [contactSeniorityFilter, setContactSeniorityFilter] = useState<string>("all");
   const [contactDeptFilter, setContactDeptFilter] = useState<string>("all");
 
+  // Brain switcher — declared here so it can be passed to getCompany query below
+  const [selectedBrainId, setSelectedBrainId] = useState<number | undefined>(undefined);
+
   const { data, isLoading, refetch } = trpc.companyFinder.getCompany.useQuery(
-    { companyId },
+    { companyId, brainId: selectedBrainId },
     { enabled: !!companyId && !isNaN(companyId) }
   );
 
@@ -323,9 +326,16 @@ export default function CompanyDetail() {
     onError: () => { setProductImagesLoading(false); toast.error("Could not fetch product images"); },
   });
 
-  // Active Brain — used for BOM enrichment
+  // Active Brain — used for BOM enrichment and brain-scoped output
   const { data: activeBrainData } = trpc.companyFinder.getActiveBrain.useQuery();
   const activeBrain = activeBrainData?.brain ?? null;
+
+  // Brain switcher — auto-select active brain once loaded
+  useEffect(() => {
+    if (activeBrain && selectedBrainId === undefined) setSelectedBrainId(activeBrain.id);
+  }, [activeBrain, selectedBrainId]);
+  const { data: brainHistoryData } = trpc.companyFinder.getBrainHistory.useQuery();
+  const availableBrains: any[] = brainHistoryData?.history ?? [];
 
   // BOM Calculator state
   const [bomModalOpen, setBomModalOpen] = useState(false);
@@ -864,6 +874,35 @@ export default function CompanyDetail() {
             </div>
           )}
         </div>
+
+        {/* ── Brain Switcher ── */}
+        {availableBrains.length > 1 && (
+          <div className="flex items-center gap-3 px-4 py-2 bg-gray-50 border-b-2 border-black flex-wrap">
+            <span className="text-[10px] font-black text-muted-foreground shrink-0">VIEWING BRAIN:</span>
+            <select
+              className="text-xs font-bold border-2 border-black px-2 py-1 bg-white cursor-pointer"
+              value={selectedBrainId ?? ""}
+              onChange={(e) => setSelectedBrainId(e.target.value ? Number(e.target.value) : undefined)}
+            >
+              {availableBrains.map((b: any) => (
+                <option key={b.id} value={b.id}>
+                  {b.brainName ?? b.companyName}{b.isActive ? " ★ active" : ""}
+                </option>
+              ))}
+            </select>
+            {selectedBrainId && selectedBrainId !== activeBrain?.id && (
+              <span className="text-[10px] font-black text-yellow-700 bg-yellow-100 px-1.5 py-0.5 border border-yellow-400">
+                ⚠ NOT ACTIVE BRAIN
+              </span>
+            )}
+            {/* All brain outputs for this company */}
+            {(data?.allBrainOutputs ?? []).length > 0 && (
+              <span className="text-[10px] text-muted-foreground ml-auto">
+                {(data?.allBrainOutputs ?? []).length} brain output{(data?.allBrainOutputs ?? []).length !== 1 ? "s" : ""} stored
+              </span>
+            )}
+          </div>
+        )}
 
         {/* ── Chapter Tab Bar ── */}
         <div className="flex overflow-x-auto border-b-4 border-black">
@@ -1578,9 +1617,9 @@ export default function CompanyDetail() {
             <div className="p-6">
               {!briefData ? (
                 <div className="text-center py-16 flex flex-col items-center gap-4">
-                  <p className="text-muted-foreground font-bold text-lg">No research data available yet.</p>
+                  <p className="text-muted-foreground font-bold text-lg">No research data available yet{selectedBrainId ? " for this brain" : ""}.</p>
                   <Button
-                    onClick={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: false }); }}
+                    onClick={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: false, brainId: selectedBrainId }); }}
                     disabled={reResearchLoading}
                     className="px-6 py-3 bg-blue-600 text-white font-black text-sm uppercase tracking-widest border-2 border-black shadow-[4px_4px_0_black] hover:shadow-none hover:translate-x-1 hover:translate-y-1 transition-all disabled:opacity-50"
                   >
@@ -1592,7 +1631,7 @@ export default function CompanyDetail() {
                   <CacheBanner
                     cachedAt={company.briefGeneratedAt}
                     label="Research data"
-                    onRefresh={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: true }); }}
+                    onRefresh={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: true, brainId: selectedBrainId }); }}
                     loading={reResearchLoading}
                   />
                   {/* Recent Developments sub-chapter */}
@@ -2288,7 +2327,7 @@ export default function CompanyDetail() {
                   </p>
                   {company.briefData && (
                     <button
-                      onClick={() => { setReApproachLoading(true); reApproachMutation.mutate({ companyId }); }}
+                      onClick={() => { setReApproachLoading(true); reApproachMutation.mutate({ companyId, brainId: selectedBrainId }); }}
                       disabled={reApproachLoading}
                       className="flex items-center gap-2 border-2 border-green-700 bg-green-700 text-white font-black px-6 py-3 hover:bg-green-800 transition-colors disabled:opacity-50 disabled:cursor-wait"
                     >
@@ -2316,7 +2355,7 @@ export default function CompanyDetail() {
                   <CacheBanner
                     cachedAt={company.salesApproachGeneratedAt}
                     label="Sales approach"
-                    onRefresh={() => { setReApproachLoading(true); reApproachMutation.mutate({ companyId }); }}
+                    onRefresh={() => { setReApproachLoading(true); reApproachMutation.mutate({ companyId, brainId: selectedBrainId }); }}
                     loading={reApproachLoading}
                   />
                   {/* Conversation Starters sub-chapter */}

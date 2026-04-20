@@ -1,6 +1,6 @@
 import { eq, and, or, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob, bomCalculations, BomCalculation, InsertBomCalculation, apolloWebhookLogs, ApolloWebhookLog, InsertApolloWebhookLog } from "../drizzle/schema";
+import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob, bomCalculations, BomCalculation, InsertBomCalculation, apolloWebhookLogs, ApolloWebhookLog, InsertApolloWebhookLog, companyBrainOutputs, CompanyBrainOutput, InsertCompanyBrainOutput } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -888,4 +888,78 @@ export async function countWebhookLogs(): Promise<number> {
   if (!db) return 0;
   const result = await db.select({ total: count() }).from(apolloWebhookLogs);
   return result[0]?.total ?? 0;
+}
+
+// ---------------------------------------------------------------------------
+// Multi-brain output store helpers
+// ---------------------------------------------------------------------------
+
+/**
+ * Upsert a brain output row for a (companyId, brainId) pair.
+ * Only updates the fields that are provided (partial update).
+ */
+export async function upsertCompanyBrainOutput(
+  companyId: number,
+  brainId: number,
+  updates: Partial<Omit<InsertCompanyBrainOutput, "id" | "companyId" | "brainId" | "createdAt" | "updatedAt">>
+): Promise<void> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db
+    .insert(companyBrainOutputs)
+    .values({ companyId, brainId, ...updates })
+    .onDuplicateKeyUpdate({ set: updates });
+}
+
+/**
+ * Get the brain output row for a specific (companyId, brainId) pair.
+ */
+export async function getCompanyBrainOutput(
+  companyId: number,
+  brainId: number
+): Promise<CompanyBrainOutput | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const { and } = await import("drizzle-orm");
+  const rows = await db
+    .select()
+    .from(companyBrainOutputs)
+    .where(and(eq(companyBrainOutputs.companyId, companyId), eq(companyBrainOutputs.brainId, brainId)))
+    .limit(1);
+  return rows[0] ?? null;
+}
+
+/**
+ * Get all brain output rows for a list of companyIds and a specific brainId.
+ * Returns a map of companyId → CompanyBrainOutput for fast lookup.
+ */
+export async function getCompanyBrainOutputsForSearch(
+  companyIds: number[],
+  brainId: number
+): Promise<Map<number, CompanyBrainOutput>> {
+  const db = await getDb();
+  const map = new Map<number, CompanyBrainOutput>();
+  if (!db || companyIds.length === 0) return map;
+  const { inArray, and } = await import("drizzle-orm");
+  const rows = await db
+    .select()
+    .from(companyBrainOutputs)
+    .where(and(inArray(companyBrainOutputs.companyId, companyIds), eq(companyBrainOutputs.brainId, brainId)));
+  for (const row of rows) map.set(row.companyId, row);
+  return map;
+}
+
+/**
+ * Get all brain output rows for a single company (all brains).
+ * Used by the company detail page to show the brain switcher.
+ */
+export async function getAllBrainOutputsForCompany(
+  companyId: number
+): Promise<CompanyBrainOutput[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db
+    .select()
+    .from(companyBrainOutputs)
+    .where(eq(companyBrainOutputs.companyId, companyId));
 }

@@ -38,6 +38,9 @@ import {
   archiveSearch,
   getCompaniesBySearchIdPaged,
   countCompaniesBySearchId,
+  upsertCompanyBrainOutput,
+  getCompanyBrainOutput,
+  getCompanyBrainOutputsForSearch,
 } from "./db";
 // Brain and contacts-by-company imports are above with brainResearchService
 import { searchApolloContacts, searchApolloContacts as searchApolloContactsSingle, trickleDownSearch, getAllPersonnel, enrichPerson, SENIORITY_TIERS } from "./apolloPeopleSearch";
@@ -55,6 +58,7 @@ import {
   getOfferingBrainById,
   setContactPhonePending,
   updateContactPhone,
+  getAllBrainOutputsForCompany,
 } from "./db";
 import { extractOffering } from "./offeringExtractor";
 import { searchApolloCompanies, enrichCompanyDetails } from "./apolloSearch";
@@ -174,7 +178,7 @@ export const companyFinderRouter = router({
 
   // Get search status and results (paginated — default 100 per page)
   getSearch: protectedProcedure
-    .input(z.object({ searchId: z.number(), page: z.number().optional().default(0), pageSize: z.number().optional().default(100) }))
+    .input(z.object({ searchId: z.number(), page: z.number().optional().default(0), pageSize: z.number().optional().default(100), brainId: z.number().optional() }))
     .query(async ({ ctx, input }) => {
       const search = await assertSearchAccess(input.searchId, ctx.user.id);
 
@@ -185,19 +189,50 @@ export const companyFinderRouter = router({
         countCompaniesBySearchId(input.searchId),
       ]);
 
-      // Compute enrichment stats from the full page (approximate for display)
-      const enrichedCount = companiesList.filter((c) => c.enrichmentStatus === "enriched").length;
-      const pendingCount = companiesList.filter((c) => c.enrichmentStatus === "pending").length;
-      const nameOnlyCount = companiesList.filter(
+      // If a brainId is provided, merge brain-scoped outputs into each company row
+      // so that urgencyScore, fitScore, briefGeneratedAt, salesApproachGeneratedAt
+      // reflect the selected brain's data rather than the legacy columns.
+      let mergedCompanies = companiesList as Array<typeof companiesList[0] & {
+        brainUrgencyScore?: number | null;
+        brainFitScore?: number | null;
+        brainBriefGeneratedAt?: Date | null;
+        brainSalesApproachGeneratedAt?: Date | null;
+      }>;
+
+      if (input.brainId) {
+        const enrichedIds = companiesList.filter(c => c.enrichmentStatus === "enriched").map(c => c.id);
+        const brainOutputMap = await getCompanyBrainOutputsForSearch(enrichedIds, input.brainId);
+        mergedCompanies = companiesList.map(c => {
+          const out = brainOutputMap.get(c.id);
+          return {
+            ...c,
+            // Override display fields with brain-scoped values
+            urgencyScore: out?.urgencyScore ?? c.urgencyScore,
+            fitScore: out?.fitScore ?? c.fitScore,
+            briefGeneratedAt: out?.briefGeneratedAt ?? null,
+            salesApproachGeneratedAt: out?.salesApproachGeneratedAt ?? null,
+            // Keep original values accessible under brain-prefixed keys
+            brainUrgencyScore: out?.urgencyScore ?? null,
+            brainFitScore: out?.fitScore ?? null,
+            brainBriefGeneratedAt: out?.briefGeneratedAt ?? null,
+            brainSalesApproachGeneratedAt: out?.salesApproachGeneratedAt ?? null,
+          };
+        });
+      }
+
+      // Compute enrichment stats from the merged company list
+      const enrichedCount = mergedCompanies.filter((c) => c.enrichmentStatus === "enriched").length;
+      const pendingCount = mergedCompanies.filter((c) => c.enrichmentStatus === "pending").length;
+      const nameOnlyCount = mergedCompanies.filter(
         (c) => c.enrichmentStatus === "pending" && !c.apolloId && !c.primaryDomain
       ).length;
-      const outreachReadyCount = companiesList.filter(
+      const outreachReadyCount = mergedCompanies.filter(
         (c) => c.enrichmentStatus === "enriched" && !!c.salesApproachGeneratedAt
       ).length;
 
       return {
         search,
-        companies: companiesList,
+        companies: mergedCompanies,
         decisions,
         pagination: {
           page: input.page,
@@ -322,13 +357,37 @@ export const companyFinderRouter = router({
           const { generateSalesApproach } = await import("./salesApproachGenerator");
           const all = await getCompaniesBySearchId(input.searchId);
           const limit = input.limit;
+
+          // Resolve the brain to use — explicit brainId or fall back to active brain
+          const brain = input.brainId
+            ? await getOfferingBrainById(input.brainId, ctx.user.id)
+            : await getActiveBrain(ctx.user.id);
+          const resolvedBrainId = brain?.id;
+
+          // Brain-scoped queue: a company needs work if it has no output row for this brain
+          let brainOutputMap = new Map<number, any>();
+          if (resolvedBrainId) {
+            const enrichedIds = all.filter(c => c.enrichmentStatus === "enriched").map(c => c.id);
+            brainOutputMap = await getCompanyBrainOutputsForSearch(enrichedIds, resolvedBrainId);
+          }
+
           const pending = all.filter((c) => c.enrichmentStatus === "pending" && !!c.apolloId);
-          const needsBrief = all.filter((c) => c.enrichmentStatus === "enriched" && !c.briefData);
-          const needsApproach = all.filter((c) => c.enrichmentStatus === "enriched" && !!c.briefData && !c.salesApproachData);
+          const needsBrief = all.filter((c) => {
+            if (c.enrichmentStatus !== "enriched") return false;
+            if (!resolvedBrainId) return !c.briefGeneratedAt;
+            const out = brainOutputMap.get(c.id);
+            return !out?.briefGeneratedAt;
+          });
+          const needsApproach = all.filter((c) => {
+            if (c.enrichmentStatus !== "enriched") return false;
+            if (!resolvedBrainId) return !!c.briefGeneratedAt && !c.salesApproachGeneratedAt;
+            const out = brainOutputMap.get(c.id);
+            return !!out?.briefGeneratedAt && !out?.salesApproachGeneratedAt;
+          });
           const queue = [...pending, ...needsBrief, ...needsApproach].slice(0, limit);
 
           await updateBatchJob(jobId, { totalCompanies: queue.length });
-          console.log(`[doNext10] jobId=${jobId} searchId=${input.searchId} — ${queue.length} companies queued`);
+          console.log(`[doNext10] jobId=${jobId} searchId=${input.searchId} brainId=${resolvedBrainId} — ${queue.length} companies queued`);
 
           let enriched = 0, researched = 0, approached = 0, failed = 0;
 
@@ -355,18 +414,40 @@ export const companyFinderRouter = router({
                   enriched++;
                   console.log(`[doNext10] ✓ Enriched: ${company.name}`);
                 }
-                if (!company.briefData) {
+                // Get the current brain output for this company (re-check after enrichment)
+                const existingOutput = resolvedBrainId ? await getCompanyBrainOutput(company.id, resolvedBrainId) : null;
+                const hasBrief = resolvedBrainId ? !!existingOutput?.briefGeneratedAt : !!company.briefGeneratedAt;
+                const hasApproach = resolvedBrainId ? !!existingOutput?.salesApproachGeneratedAt : !!company.salesApproachGeneratedAt;
+
+                if (!hasBrief) {
                   const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id, input.brainId);
+                  // Write to company_brain_outputs
+                  if (resolvedBrainId) {
+                    await upsertCompanyBrainOutput(company.id, resolvedBrainId, {
+                      urgencyScore: brief.urgencyScore,
+                      briefData: JSON.stringify(brief),
+                      briefGeneratedAt: new Date(),
+                    });
+                  }
+                  // Also keep legacy columns in sync for backwards compat
                   await updateCompany(company.id, {
                     urgencyScore: brief.urgencyScore,
                     briefData: JSON.stringify(brief),
                     briefGeneratedAt: new Date(),
+                    generatedWithBrainId: resolvedBrainId ?? null,
+                    generatedWithBrainName: brain?.brainName ?? null,
                   });
                   researched++;
                   console.log(`[doNext10] ✓ Researched: ${company.name}`);
                 }
-                if (!company.salesApproachData) {
+                if (!hasApproach) {
                   const approach = await generateSalesApproach(company.id, ctx.user.id, input.brainId);
+                  if (resolvedBrainId) {
+                    await upsertCompanyBrainOutput(company.id, resolvedBrainId, {
+                      salesApproachData: JSON.stringify(approach),
+                      salesApproachGeneratedAt: new Date(),
+                    });
+                  }
                   await updateCompany(company.id, {
                     salesApproachData: JSON.stringify(approach),
                     salesApproachGeneratedAt: new Date(),
@@ -387,10 +468,21 @@ export const companyFinderRouter = router({
             }
           }
 
+          // Remaining count scoped to the selected brain
           const refreshed = await getCompaniesBySearchId(input.searchId);
-          const remaining = refreshed.filter(
-            (c) => c.enrichmentStatus === "pending" || !c.briefData || !c.salesApproachData
-          ).length;
+          let remaining: number;
+          if (resolvedBrainId) {
+            const allIds = refreshed.filter(c => c.enrichmentStatus === "enriched").map(c => c.id);
+            const refreshedMap = await getCompanyBrainOutputsForSearch(allIds, resolvedBrainId);
+            remaining = refreshed.filter(c =>
+              (c.enrichmentStatus === "pending" && !!c.apolloId) ||
+              (c.enrichmentStatus === "enriched" && !refreshedMap.get(c.id)?.salesApproachGeneratedAt)
+            ).length;
+          } else {
+            remaining = refreshed.filter(
+              (c) => c.enrichmentStatus === "pending" || !c.briefGeneratedAt || !c.salesApproachGeneratedAt
+            ).length;
+          }
           await updateBatchJob(jobId, {
             status: "completed",
             progress: 100,
@@ -492,16 +584,32 @@ export const companyFinderRouter = router({
           const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
           const { generateSalesApproach } = await import("./salesApproachGenerator");
           const all = await getCompaniesBySearchId(input.searchId);
-          // Build a deduplicated queue of unique companies that need ANY work
-          const needsWork = all.filter((c) =>
-            (c.enrichmentStatus === "pending" && !!c.apolloId) ||
-            (c.enrichmentStatus === "enriched" && !c.briefData) ||
-            (c.enrichmentStatus === "enriched" && !!c.briefData && !c.salesApproachData)
-          );
+
+          // Resolve the brain to use — explicit brainId or fall back to active brain
+          const brain = input.brainId
+            ? await getOfferingBrainById(input.brainId, ctx.user.id)
+            : await getActiveBrain(ctx.user.id);
+          const resolvedBrainId = brain?.id;
+
+          // Brain-scoped queue: load existing outputs for this brain
+          let brainOutputMap = new Map<number, any>();
+          if (resolvedBrainId) {
+            const enrichedIds = all.filter(c => c.enrichmentStatus === "enriched").map(c => c.id);
+            brainOutputMap = await getCompanyBrainOutputsForSearch(enrichedIds, resolvedBrainId);
+          }
+
+          // Build a deduplicated queue of unique companies that need ANY work for this brain
+          const needsWork = all.filter((c) => {
+            if (c.enrichmentStatus === "pending" && !!c.apolloId) return true;
+            if (c.enrichmentStatus !== "enriched") return false;
+            if (!resolvedBrainId) return !c.briefGeneratedAt || !c.salesApproachGeneratedAt;
+            const out = brainOutputMap.get(c.id);
+            return !out?.salesApproachGeneratedAt; // needs work if approach not done for this brain
+          });
           const queue = needsWork;
 
           await updateBatchJob(jobId, { totalCompanies: queue.length });
-          console.log(`[doAll] jobId=${jobId} searchId=${input.searchId} — ${queue.length} companies queued`);
+          console.log(`[doAll] jobId=${jobId} searchId=${input.searchId} brainId=${resolvedBrainId} — ${queue.length} companies queued`);
 
           // Parallel concurrency — default 5, configurable via DOALL_CONCURRENCY env var
           const CONCURRENCY = Math.max(1, parseInt(process.env.DOALL_CONCURRENCY || "5", 10));
@@ -527,18 +635,38 @@ export const companyFinderRouter = router({
                 enriched++;
                 console.log(`[doAll] ✓ Enriched: ${company.name}`);
               }
-              if (!company.briefData) {
+              // Re-check brain output after enrichment
+              const existingOutput = resolvedBrainId ? await getCompanyBrainOutput(company.id, resolvedBrainId) : null;
+              const hasBrief = resolvedBrainId ? !!existingOutput?.briefGeneratedAt : !!company.briefGeneratedAt;
+              const hasApproach = resolvedBrainId ? !!existingOutput?.salesApproachGeneratedAt : !!company.salesApproachGeneratedAt;
+
+              if (!hasBrief) {
                 const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id, input.brainId);
+                if (resolvedBrainId) {
+                  await upsertCompanyBrainOutput(company.id, resolvedBrainId, {
+                    urgencyScore: brief.urgencyScore,
+                    briefData: JSON.stringify(brief),
+                    briefGeneratedAt: new Date(),
+                  });
+                }
                 await updateCompany(company.id, {
                   urgencyScore: brief.urgencyScore,
                   briefData: JSON.stringify(brief),
                   briefGeneratedAt: new Date(),
+                  generatedWithBrainId: resolvedBrainId ?? null,
+                  generatedWithBrainName: brain?.brainName ?? null,
                 });
                 researched++;
                 console.log(`[doAll] ✓ Researched: ${company.name}`);
               }
-              if (!company.salesApproachData) {
+              if (!hasApproach) {
                 const approach = await generateSalesApproach(company.id, ctx.user.id, input.brainId);
+                if (resolvedBrainId) {
+                  await upsertCompanyBrainOutput(company.id, resolvedBrainId, {
+                    salesApproachData: JSON.stringify(approach),
+                    salesApproachGeneratedAt: new Date(),
+                  });
+                }
                 await updateCompany(company.id, {
                   salesApproachData: JSON.stringify(approach),
                   salesApproachGeneratedAt: new Date(),
@@ -588,9 +716,19 @@ export const companyFinderRouter = router({
 
           if (!cancelled) {
             const refreshed = await getCompaniesBySearchId(input.searchId);
-            const remaining = refreshed.filter(
-              (c) => c.enrichmentStatus === "pending" || !c.briefData || !c.salesApproachData
-            ).length;
+            let remaining: number;
+            if (resolvedBrainId) {
+              const allIds = refreshed.filter(c => c.enrichmentStatus === "enriched").map(c => c.id);
+              const refreshedMap = await getCompanyBrainOutputsForSearch(allIds, resolvedBrainId);
+              remaining = refreshed.filter(c =>
+                (c.enrichmentStatus === "pending" && !!c.apolloId) ||
+                (c.enrichmentStatus === "enriched" && !refreshedMap.get(c.id)?.salesApproachGeneratedAt)
+              ).length;
+            } else {
+              remaining = refreshed.filter(
+                (c) => c.enrichmentStatus === "pending" || !c.briefGeneratedAt || !c.salesApproachGeneratedAt
+              ).length;
+            }
             await updateBatchJob(jobId, {
               status: "completed",
               progress: 100,
@@ -896,24 +1034,30 @@ export const companyFinderRouter = router({
     .input(z.object({
       companyId: z.number(),
       force: z.boolean().optional(), // If true, bypass cache and regenerate
+      brainId: z.number().optional(), // If provided, use this brain and write to company_brain_outputs
     }))
     .mutation(async ({ ctx, input }) => {
       const company = await assertCompanyAccess(input.companyId, ctx.user.id);
-      console.log(`[generateBrief] Starting brief generation for company ${input.companyId}`);
-      // Check if cached brief exists and is recent (< 7 days old) — skip if force=true
-      if (!input.force && company.briefData && company.briefGeneratedAt) {
+      console.log(`[generateBrief] Starting brief generation for company ${input.companyId} brainId=${input.brainId ?? 'active'}`);
+
+      // If a specific brainId is provided, check the brain-scoped cache instead
+      if (!input.force && input.brainId) {
+        const existingOutput = await getCompanyBrainOutput(input.companyId, input.brainId);
+        if (existingOutput?.briefData && existingOutput.briefGeneratedAt) {
+          const cacheAge = Date.now() - new Date(existingOutput.briefGeneratedAt).getTime();
+          const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
+          if (cacheAge < sevenDaysMs) {
+            console.log(`[generateBrief] Using brain-scoped cached brief (age: ${Math.floor(cacheAge / (24 * 60 * 60 * 1000))} days)`);
+            return { success: true, brief: JSON.parse(existingOutput.briefData), cached: true, cacheAge: Math.floor(cacheAge / (24 * 60 * 60 * 1000)) };
+          }
+        }
+      } else if (!input.force && company.briefData && company.briefGeneratedAt) {
         const cacheAge = Date.now() - new Date(company.briefGeneratedAt).getTime();
         const sevenDaysMs = 7 * 24 * 60 * 60 * 1000;
-        
         if (cacheAge < sevenDaysMs) {
-          console.log(`[generateBrief] Using cached brief (age: ${Math.floor(cacheAge / (24 * 60 * 60 * 1000))} days)`);;
+          console.log(`[generateBrief] Using cached brief (age: ${Math.floor(cacheAge / (24 * 60 * 60 * 1000))} days)`);
           const cachedBrief = JSON.parse(company.briefData);
-          return {
-            success: true,
-            brief: cachedBrief,
-            cached: true,
-            cacheAge: Math.floor(cacheAge / (24 * 60 * 60 * 1000)), // days
-          };
+          return { success: true, brief: cachedBrief, cached: true, cacheAge: Math.floor(cacheAge / (24 * 60 * 60 * 1000)) };
         } else {
           console.log(`[generateBrief] Cached brief expired (age: ${Math.floor(cacheAge / (24 * 60 * 60 * 1000))} days), regenerating...`);
         }
@@ -924,9 +1068,19 @@ export const companyFinderRouter = router({
 
       try {
         // Generate the brief with Brain context if available
-        const brief = await generateSalesIntelligenceBrief(input.companyId, ctx.user.id);
+        const brief = await generateSalesIntelligenceBrief(input.companyId, ctx.user.id, input.brainId);
 
-        // Update company with brief data
+        // Write to brain-scoped output table
+        const resolvedBrainId = input.brainId ?? (await getActiveBrain(ctx.user.id))?.id;
+        if (resolvedBrainId) {
+          await upsertCompanyBrainOutput(input.companyId, resolvedBrainId, {
+            urgencyScore: brief.urgencyScore,
+            briefData: JSON.stringify(brief),
+            briefGeneratedAt: new Date(),
+          });
+        }
+
+        // Also update legacy columns for backwards compatibility
         await updateCompany(input.companyId, {
           urgencyScore: brief.urgencyScore,
           briefData: JSON.stringify(brief),
@@ -951,13 +1105,16 @@ export const companyFinderRouter = router({
   generateSalesApproach: protectedProcedure
     .input(z.object({
       companyId: z.number(),
+      brainId: z.number().optional(), // If provided, use this brain and write to company_brain_outputs
     }))
     .mutation(async ({ ctx, input }) => {
       const company = await assertCompanyAccess(input.companyId, ctx.user.id);
 
-      // Check if deep research exists
-      if (!company.briefData) {
-        throw new Error("Deep research not found. Please run Deep Research first.");
+      // Check if deep research exists (brain-scoped or legacy)
+      const brainOutput = input.brainId ? await getCompanyBrainOutput(input.companyId, input.brainId) : null;
+      const hasBrief = input.brainId ? !!brainOutput?.briefData : !!company.briefData;
+      if (!hasBrief) {
+        throw new Error("Deep research not found for this brain. Please run Research first.");
       }
 
       console.log(`[generateSalesApproach] Starting sales approach generation for company ${input.companyId}`);
@@ -991,9 +1148,18 @@ export const companyFinderRouter = router({
 
       try {
         // Generate personalized sales approach with Brain context
-        const salesApproach = await generateSalesApproach(input.companyId, ctx.user.id);
+        const salesApproach = await generateSalesApproach(input.companyId, ctx.user.id, input.brainId);
 
-        // Update company with sales approach data
+        // Write to brain-scoped output table
+        const resolvedBrainId = input.brainId ?? (await getActiveBrain(ctx.user.id))?.id;
+        if (resolvedBrainId) {
+          await upsertCompanyBrainOutput(input.companyId, resolvedBrainId, {
+            salesApproachData: JSON.stringify(salesApproach),
+            salesApproachGeneratedAt: new Date(),
+          });
+        }
+
+        // Also update legacy columns for backwards compatibility
         await updateCompany(input.companyId, {
           salesApproachData: JSON.stringify(salesApproach),
           salesApproachGeneratedAt: new Date(),
@@ -1636,17 +1802,46 @@ export const companyFinderRouter = router({
 
   // Get single company with all data (for Company Detail page)
   getCompany: protectedProcedure
-    .input(z.object({ companyId: z.number() }))
+    .input(z.object({ companyId: z.number(), brainId: z.number().optional() }))
     .query(async ({ ctx, input }) => {
       const company = await assertCompanyAccess(input.companyId, ctx.user.id);
       const contacts = await getContactsByCompanyId(input.companyId);
       const decision = await getCompanyDecision(input.companyId, ctx.user.id);
       const search = await getSearchById(company.searchId);
+
+      // Load all brain outputs for this company (for the brain switcher)
+      const allBrainOutputs = await getAllBrainOutputsForCompany(input.companyId);
+
+      // If a specific brainId is requested, override the company's legacy fields
+      // with the brain-scoped output so the detail page shows the correct brief/approach
+      let companyWithBrainData = company as typeof company & {
+        brainBriefData?: string | null;
+        brainSalesApproachData?: string | null;
+        brainUrgencyScore?: number | null;
+        activeBrainId?: number | null;
+      };
+      if (input.brainId) {
+        const brainOutput = allBrainOutputs.find(o => o.brainId === input.brainId);
+        if (brainOutput) {
+          companyWithBrainData = {
+            ...company,
+            // Override display fields with brain-scoped values
+            briefData: brainOutput.briefData ?? company.briefData,
+            salesApproachData: brainOutput.salesApproachData ?? company.salesApproachData,
+            urgencyScore: brainOutput.urgencyScore ?? company.urgencyScore,
+            briefGeneratedAt: brainOutput.briefGeneratedAt ?? company.briefGeneratedAt,
+            salesApproachGeneratedAt: brainOutput.salesApproachGeneratedAt ?? company.salesApproachGeneratedAt,
+            activeBrainId: input.brainId,
+          };
+        }
+      }
+
       return {
-        company,
+        company: companyWithBrainData,
         contacts,
         decision: decision ?? null,
         search: search ?? null,
+        allBrainOutputs,
       };
     }),
 

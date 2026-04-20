@@ -2249,3 +2249,10 @@
 - [x] Add brain selector dropdown near DO 10 / DO ALL buttons so user can choose which brain to use before processing
 - [x] Pass selected brainId to doNext10 and doAll mutations
 - [x] Server: use the selected brain (or fall back to active brain) in doNext10/doAll workers
+
+## Multi-Brain Store (Option B)
+- [ ] Phase 1: Create company_brain_outputs table (companyId, brainId, urgencyScore, briefData, salesApproachData, briefGeneratedAt, salesApproachGeneratedAt) with unique(companyId, brainId)
+- [ ] Phase 2: Backfill existing briefData/salesApproachData from companies into company_brain_outputs using generatedWithBrainId
+- [ ] Phase 3: Update briefGenerator + salesApproachGenerator to upsert into company_brain_outputs; update doNext10/doAll to write to new table
+- [ ] Phase 4: Update getSearch/getCompaniesBySearchIdPaged to accept brainId param and join company_brain_outputs; fix remainingWork, outreach filter, badges to be brain-scoped
+- [ ] Phase 5: Company detail — add brain switcher dropdown and Re-run with Brain button (calls rerunCompanyWithBrain procedure)

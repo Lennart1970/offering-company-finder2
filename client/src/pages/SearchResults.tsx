@@ -69,7 +69,7 @@ export default function SearchResults() {
   const [allCompanies, setAllCompanies] = useState<any[]>([]);
 
   const { data: searchData, isLoading: searchLoading } = trpc.companyFinder.getSearch.useQuery(
-    { searchId: searchId!, page, pageSize: 2000 },
+    { searchId: searchId!, page, pageSize: 2000, brainId: selectedBrainId },
     {
       enabled: !!searchId,
       refetchInterval: (query) => {
@@ -93,11 +93,11 @@ export default function SearchResults() {
     }
   }, [searchData?.companies, page]);
 
-  // Reset accumulated companies when search changes
+  // Reset accumulated companies when search or brain changes
   useEffect(() => {
     setPage(0);
     setAllCompanies([]);
-  }, [searchId]);
+  }, [searchId, selectedBrainId]);
 
   const [showArchived, setShowArchived] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);

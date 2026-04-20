@@ -511,3 +511,26 @@ export const apolloWebhookLogs = mysqlTable("apolloWebhookLogs", {
 
 export type ApolloWebhookLog = typeof apolloWebhookLogs.$inferSelect;
 export type InsertApolloWebhookLog = typeof apolloWebhookLogs.$inferInsert;
+
+/**
+ * Multi-brain output store — one row per (company, brain) pair.
+ * Replaces the flat briefData/salesApproachData columns on companies for
+ * brain-aware queries. The companies table columns are kept as legacy fallback.
+ */
+export const companyBrainOutputs = mysqlTable("company_brain_outputs", {
+  id: int("id").autoincrement().primaryKey(),
+  companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  brainId: int("brainId").notNull().references(() => offeringBrain.id, { onDelete: "cascade" }),
+  urgencyScore: int("urgencyScore"),
+  fitScore: int("fitScore"),
+  fitScoreData: text("fitScoreData"),         // JSON FitScoreResult
+  briefData: text("briefData"),               // JSON SalesIntelligenceBrief
+  briefGeneratedAt: timestamp("briefGeneratedAt"),
+  salesApproachData: text("salesApproachData"), // JSON SalesApproach
+  salesApproachGeneratedAt: timestamp("salesApproachGeneratedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CompanyBrainOutput = typeof companyBrainOutputs.$inferSelect;
+export type InsertCompanyBrainOutput = typeof companyBrainOutputs.$inferInsert;

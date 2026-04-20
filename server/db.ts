@@ -1,6 +1,6 @@
 import { eq, and, or, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob, bomCalculations, BomCalculation, InsertBomCalculation, apolloWebhookLogs, ApolloWebhookLog, InsertApolloWebhookLog, companyBrainOutputs, CompanyBrainOutput, InsertCompanyBrainOutput } from "../drizzle/schema";
+import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob, bomCalculations, BomCalculation, InsertBomCalculation, apolloWebhookLogs, ApolloWebhookLog, InsertApolloWebhookLog, companyBrainOutputs, CompanyBrainOutput, InsertCompanyBrainOutput, offeringBrain } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -472,7 +472,7 @@ export async function getCallTodayCompanies(userId: number) {
 // Offering Brain Functions
 // ============================================================================
 
-import { offeringBrain, OfferingBrain, InsertOfferingBrain } from "../drizzle/schema";
+import { OfferingBrain, InsertOfferingBrain } from "../drizzle/schema";
 
 export async function createOfferingBrain(brain: InsertOfferingBrain): Promise<number> {
   const db = await getDb();
@@ -955,11 +955,27 @@ export async function getCompanyBrainOutputsForSearch(
  */
 export async function getAllBrainOutputsForCompany(
   companyId: number
-): Promise<CompanyBrainOutput[]> {
+): Promise<(CompanyBrainOutput & { brainName: string | null })[]> {
   const db = await getDb();
   if (!db) return [];
-  return db
-    .select()
+  const rows = await db
+    .select({
+      id: companyBrainOutputs.id,
+      companyId: companyBrainOutputs.companyId,
+      brainId: companyBrainOutputs.brainId,
+      urgencyScore: companyBrainOutputs.urgencyScore,
+      fitScore: companyBrainOutputs.fitScore,
+      fitScoreData: companyBrainOutputs.fitScoreData,
+      briefData: companyBrainOutputs.briefData,
+      briefGeneratedAt: companyBrainOutputs.briefGeneratedAt,
+      salesApproachData: companyBrainOutputs.salesApproachData,
+      salesApproachGeneratedAt: companyBrainOutputs.salesApproachGeneratedAt,
+      createdAt: companyBrainOutputs.createdAt,
+      updatedAt: companyBrainOutputs.updatedAt,
+      brainName: offeringBrain.brainName,
+    })
     .from(companyBrainOutputs)
+    .leftJoin(offeringBrain, eq(companyBrainOutputs.brainId, offeringBrain.id))
     .where(eq(companyBrainOutputs.companyId, companyId));
+  return rows as (CompanyBrainOutput & { brainName: string | null })[];
 }

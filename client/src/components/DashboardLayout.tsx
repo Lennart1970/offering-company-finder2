@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, LogOut, PanelLeft, BrainCircuit, FileSpreadsheet, Phone, ScrollText, Network, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook, UserPlus } from "lucide-react";
+import { List, LogOut, PanelLeft, BrainCircuit, FileSpreadsheet, Phone, ScrollText, Network, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook, UserPlus, BookMarked } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -56,6 +56,7 @@ const navGroups: NavGroup[] = [
     label: "CRM",
     items: [
       { icon: Phone, label: "Call Today", path: "/call-today" },
+      { icon: BookMarked, label: "Nurture List", path: "/nurture" },
     ],
   },
   {
@@ -260,8 +261,8 @@ function DashboardLayoutContent({
 
           <SidebarContent className="gap-0">
             {navGroups.map(group => (
-              <SidebarGroup key={group.label} className="py-1">
-                <SidebarGroupLabel className="px-3 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 group-data-[collapsible=icon]:hidden">
+              <SidebarGroup key={group.label} className="pt-3 pb-0">
+                <SidebarGroupLabel className="px-3 mb-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 group-data-[collapsible=icon]:hidden">
                   {group.label}
                 </SidebarGroupLabel>
                 <SidebarGroupContent>

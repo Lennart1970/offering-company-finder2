@@ -13,7 +13,7 @@
  * Type is defined in shared/contractTypes.ts — single source of truth.
  */
 
-import { getCompanyById, getActiveBrain } from "./db";
+import { getCompanyById, getActiveBrain, getOfferingBrainById } from "./db";
 import type { SalesApproach } from "../shared/contractTypes";
 
 // SalesApproach type is defined in shared/contractTypes.ts and imported above.
@@ -26,9 +26,11 @@ const XAI_BASE_URL = "https://api.x.ai/v1";
 /**
  * Build Brain context string for injection into sales approach prompts.
  */
-async function getBrainContextForApproach(userId: number): Promise<{ context: string; companyName: string }> {
+async function getBrainContextForApproach(userId: number, brainId?: number): Promise<{ context: string; companyName: string }> {
   try {
-    const brain = await getActiveBrain(userId);
+    const brain = brainId
+      ? await getOfferingBrainById(brainId, userId)
+      : await getActiveBrain(userId);
     if (!brain || brain.status !== "completed") return { context: "", companyName: "Your Company" };
 
     const capabilities = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
@@ -212,7 +214,8 @@ async function callGrokWithWebSearch(input: string): Promise<string> {
  */
 export async function generateSalesApproach(
   companyId: number,
-  userId?: number
+  userId?: number,
+  brainId?: number
 ): Promise<SalesApproach> {
   // Load company data from database
   const company = await getCompanyById(companyId);
@@ -231,7 +234,7 @@ export async function generateSalesApproach(
   const domain = company.primaryDomain || company.websiteUrl || "unknown.com";
 
   // Load Brain context for seller intelligence
-  const brainInfo = userId ? await getBrainContextForApproach(userId) : { context: "", companyName: "Your Company" };
+  const brainInfo = userId ? await getBrainContextForApproach(userId, brainId) : { context: "", companyName: "Your Company" };
   const sellerName = brainInfo.companyName;
 
   // Build verified developments summary with source URLs

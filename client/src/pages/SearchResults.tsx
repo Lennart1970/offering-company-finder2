@@ -53,6 +53,17 @@ export default function SearchResults() {
   // Active brain — used for mismatch detection in BrainBadge
   const { data: activeBrainData } = trpc.companyFinder.getActiveBrain.useQuery();
   const activeBrain = activeBrainData?.brain ?? null;
+  // Brain selector — lets user pick which brain to use for DO 10 / DO ALL
+  const { data: brainHistoryData } = trpc.companyFinder.getBrainHistory.useQuery();
+  const availableBrains = (brainHistoryData?.history ?? []).filter((b: any) => b.status === "completed");
+  const [selectedBrainId, setSelectedBrainId] = useState<number | undefined>(undefined);
+  // Auto-select active brain once loaded
+  useEffect(() => {
+    if (activeBrain && selectedBrainId === undefined) {
+      setSelectedBrainId(activeBrain.id);
+    }
+  }, [activeBrain?.id]);
+  const selectedBrain = availableBrains.find((b: any) => b.id === selectedBrainId) ?? activeBrain;
 
   const [page, setPage] = useState(0);
   const [allCompanies, setAllCompanies] = useState<any[]>([]);
@@ -234,6 +245,7 @@ export default function SearchResults() {
     }
   }, [jobStatusQuery.data?.status]);
 
+  const selectedBrainIdForMutation = selectedBrainId ?? activeBrain?.id;
   const doNext10Mutation = trpc.companyFinder.doNext10.useMutation({
     onSuccess: (data) => {
       setActiveJobId(data.jobId);
@@ -738,7 +750,7 @@ export default function SearchResults() {
             <strong>{researchedCount}</strong> already have a research brief.
             {" "}Press <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
-              onClick={() => doNext10Mutation.mutate({ searchId: searchId! })}
+              onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation })}
             >[DO 10]</strong>{" "}
             to process the next 10 companies.
           </>
@@ -749,7 +761,7 @@ export default function SearchResults() {
           <strong>{enrichedCount} companies</strong> from <strong>{campaignName}</strong> found in Apollo and ready to work.
           {" "}Press <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
-              onClick={() => doNext10Mutation.mutate({ searchId: searchId! })}
+              onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation })}
             >[DO 10]</strong>{" "}
             to research and write outreach scripts for the next 10.
         </>
@@ -761,7 +773,7 @@ export default function SearchResults() {
           <strong>{enrichmentStats?.pending ?? 0} companies</strong> were not found in Apollo yet.
           {" "}Press <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
-              onClick={() => doNext10Mutation.mutate({ searchId: searchId! })}
+              onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation })}
             >[DO 10]</strong>{" "}
             to enrich the next 10 companies.
         </>
@@ -775,7 +787,7 @@ export default function SearchResults() {
           {" "}Press <span className="cursor-pointer underline decoration-dotted hover:opacity-70 transition-opacity font-black" onClick={() => setEnrichmentFilter("outreach")}>OUTREACH READY</span> to go straight to your scripts, or press{" "}
             <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
-              onClick={() => doNext10Mutation.mutate({ searchId: searchId! })}
+              onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation })}
             >[DO 10]</strong>{" "}
             to process the next 10 remaining companies.
         </>
@@ -788,7 +800,7 @@ export default function SearchResults() {
           {" "}Press <strong>ENRICHED</strong> to see them, then hit{" "}
             <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
-              onClick={() => doNext10Mutation.mutate({ searchId: searchId! })}
+              onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation })}
             >[DO 10]</strong>{" "}
             to research and write outreach scripts for the next 10.
         </>
@@ -981,13 +993,35 @@ export default function SearchResults() {
               </div>
             </div>
             <div className="flex items-center gap-2 flex-wrap">
+              {/* Brain selector — shown whenever there are brains to choose from */}
+              {availableBrains.length > 1 && (
+                <div className="flex items-center gap-2 w-full mb-1">
+                  <span className="text-xs font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">BRAIN:</span>
+                  <select
+                    value={selectedBrainId ?? ""}
+                    onChange={(e) => setSelectedBrainId(e.target.value ? Number(e.target.value) : undefined)}
+                    className="text-sm font-bold border-2 border-black px-2 py-1 bg-white cursor-pointer flex-1 max-w-xs"
+                  >
+                    {availableBrains.map((b: any) => (
+                      <option key={b.id} value={b.id}>
+                        {b.brainName}{b.id === activeBrain?.id ? " ★ active" : ""}
+                      </option>
+                    ))}
+                  </select>
+                  {selectedBrainId && selectedBrainId !== activeBrain?.id && (
+                    <span className="text-xs font-bold text-amber-600 border border-amber-400 px-2 py-0.5 bg-amber-50">
+                      ⚠ NOT ACTIVE BRAIN
+                    </span>
+                  )}
+                </div>
+              )}
               {remainingWork > 0 && (
                 <>
                   <TooltipProvider>
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
-                          onClick={() => doNext10Mutation.mutate({ searchId: searchId! })}
+                          onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation })}
                           disabled={isJobRunning}
                           className="text-lg px-6 py-4 font-black border-2 border-black bg-black text-white"
                         >
@@ -1006,7 +1040,7 @@ export default function SearchResults() {
                     <Tooltip>
                       <TooltipTrigger asChild>
                         <Button
-                          onClick={() => doAllMutation.mutate({ searchId: searchId! })}
+                          onClick={() => doAllMutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation })}
                           disabled={isJobRunning}
                           className="text-lg px-6 py-4 font-black border-2 border-black bg-black text-white"
                         >

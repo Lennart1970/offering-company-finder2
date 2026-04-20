@@ -294,7 +294,7 @@ export const companyFinderRouter = router({
   // fire-and-forget: returns jobId immediately, runs in background.
   // Job state is persisted to batch_jobs table so it survives server restarts.
   doNext10: protectedProcedure
-    .input(z.object({ searchId: z.number(), limit: z.number().optional().default(10) }))
+    .input(z.object({ searchId: z.number(), limit: z.number().optional().default(10), brainId: z.number().optional() }))
     .mutation(async ({ ctx, input }) => {
       await assertSearchAccess(input.searchId, ctx.user.id);
       const jobId = randomUUID();
@@ -356,7 +356,7 @@ export const companyFinderRouter = router({
                   console.log(`[doNext10] ✓ Enriched: ${company.name}`);
                 }
                 if (!company.briefData) {
-                  const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id);
+                  const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id, input.brainId);
                   await updateCompany(company.id, {
                     urgencyScore: brief.urgencyScore,
                     briefData: JSON.stringify(brief),
@@ -366,7 +366,7 @@ export const companyFinderRouter = router({
                   console.log(`[doNext10] ✓ Researched: ${company.name}`);
                 }
                 if (!company.salesApproachData) {
-                  const approach = await generateSalesApproach(company.id, ctx.user.id);
+                  const approach = await generateSalesApproach(company.id, ctx.user.id, input.brainId);
                   await updateCompany(company.id, {
                     salesApproachData: JSON.stringify(approach),
                     salesApproachGeneratedAt: new Date(),
@@ -465,7 +465,7 @@ export const companyFinderRouter = router({
   // Same logic as doNext10 but no limit and checks for cancellation each step.
   // ---------------------------------------------------------------------------
   doAll: protectedProcedure
-    .input(z.object({ searchId: z.number() }))
+    .input(z.object({ searchId: z.number(), brainId: z.number().optional() }))
     .mutation(async ({ ctx, input }) => {
       await assertSearchAccess(input.searchId, ctx.user.id);
       const jobId = randomUUID();
@@ -528,7 +528,7 @@ export const companyFinderRouter = router({
                 console.log(`[doAll] ✓ Enriched: ${company.name}`);
               }
               if (!company.briefData) {
-                const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id);
+                const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id, input.brainId);
                 await updateCompany(company.id, {
                   urgencyScore: brief.urgencyScore,
                   briefData: JSON.stringify(brief),
@@ -538,7 +538,7 @@ export const companyFinderRouter = router({
                 console.log(`[doAll] ✓ Researched: ${company.name}`);
               }
               if (!company.salesApproachData) {
-                const approach = await generateSalesApproach(company.id, ctx.user.id);
+                const approach = await generateSalesApproach(company.id, ctx.user.id, input.brainId);
                 await updateCompany(company.id, {
                   salesApproachData: JSON.stringify(approach),
                   salesApproachGeneratedAt: new Date(),

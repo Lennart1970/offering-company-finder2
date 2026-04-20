@@ -10,7 +10,7 @@
  * via Responses API (/v1/responses) to ensure current 2026 content.
  */
 
-import { getCompanyById, getActiveBrain } from "./db";
+import { getCompanyById, getActiveBrain, getOfferingBrainById } from "./db";
 import type { VerifiedSource, SalesIntelligenceBrief, FitScoreResult } from "../shared/contractTypes";
 
 const XAI_API_KEY = process.env.XAI_API_KEY;
@@ -20,9 +20,11 @@ const XAI_BASE_URL = "https://api.x.ai/v1";
  * Build Brain context string for injection into prompts.
  * Returns empty string if no brain is active.
  */
-async function getBrainContext(userId: number): Promise<string> {
+async function getBrainContext(userId: number, brainId?: number): Promise<string> {
   try {
-    const brain = await getActiveBrain(userId);
+    const brain = brainId
+      ? await getOfferingBrainById(brainId, userId)
+      : await getActiveBrain(userId);
     if (!brain || brain.status !== "completed") return "";
 
     const capabilities = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
@@ -201,7 +203,8 @@ async function callGrokWithWebSearch(
  */
 export async function generateSalesIntelligenceBrief(
   companyId: number,
-  userId?: number
+  userId?: number,
+  brainId?: number
 ): Promise<SalesIntelligenceBrief> {
   // Load company data from database
   const company = await getCompanyById(companyId);
@@ -216,7 +219,7 @@ export async function generateSalesIntelligenceBrief(
   const industry = inferIndustryFromNAICS(naicsCodes);
 
   // Load Brain context if userId is available
-  const brainContext = userId ? await getBrainContext(userId) : "";
+  const brainContext = userId ? await getBrainContext(userId, brainId) : "";
   if (brainContext) {
     console.log(`[Brief Generator] Brain context loaded — will inform fit/urgency evaluation`);
   }

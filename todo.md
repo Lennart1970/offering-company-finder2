@@ -2244,3 +2244,8 @@
 ## Sidebar Navigation Restructure
 - [x] Reorganise sidebar into grouped sections: Intelligence / CRM / Import+Sync / Admin / Under Development
 - [x] Remove Exclusions and Nurture List from sidebar
+
+## Brain Selector on Search Results
+- [x] Add brain selector dropdown near DO 10 / DO ALL buttons so user can choose which brain to use before processing
+- [x] Pass selected brainId to doNext10 and doAll mutations
+- [x] Server: use the selected brain (or fall back to active brain) in doNext10/doAll workers

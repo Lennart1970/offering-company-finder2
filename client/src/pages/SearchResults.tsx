@@ -157,6 +157,11 @@ export default function SearchResults() {
   const [urgencyCtaAdded, setUrgencyCtaAdded] = useState(false);
   const [quickViewCompanyId, setQuickViewCompanyId] = useState<number | null>(null);
   const [quickViewMode, setQuickViewMode] = useState<"research" | "approach" | null>(null);
+  // Lazy-fetch full company data (including briefData/salesApproachData) when quick-view modal opens
+  const { data: quickViewCompanyFull } = trpc.companyFinder.getCompany.useQuery(
+    { companyId: quickViewCompanyId! },
+    { enabled: !!quickViewCompanyId }
+  );
 
   useEffect(() => {
     if (searchData?.search.excludedSectors) {
@@ -1650,9 +1655,9 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach,
             )}
             {company.enrichmentStatus === "enriched" && (
               <>
-                <DeepResearchButton companyId={company.id} companyName={company.name} hasResearch={!!company.briefData} />
-                {company.briefData && (
-                  <CreateSalesApproachButton companyId={company.id} companyName={company.name} hasSalesApproach={!!company.salesApproachData} />
+                <DeepResearchButton companyId={company.id} companyName={company.name} hasResearch={!!company.briefGeneratedAt} />
+                {company.briefGeneratedAt && (
+                  <CreateSalesApproachButton companyId={company.id} companyName={company.name} hasSalesApproach={!!company.salesApproachGeneratedAt} />
                 )}
                 <FindAllCSuiteButton companyId={company.id} companyName={company.name} />
                 <GetAllPersonnelButton companyId={company.id} companyName={company.name} />

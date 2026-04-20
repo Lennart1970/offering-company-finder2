@@ -186,7 +186,54 @@ export async function getCompaniesBySearchIdPaged(searchId: number, limit = 100,
   const { desc } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(companies)
+  // Exclude large text blobs (briefData, salesApproachData, fitScoreData, productImages,
+  // urgencyImages, salesRepProfile, signalOpeners, callReadinessSummary, rawAddress,
+  // sicCodes, naicsCodes, sliceMetadata) from the list query — they are only needed
+  // when opening an individual company card and are fetched via getCompanyById.
+  return db.select({
+    id: companies.id,
+    searchId: companies.searchId,
+    apolloId: companies.apolloId,
+    name: companies.name,
+    websiteUrl: companies.websiteUrl,
+    primaryDomain: companies.primaryDomain,
+    linkedinUrl: companies.linkedinUrl,
+    twitterUrl: companies.twitterUrl,
+    facebookUrl: companies.facebookUrl,
+    phone: companies.phone,
+    foundedYear: companies.foundedYear,
+    revenue: companies.revenue,
+    headcountGrowth: companies.headcountGrowth,
+    parentCompanyName: companies.parentCompanyName,
+    parentCompanyId: companies.parentCompanyId,
+    searchLocation: companies.searchLocation,
+    city: companies.city,
+    state: companies.state,
+    country: companies.country,
+    streetAddress: companies.streetAddress,
+    sourceCountryCode: companies.sourceCountryCode,
+    urgencyScore: companies.urgencyScore,
+    fitScore: companies.fitScore,
+    briefGeneratedAt: companies.briefGeneratedAt,
+    salesApproachGeneratedAt: companies.salesApproachGeneratedAt,
+    salesRepProfileGeneratedAt: companies.salesRepProfileGeneratedAt,
+    signalOpenersGeneratedAt: companies.signalOpenersGeneratedAt,
+    enrichmentStatus: companies.enrichmentStatus,
+    generatedWithBrainId: companies.generatedWithBrainId,
+    generatedWithBrainName: companies.generatedWithBrainName,
+    nicheId: companies.nicheId,
+    createdAt: companies.createdAt,
+    // Needed for NAICS/SIC filtering and display in list view
+    sicCodes: companies.sicCodes,
+    naicsCodes: companies.naicsCodes,
+    sliceMetadata: companies.sliceMetadata,
+    // Presence flags — kept as small booleans would be ideal but the
+    // existing frontend code reads these fields directly; keeping them
+    // in the list query avoids a cascade of frontend changes.
+    // briefData and salesApproachData are intentionally excluded from the list
+    // query to keep the payload small (~200KB vs 8MB). The quick-view modal
+    // and company detail pages fetch them on demand via getCompany.
+  }).from(companies)
     .where(eq(companies.searchId, searchId))
     .orderBy(desc(companies.fitScore), desc(companies.urgencyScore))
     .limit(limit)

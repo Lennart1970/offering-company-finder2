@@ -2236,3 +2236,7 @@
 - [x] Fix 100-company cap on Full Pipeline page — should show all companies from niche (e.g. 414), not just 100
 
 - [x] Fix DO ALL button label to show true total (pending enrichments + briefs + approaches) with breakdown explanation
+
+- [ ] Fix DO ALL button not starting for search 1650002 (226 pending companies not being queued)
+
+- [x] Parallel DO ALL processing — 5 concurrent workers per job (configurable via DOALL_CONCURRENCY env var)

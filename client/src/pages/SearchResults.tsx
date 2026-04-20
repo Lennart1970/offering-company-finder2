@@ -1067,7 +1067,7 @@ export default function SearchResults() {
                   {batchContactsMutation.isPending
                     ? "→ FINDING DECISION MAKERS..."
                     : jobStatusQuery.data?.jobType === "doAll"
-                    ? `→ DO ALL RUNNING — ${jobStatusQuery.data?.stats?.total ?? "?"} COMPANIES`
+                    ? `→ DO ALL RUNNING — ${jobStatusQuery.data?.stats?.total ?? "?"} COMPANIES (5 ⚡ PARALLEL)`
                     : "→ DO 10 RUNNING..."}
                 </div>
                 {jobStatusQuery.data?.stats && (
@@ -1082,10 +1082,10 @@ export default function SearchResults() {
               </div>
               {jobStatusQuery.data?.current && (
                 <div className="text-sm font-bold mt-1 text-gray-600">
-                  Processing: <span className="text-black">{jobStatusQuery.data.current}</span>
+                  Last completed: <span className="text-black">{jobStatusQuery.data.current}</span>
                   {jobStatusQuery.data.stats.total > 0 && (
                     <span className="ml-2 text-gray-400">
-                      ({Math.round((jobStatusQuery.data.progress ?? 0))}% — {jobStatusQuery.data.stats.enriched + jobStatusQuery.data.stats.researched + jobStatusQuery.data.stats.approached}/{jobStatusQuery.data.stats.total * 3} steps)
+                      ({Math.round((jobStatusQuery.data.progress ?? 0))}% — {jobStatusQuery.data.stats.enriched + jobStatusQuery.data.stats.researched + jobStatusQuery.data.stats.approached} steps done — 5 workers running in parallel)
                     </span>
                   )}
                 </div>

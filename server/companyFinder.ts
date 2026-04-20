@@ -498,90 +498,111 @@ export const companyFinderRouter = router({
             (c.enrichmentStatus === "enriched" && !c.briefData) ||
             (c.enrichmentStatus === "enriched" && !!c.briefData && !c.salesApproachData)
           );
-          const queue = needsWork; // Each company appears once — all steps handled inside the loop
+          const queue = needsWork;
 
           await updateBatchJob(jobId, { totalCompanies: queue.length });
           console.log(`[doAll] jobId=${jobId} searchId=${input.searchId} — ${queue.length} companies queued`);
 
-          let enriched = 0, researched = 0, approached = 0, failed = 0;
-
-          // Per-company hard timeout: 4 minutes. If a single company takes longer
-          // (e.g. Grok body stream stalls), we skip it and continue with the next.
+          // Parallel concurrency — default 5, configurable via DOALL_CONCURRENCY env var
+          const CONCURRENCY = Math.max(1, parseInt(process.env.DOALL_CONCURRENCY || "5", 10));
           const PER_COMPANY_TIMEOUT_MS = 4 * 60 * 1000;
 
-          for (let i = 0; i < queue.length; i++) {
-            // Check for cancellation before each company
-            const currentJob = await getBatchJob(jobId);
-            if (currentJob?.status === "cancelled") {
-              console.log(`[doAll] Cancelled at company ${i + 1}/${queue.length}`);
-              return;
-            }
+          // Shared atomic counters (safe because Node.js is single-threaded for JS)
+          let enriched = 0, researched = 0, approached = 0, failed = 0, completed = 0;
+          let cancelled = false;
 
-            const company = queue[i];
-            const progress = Math.round((i / queue.length) * 100);
-            await updateBatchJob(jobId, { currentCompany: company.name || null, progress, enriched, researched, approached, failed });
+          // Process a single company through all its pending steps
+          const processCompany = async (company: typeof queue[0]) => {
+            const companyWork = async () => {
+              if (company.enrichmentStatus === "pending") {
+                const details = await enrichCompanyDetails(company.apolloId!);
+                await updateCompany(company.id, {
+                  city: details.city || null,
+                  state: details.state || null,
+                  country: details.country || null,
+                  streetAddress: details.street_address || null,
+                  rawAddress: details.raw_address || null,
+                  enrichmentStatus: "enriched",
+                });
+                enriched++;
+                console.log(`[doAll] ✓ Enriched: ${company.name}`);
+              }
+              if (!company.briefData) {
+                const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id);
+                await updateCompany(company.id, {
+                  urgencyScore: brief.urgencyScore,
+                  briefData: JSON.stringify(brief),
+                  briefGeneratedAt: new Date(),
+                });
+                researched++;
+                console.log(`[doAll] ✓ Researched: ${company.name}`);
+              }
+              if (!company.salesApproachData) {
+                const approach = await generateSalesApproach(company.id, ctx.user.id);
+                await updateCompany(company.id, {
+                  salesApproachData: JSON.stringify(approach),
+                  salesApproachGeneratedAt: new Date(),
+                });
+                approached++;
+                console.log(`[doAll] ✓ Approached: ${company.name}`);
+              }
+            };
+            const timeoutGuard = new Promise<never>((_, reject) =>
+              setTimeout(() => reject(new Error(`Per-company timeout after ${PER_COMPANY_TIMEOUT_MS / 1000}s`)), PER_COMPANY_TIMEOUT_MS)
+            );
             try {
-              const companyWork = async () => {
-                if (company.enrichmentStatus === "pending") {
-                  const details = await enrichCompanyDetails(company.apolloId!);
-                  await updateCompany(company.id, {
-                    city: details.city || null,
-                    state: details.state || null,
-                    country: details.country || null,
-                    streetAddress: details.street_address || null,
-                    rawAddress: details.raw_address || null,
-                    enrichmentStatus: "enriched",
-                  });
-                  enriched++;
-                  console.log(`[doAll] ✓ Enriched: ${company.name}`);
-                }
-                if (!company.briefData) {
-                  const brief = await generateSalesIntelligenceBrief(company.id, ctx.user.id);
-                  await updateCompany(company.id, {
-                    urgencyScore: brief.urgencyScore,
-                    briefData: JSON.stringify(brief),
-                    briefGeneratedAt: new Date(),
-                  });
-                  researched++;
-                  console.log(`[doAll] ✓ Researched: ${company.name}`);
-                }
-                if (!company.salesApproachData) {
-                  const approach = await generateSalesApproach(company.id, ctx.user.id);
-                  await updateCompany(company.id, {
-                    salesApproachData: JSON.stringify(approach),
-                    salesApproachGeneratedAt: new Date(),
-                  });
-                  approached++;
-                  console.log(`[doAll] ✓ Approached: ${company.name}`);
-                }
-              };
-
-              const timeoutGuard = new Promise<never>((_, reject) =>
-                setTimeout(() => reject(new Error(`Per-company timeout after ${PER_COMPANY_TIMEOUT_MS / 1000}s`)), PER_COMPANY_TIMEOUT_MS)
-              );
-
               await Promise.race([companyWork(), timeoutGuard]);
             } catch (err: any) {
               failed++;
               console.error(`[doAll] ✗ ${company.name}:`, err.message);
+            } finally {
+              completed++;
+              const progress = Math.round((completed / queue.length) * 100);
+              // Update progress every completion — non-blocking
+              updateBatchJob(jobId, {
+                currentCompany: company.name || null,
+                progress,
+                enriched,
+                researched,
+                approached,
+                failed,
+              }).catch(() => {});
             }
+          };
+
+          // Semaphore-based concurrency pool
+          // Processes CONCURRENCY companies at a time, checking cancellation between batches
+          for (let i = 0; i < queue.length; i += CONCURRENCY) {
+            // Check cancellation at the start of each batch
+            const currentJob = await getBatchJob(jobId);
+            if (currentJob?.status === "cancelled") {
+              cancelled = true;
+              console.log(`[doAll] Cancelled at batch starting company ${i + 1}/${queue.length}`);
+              break;
+            }
+
+            const batch = queue.slice(i, i + CONCURRENCY);
+            console.log(`[doAll] Processing batch ${Math.floor(i / CONCURRENCY) + 1}: companies ${i + 1}–${i + batch.length} of ${queue.length} (${CONCURRENCY} parallel)`);
+            await Promise.allSettled(batch.map(processCompany));
           }
 
-          const refreshed = await getCompaniesBySearchId(input.searchId);
-          const remaining = refreshed.filter(
-            (c) => c.enrichmentStatus === "pending" || !c.briefData || !c.salesApproachData
-          ).length;
-          await updateBatchJob(jobId, {
-            status: "completed",
-            progress: 100,
-            currentCompany: null,
-            enriched,
-            researched,
-            approached,
-            failed,
-            remaining,
-          });
-          console.log(`[doAll] Done — enriched:${enriched} researched:${researched} approached:${approached} failed:${failed} remaining:${remaining}`);
+          if (!cancelled) {
+            const refreshed = await getCompaniesBySearchId(input.searchId);
+            const remaining = refreshed.filter(
+              (c) => c.enrichmentStatus === "pending" || !c.briefData || !c.salesApproachData
+            ).length;
+            await updateBatchJob(jobId, {
+              status: "completed",
+              progress: 100,
+              currentCompany: null,
+              enriched,
+              researched,
+              approached,
+              failed,
+              remaining,
+            });
+            console.log(`[doAll] Done — enriched:${enriched} researched:${researched} approached:${approached} failed:${failed} remaining:${remaining} (${CONCURRENCY} workers)`);
+          }
         } catch (err: any) {
           await updateBatchJob(jobId, { status: "failed", errorMessage: err.message }).catch(() => {});
           console.error(`[doAll] Fatal:`, err.message);

@@ -3,7 +3,7 @@
 .pnpm-store/
 
 # Build outputs
-dist/
+# dist/ is intentionally tracked so deployments include the compiled bundle
 build/
 *.dist
 

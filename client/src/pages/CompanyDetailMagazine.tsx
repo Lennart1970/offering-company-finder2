@@ -490,6 +490,7 @@ export default function CompanyDetailMagazine() {
       <div className="flex items-center justify-between gap-3 py-4 flex-wrap">
         <div className="flex items-center gap-3">
           <button onClick={goBack} className="text-xs font-black border-2 border-black px-3 py-1.5 hover:bg-black hover:text-white transition-colors cursor-pointer">← BACK</button>
+          <a href={`/company/${companyId}/extended${window.location.search}`} className="text-xs font-black border-2 border-gray-400 text-gray-600 px-3 py-1.5 hover:bg-gray-600 hover:text-white transition-colors cursor-pointer no-underline">⚙ EXTENDED VIEW</a>
           <span className="text-xs font-bold text-muted-foreground uppercase tracking-wide">
             {fromParam.startsWith("search/") ? "Search Results" : fromParam === "intelligence" ? "Intelligence" : fromParam === "sales-menu" ? "Sales Menu" : fromParam === "call-today" ? "Call Today" : "Back"} / {company.name}
           </span>

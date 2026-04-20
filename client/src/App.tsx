@@ -49,6 +49,7 @@ function Router() {
         <Route path={"/brain"} component={Brain} />
         <Route path={"/call-today"} component={CallToday} />
         <Route path={"/call-today/:searchId"} component={CallToday} />
+        <Route path={"/company/:companyId/extended"} component={CompanyDetail} />
         <Route path={"/company/:companyId"} component={CompanyDetailMagazine} />
         <Route path={"/nurture"} component={NurtureList} />
         <Route path={"/prompts"} component={PromptRepository} />

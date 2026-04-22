@@ -735,6 +735,8 @@ export async function pullAllBrainsFromSupabase(ownerUserId: number = 1): Promis
     { remote: "raw_research_data", local: "rawResearchData" },
   ];
 
+  // show_on_leadtrigger is handled separately below (boolean → tinyint conversion)
+
   let imported = 0, updated = 0, skipped = 0, errors = 0;
 
   for (const remote of remoteBrains) {
@@ -758,9 +760,20 @@ export async function pullAllBrainsFromSupabase(ownerUserId: number = 1): Promis
         existing = localByName.get((payload.brainName as string).toLowerCase().trim());
       }
 
+      // Read show_on_leadtrigger from Supabase if the column exists there,
+      // otherwise default to 1 (visible). Supabase stores it as boolean; we store tinyint.
+      const remoteShowOnLT = remote.show_on_leadtrigger;
+      const showOnLeadtrigger: number =
+        remoteShowOnLT === false ? 0 :
+        remoteShowOnLT === true  ? 1 :
+        remoteShowOnLT === 0     ? 0 :
+        remoteShowOnLT === 1     ? 1 : 1; // default visible
+
       if (existing) {
-        // UPDATE existing row
-        await db.update(offeringBrain).set(payload).where(eq(offeringBrain.id, existing.id));
+        // UPDATE existing row — also sync show_on_leadtrigger
+        await db.update(offeringBrain)
+          .set({ ...payload, showOnLeadtrigger })
+          .where(eq(offeringBrain.id, existing.id));
         updated++;
       } else {
         // INSERT new row — owned by the owner, not active by default
@@ -786,7 +799,7 @@ export async function pullAllBrainsFromSupabase(ownerUserId: number = 1): Promis
           status: "completed",
           isActive: 0,
           isShared: 1, // make visible to all users
-          showOnLeadtrigger: 1, // visible in LeadTrigger UI by default
+          showOnLeadtrigger, // read from Supabase, default 1
         });
         imported++;
       }

@@ -5239,8 +5239,10 @@ async function pullAllBrainsFromSupabase(ownerUserId = 1) {
       } else {
         existing = localByName.get(payload.brainName.toLowerCase().trim());
       }
+      const remoteShowOnLT = remote.show_on_leadtrigger;
+      const showOnLeadtrigger = remoteShowOnLT === false ? 0 : remoteShowOnLT === true ? 1 : remoteShowOnLT === 0 ? 0 : remoteShowOnLT === 1 ? 1 : 1;
       if (existing) {
-        await db.update(offeringBrain).set(payload).where(eq2(offeringBrain.id, existing.id));
+        await db.update(offeringBrain).set({ ...payload, showOnLeadtrigger }).where(eq2(offeringBrain.id, existing.id));
         updated++;
       } else {
         await db.insert(offeringBrain).values({
@@ -5266,8 +5268,8 @@ async function pullAllBrainsFromSupabase(ownerUserId = 1) {
           isActive: 0,
           isShared: 1,
           // make visible to all users
-          showOnLeadtrigger: 1
-          // visible in LeadTrigger UI by default
+          showOnLeadtrigger
+          // read from Supabase, default 1
         });
         imported++;
       }

@@ -4742,6 +4742,7 @@ var init_serperImages = __esm({
 var supabaseSync_exports = {};
 __export(supabaseSync_exports, {
   getCompaniesTableSyncStats: () => getCompaniesTableSyncStats,
+  pullAllBrainsFromSupabase: () => pullAllBrainsFromSupabase,
   pullSingleBrainFromSupabase: () => pullSingleBrainFromSupabase,
   pushSingleBrainToSupabase: () => pushSingleBrainToSupabase,
   syncAllCompaniesToSupabase: () => syncAllCompaniesToSupabase,
@@ -5177,6 +5178,100 @@ async function syncSearchRunToSupabase(searchId) {
     contactsSynced: contactResult.synced,
     errors: companyResult.errors + contactResult.errors,
     message: `Search ${searchId}: ${companyResult.synced} companies, ${contactResult.synced} contacts synced`
+  };
+}
+async function pullAllBrainsFromSupabase(ownerUserId = 1) {
+  const supabase = getSupabaseClient();
+  const db = await getDb();
+  if (!db) return { imported: 0, updated: 0, skipped: 0, errors: 0, message: "Database not available" };
+  const { data: remoteBrains, error } = await supabase.from("lt_mns_offering_brains").select("*").order("created_at", { ascending: true });
+  if (error || !remoteBrains) {
+    return { imported: 0, updated: 0, skipped: 0, errors: 1, message: error?.message ?? "Failed to fetch from Supabase" };
+  }
+  const localBrains = await db.select().from(offeringBrain);
+  const localById = new Map(localBrains.map((b) => [b.id, b]));
+  const localByName = new Map(localBrains.map((b) => [b.brainName?.toLowerCase().trim(), b]));
+  const fieldMap = [
+    { remote: "brain_name", local: "brainName" },
+    { remote: "company_name", local: "companyName" },
+    { remote: "company_website", local: "companyWebsite" },
+    { remote: "offering_summary", local: "offeringSummary" },
+    { remote: "core_capabilities", local: "coreCapabilities" },
+    { remote: "competitive_advantages", local: "competitiveAdvantages" },
+    { remote: "target_sectors", local: "icpIndustries" },
+    { remote: "icp_description", local: "icpCompanySize" },
+    { remote: "icp_geography", local: "icpGeography" },
+    { remote: "icp_pain_points", local: "icpPainPoints" },
+    { remote: "value_propositions", local: "valuePropositions" },
+    { remote: "strong_fit_signals", local: "icpBuyingSignals" },
+    { remote: "fit_criteria", local: "fitCriteria" },
+    { remote: "urgency_triggers", local: "urgencyTriggers" },
+    { remote: "sic_codes", local: "sicCodes" },
+    { remote: "nace_codes", local: "naceCodes" },
+    { remote: "raw_research_data", local: "rawResearchData" }
+  ];
+  let imported = 0, updated = 0, skipped = 0, errors = 0;
+  for (const remote of remoteBrains) {
+    try {
+      const payload = {};
+      for (const { remote: rk, local: lk } of fieldMap) {
+        if (remote[rk] !== void 0 && remote[rk] !== null) {
+          payload[lk] = typeof remote[rk] === "object" ? JSON.stringify(remote[rk]) : remote[rk];
+        }
+      }
+      if (!payload.brainName) {
+        skipped++;
+        continue;
+      }
+      const localBrainId = remote.local_brain_id ? Number(remote.local_brain_id) : null;
+      let existing;
+      if (localBrainId && localById.has(localBrainId)) {
+        existing = localById.get(localBrainId);
+      } else {
+        existing = localByName.get(payload.brainName.toLowerCase().trim());
+      }
+      if (existing) {
+        await db.update(offeringBrain).set(payload).where(eq2(offeringBrain.id, existing.id));
+        updated++;
+      } else {
+        await db.insert(offeringBrain).values({
+          userId: ownerUserId,
+          brainName: payload.brainName ?? "Unnamed Brain",
+          companyName: payload.companyName ?? "",
+          companyWebsite: payload.companyWebsite ?? "",
+          offeringSummary: payload.offeringSummary,
+          coreCapabilities: payload.coreCapabilities,
+          valuePropositions: payload.valuePropositions,
+          competitiveAdvantages: payload.competitiveAdvantages,
+          icpIndustries: payload.icpIndustries,
+          icpCompanySize: payload.icpCompanySize,
+          icpGeography: payload.icpGeography,
+          icpPainPoints: payload.icpPainPoints,
+          icpBuyingSignals: payload.icpBuyingSignals,
+          fitCriteria: payload.fitCriteria,
+          urgencyTriggers: payload.urgencyTriggers,
+          sicCodes: payload.sicCodes,
+          naceCodes: payload.naceCodes,
+          rawResearchData: payload.rawResearchData,
+          status: "completed",
+          isActive: 0,
+          isShared: 1
+          // make visible to all users
+        });
+        imported++;
+      }
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[SupabaseSync] Error syncing brain "${remote.brain_name}":`, msg);
+      errors++;
+    }
+  }
+  return {
+    imported,
+    updated,
+    skipped,
+    errors,
+    message: `Pulled ${imported} new + ${updated} updated brains from Supabase (${skipped} skipped, ${errors} errors)`
   };
 }
 var LT_NAMESPACE;
@@ -8813,6 +8908,10 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
   pullBrainFromSupabase: protectedProcedure.input(z2.object({ brainId: z2.number() })).mutation(async ({ input }) => {
     const { pullSingleBrainFromSupabase: pullSingleBrainFromSupabase2 } = await Promise.resolve().then(() => (init_supabaseSync(), supabaseSync_exports));
     return pullSingleBrainFromSupabase2(input.brainId);
+  }),
+  pullAllBrainsFromSupabase: protectedProcedure.mutation(async ({ ctx }) => {
+    const { pullAllBrainsFromSupabase: pullAllBrainsFromSupabase2 } = await Promise.resolve().then(() => (init_supabaseSync(), supabaseSync_exports));
+    return pullAllBrainsFromSupabase2(ctx.user.id);
   }),
   // ---------------------------------------------------------------------------
   // batchFetchImages — fetch product images + urgency images for all companies

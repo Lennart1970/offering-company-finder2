@@ -3312,6 +3312,12 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       return pullSingleBrainFromSupabase(input.brainId);
     }),
 
+  pullAllBrainsFromSupabase: protectedProcedure
+    .mutation(async ({ ctx }) => {
+      const { pullAllBrainsFromSupabase } = await import("./supabaseSync");
+      return pullAllBrainsFromSupabase(ctx.user.id);
+    }),
+
   // ---------------------------------------------------------------------------
   // batchFetchImages — fetch product images + urgency images for all companies
   // in a campaign that are missing them. Designed for demo prep.

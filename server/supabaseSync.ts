@@ -678,3 +678,129 @@ export async function syncSearchRunToSupabase(searchId: number): Promise<{
     message: `Search ${searchId}: ${companyResult.synced} companies, ${contactResult.synced} contacts synced`,
   };
 }
+
+// ─── Pull ALL brains from Supabase → MySQL ───────────────────────────────────
+/**
+ * Fetches every row from lt_mns_offering_brains in Supabase and upserts them
+ * into the local MySQL offering_brain table.
+ *
+ * Matching strategy (in order):
+ *  1. If the Supabase row has a numeric `local_brain_id`, match on that.
+ *  2. Otherwise match on `brain_name` (case-insensitive).
+ *  3. If no match found, INSERT a new row owned by the owner user (userId = 1).
+ */
+export async function pullAllBrainsFromSupabase(ownerUserId: number = 1): Promise<{
+  imported: number;
+  updated: number;
+  skipped: number;
+  errors: number;
+  message: string;
+}> {
+  const supabase = getSupabaseClient();
+  const db = await getDb();
+  if (!db) return { imported: 0, updated: 0, skipped: 0, errors: 0, message: "Database not available" };
+
+  // 1. Fetch all brains from Supabase
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: remoteBrains, error } = await (supabase.from("lt_mns_offering_brains") as any)
+    .select("*")
+    .order("created_at", { ascending: true });
+
+  if (error || !remoteBrains) {
+    return { imported: 0, updated: 0, skipped: 0, errors: 1, message: error?.message ?? "Failed to fetch from Supabase" };
+  }
+
+  // 2. Fetch all local brains for comparison
+  const localBrains = await db.select().from(offeringBrain);
+  const localById = new Map(localBrains.map((b: BrainRow) => [b.id, b]));
+  const localByName = new Map(localBrains.map((b: BrainRow) => [b.brainName?.toLowerCase().trim(), b]));
+
+  const fieldMap: Array<{ remote: string; local: keyof BrainRow }> = [
+    { remote: "brain_name", local: "brainName" },
+    { remote: "company_name", local: "companyName" },
+    { remote: "company_website", local: "companyWebsite" },
+    { remote: "offering_summary", local: "offeringSummary" },
+    { remote: "core_capabilities", local: "coreCapabilities" },
+    { remote: "competitive_advantages", local: "competitiveAdvantages" },
+    { remote: "target_sectors", local: "icpIndustries" },
+    { remote: "icp_description", local: "icpCompanySize" },
+    { remote: "icp_geography", local: "icpGeography" },
+    { remote: "icp_pain_points", local: "icpPainPoints" },
+    { remote: "value_propositions", local: "valuePropositions" },
+    { remote: "strong_fit_signals", local: "icpBuyingSignals" },
+    { remote: "fit_criteria", local: "fitCriteria" },
+    { remote: "urgency_triggers", local: "urgencyTriggers" },
+    { remote: "sic_codes", local: "sicCodes" },
+    { remote: "nace_codes", local: "naceCodes" },
+    { remote: "raw_research_data", local: "rawResearchData" },
+  ];
+
+  let imported = 0, updated = 0, skipped = 0, errors = 0;
+
+  for (const remote of remoteBrains) {
+    try {
+      // Build the update/insert payload
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const payload: Record<string, any> = {};
+      for (const { remote: rk, local: lk } of fieldMap) {
+        if (remote[rk] !== undefined && remote[rk] !== null) {
+          payload[lk] = typeof remote[rk] === "object" ? JSON.stringify(remote[rk]) : remote[rk];
+        }
+      }
+      if (!payload.brainName) { skipped++; continue; } // skip unnamed brains
+
+      // Resolve local match
+      const localBrainId = remote.local_brain_id ? Number(remote.local_brain_id) : null;
+      let existing: BrainRow | undefined;
+      if (localBrainId && localById.has(localBrainId)) {
+        existing = localById.get(localBrainId);
+      } else {
+        existing = localByName.get((payload.brainName as string).toLowerCase().trim());
+      }
+
+      if (existing) {
+        // UPDATE existing row
+        await db.update(offeringBrain).set(payload).where(eq(offeringBrain.id, existing.id));
+        updated++;
+      } else {
+        // INSERT new row — owned by the owner, not active by default
+        await db.insert(offeringBrain).values({
+          userId: ownerUserId,
+          brainName: payload.brainName ?? "Unnamed Brain",
+          companyName: payload.companyName ?? "",
+          companyWebsite: payload.companyWebsite ?? "",
+          offeringSummary: payload.offeringSummary,
+          coreCapabilities: payload.coreCapabilities,
+          valuePropositions: payload.valuePropositions,
+          competitiveAdvantages: payload.competitiveAdvantages,
+          icpIndustries: payload.icpIndustries,
+          icpCompanySize: payload.icpCompanySize,
+          icpGeography: payload.icpGeography,
+          icpPainPoints: payload.icpPainPoints,
+          icpBuyingSignals: payload.icpBuyingSignals,
+          fitCriteria: payload.fitCriteria,
+          urgencyTriggers: payload.urgencyTriggers,
+          sicCodes: payload.sicCodes,
+          naceCodes: payload.naceCodes,
+          rawResearchData: payload.rawResearchData,
+          status: "completed",
+          isActive: 0,
+          isShared: 1, // make visible to all users
+        });
+        imported++;
+      }
+    } catch (e: unknown) {
+      const msg = e instanceof Error ? e.message : String(e);
+      console.error(`[SupabaseSync] Error syncing brain "${remote.brain_name}":`, msg);
+      errors++;
+    }
+  }
+
+  return {
+    imported,
+    updated,
+    skipped,
+    errors,
+    message: `Pulled ${imported} new + ${updated} updated brains from Supabase (${skipped} skipped, ${errors} errors)`,
+  };
+}

@@ -126,6 +126,16 @@ export default function Brain() {
     },
   });
 
+  const pullAllFromSupabaseMutation = trpc.companyFinder.pullAllBrainsFromSupabase.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.message);
+      utils.companyFinder.getActiveBrain.invalidate();
+      utils.companyFinder.getBrainHistory.invalidate();
+    },
+    onError: (error) => {
+      toast.error(`Pull all failed: ${error.message}`);
+    },
+  });
   const pullFromSupabaseMutation = trpc.companyFinder.pullBrainFromSupabase.useMutation({
     onSuccess: (data) => {
       if (data.success) {
@@ -300,7 +310,16 @@ export default function Brain() {
       {/* My Saved Brains */}
       {brainHistory.length > 0 && (
         <div className="border-4 border-black p-6 mb-8">
-          <div className="text-lg font-black mb-4">📚 MY SAVED BRAINS</div>
+          <div className="flex items-center justify-between mb-4">
+            <div className="text-lg font-black">📚 MY SAVED BRAINS</div>
+            <button
+              onClick={() => pullAllFromSupabaseMutation.mutate()}
+              disabled={pullAllFromSupabaseMutation.isPending}
+              className="text-xs font-black border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 transition-colors disabled:opacity-50"
+            >
+              {pullAllFromSupabaseMutation.isPending ? "⏳ SYNCING..." : "⬇ SYNC ALL FROM SUPABASE"}
+            </button>
+          </div>
           <div className="space-y-3">
             {brainHistory.map((b) => (
               <div

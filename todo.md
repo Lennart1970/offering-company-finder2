@@ -2275,3 +2275,12 @@
 - [ ] Add RUN button on NO OUTPUT brain tabs in CompanyDetailMagazine
 - [ ] Fix Extended View link to carry ?from= and ?brainId= params through
 - [ ] Add BOM section to Magazine FIT chapter
+
+## Feature: show_on_leadtrigger Column on offering_brain
+- [x] Add show_on_leadtrigger tinyint column to offering_brain table (DEFAULT 1, NOT NULL)
+- [x] Generate and apply Drizzle migration (0043_striped_gamma_corps.sql)
+- [x] Filter getBrainHistory to only return brains where showOnLeadtrigger = 1
+- [x] Filter getActiveBrain to only consider brains where showOnLeadtrigger = 1
+- [x] Filter getAllBrainOutputsForCompany to only show tabs for visible brains
+- [x] Set showOnLeadtrigger = 1 on newly imported brains in pullAllBrainsFromSupabase
+- [x] Write and pass vitest for schema field and filter logic (3 tests, 500 total passing)

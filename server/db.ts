@@ -494,14 +494,15 @@ export async function getActiveBrain(userId: number): Promise<OfferingBrain | nu
   const db = await getDb();
   if (!db) return null;
 
-  // Fetch ALL active brains: own brains OR shared brains from others
+  // Fetch ALL active brains: own brains OR shared brains from others, filtered to show_on_leadtrigger = 1
   const activeBrains = await db.select().from(offeringBrain)
     .where(and(
       or(
         eq(offeringBrain.userId, userId),
         eq(offeringBrain.isShared, 1)
       ),
-      eq(offeringBrain.isActive, 1)
+      eq(offeringBrain.isActive, 1),
+      eq(offeringBrain.showOnLeadtrigger, 1)
     ))
     .orderBy(desc(offeringBrain.updatedAt));
 
@@ -535,11 +536,14 @@ export async function getBrainHistory(userId: number): Promise<OfferingBrain[]> 
   const db = await getDb();
   if (!db) return [];
   
-  // Return own brains + shared brains from others
+  // Return own brains + shared brains from others, filtered to show_on_leadtrigger = 1
   return db.select().from(offeringBrain)
-    .where(or(
-      eq(offeringBrain.userId, userId),
-      eq(offeringBrain.isShared, 1)
+    .where(and(
+      or(
+        eq(offeringBrain.userId, userId),
+        eq(offeringBrain.isShared, 1)
+      ),
+      eq(offeringBrain.showOnLeadtrigger, 1)
     ))
     .orderBy(desc(offeringBrain.createdAt));
 }
@@ -976,6 +980,9 @@ export async function getAllBrainOutputsForCompany(
     })
     .from(companyBrainOutputs)
     .leftJoin(offeringBrain, eq(companyBrainOutputs.brainId, offeringBrain.id))
-    .where(eq(companyBrainOutputs.companyId, companyId));
+    .where(and(
+      eq(companyBrainOutputs.companyId, companyId),
+      eq(offeringBrain.showOnLeadtrigger, 1)
+    ));
   return rows as (CompanyBrainOutput & { brainName: string | null })[];
 }

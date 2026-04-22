@@ -1,0 +1,1 @@
+ALTER TABLE `offering_brain` ADD `show_on_leadtrigger` tinyint DEFAULT 1 NOT NULL;

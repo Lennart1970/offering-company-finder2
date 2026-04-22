@@ -786,6 +786,7 @@ export async function pullAllBrainsFromSupabase(ownerUserId: number = 1): Promis
           status: "completed",
           isActive: 0,
           isShared: 1, // make visible to all users
+          showOnLeadtrigger: 1, // visible in LeadTrigger UI by default
         });
         imported++;
       }

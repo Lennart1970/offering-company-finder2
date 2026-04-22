@@ -302,6 +302,13 @@
       "when": 1776676639290,
       "tag": "0042_serious_mauler",
       "breakpoints": true
+    },
+    {
+      "idx": 43,
+      "version": "5",
+      "when": 1776839676649,
+      "tag": "0043_striped_gamma_corps",
+      "breakpoints": true
     }
   ]
 }

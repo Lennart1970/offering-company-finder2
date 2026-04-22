@@ -260,6 +260,8 @@ var init_schema = __esm({
       // 1 = active brain, 0 = archived
       isShared: int("isShared").default(0).notNull(),
       // 1 = visible to all users, 0 = owner only
+      showOnLeadtrigger: tinyint("show_on_leadtrigger").default(1).notNull(),
+      // 1 = visible in LeadTrigger UI, 0 = hidden (managed from DB)
       createdAt: timestamp("createdAt").defaultNow().notNull(),
       updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
     });
@@ -962,7 +964,8 @@ async function getActiveBrain(userId) {
       eq(offeringBrain.userId, userId),
       eq(offeringBrain.isShared, 1)
     ),
-    eq(offeringBrain.isActive, 1)
+    eq(offeringBrain.isActive, 1),
+    eq(offeringBrain.showOnLeadtrigger, 1)
   )).orderBy(desc(offeringBrain.updatedAt));
   if (activeBrains.length === 0) return null;
   if (activeBrains.length > 1) {
@@ -981,9 +984,12 @@ async function updateOfferingBrain(id, updates) {
 async function getBrainHistory(userId) {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(offeringBrain).where(or(
-    eq(offeringBrain.userId, userId),
-    eq(offeringBrain.isShared, 1)
+  return db.select().from(offeringBrain).where(and(
+    or(
+      eq(offeringBrain.userId, userId),
+      eq(offeringBrain.isShared, 1)
+    ),
+    eq(offeringBrain.showOnLeadtrigger, 1)
   )).orderBy(desc(offeringBrain.createdAt));
 }
 async function setOfferingBrainActive(brainId, userId) {
@@ -1208,7 +1214,10 @@ async function getAllBrainOutputsForCompany(companyId) {
     createdAt: companyBrainOutputs.createdAt,
     updatedAt: companyBrainOutputs.updatedAt,
     brainName: offeringBrain.brainName
-  }).from(companyBrainOutputs).leftJoin(offeringBrain, eq(companyBrainOutputs.brainId, offeringBrain.id)).where(eq(companyBrainOutputs.companyId, companyId));
+  }).from(companyBrainOutputs).leftJoin(offeringBrain, eq(companyBrainOutputs.brainId, offeringBrain.id)).where(and(
+    eq(companyBrainOutputs.companyId, companyId),
+    eq(offeringBrain.showOnLeadtrigger, 1)
+  ));
   return rows;
 }
 var _db;
@@ -5255,8 +5264,10 @@ async function pullAllBrainsFromSupabase(ownerUserId = 1) {
           rawResearchData: payload.rawResearchData,
           status: "completed",
           isActive: 0,
-          isShared: 1
+          isShared: 1,
           // make visible to all users
+          showOnLeadtrigger: 1
+          // visible in LeadTrigger UI by default
         });
         imported++;
       }

@@ -234,6 +234,7 @@ export const offeringBrain = mysqlTable("offering_brain", {
   status: mysqlEnum("status", ["researching", "completed", "failed"]).default("researching").notNull(),
   isActive: int("isActive").default(1).notNull(), // 1 = active brain, 0 = archived
   isShared: int("isShared").default(0).notNull(), // 1 = visible to all users, 0 = owner only
+  showOnLeadtrigger: tinyint("show_on_leadtrigger").default(1).notNull(), // 1 = visible in LeadTrigger UI, 0 = hidden (managed from DB)
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

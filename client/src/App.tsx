@@ -20,6 +20,7 @@ import CompanyDetailMagazine from "./pages/CompanyDetailMagazine";
 import NurtureList from "./pages/NurtureList";
 import PromptRepository from "./pages/PromptRepository";
 import WebhookLogPage from "./pages/WebhookLogPage";
+import BrainVisibility from "./pages/BrainVisibility";
 import NicheReview from "./pages/NicheReview";
 import NicheCompanyList from "./pages/NicheCompanyList";
 import FastPrototype from "./pages/FastPrototype";
@@ -54,6 +55,7 @@ function Router() {
         <Route path={"/nurture"} component={NurtureList} />
         <Route path={"/prompts"} component={PromptRepository} />
         <Route path={"/webhook-log"} component={WebhookLogPage} />
+        <Route path={"/brain-visibility"} component={BrainVisibility} />
         <Route path={"/niche-review"} component={NicheReview} />
         <Route path={"/fast-prototype"} component={FastPrototype} />
         <Route path={"/prototype-requests"} component={PrototypeRequests} />

@@ -50,9 +50,15 @@ export default function Brain() {
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [excelBrainName, setExcelBrainName] = useState("");
 
+  const [showVisibilityTable, setShowVisibilityTable] = useState(false);
+
   const { user } = useAuth();
   const { data: brainData, isLoading } = trpc.companyFinder.getActiveBrain.useQuery();
   const { data: historyData } = trpc.companyFinder.getBrainHistory.useQuery();
+  const { data: allBrainsData, refetch: refetchAllBrains } = trpc.companyFinder.listAllBrainsAdmin.useQuery(
+    undefined,
+    { enabled: showVisibilityTable }
+  );
   const utils = trpc.useUtils();
 
   const researchMutation = trpc.companyFinder.researchBrain.useMutation({
@@ -136,6 +142,17 @@ export default function Brain() {
       toast.error(`Pull all failed: ${error.message}`);
     },
   });
+  const toggleVisibilityMutation = trpc.companyFinder.toggleBrainVisibility.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.visible ? "Brain is nu zichtbaar" : "Brain is verborgen");
+      refetchAllBrains();
+      utils.companyFinder.getBrainHistory.invalidate();
+    },
+    onError: (error) => {
+      toast.error(`Fout: ${error.message}`);
+    },
+  });
+
   const pullFromSupabaseMutation = trpc.companyFinder.pullBrainFromSupabase.useMutation({
     onSuccess: (data) => {
       if (data.success) {
@@ -312,14 +329,73 @@ export default function Brain() {
         <div className="border-4 border-black p-6 mb-8">
           <div className="flex items-center justify-between mb-4">
             <div className="text-lg font-black">📚 MY SAVED BRAINS</div>
-            <button
-              onClick={() => pullAllFromSupabaseMutation.mutate()}
-              disabled={pullAllFromSupabaseMutation.isPending}
-              className="text-xs font-black border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 transition-colors disabled:opacity-50"
-            >
-              {pullAllFromSupabaseMutation.isPending ? "⏳ SYNCING..." : "⬇ SYNC ALL FROM SUPABASE"}
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => setShowVisibilityTable(!showVisibilityTable)}
+                className={`text-xs font-black border-2 px-3 py-1.5 transition-colors ${
+                  showVisibilityTable
+                    ? "border-orange-600 bg-orange-600 text-white"
+                    : "border-orange-600 text-orange-600 hover:bg-orange-600 hover:text-white"
+                }`}
+              >
+                👁 ZICHTBAARHEID BEHEREN
+              </button>
+              <button
+                onClick={() => pullAllFromSupabaseMutation.mutate()}
+                disabled={pullAllFromSupabaseMutation.isPending}
+                className="text-xs font-black border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 transition-colors disabled:opacity-50"
+              >
+                {pullAllFromSupabaseMutation.isPending ? "⏳ SYNCING..." : "⬇ SYNC ALL FROM SUPABASE"}
+              </button>
+            </div>
           </div>
+
+          {/* Visibility Management Table */}
+          {showVisibilityTable && (
+            <div className="mb-6 border-4 border-orange-400 p-4">
+              <div className="text-sm font-black mb-3 text-orange-700">👁 ZICHTBAARHEID BEHEREN — alle brains (inclusief verborgen)</div>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b-2 border-black">
+                    <th className="text-left font-black py-2 pr-4">BRAIN NAAM</th>
+                    <th className="text-left font-black py-2 pr-4">BEDRIJF</th>
+                    <th className="text-center font-black py-2 pr-4">STATUS</th>
+                    <th className="text-center font-black py-2">ZICHTBAAR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {(allBrainsData?.brains ?? []).map((b) => (
+                    <tr key={b.id} className={`border-b border-gray-200 ${
+                      b.showOnLeadtrigger === 0 ? "opacity-50" : ""
+                    }`}>
+                      <td className="py-2 pr-4 font-bold">{b.brainName || <span className="italic text-gray-400">(leeg)</span>}</td>
+                      <td className="py-2 pr-4 text-gray-600">{b.companyName || "—"}</td>
+                      <td className="py-2 pr-4 text-center">
+                        {b.isActive === 1 && <span className="text-xs font-black bg-green-600 text-white px-2 py-0.5">ACTIEF</span>}
+                        {b.isShared === 1 && <span className="text-xs font-black bg-blue-600 text-white px-2 py-0.5 ml-1">SHARED</span>}
+                      </td>
+                      <td className="py-2 text-center">
+                        <button
+                          onClick={() => toggleVisibilityMutation.mutate({
+                            brainId: b.id,
+                            visible: b.showOnLeadtrigger === 0,
+                          })}
+                          disabled={toggleVisibilityMutation.isPending}
+                          className={`w-12 h-6 rounded-full border-2 transition-colors font-black text-xs ${
+                            b.showOnLeadtrigger === 1
+                              ? "bg-green-500 border-green-600 text-white"
+                              : "bg-gray-200 border-gray-400 text-gray-500"
+                          }`}
+                        >
+                          {b.showOnLeadtrigger === 1 ? "AAN" : "UIT"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
           <div className="space-y-3">
             {brainHistory.map((b) => (
               <div
@@ -349,38 +425,7 @@ export default function Brain() {
                         <span className="text-xs font-bold text-blue-600 border border-blue-300 px-2 py-1">TEAM BRAIN</span>
                       )}
                     </div>
-                    <div className="text-sm font-bold text-muted-foreground ml-8">
-                      {b.companyName} • {b.companyWebsite}
-                    </div>
-                    <div className="text-xs font-bold text-muted-foreground ml-8 mt-1">
-                      Created: {new Date(b.createdAt).toLocaleDateString()}
-                    </div>
-                    {(b.sicCodes || b.naceCodes) && (
-                      <div className="ml-8 mt-3 space-y-1">
-                        {b.sicCodes && (() => {
-                          try {
-                            const codes = JSON.parse(b.sicCodes) as { code: string; description: string }[];
-                            return (
-                              <div className="text-xs">
-                                <span className="font-black">SIC:</span>{" "}
-                                {codes.map(c => c.code).join(" · ")}
-                              </div>
-                            );
-                          } catch { return <div className="text-xs"><span className="font-black">SIC:</span> {b.sicCodes}</div>; }
-                        })()}
-                        {b.naceCodes && (() => {
-                          try {
-                            const codes = JSON.parse(b.naceCodes) as { code: string; description: string }[];
-                            return (
-                              <div className="text-xs">
-                                <span className="font-black">NACE:</span>{" "}
-                                {codes.map(c => c.code).join(" · ")}
-                              </div>
-                            );
-                          } catch { return <div className="text-xs"><span className="font-black">NACE:</span> {b.naceCodes}</div>; }
-                        })()}
-                      </div>
-                    )}
+
                   </div>
                   <div className="flex gap-2 flex-wrap">
                     <Button

@@ -3742,6 +3742,57 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         await conn.end();
       }
     }),
+
+  // ── Brain Visibility Management ─────────────────────────────────────────────
+
+  /**
+   * Return ALL brains (visible and hidden) for the visibility management table.
+   * Admin-only: only the owner user can see all brains.
+   */
+  listAllBrainsAdmin: protectedProcedure
+    .query(async () => {
+      const { getDb } = await import("./db");
+      const db = await getDb();
+      if (!db) return { brains: [] };
+      const { offeringBrain } = await import("../drizzle/schema");
+      const { desc } = await import("drizzle-orm");
+      const brains = await db
+        .select({
+          id: offeringBrain.id,
+          brainName: offeringBrain.brainName,
+          companyName: offeringBrain.companyName,
+          status: offeringBrain.status,
+          isActive: offeringBrain.isActive,
+          isShared: offeringBrain.isShared,
+          showOnLeadtrigger: offeringBrain.showOnLeadtrigger,
+          createdAt: offeringBrain.createdAt,
+          updatedAt: offeringBrain.updatedAt,
+        })
+        .from(offeringBrain)
+        .orderBy(desc(offeringBrain.createdAt));
+      return { brains };
+    }),
+
+  /**
+   * Toggle show_on_leadtrigger for a single brain.
+   */
+  toggleBrainVisibility: protectedProcedure
+    .input(z.object({
+      brainId: z.number().int().positive(),
+      visible: z.boolean(),
+    }))
+    .mutation(async ({ input }) => {
+      const { getDb } = await import("./db");
+      const db = await getDb();
+      if (!db) throw new Error("Database not available");
+      const { offeringBrain } = await import("../drizzle/schema");
+      const { eq } = await import("drizzle-orm");
+      await db
+        .update(offeringBrain)
+        .set({ showOnLeadtrigger: input.visible ? 1 : 0 })
+        .where(eq(offeringBrain.id, input.brainId));
+      return { success: true, brainId: input.brainId, visible: input.visible };
+    }),
 });
 
 // Background search function using brain offering data

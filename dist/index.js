@@ -9237,6 +9237,45 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
     } finally {
       await conn.end();
     }
+  }),
+  // ── Brain Visibility Management ─────────────────────────────────────────────
+  /**
+   * Return ALL brains (visible and hidden) for the visibility management table.
+   * Admin-only: only the owner user can see all brains.
+   */
+  listAllBrainsAdmin: protectedProcedure.query(async () => {
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const db = await getDb2();
+    if (!db) return { brains: [] };
+    const { offeringBrain: offeringBrain2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { desc: desc4 } = await import("drizzle-orm");
+    const brains = await db.select({
+      id: offeringBrain2.id,
+      brainName: offeringBrain2.brainName,
+      companyName: offeringBrain2.companyName,
+      status: offeringBrain2.status,
+      isActive: offeringBrain2.isActive,
+      isShared: offeringBrain2.isShared,
+      showOnLeadtrigger: offeringBrain2.showOnLeadtrigger,
+      createdAt: offeringBrain2.createdAt,
+      updatedAt: offeringBrain2.updatedAt
+    }).from(offeringBrain2).orderBy(desc4(offeringBrain2.createdAt));
+    return { brains };
+  }),
+  /**
+   * Toggle show_on_leadtrigger for a single brain.
+   */
+  toggleBrainVisibility: protectedProcedure.input(z2.object({
+    brainId: z2.number().int().positive(),
+    visible: z2.boolean()
+  })).mutation(async ({ input }) => {
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const db = await getDb2();
+    if (!db) throw new Error("Database not available");
+    const { offeringBrain: offeringBrain2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { eq: eq14 } = await import("drizzle-orm");
+    await db.update(offeringBrain2).set({ showOnLeadtrigger: input.visible ? 1 : 0 }).where(eq14(offeringBrain2.id, input.brainId));
+    return { success: true, brainId: input.brainId, visible: input.visible };
   })
 });
 

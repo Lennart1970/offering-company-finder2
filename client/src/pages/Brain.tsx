@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { trpc } from "@/lib/trpc";
 import { toast } from "sonner";
@@ -50,6 +50,7 @@ export default function Brain() {
   const [excelFile, setExcelFile] = useState<File | null>(null);
   const [excelBrainName, setExcelBrainName] = useState("");
 
+  const editSectionRef = useRef<HTMLDivElement>(null);
   const { user } = useAuth();
   const { data: brainData, isLoading } = trpc.companyFinder.getActiveBrain.useQuery();
   const { data: historyData } = trpc.companyFinder.getBrainHistory.useQuery();
@@ -343,9 +344,18 @@ export default function Brain() {
 
                 {/* Brain name + badges */}
                 <div className="flex items-center gap-2 min-w-0">
-                  <span className={`text-sm font-semibold truncate ${
-                    b.isActive === 1 ? "text-green-800" : "text-foreground"
-                  }`}>
+                  <span
+                    className={`text-sm font-semibold truncate ${
+                      b.isActive === 1 ? "text-green-800 underline decoration-dotted cursor-pointer hover:text-green-600" : "text-foreground"
+                    }`}
+                    onClick={() => {
+                      if (b.isActive === 1) {
+                        setShowEditSection(true);
+                        setTimeout(() => editSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+                      }
+                    }}
+                    title={b.isActive === 1 ? "Click to view/edit this brain" : undefined}
+                  >
                     {b.brainName}
                   </span>
                   {b.isActive === 1 && (
@@ -534,7 +544,7 @@ export default function Brain() {
 
       {/* Brain Display */}
       {brain && brain.status === "completed" && showEditSection && (
-        <div className="space-y-6">
+        <div ref={editSectionRef} className="space-y-6">
           {/* Status Bar */}
           <div data-section="edit-brain" className="flex items-center justify-between bg-black text-white px-6 py-3">
             <div className="flex items-center gap-4">

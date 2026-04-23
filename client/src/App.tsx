@@ -30,6 +30,9 @@ import LeadinfoImport from "@/pages/LeadinfoImport";
 import SalesMenu from "@/pages/SalesMenu";
 import SyncPage from "@/pages/SyncPage";
 import IntelligencePage from "@/pages/IntelligencePage";
+import ConnectGroupMarket from "./pages/ConnectGroupMarket";
+import ConnectGroupSites from "./pages/ConnectGroupSites";
+import ConnectGroupTeam from "./pages/ConnectGroupTeam";
 
 
 function Router() {
@@ -62,6 +65,9 @@ function Router() {
         <Route path={"/fast-prototype"} component={FastPrototype} />
         <Route path={"/prototype-requests"} component={PrototypeRequests} />
         <Route path={"/leadinfo"} component={LeadinfoImport} />
+        <Route path={"/cg-market"} component={ConnectGroupMarket} />
+        <Route path={"/cg-sites"} component={ConnectGroupSites} />
+        <Route path={"/cg-team"} component={ConnectGroupTeam} />
         <Route path={"/niche/:nicheId"} component={({ params }: { params: { nicheId: string } }) => <NicheCompanyList nicheId={parseInt(params.nicheId)} />} />
 
         <Route path={"/404"} component={NotFound} />

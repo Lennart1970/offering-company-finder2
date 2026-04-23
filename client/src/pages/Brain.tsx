@@ -339,16 +339,15 @@ export default function Brain() {
           {/* Table */}
           <div className="border rounded-lg divide-y overflow-hidden">
             {/* Header row */}
-            <div className="grid grid-cols-[auto_1fr_auto] items-center px-4 py-2 bg-muted/50 gap-3">
+            <div className="grid grid-cols-[auto_1fr] items-center px-4 py-2 bg-muted/50 gap-3">
               <span className="w-4" />
               <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Brain name</span>
-              <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Actions</span>
             </div>
 
             {brainHistory.map((b) => (
               <div
                 key={b.id}
-                className={`grid grid-cols-[auto_1fr_auto] items-center px-4 py-3 gap-3 transition-colors ${
+                className={`grid grid-cols-[auto_1fr] items-center px-4 py-3 gap-3 transition-colors ${
                   b.isActive === 1 ? "bg-green-50" : "bg-white hover:bg-muted/20"
                 }`}
               >
@@ -384,64 +383,7 @@ export default function Brain() {
                   )}
                 </div>
 
-                {/* Action buttons */}
-                <div className="flex gap-1.5 flex-wrap justify-end">
-                  <Button
-                    onClick={() => pushToSupabaseMutation.mutate({ brainId: b.id })}
-                    variant="outline"
-                    size="sm"
-                    className="text-[11px] font-black border border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white h-7 px-2"
-                    disabled={pushToSupabaseMutation.isPending}
-                  >
-                    ⬆ PUSH TO SUPABASE
-                  </Button>
-                  <Button
-                    onClick={() => pullFromSupabaseMutation.mutate({ brainId: b.id })}
-                    variant="outline"
-                    size="sm"
-                    className="text-[11px] font-black border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white h-7 px-2"
-                    disabled={pullFromSupabaseMutation.isPending}
-                  >
-                    ⬇ PULL FROM SUPABASE
-                  </Button>
-                  {b.userId === user?.id && (
-                    <Button
-                      onClick={() => toggleSharedMutation.mutate({ brainId: b.id, isShared: b.isShared !== 1 })}
-                      variant="outline"
-                      size="sm"
-                      className={`text-[11px] font-black border h-7 px-2 ${
-                        b.isShared === 1
-                          ? "border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
-                          : "border-gray-400 text-gray-500 hover:bg-gray-100"
-                      }`}
-                      disabled={toggleSharedMutation.isPending}
-                    >
-                      {b.isShared === 1 ? "🔓 SHARED" : "🔒 PRIVATE"}
-                    </Button>
-                  )}
-                  {b.isActive !== 1 && (
-                    <Button
-                      onClick={() => handleSetActive(b.id)}
-                      variant="outline"
-                      size="sm"
-                      className="text-[11px] font-black border border-black h-7 px-2"
-                      disabled={setActiveMutation.isPending}
-                    >
-                      SET ACTIVE
-                    </Button>
-                  )}
-                  {b.isActive !== 1 && b.userId === user?.id && (
-                    <Button
-                      onClick={() => handleDelete(b.id)}
-                      variant="outline"
-                      size="sm"
-                      className="text-[11px] font-black border border-red-600 text-red-600 hover:bg-red-600 hover:text-white h-7 px-2"
-                      disabled={deleteMutation.isPending}
-                    >
-                      DELETE
-                    </Button>
-                  )}
-                </div>
+
               </div>
             ))}
           </div>

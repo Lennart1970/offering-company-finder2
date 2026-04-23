@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, LogOut, PanelLeft, BrainCircuit, FileSpreadsheet, Phone, ScrollText, Network, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook, UserPlus, BookMarked, Eye } from "lucide-react";
+import { List, LogOut, PanelLeft, BrainCircuit, FileSpreadsheet, Phone, ScrollText, Network, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook, UserPlus, BookMarked, Eye, FolderOpen } from "lucide-react";
 import { CSSProperties, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -73,6 +73,7 @@ const navGroups: NavGroup[] = [
       { icon: ScrollText, label: "Prompt Repository", path: "/prompts" },
       { icon: Webhook, label: "Webhook Log", path: "/webhook-log" },
       { icon: Eye, label: "Brain Visibility", path: "/brain-visibility" },
+      { icon: FolderOpen, label: "Sales Materials", path: "/sales-materials" },
     ],
   },
   {

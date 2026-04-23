@@ -12,6 +12,7 @@ import { campaignQueueRouter } from "./campaignQueueRouter";
 import { leadinfoRouter } from "./leadinfoRouter";
 import { telegramRouter } from "./telegramRouter";
 import { webhookLogRouter } from "./webhookLogRouter";
+import { salesMaterialsRouter } from "./salesMaterialsRouter";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -36,6 +37,7 @@ export const appRouter = router({
   leadinfo: leadinfoRouter,
   telegram: telegramRouter,
   webhookLog: webhookLogRouter,
+  salesMaterials: salesMaterialsRouter,
 
   // Prompt Repository — exposes the full prompt catalogue for transparency
   prompts: router({

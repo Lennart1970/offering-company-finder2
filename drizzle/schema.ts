@@ -535,3 +535,24 @@ export const companyBrainOutputs = mysqlTable("company_brain_outputs", {
 
 export type CompanyBrainOutput = typeof companyBrainOutputs.$inferSelect;
 export type InsertCompanyBrainOutput = typeof companyBrainOutputs.$inferInsert;
+
+/**
+ * Sales materials (presentations, PDFs, etc.) uploaded by admin for the sales team.
+ */
+export const salesMaterials = mysqlTable("sales_materials", {
+  id: int("id").autoincrement().primaryKey(),
+  uploadedBy: int("uploadedBy").notNull().references(() => users.id),
+  title: varchar("title", { length: 256 }).notNull(),
+  description: text("description"),
+  fileName: varchar("fileName", { length: 512 }).notNull(),
+  fileKey: varchar("fileKey", { length: 512 }).notNull(),
+  fileUrl: text("fileUrl").notNull(),
+  fileSize: int("fileSize"),           // bytes
+  mimeType: varchar("mimeType", { length: 128 }),
+  category: varchar("category", { length: 128 }),  // e.g. "Railway", "Automotive", "General"
+  sortOrder: int("sortOrder").default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+export type SalesMaterial = typeof salesMaterials.$inferSelect;
+export type InsertSalesMaterial = typeof salesMaterials.$inferInsert;

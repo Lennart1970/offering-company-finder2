@@ -12,14 +12,14 @@ export default function BrainVisibility() {
   const toggleMutation = trpc.companyFinder.toggleBrainVisibility.useMutation({
     onSuccess: (_, variables) => {
       utils.companyFinder.listAllBrainsAdmin.invalidate();
-      toast.success(variables.visible ? "Brain zichtbaar" : "Brain verborgen", {
+      toast.success(variables.visible ? "Brain visible" : "Brain hidden", {
         description: variables.visible
-          ? "Brain verschijnt nu in LeadTrigger."
-          : "Brain is verborgen in LeadTrigger.",
+          ? "Brain is now visible in LeadTrigger."
+          : "Brain is now hidden in LeadTrigger.",
       });
     },
     onError: () => {
-      toast.error("Fout", { description: "Kon zichtbaarheid niet wijzigen." });
+      toast.error("Error", { description: "Could not update visibility." });
     },
   });
 
@@ -32,16 +32,16 @@ export default function BrainVisibility() {
       <div className="mb-8">
         <h1 className="text-2xl font-black tracking-tight mb-1">Brain Visibility</h1>
         <p className="text-sm text-muted-foreground">
-          Bepaal welke brains zichtbaar zijn in LeadTrigger. Verborgen brains worden niet meegenomen in searches, fit scores of company tabs.
+          Control which brains are visible in LeadTrigger. Hidden brains are excluded from searches, fit scores and company tabs.
         </p>
         <div className="flex gap-3 mt-4">
           <Badge variant="outline" className="gap-1.5 text-xs font-semibold">
             <Eye className="h-3 w-3 text-green-600" />
-            {visibleCount} zichtbaar
+            {visibleCount} visible
           </Badge>
           <Badge variant="outline" className="gap-1.5 text-xs font-semibold">
             <EyeOff className="h-3 w-3 text-muted-foreground" />
-            {hiddenCount} verborgen
+            {hiddenCount} hidden
           </Badge>
         </div>
       </div>
@@ -56,8 +56,8 @@ export default function BrainVisibility() {
         <div className="border rounded-lg divide-y overflow-hidden">
           {/* Header row */}
           <div className="grid grid-cols-[1fr_auto] items-center px-4 py-2 bg-muted/50">
-            <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Brain naam</span>
-            <span className="text-xs font-black uppercase tracking-widest text-muted-foreground w-20 text-center">Zichtbaar</span>
+            <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Brain name</span>
+            <span className="text-xs font-black uppercase tracking-widest text-muted-foreground w-20 text-center">Visible</span>
           </div>
 
           {brainList.map((brain) => (
@@ -78,7 +78,7 @@ export default function BrainVisibility() {
                     brain.showOnLeadtrigger ? "text-foreground" : "text-muted-foreground"
                   }`}
                 >
-                  {brain.brainName || <span className="italic text-muted-foreground">(geen naam)</span>}
+                  {brain.brainName || <span className="italic text-muted-foreground">(no name)</span>}
                 </span>
               </div>
               <div className="w-20 flex justify-center">

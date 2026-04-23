@@ -309,143 +309,155 @@ export default function Brain() {
 
       {/* My Saved Brains */}
       {brainHistory.length > 0 && (
-        <div className="border-4 border-black p-6 mb-8">
+        <div className="mb-8">
+          {/* Section header */}
           <div className="flex items-center justify-between mb-4">
-            <div className="text-lg font-black">📚 MY SAVED BRAINS</div>
+            <div>
+              <h2 className="text-2xl font-black tracking-tight">📚 MY SAVED BRAINS</h2>
+              <p className="text-sm text-muted-foreground mt-0.5">
+                {brainHistory.filter(b => b.isActive === 1).length} active · {brainHistory.length} total
+              </p>
+            </div>
             <div className="flex gap-2">
               <button
                 onClick={() => pullAllFromSupabaseMutation.mutate()}
                 disabled={pullAllFromSupabaseMutation.isPending}
-                className="text-xs font-black border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 transition-colors disabled:opacity-50"
+                className="text-xs font-black border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 transition-colors disabled:opacity-50 rounded"
               >
                 {pullAllFromSupabaseMutation.isPending ? "⏳ SYNCING..." : "⬇ SYNC ALL FROM SUPABASE"}
               </button>
+              <Button
+                onClick={() => setShowCreateSection(!showCreateSection)}
+                size="sm"
+                className="text-xs font-black bg-black text-white hover:bg-gray-800"
+              >
+                ➕ CREATE NEW BRAIN
+              </Button>
             </div>
           </div>
 
-          <div className="space-y-3">
+          {/* Table */}
+          <div className="border rounded-lg divide-y overflow-hidden">
+            {/* Header row */}
+            <div className="grid grid-cols-[auto_1fr_auto] items-center px-4 py-2 bg-muted/50 gap-3">
+              <span className="w-4" />
+              <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Brain name</span>
+              <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Actions</span>
+            </div>
+
             {brainHistory.map((b) => (
               <div
                 key={b.id}
-                className={`border-4 p-4 ${b.isActive === 1 ? "border-green-600 bg-green-50" : "border-gray-300"}`}
+                className={`grid grid-cols-[auto_1fr_auto] items-center px-4 py-3 gap-3 transition-colors ${
+                  b.isActive === 1 ? "bg-green-50" : "bg-white hover:bg-muted/20"
+                }`}
               >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3 mb-1">
-                      <button
-                        onClick={() => b.isActive !== 1 && handleSetActive(b.id)}
-                        className={`w-5 h-5 rounded-full border-4 flex items-center justify-center ${
-                          b.isActive === 1 ? "border-green-600 bg-green-600" : "border-gray-400 hover:border-black cursor-pointer"
-                        }`}
-                        disabled={b.isActive === 1}
-                      >
-                        {b.isActive === 1 && <div className="w-2 h-2 rounded-full bg-white" />}
-                      </button>
-                      <div className="font-black text-lg">{b.brainName}</div>
-                      {b.isActive === 1 && (
-                        <span className="text-xs font-black bg-green-600 text-white px-2 py-1">ACTIVE</span>
-                      )}
-                      {b.isShared === 1 && (
-                        <span className="text-xs font-black bg-blue-600 text-white px-2 py-1">SHARED</span>
-                      )}
-                      {b.userId !== user?.id && (
-                        <span className="text-xs font-bold text-blue-600 border border-blue-300 px-2 py-1">TEAM BRAIN</span>
-                      )}
-                    </div>
+                {/* Active indicator dot */}
+                <button
+                  onClick={() => b.isActive !== 1 && handleSetActive(b.id)}
+                  title={b.isActive === 1 ? "Active brain" : "Set as active"}
+                  className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
+                    b.isActive === 1
+                      ? "border-green-600 bg-green-600 cursor-default"
+                      : "border-gray-300 hover:border-black cursor-pointer"
+                  }`}
+                  disabled={b.isActive === 1}
+                >
+                  {b.isActive === 1 && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
+                </button>
 
-                  </div>
-                  <div className="flex gap-2 flex-wrap">
+                {/* Brain name + badges */}
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className={`text-sm font-semibold truncate ${
+                    b.isActive === 1 ? "text-green-800" : "text-foreground"
+                  }`}>
+                    {b.brainName}
+                  </span>
+                  {b.isActive === 1 && (
+                    <span className="text-[10px] font-black bg-green-600 text-white px-1.5 py-0.5 rounded shrink-0">ACTIVE</span>
+                  )}
+                  {b.isShared === 1 && (
+                    <span className="text-[10px] font-black bg-blue-600 text-white px-1.5 py-0.5 rounded shrink-0">SHARED</span>
+                  )}
+                  {b.userId !== user?.id && (
+                    <span className="text-[10px] font-bold text-blue-600 border border-blue-300 px-1.5 py-0.5 rounded shrink-0">TEAM</span>
+                  )}
+                </div>
+
+                {/* Action buttons */}
+                <div className="flex gap-1.5 flex-wrap justify-end">
+                  <Button
+                    onClick={() => pushToSupabaseMutation.mutate({ brainId: b.id })}
+                    variant="outline"
+                    size="sm"
+                    className="text-[11px] font-black border border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white h-7 px-2"
+                    disabled={pushToSupabaseMutation.isPending}
+                  >
+                    ⬆ PUSH TO SUPABASE
+                  </Button>
+                  <Button
+                    onClick={() => pullFromSupabaseMutation.mutate({ brainId: b.id })}
+                    variant="outline"
+                    size="sm"
+                    className="text-[11px] font-black border border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white h-7 px-2"
+                    disabled={pullFromSupabaseMutation.isPending}
+                  >
+                    ⬇ PULL FROM SUPABASE
+                  </Button>
+                  {b.userId === user?.id && (
                     <Button
-                      onClick={() => pushToSupabaseMutation.mutate({ brainId: b.id })}
+                      onClick={() => toggleSharedMutation.mutate({ brainId: b.id, isShared: b.isShared !== 1 })}
                       variant="outline"
                       size="sm"
-                      className="text-xs font-black border-2 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white"
-                      disabled={pushToSupabaseMutation.isPending}
+                      className={`text-[11px] font-black border h-7 px-2 ${
+                        b.isShared === 1
+                          ? "border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
+                          : "border-gray-400 text-gray-500 hover:bg-gray-100"
+                      }`}
+                      disabled={toggleSharedMutation.isPending}
                     >
-                      {pushToSupabaseMutation.isPending ? "PUSHING..." : "⬆ PUSH TO SUPABASE"}
+                      {b.isShared === 1 ? "🔓 SHARED" : "🔒 PRIVATE"}
                     </Button>
+                  )}
+                  {b.isActive !== 1 && (
                     <Button
-                      onClick={() => pullFromSupabaseMutation.mutate({ brainId: b.id })}
+                      onClick={() => handleSetActive(b.id)}
                       variant="outline"
                       size="sm"
-                      className="text-xs font-black border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
-                      disabled={pullFromSupabaseMutation.isPending}
+                      className="text-[11px] font-black border border-black h-7 px-2"
+                      disabled={setActiveMutation.isPending}
                     >
-                      {pullFromSupabaseMutation.isPending ? "PULLING..." : "⬇ PULL FROM SUPABASE"}
+                      SET ACTIVE
                     </Button>
-                    {b.userId === user?.id && (
-                      <Button
-                        onClick={() => toggleSharedMutation.mutate({ brainId: b.id, isShared: b.isShared !== 1 })}
-                        variant="outline"
-                        size="sm"
-                        className={`text-xs font-black border-2 ${
-                          b.isShared === 1
-                            ? "border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white"
-                            : "border-gray-400 text-gray-600 hover:bg-gray-100"
-                        }`}
-                        disabled={toggleSharedMutation.isPending}
-                      >
-                        {b.isShared === 1 ? "🔓 SHARED" : "🔒 PRIVATE"}
-                      </Button>
-                    )}
-                    {b.isActive !== 1 && b.userId === user?.id && (
-                      <>
-                        <Button
-                          onClick={() => handleSetActive(b.id)}
-                          variant="outline"
-                          size="sm"
-                          className="text-xs font-black border-2 border-black"
-                          disabled={setActiveMutation.isPending}
-                        >
-                          SET ACTIVE
-                        </Button>
-                        <Button
-                          onClick={() => handleDelete(b.id)}
-                          variant="outline"
-                          size="sm"
-                          className="text-xs font-black border-2 border-red-600 text-red-600 hover:bg-red-600 hover:text-white"
-                          disabled={deleteMutation.isPending}
-                        >
-                          DELETE
-                        </Button>
-                      </>
-                    )}
-                    {b.isActive !== 1 && b.userId !== user?.id && (
-                      <Button
-                        onClick={() => handleSetActive(b.id)}
-                        variant="outline"
-                        size="sm"
-                        className="text-xs font-black border-2 border-black"
-                        disabled={setActiveMutation.isPending}
-                      >
-                        SET ACTIVE
-                      </Button>
-                    )}
-                  </div>
+                  )}
+                  {b.isActive !== 1 && b.userId === user?.id && (
+                    <Button
+                      onClick={() => handleDelete(b.id)}
+                      variant="outline"
+                      size="sm"
+                      className="text-[11px] font-black border border-red-600 text-red-600 hover:bg-red-600 hover:text-white h-7 px-2"
+                      disabled={deleteMutation.isPending}
+                    >
+                      DELETE
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
           </div>
-          
-          {/* Navigation Buttons */}
-          <div className="flex gap-3 mt-6 pt-6 border-t-4 border-black">
-            {brain && (
+
+          {/* View/Edit active brain button */}
+          {brain && (
+            <div className="mt-4">
               <Button
                 onClick={() => setShowEditSection(!showEditSection)}
                 variant="outline"
-                className="flex-1 font-black border-4 border-black text-lg py-6 hover:bg-black hover:text-white"
+                className="font-black border-2 border-black text-sm hover:bg-black hover:text-white"
               >
-                ✏️ VIEW / EDIT BRAIN
+                ✏️ {showEditSection ? "HIDE BRAIN EDITOR" : "VIEW / EDIT ACTIVE BRAIN"}
               </Button>
-            )}
-            <Button
-              onClick={() => setShowCreateSection(!showCreateSection)}
-              variant="outline"
-              className="flex-1 font-black border-4 border-black text-lg py-6 hover:bg-black hover:text-white"
-            >
-              ➕ CREATE NEW BRAIN
-            </Button>
-          </div>
+            </div>
+          )}
         </div>
       )}
 

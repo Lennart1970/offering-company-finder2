@@ -267,16 +267,6 @@ export default function Brain() {
           OFFERING BRAIN
         </h1>
 
-        {/* Product Vision Block */}
-        <div className="border-l-4 border-black pl-5 mb-6">
-          <p className="text-base font-bold text-foreground leading-snug mb-3">
-            LeadTrigger.ai turns a seller's deep understanding of their own offering into a precision-guided, AI-powered prospecting machine — so sales teams spend every minute on the right company, at the right moment, with the right reason to call.
-          </p>
-          <p className="text-2xl font-black tracking-tight text-black">
-            Know who to call.&nbsp; Know why.&nbsp; Know when.&nbsp; Know who to ask for.&nbsp; Know what to offer.
-          </p>
-        </div>
-
         {/* Five-variable breakdown */}
         <div className="grid grid-cols-5 gap-0 border-4 border-black mb-2">
           <div className="border-r-4 border-black p-4">
@@ -305,6 +295,7 @@ export default function Brain() {
             <div className="text-xs text-muted-foreground mt-1">From product images to a full bill of materials — know exactly what you can supply and quote it on the spot.</div>
           </div>
         </div>
+
       </div>
 
       {/* My Saved Brains */}
@@ -318,22 +309,7 @@ export default function Brain() {
                 {brainHistory.filter(b => b.isActive === 1).length} active · {brainHistory.length} total
               </p>
             </div>
-            <div className="flex gap-2">
-              <button
-                onClick={() => pullAllFromSupabaseMutation.mutate()}
-                disabled={pullAllFromSupabaseMutation.isPending}
-                className="text-xs font-black border-2 border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 transition-colors disabled:opacity-50 rounded"
-              >
-                {pullAllFromSupabaseMutation.isPending ? "⏳ SYNCING..." : "⬇ SYNC ALL FROM SUPABASE"}
-              </button>
-              <Button
-                onClick={() => setShowCreateSection(!showCreateSection)}
-                size="sm"
-                className="text-xs font-black bg-black text-white hover:bg-gray-800"
-              >
-                ➕ CREATE NEW BRAIN
-              </Button>
-            </div>
+
           </div>
 
           {/* Table */}

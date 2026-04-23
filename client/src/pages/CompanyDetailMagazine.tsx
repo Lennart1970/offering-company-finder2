@@ -28,14 +28,23 @@ function formatRevenue(revenue: number | string | null): string {
   return `$${num}`;
 }
 
-const SECTION_ANCHORS = [
-  { id: "urgency",  label: "⚡ URGENCY",     color: "text-red-600 border-red-600",    activeBg: "bg-red-600" },
-  { id: "fit",      label: "🎯 FIT",          color: "text-blue-600 border-blue-600",  activeBg: "bg-blue-600" },
+// ── Two-Zone Section Architecture ──────────────────────────────────────────────
+// Zone 1: GENERAL — same data regardless of which brain is selected
+const GENERAL_SECTIONS = [
   { id: "news",     label: "📰 NEWS",         color: "text-amber-600 border-amber-600",activeBg: "bg-amber-600" },
-  { id: "approach", label: "💬 APPROACH",     color: "text-green-600 border-green-600",activeBg: "bg-green-600" },
   { id: "contacts", label: "👤 CONTACTS",     color: "text-purple-600 border-purple-600",activeBg: "bg-purple-600" },
   { id: "media",    label: "🖼 MEDIA",        color: "text-gray-600 border-gray-600",  activeBg: "bg-gray-700" },
 ];
+
+// Zone 2: BRAIN-SPECIFIC — content changes when switching brains
+const BRAIN_SECTIONS = [
+  { id: "urgency",  label: "⚡ URGENCY",     color: "text-red-600 border-red-600",    activeBg: "bg-red-600" },
+  { id: "fit",      label: "🎯 FIT",          color: "text-blue-600 border-blue-600",  activeBg: "bg-blue-600" },
+  { id: "approach", label: "💬 APPROACH",     color: "text-green-600 border-green-600",activeBg: "bg-green-600" },
+];
+
+// Combined for scroll-spy (keep all sections tracked)
+const SECTION_ANCHORS = [...GENERAL_SECTIONS, ...BRAIN_SECTIONS];
 
 // ── Section Header ────────────────────────────────────────────────────────────
 function SectionHeader({ id, emoji, title, color, action }: {
@@ -707,18 +716,36 @@ export default function CompanyDetailMagazine() {
         );
       })()}
 
-      {/* ── STICKY JUMP NAV ── */}
-      <div className="sticky top-0 z-30 bg-white border-b-4 border-black flex overflow-x-auto print:hidden mb-8">
-        {SECTION_ANCHORS.map((s) => (
-          <a key={s.id} href={`#${s.id}`}
-            className={`shrink-0 px-4 py-2.5 text-xs font-black border-r-2 border-black transition-colors ${activeSection === s.id ? `${s.activeBg} text-white` : `hover:bg-gray-50 ${s.color}`}`}>
-            {s.label}
-          </a>
-        ))}
+      {/* ── STICKY TWO-ZONE JUMP NAV ── */}
+      <div className="sticky top-0 z-30 print:hidden">
+        {/* Zone 1: GENERAL (brain-agnostic) */}
+        <div className="bg-gray-50 border-b-2 border-gray-300 flex overflow-x-auto">
+          <span className="shrink-0 flex items-center px-3 text-[9px] font-black text-gray-400 uppercase tracking-widest border-r-2 border-gray-300">
+            COMPANY
+          </span>
+          {GENERAL_SECTIONS.map((s) => (
+            <a key={s.id} href={`#${s.id}`}
+              className={`shrink-0 px-4 py-2.5 text-xs font-black border-r border-gray-300 transition-colors ${activeSection === s.id ? `${s.activeBg} text-white` : `hover:bg-gray-100 ${s.color}`}`}>
+              {s.label}
+            </a>
+          ))}
+        </div>
+        {/* Zone 2: BRAIN-SPECIFIC */}
+        <div className="bg-white border-b-4 border-black flex overflow-x-auto">
+          <span className="shrink-0 flex items-center px-3 text-[9px] font-black text-red-500 uppercase tracking-widest border-r-2 border-black">
+            BRAIN
+          </span>
+          {BRAIN_SECTIONS.map((s) => (
+            <a key={s.id} href={`#${s.id}`}
+              className={`shrink-0 px-4 py-2.5 text-xs font-black border-r-2 border-black transition-colors ${activeSection === s.id ? `${s.activeBg} text-white` : `hover:bg-gray-50 ${s.color}`}`}>
+              {s.label}
+            </a>
+          ))}
+        </div>
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════════
-          SECTION 1 — URGENCY
+          BRAIN-SPECIFIC SECTION 1 — URGENCY
       ════════════════════════════════════════════════════════════════════════ */}
       <section className="mb-12">
         <SectionHeader id="urgency" emoji="⚡" title="URGENCY" color="border-red-600"
@@ -840,7 +867,7 @@ export default function CompanyDetailMagazine() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════════
-          SECTION 2 — FIT
+          BRAIN-SPECIFIC SECTION 2 — FIT
       ════════════════════════════════════════════════════════════════════════ */}
       <section className="mb-12">
         <SectionHeader id="fit" emoji="🎯" title="FIT" color="border-blue-600"
@@ -961,45 +988,7 @@ export default function CompanyDetailMagazine() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════════
-          SECTION 3 — LATEST NEWS
-      ════════════════════════════════════════════════════════════════════════ */}
-      <section className="mb-12">
-        <SectionHeader id="news" emoji="📰" title="LATEST NEWS" color="border-amber-600" />
-
-        {feedItems.length === 0 ? (
-          <div className="border-4 border-dashed border-gray-200 p-10 text-center">
-            <p className="text-muted-foreground font-bold text-sm">No news feed items found for this company.</p>
-            <p className="text-xs text-muted-foreground mt-1">Feed items are populated by the Serper Analyst edge function when this company is monitored.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {feedItems.map((item) => {
-              const domain = item.link ? (() => { try { return new URL(item.link).hostname.replace(/^www\./, ""); } catch { return ""; } })() : "";
-              const pubDate = item.publishedAt ? new Date(item.publishedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
-              return (
-                <div key={item.id} className="border-2 border-gray-200 hover:border-amber-400 transition-colors p-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-black px-1.5 py-0.5 uppercase ${item.kind === "news" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>{item.kind}</span>
-                    {pubDate && <span className="text-[10px] font-bold text-muted-foreground">{pubDate}</span>}
-                  </div>
-                  <p className="font-black text-sm leading-snug">{item.title}</p>
-                  {item.description && <p className="text-xs text-muted-foreground line-clamp-3">{item.description}</p>}
-                  {item.link && domain && (
-                    <a href={item.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-black hover:underline">
-                      <span className="inline-block w-4 h-4 bg-gray-100 border border-gray-300 rounded-sm text-[9px] font-black text-gray-500 flex items-center justify-center">{domain.charAt(0).toUpperCase()}</span>
-                      <span className="truncate max-w-[200px]">{domain}</span>
-                      <span className="text-gray-400">↗</span>
-                    </a>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      {/* ════════════════════════════════════════════════════════════════════════
-          SECTION 4 — APPROACH
+          BRAIN-SPECIFIC SECTION 3 — APPROACH
       ════════════════════════════════════════════════════════════════════════ */}
       <section className="mb-12">
         <SectionHeader id="approach" emoji="💬" title="APPROACH" color="border-green-600"
@@ -1130,7 +1119,57 @@ export default function CompanyDetailMagazine() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════════
-          SECTION 5 — CONTACTS
+          ██ ZONE DIVIDER — General Company Data (brain-agnostic)
+      ════════════════════════════════════════════════════════════════════════ */}
+      <div className="relative my-10 print:hidden">
+        <div className="absolute inset-0 flex items-center"><div className="w-full border-t-4 border-gray-300" /></div>
+        <div className="relative flex justify-center">
+          <span className="bg-white px-6 py-1.5 text-[11px] font-black tracking-[0.2em] text-gray-400 uppercase border-2 border-gray-300">
+            🏢 COMPANY DATA — Same for all brains
+          </span>
+        </div>
+      </div>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          GENERAL SECTION — LATEST NEWS
+      ════════════════════════════════════════════════════════════════════════ */}
+      <section className="mb-12">
+        <SectionHeader id="news" emoji="📰" title="LATEST NEWS" color="border-amber-600" />
+
+        {feedItems.length === 0 ? (
+          <div className="border-4 border-dashed border-gray-200 p-10 text-center">
+            <p className="text-muted-foreground font-bold text-sm">No news feed items found for this company.</p>
+            <p className="text-xs text-muted-foreground mt-1">Feed items are populated by the Serper Analyst edge function when this company is monitored.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {feedItems.map((item) => {
+              const domain = item.link ? (() => { try { return new URL(item.link).hostname.replace(/^www\./, ""); } catch { return ""; } })() : "";
+              const pubDate = item.publishedAt ? new Date(item.publishedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
+              return (
+                <div key={item.id} className="border-2 border-gray-200 hover:border-amber-400 transition-colors p-4 space-y-2">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-[10px] font-black px-1.5 py-0.5 uppercase ${item.kind === "news" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>{item.kind}</span>
+                    {pubDate && <span className="text-[10px] font-bold text-muted-foreground">{pubDate}</span>}
+                  </div>
+                  <p className="font-black text-sm leading-snug">{item.title}</p>
+                  {item.description && <p className="text-xs text-muted-foreground line-clamp-3">{item.description}</p>}
+                  {item.link && domain && (
+                    <a href={item.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-black hover:underline">
+                      <span className="inline-block w-4 h-4 bg-gray-100 border border-gray-300 rounded-sm text-[9px] font-black text-gray-500 flex items-center justify-center">{domain.charAt(0).toUpperCase()}</span>
+                      <span className="truncate max-w-[200px]">{domain}</span>
+                      <span className="text-gray-400">↗</span>
+                    </a>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════════════════
+          GENERAL SECTION — CONTACTS
       ════════════════════════════════════════════════════════════════════════ */}
       <section className="mb-12">
         <SectionHeader id="contacts" emoji="👤" title={`CONTACTS (${rawContacts.length})`} color="border-purple-600" />
@@ -1210,7 +1249,7 @@ export default function CompanyDetailMagazine() {
       </section>
 
       {/* ════════════════════════════════════════════════════════════════════════
-          SECTION 6 — MEDIA (Product Pictures)
+          GENERAL SECTION — MEDIA (Product Pictures)
       ════════════════════════════════════════════════════════════════════════ */}
       <section className="mb-12">
         <SectionHeader id="media" emoji="🖼" title="MEDIA" color="border-gray-600"

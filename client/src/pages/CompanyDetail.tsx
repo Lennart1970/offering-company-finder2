@@ -33,16 +33,25 @@ type ResearchSub = "recent-developments" | "products-services" | "key-technologi
 type FitSub = "why-them" | "products-services" | "key-technologies" | "target-markets" | "sources";
 type ApproachSub = "conversation-starters" | "email-draft" | "linkedin-message" | "call-script";
 
-const CHAPTERS: { id: Chapter; label: string; color: string; activeColor: string }[] = [
+// ── Two-Zone Tab Architecture ──────────────────────────────────────────────────
+// Zone 1: GENERAL — same data regardless of which brain is selected
+const GENERAL_CHAPTERS: { id: Chapter; label: string; color: string; activeColor: string }[] = [
   { id: "overview",  label: "🗂 OVERVIEW",        color: "border-slate-600 text-slate-600",     activeColor: "bg-slate-700 text-white border-slate-700" },
+  { id: "contacts",  label: "👤 CONTACTS",        color: "border-purple-600 text-purple-600",   activeColor: "bg-purple-600 text-white border-purple-600" },
+  { id: "news",      label: "📰 NEWS",            color: "border-amber-600 text-amber-600",     activeColor: "bg-amber-600 text-white border-amber-600" },
+  { id: "media",     label: "🖼 MEDIA",           color: "border-gray-600 text-gray-600",       activeColor: "bg-gray-700 text-white border-gray-700" },
+];
+
+// Zone 2: BRAIN-SPECIFIC — content changes when switching brains
+const BRAIN_CHAPTERS: { id: Chapter; label: string; color: string; activeColor: string }[] = [
   { id: "urgency",   label: "⚡ URGENCY",         color: "border-red-600 text-red-600",         activeColor: "bg-red-600 text-white border-red-600" },
   { id: "fit",       label: "🎯 FIT",             color: "border-blue-600 text-blue-600",       activeColor: "bg-blue-600 text-white border-blue-600" },
   { id: "research",  label: "🔬 RESEARCH",        color: "border-indigo-600 text-indigo-600",   activeColor: "bg-indigo-600 text-white border-indigo-600" },
-  { id: "news",      label: "📰 NEWS",            color: "border-amber-600 text-amber-600",     activeColor: "bg-amber-600 text-white border-amber-600" },
   { id: "approach",  label: "💬 APPROACH",        color: "border-green-600 text-green-600",     activeColor: "bg-green-600 text-white border-green-600" },
-  { id: "contacts",  label: "👤 CONTACTS",        color: "border-purple-600 text-purple-600",   activeColor: "bg-purple-600 text-white border-purple-600" },
-  { id: "media",     label: "🖼 MEDIA",           color: "border-gray-600 text-gray-600",       activeColor: "bg-gray-700 text-white border-gray-700" },
 ];
+
+const GENERAL_IDS = new Set(GENERAL_CHAPTERS.map(c => c.id));
+const BRAIN_IDS = new Set(BRAIN_CHAPTERS.map(c => c.id));
 
 const FIT_SUBS: { id: FitSub; label: string }[] = [
   { id: "why-them",          label: "Why This Company" },
@@ -928,7 +937,25 @@ export default function CompanyDetail() {
           )}
         </div>
 
-        {/* ── Brain Tabs ── */}
+        {/* ── Zone 1: GENERAL Tab Bar (brain-agnostic) ── */}
+        <div className="flex overflow-x-auto border-b-2 border-gray-300 bg-gray-50">
+          <span className="shrink-0 flex items-center px-3 text-[9px] font-black text-gray-400 uppercase tracking-widest border-r-2 border-gray-300">
+            COMPANY
+          </span>
+          {GENERAL_CHAPTERS.map((ch) => (
+            <button
+              key={ch.id}
+              onClick={() => setChapter(ch.id)}
+              className={`shrink-0 px-5 py-3 text-xs font-black border-r border-gray-300 cursor-pointer transition-colors ${
+                chapter === ch.id ? ch.activeColor : `hover:bg-gray-100 ${ch.color}`
+              }`}
+            >
+              {ch.label}
+            </button>
+          ))}
+        </div>
+
+        {/* ── Brain Selector ── */}
         {(() => {
           // Build tab list: brains that have output for this company + active brain (even if no output yet)
           const outputBrains: any[] = data?.allBrainOutputs ?? [];
@@ -1007,9 +1034,12 @@ export default function CompanyDetail() {
           );
         })()}
 
-        {/* ── Chapter Tab Bar ── */}
-        <div className="flex overflow-x-auto border-b-4 border-black">
-          {CHAPTERS.map((ch) => (
+        {/* ── Zone 2: BRAIN-SPECIFIC Tab Bar (below brain selector) ── */}
+        <div className="flex overflow-x-auto border-b-4 border-black bg-white">
+          <span className="shrink-0 flex items-center px-3 text-[9px] font-black text-red-500 uppercase tracking-widest border-r-2 border-black">
+            BRAIN
+          </span>
+          {BRAIN_CHAPTERS.map((ch) => (
             <button
               key={ch.id}
               onClick={() => setChapter(ch.id)}

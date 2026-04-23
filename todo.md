@@ -2284,3 +2284,12 @@
 - [x] Filter getAllBrainOutputsForCompany to only show tabs for visible brains
 - [x] Set showOnLeadtrigger = 1 on newly imported brains in pullAllBrainsFromSupabase
 - [x] Write and pass vitest for schema field and filter logic (3 tests, 500 total passing)
+
+## UI Separation: General vs Brain-Specific Zones
+- [x] Reorganize CompanyDetailMagazine.tsx into two-zone tab layout
+- [x] General tabs (NEWS, CONTACTS, MEDIA) in COMPANY row with gray background
+- [x] Brain-specific tabs (URGENCY, FIT, APPROACH) in BRAIN row with white background
+- [x] Visual zone divider between brain-specific and general content sections
+- [x] Content reordered: Brain sections (Urgency→Fit→Approach) then General sections (News→Contacts→Media)
+- [x] Two-zone sticky nav with COMPANY and BRAIN labels
+- [x] Also updated CompanyDetail.tsx (extended view) with matching two-zone architecture

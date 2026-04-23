@@ -889,13 +889,6 @@ export default function SearchResults() {
         <>
           {/* Header chrome — hidden when coming from Sales Menu */}
           {!fromSalesMenu && <>
-          {/* HERO SENTENCE — the main message for sales reps */}
-          <div className="mb-6 mt-4">
-            <p className="text-2xl md:text-3xl font-black leading-snug text-foreground">
-              {heroSentence}
-            </p>
-          </div>
-
           {/* High-Urgency CTA — secondary paragraph, same font size as hero */}
           {(highUrgencyNotCalled.length > 0 || urgencyCtaAdded || callTodayCompanies.length > 0) && (
             <div className="mb-6">
@@ -1083,20 +1076,7 @@ export default function SearchResults() {
                   )}
                 </>
               )}
-              <Button
-                onClick={() => syncToSupabaseMutation.mutate({ searchId: searchId! })}
-                disabled={syncToSupabaseMutation.isPending}
-                className="text-lg px-6 py-4 font-black bg-emerald-700 text-white hover:bg-emerald-800 transition-colors disabled:opacity-50"
-              >
-                {syncToSupabaseMutation.isPending ? "⏳ SYNCING..." : "⚡ SYNC TO SUPABASE"}
-              </Button>
-              <Button
-                onClick={handleExportCsv}
-                variant="outline"
-                className="text-lg px-6 py-4 font-black border-2 border-black"
-              >
-                EXPORT CSV
-              </Button>
+
               <Button
                 onClick={handleExportSharePoint}
                 variant="outline"

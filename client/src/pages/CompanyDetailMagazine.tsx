@@ -718,19 +718,7 @@ export default function CompanyDetailMagazine() {
 
       {/* ── STICKY TWO-ZONE JUMP NAV ── */}
       <div className="sticky top-0 z-30 print:hidden">
-        {/* Zone 1: GENERAL (brain-agnostic) */}
-        <div className="bg-gray-50 border-b-2 border-gray-300 flex overflow-x-auto">
-          <span className="shrink-0 flex items-center px-3 text-[9px] font-black text-gray-400 uppercase tracking-widest border-r-2 border-gray-300">
-            COMPANY
-          </span>
-          {GENERAL_SECTIONS.map((s) => (
-            <a key={s.id} href={`#${s.id}`}
-              className={`shrink-0 px-4 py-2.5 text-xs font-black border-r border-gray-300 transition-colors ${activeSection === s.id ? `${s.activeBg} text-white` : `hover:bg-gray-100 ${s.color}`}`}>
-              {s.label}
-            </a>
-          ))}
-        </div>
-        {/* Zone 2: BRAIN-SPECIFIC */}
+        {/* Zone 1: BRAIN-SPECIFIC (top row — most important) */}
         <div className="bg-white border-b-4 border-black flex overflow-x-auto">
           <span className="shrink-0 flex items-center px-3 text-[9px] font-black text-red-500 uppercase tracking-widest border-r-2 border-black">
             BRAIN
@@ -738,6 +726,18 @@ export default function CompanyDetailMagazine() {
           {BRAIN_SECTIONS.map((s) => (
             <a key={s.id} href={`#${s.id}`}
               className={`shrink-0 px-4 py-2.5 text-xs font-black border-r-2 border-black transition-colors ${activeSection === s.id ? `${s.activeBg} text-white` : `hover:bg-gray-50 ${s.color}`}`}>
+              {s.label}
+            </a>
+          ))}
+        </div>
+        {/* Zone 2: GENERAL (brain-agnostic) */}
+        <div className="bg-gray-50 border-b-2 border-gray-300 flex overflow-x-auto">
+          <span className="shrink-0 flex items-center px-3 text-[9px] font-black text-gray-400 uppercase tracking-widest border-r-2 border-gray-300">
+            COMPANY
+          </span>
+          {GENERAL_SECTIONS.map((s) => (
+            <a key={s.id} href={`#${s.id}`}
+              className={`shrink-0 px-4 py-2.5 text-xs font-black border-r border-gray-300 transition-colors ${activeSection === s.id ? `${s.activeBg} text-white` : `hover:bg-gray-100 ${s.color}`}`}>
               {s.label}
             </a>
           ))}

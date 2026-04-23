@@ -2293,3 +2293,6 @@
 - [x] Content reordered: Brain sections (Urgency→Fit→Approach) then General sections (News→Contacts→Media)
 - [x] Two-zone sticky nav with COMPANY and BRAIN labels
 - [x] Also updated CompanyDetail.tsx (extended view) with matching two-zone architecture
+
+## Tab Row Order Fix
+- [x] Swap BRAIN tab row above COMPANY tab row in sticky nav (CompanyDetailMagazine.tsx)

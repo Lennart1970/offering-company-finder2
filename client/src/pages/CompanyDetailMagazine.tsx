@@ -1121,7 +1121,7 @@ export default function CompanyDetailMagazine() {
       {/* ════════════════════════════════════════════════════════════════════════
           ██ ZONE DIVIDER — General Company Data (brain-agnostic)
       ════════════════════════════════════════════════════════════════════════ */}
-      <div className="relative my-10 print:hidden">
+      <div className="relative my-4 print:hidden">
         <div className="absolute inset-0 flex items-center"><div className="w-full border-t-4 border-gray-300" /></div>
         <div className="relative flex justify-center">
           <span className="bg-white px-6 py-1.5 text-[11px] font-black tracking-[0.2em] text-gray-400 uppercase border-2 border-gray-300">
@@ -1133,7 +1133,7 @@ export default function CompanyDetailMagazine() {
       {/* ════════════════════════════════════════════════════════════════════════
           GENERAL SECTION — LATEST NEWS
       ════════════════════════════════════════════════════════════════════════ */}
-      <section className="mb-12">
+      <section className="mb-8 mt-4">
         <SectionHeader id="news" emoji="📰" title="LATEST NEWS" color="border-amber-600" />
 
         {feedItems.length === 0 ? (

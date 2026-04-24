@@ -32,7 +32,6 @@ function formatRevenue(revenue: number | string | null): string {
 // ── Two-Zone Section Architecture ──────────────────────────────────────────────
 // Zone 1: GENERAL — same data regardless of which brain is selected
 const GENERAL_SECTIONS = [
-  { id: "news",     label: "📰 NEWS",         color: "text-amber-600 border-amber-600",activeBg: "bg-amber-600" },
   { id: "contacts", label: "👤 CONTACTS",     color: "text-purple-600 border-purple-600",activeBg: "bg-purple-600" },
   { id: "media",    label: "🖼 MEDIA",        color: "text-gray-600 border-gray-600",  activeBg: "bg-gray-700" },
 ];
@@ -1130,44 +1129,6 @@ export default function CompanyDetailMagazine() {
           </span>
         </div>
       </div>
-
-      {/* ════════════════════════════════════════════════════════════════════════
-          GENERAL SECTION — LATEST NEWS
-      ════════════════════════════════════════════════════════════════════════ */}
-      <section className="mb-8 mt-4">
-        <SectionHeader id="news" emoji="📰" title="LATEST NEWS" color="border-amber-600" />
-
-        {feedItems.length === 0 ? (
-          <div className="border-4 border-dashed border-gray-200 p-10 text-center">
-            <p className="text-muted-foreground font-bold text-sm">No news feed items found for this company.</p>
-            <p className="text-xs text-muted-foreground mt-1">Feed items are populated by the Serper Analyst edge function when this company is monitored.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {feedItems.map((item) => {
-              const domain = item.link ? (() => { try { return new URL(item.link).hostname.replace(/^www\./, ""); } catch { return ""; } })() : "";
-              const pubDate = item.publishedAt ? new Date(item.publishedAt).toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" }) : null;
-              return (
-                <div key={item.id} className="border-2 border-gray-200 hover:border-amber-400 transition-colors p-4 space-y-2">
-                  <div className="flex items-center gap-2">
-                    <span className={`text-[10px] font-black px-1.5 py-0.5 uppercase ${item.kind === "news" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-600"}`}>{item.kind}</span>
-                    {pubDate && <span className="text-[10px] font-bold text-muted-foreground">{pubDate}</span>}
-                  </div>
-                  <p className="font-black text-sm leading-snug">{item.title}</p>
-                  {item.description && <p className="text-xs text-muted-foreground line-clamp-3">{item.description}</p>}
-                  {item.link && domain && (
-                    <a href={item.link} target="_blank" rel="noopener noreferrer" className="flex items-center gap-1.5 text-xs font-bold text-gray-600 hover:text-black hover:underline">
-                      <span className="inline-block w-4 h-4 bg-gray-100 border border-gray-300 rounded-sm text-[9px] font-black text-gray-500 flex items-center justify-center">{domain.charAt(0).toUpperCase()}</span>
-                      <span className="truncate max-w-[200px]">{domain}</span>
-                      <span className="text-gray-400">↗</span>
-                    </a>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
 
       {/* ════════════════════════════════════════════════════════════════════════
           GENERAL SECTION — CONTACTS

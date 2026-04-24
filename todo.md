@@ -2296,3 +2296,9 @@
 
 ## Tab Row Order Fix
 - [x] Swap BRAIN tab row above COMPANY tab row in sticky nav (CompanyDetailMagazine.tsx)
+
+## Offering Brain Cockpit Note
+- [ ] Add explanatory note about Marketing → ICP embeddings workflow between capability cards and brain list
+
+## Bug: FETCH IMAGES not working
+- [x] Diagnose and fix FETCH IMAGES button in MEDIA section — root cause: Serper base64 thumbnails exceeded MySQL packet size, fix: strip data URIs

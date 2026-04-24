@@ -114,12 +114,18 @@ export async function fetchSerperImages(
 
   const ordered = [...domainMatched, ...others].slice(0, limit);
 
-  return ordered.map((img) => ({
-    imageUrl: img.imageUrl ?? "",
-    thumbnailUrl: img.thumbnailUrl ?? "",
-    title: img.title ?? "",
-    source: img.source ?? img.domain ?? "",
-    domain: img.domain ?? "",
-    link: img.link ?? "",
-  }));
+  return ordered.map((img) => {
+    // Strip base64 data URIs from thumbnailUrl — they can be hundreds of KB each
+    // and blow up the MySQL packet size when stored as JSON in the productImages column.
+    const thumb = img.thumbnailUrl ?? "";
+    const safeThumb = thumb.startsWith("data:") ? "" : thumb;
+    return {
+      imageUrl: img.imageUrl ?? "",
+      thumbnailUrl: safeThumb || (img.imageUrl ?? ""),
+      title: img.title ?? "",
+      source: img.source ?? img.domain ?? "",
+      domain: img.domain ?? "",
+      link: img.link ?? "",
+    };
+  });
 }

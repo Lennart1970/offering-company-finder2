@@ -7,6 +7,7 @@ import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
 import BrainBadge from "@/components/BrainBadge";
 import { Button } from "@/components/ui/button";
 import { normaliseSalesApproach } from "@shared/normaliseStarters";
+import { stripGrokCitations } from "@/lib/utils";
 import { Send } from "lucide-react";
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -1069,7 +1070,7 @@ export default function CompanyDetailMagazine() {
                     <span className="text-xs font-black text-muted-foreground">SUBJECT: </span>
                     <span className="text-sm font-bold">{salesApproach.emailDraft.subject}</span>
                   </div>
-                  <div className="whitespace-pre-wrap text-sm bg-white p-3 border border-green-200">{salesApproach.emailDraft.body}</div>
+                  <div className="whitespace-pre-wrap text-sm bg-white p-3 border border-green-200">{stripGrokCitations(salesApproach.emailDraft.body)}</div>
                 </div>
               </div>
             )}
@@ -1084,7 +1085,7 @@ export default function CompanyDetailMagazine() {
                       <span className="text-xs font-black">CONNECTION REQUEST</span>
                       <button onClick={() => copyText(salesApproach.linkedinMessage.connectionRequest, "Connection Request")} className="text-xs font-black border border-blue-600 text-blue-600 px-2 py-0.5 cursor-pointer hover:bg-blue-600 hover:text-white transition-colors">COPY</button>
                     </div>
-                    <div className="text-sm bg-white p-3 border border-blue-200">{salesApproach.linkedinMessage.connectionRequest}</div>
+                    <div className="text-sm bg-white p-3 border border-blue-200">{stripGrokCitations(salesApproach.linkedinMessage.connectionRequest)}</div>
                   </div>
                   {salesApproach.linkedinMessage.followUp && (
                     <div>
@@ -1092,7 +1093,7 @@ export default function CompanyDetailMagazine() {
                         <span className="text-xs font-black">FOLLOW-UP</span>
                         <button onClick={() => copyText(salesApproach.linkedinMessage.followUp, "Follow-up")} className="text-xs font-black border border-blue-600 text-blue-600 px-2 py-0.5 cursor-pointer hover:bg-blue-600 hover:text-white transition-colors">COPY</button>
                       </div>
-                      <div className="text-sm bg-white p-3 border border-blue-200">{salesApproach.linkedinMessage.followUp}</div>
+                      <div className="text-sm bg-white p-3 border border-blue-200">{stripGrokCitations(salesApproach.linkedinMessage.followUp)}</div>
                     </div>
                   )}
                 </div>
@@ -1108,9 +1109,9 @@ export default function CompanyDetailMagazine() {
                     className="text-xs font-black border-2 border-purple-600 text-purple-600 px-3 py-1 cursor-pointer hover:bg-purple-600 hover:text-white transition-colors">COPY SCRIPT</button>
                 </div>
                 <div className="p-5 border-4 border-purple-600 bg-purple-50 space-y-3">
-                  {salesApproach.callScript.opening && <div><div className="text-xs font-black mb-1">OPENING</div><div className="text-sm bg-white p-3 border border-purple-200">{salesApproach.callScript.opening}</div></div>}
-                  {salesApproach.callScript.valueProposition && <div><div className="text-xs font-black mb-1">VALUE PROPOSITION</div><div className="text-sm bg-white p-3 border border-purple-200">{salesApproach.callScript.valueProposition}</div></div>}
-                  {salesApproach.callScript.fullScript && <div><div className="text-xs font-black mb-1">FULL SCRIPT</div><div className="whitespace-pre-wrap text-sm bg-white p-4 border border-purple-200">{salesApproach.callScript.fullScript}</div></div>}
+                  {salesApproach.callScript.opening && <div><div className="text-xs font-black mb-1">OPENING</div><div className="text-sm bg-white p-3 border border-purple-200">{stripGrokCitations(salesApproach.callScript.opening)}</div></div>}
+                  {salesApproach.callScript.valueProposition && <div><div className="text-xs font-black mb-1">VALUE PROPOSITION</div><div className="text-sm bg-white p-3 border border-purple-200">{stripGrokCitations(salesApproach.callScript.valueProposition)}</div></div>}
+                  {salesApproach.callScript.fullScript && <div><div className="text-xs font-black mb-1">FULL SCRIPT</div><div className="whitespace-pre-wrap text-sm bg-white p-4 border border-purple-200">{stripGrokCitations(salesApproach.callScript.fullScript)}</div></div>}
                 </div>
               </div>
             )}

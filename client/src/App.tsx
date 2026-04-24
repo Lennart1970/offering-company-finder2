@@ -33,6 +33,7 @@ import IntelligencePage from "@/pages/IntelligencePage";
 import ConnectGroupMarket from "./pages/ConnectGroupMarket";
 import ConnectGroupSites from "./pages/ConnectGroupSites";
 import ConnectGroupTeam from "./pages/ConnectGroupTeam";
+import TermsOfUse from "./pages/TermsOfUse";
 
 
 function Router() {
@@ -68,6 +69,7 @@ function Router() {
         <Route path={"/cg-market"} component={ConnectGroupMarket} />
         <Route path={"/cg-sites"} component={ConnectGroupSites} />
         <Route path={"/cg-team"} component={ConnectGroupTeam} />
+        <Route path={"/terms"} component={TermsOfUse} />
         <Route path={"/niche/:nicheId"} component={({ params }: { params: { nicheId: string } }) => <NicheCompanyList nicheId={parseInt(params.nicheId)} />} />
 
         <Route path={"/404"} component={NotFound} />

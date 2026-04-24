@@ -2302,3 +2302,8 @@
 
 ## Bug: FETCH IMAGES not working
 - [x] Diagnose and fix FETCH IMAGES button in MEDIA section — root cause: Serper base64 thumbnails exceeded MySQL packet size, fix: strip data URIs
+
+## Terms of Use Page
+- [x] Create TermsOfUse.tsx page with full content
+- [x] Add "Terms of Use" menu item to sidebar (LEGAL section) in DashboardLayout.tsx
+- [x] Register /terms route in App.tsx

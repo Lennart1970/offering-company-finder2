@@ -91,6 +91,12 @@ const navGroups: NavGroup[] = [
       { icon: Package, label: "Prototype Requests", path: "/prototype-requests" },
     ],
   },
+  {
+    label: "Legal",
+    items: [
+      { icon: ScrollText, label: "Terms of Use", path: "/terms" },
+    ],
+  },
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";

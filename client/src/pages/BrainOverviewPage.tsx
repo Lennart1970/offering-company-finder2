@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button";
 
 type FilterShared = "all" | "shared" | "not-shared";
 type FilterActive = "all" | "active" | "inactive";
+type FilterVisible = "all" | "visible" | "hidden";
 
 export default function BrainOverviewPage() {
   const { data, isLoading, error } = trpc.shareExt.listSharedBrains.useQuery();
   const [filterShared, setFilterShared] = useState<FilterShared>("all");
   const [filterActive, setFilterActive] = useState<FilterActive>("all");
+  const [filterVisible, setFilterVisible] = useState<FilterVisible>("all");
 
   const brains = data?.brains ?? [];
 
@@ -20,9 +22,11 @@ export default function BrainOverviewPage() {
       if (filterShared === "not-shared" && b.token) return false;
       if (filterActive === "active" && !b.isActive) return false;
       if (filterActive === "inactive" && b.isActive) return false;
+      if (filterVisible === "visible" && !b.showOnLeadtrigger) return false;
+      if (filterVisible === "hidden" && b.showOnLeadtrigger) return false;
       return true;
     });
-  }, [brains, filterShared, filterActive]);
+  }, [brains, filterShared, filterActive, filterVisible]);
 
   const handleDownloadExcel = () => {
     // Build CSV content
@@ -81,6 +85,7 @@ export default function BrainOverviewPage() {
 
   const activeCount = brains.filter((b) => b.isActive).length;
   const sharedCount = brains.filter((b) => b.token).length;
+  const visibleCount = brains.filter((b) => b.showOnLeadtrigger).length;
 
   return (
     <ShareGate tokenType="brain" tokenValue="overview">
@@ -109,7 +114,7 @@ export default function BrainOverviewPage() {
             <div>
               <h1 className="text-3xl font-black text-gray-900 mb-2">Offering Brains</h1>
               <p className="text-sm text-gray-500">
-                {brains.length} brains total &middot; {activeCount} active &middot; {sharedCount} shared
+                {brains.length} brains total &middot; {activeCount} active &middot; {sharedCount} shared &middot; {visibleCount} visible
               </p>
             </div>
             <Button
@@ -143,6 +148,26 @@ export default function BrainOverviewPage() {
                     }`}
                   >
                     {val === "all" ? "All" : val === "shared" ? "Shared" : "Not Shared"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Visible filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Visible:</span>
+              <div className="flex gap-1">
+                {(["all", "visible", "hidden"] as FilterVisible[]).map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => setFilterVisible(val)}
+                    className={`px-3 py-1 text-xs font-bold rounded-full transition-colors ${
+                      filterVisible === val
+                        ? "bg-black text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {val === "all" ? "All" : val === "visible" ? "Visible" : "Hidden"}
                   </button>
                 ))}
               </div>

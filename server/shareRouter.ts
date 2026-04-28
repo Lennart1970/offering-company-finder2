@@ -570,6 +570,7 @@ export const shareExtRouter = router({
       companyWebsite: b.companyWebsite,
       offeringSummary: b.offeringSummary,
       isActive: b.isActive,
+      showOnLeadtrigger: b.showOnLeadtrigger,
       token: tokenMap.get(b.id) ?? "",
     }));
     return { brains };

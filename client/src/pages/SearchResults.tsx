@@ -168,6 +168,51 @@ export default function SearchResults() {
   const [urgencyCtaAdded, setUrgencyCtaAdded] = useState(false);
   const [quickViewCompanyId, setQuickViewCompanyId] = useState<number | null>(null);
   const [quickViewMode, setQuickViewMode] = useState<"research" | "approach" | null>(null);
+
+  // ── Share List selection ────────────────────────────────────────────────────
+  const [isSelectMode2, setIsSelectMode2] = useState(false);
+  const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<number>>(new Set());
+  const createShareListMutation = trpc.share.createShareList.useMutation({
+    onSuccess: async (tokens) => {
+      if (!tokens.length) { toast.error("No companies selected"); return; }
+      // Download the rich XLSX via the server endpoint
+      const tokenStr = tokens.map((t: any) => t.token).join(",");
+      try {
+        const res = await fetch(`/api/share-list-export?tokens=${encodeURIComponent(tokenStr)}`);
+        if (!res.ok) throw new Error("Export failed");
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `share-list-${new Date().toISOString().slice(0,10)}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+        toast.success(`${tokens.length} share links created — Excel downloaded`);
+      } catch {
+        toast.error("Share list created but Excel download failed");
+      }
+      setIsSelectMode2(false);
+      setSelectedCompanyIds(new Set());
+    },
+    onError: (err) => toast.error(`Share list failed: ${err.message}`),
+  });
+
+  const handleCreateShareList = () => {
+    if (!selectedCompanyIds.size) { toast.error("Select at least one company first"); return; }
+    const brainId = selectedBrainId ?? activeBrain?.id;
+    if (!brainId) { toast.error("No active brain selected"); return; }
+    const items = Array.from(selectedCompanyIds).map((companyId) => ({ companyId, brainId }));
+    createShareListMutation.mutate({ items, shareListName: `Search ${searchId} — ${new Date().toLocaleDateString()}` });
+  };
+
+  const toggleCompanySelection = (companyId: number) => {
+    setSelectedCompanyIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(companyId)) next.delete(companyId);
+      else next.add(companyId);
+      return next;
+    });
+  };
   // Lazy-fetch full company data (including briefData/salesApproachData) when quick-view modal opens
   const { data: quickViewCompanyFull } = trpc.companyFinder.getCompany.useQuery(
     { companyId: quickViewCompanyId! },
@@ -1085,6 +1130,27 @@ export default function SearchResults() {
                 📊 EXPORT TO SHAREPOINT
               </Button>
               <Button
+                onClick={() => { setIsSelectMode2(!isSelectMode2); setSelectedCompanyIds(new Set()); }}
+                variant="outline"
+                className={`text-lg px-6 py-4 font-black border-2 transition-colors ${
+                  isSelectMode2
+                    ? "border-purple-600 bg-purple-600 text-white"
+                    : "border-purple-600 text-purple-700 hover:bg-purple-600 hover:text-white"
+                }`}
+              >
+                {isSelectMode2 ? `✓ ${selectedCompanyIds.size} SELECTED` : "☑ SELECT FOR SHARE"}
+              </Button>
+              {isSelectMode2 && (
+                <Button
+                  onClick={handleCreateShareList}
+                  disabled={createShareListMutation.isPending || !selectedCompanyIds.size}
+                  variant="outline"
+                  className="text-lg px-6 py-4 font-black border-2 border-indigo-600 text-indigo-700 hover:bg-indigo-600 hover:text-white transition-colors disabled:opacity-50"
+                >
+                  {createShareListMutation.isPending ? "⏳ CREATING..." : "🔗 CREATE SHARE LIST"}
+                </Button>
+              )}
+              <Button
                 onClick={() => {
                   if (confirm('Remove duplicate companies (same Apollo ID) from this search? The most-enriched copy will be kept.')) {
                     deduplicateMutation.mutate({ searchId: searchId! });
@@ -1234,6 +1300,9 @@ export default function SearchResults() {
                   isWebsiteVisitor={leadinfoSet.has(company.id)}
                   activeBrainId={activeBrain?.id}
                   activeBrainName={activeBrain?.brainName}
+                  isSelectMode={isSelectMode2}
+                  isSelected={selectedCompanyIds.has(company.id)}
+                  onToggleSelect={toggleCompanySelection}
                 />
               ))}
             </div>
@@ -1407,22 +1476,43 @@ export default function SearchResults() {
 // ============================================================================
 // Company List Row — Ultra-compact magazine list view
 // ============================================================================
-function CompanyListRow({ company, index, searchId, isWebsiteVisitor, activeBrainId, activeBrainName }: {
+function CompanyListRow({ company, index, searchId, isWebsiteVisitor, activeBrainId, activeBrainName, isSelectMode, isSelected, onToggleSelect }: {
   company: any;
   index: number;
   searchId: number;
   isWebsiteVisitor?: boolean;
   activeBrainId?: number | null;
   activeBrainName?: string | null;
+  isSelectMode?: boolean;
+  isSelected?: boolean;
+  onToggleSelect?: (companyId: number) => void;
 }) {
   const [, navigate] = useLocation();
   const url = `/company/${company.id}?from=search/${searchId}${activeBrainId ? `&brainId=${activeBrainId}` : ""}`;
 
   return (
     <div
-      className="flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors group"
-      onClick={() => navigate(url)}
+      className={`flex items-center gap-3 px-4 py-2.5 hover:bg-gray-50 cursor-pointer transition-colors group ${
+        isSelected ? "bg-purple-50 border-l-2 border-purple-500" : ""
+      }`}
+      onClick={() => {
+        if (isSelectMode && onToggleSelect) {
+          onToggleSelect(company.id);
+        } else {
+          navigate(url);
+        }
+      }}
     >
+      {/* Checkbox in select mode */}
+      {isSelectMode && (
+        <input
+          type="checkbox"
+          checked={!!isSelected}
+          onChange={() => onToggleSelect?.(company.id)}
+          onClick={(e) => e.stopPropagation()}
+          className="w-4 h-4 accent-purple-600 shrink-0 cursor-pointer"
+        />
+      )}
       {/* Position */}
       <span className="text-[11px] font-medium text-gray-400 w-6 shrink-0 tabular-nums">[{String(index + 1).padStart(2, "0")}]</span>
 

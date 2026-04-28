@@ -556,3 +556,22 @@ export const salesMaterials = mysqlTable("sales_materials", {
 });
 export type SalesMaterial = typeof salesMaterials.$inferSelect;
 export type InsertSalesMaterial = typeof salesMaterials.$inferInsert;
+
+/**
+ * Public share tokens — allow unauthenticated access to a company+brain detail page.
+ * Each token is a random 32-char hex string that maps to a specific company+brain pair.
+ * Tokens are created by admins/users when building a share list for SharePoint export.
+ */
+export const shareTokens = mysqlTable("share_tokens", {
+  id: int("id").autoincrement().primaryKey(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  brainId: int("brainId").notNull().references(() => offeringBrain.id, { onDelete: "cascade" }),
+  createdBy: int("createdBy").notNull().references(() => users.id),
+  // Optional label for the share list this token belongs to
+  shareListName: varchar("shareListName", { length: 256 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ShareToken = typeof shareTokens.$inferSelect;
+export type InsertShareToken = typeof shareTokens.$inferInsert;

@@ -22,7 +22,7 @@ router.get("/", async (req: Request, res: Response) => {
       return;
     }
 
-    const { tokens: tokensParam, listUrl: listUrlParam } = req.query as { tokens?: string; listUrl?: string };
+    const { tokens: tokensParam, listUrl: listUrlParam, origin: originParam } = req.query as { tokens?: string; listUrl?: string; origin?: string };
     if (!tokensParam) {
       res.status(400).json({ error: "Provide tokens as comma-separated list" });
       return;
@@ -51,10 +51,12 @@ router.get("/", async (req: Request, res: Response) => {
       return;
     }
 
-    // Determine base URL from request
+    // Use the origin passed from the browser (window.location.origin) so the
+    // share links always point to the correct public domain, not the internal
+    // Cloud Run hostname that may appear in x-forwarded-host.
     const proto = req.headers["x-forwarded-proto"] ?? "https";
     const host = req.headers["x-forwarded-host"] ?? req.headers.host ?? "localhost:3000";
-    const baseUrl = `${proto}://${host}`;
+    const baseUrl = originParam ?? `${proto}://${host}`;
 
     const wsRows: Record<string, string | number>[] = [];
 

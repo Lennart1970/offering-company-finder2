@@ -180,7 +180,8 @@ export default function SearchResults() {
       // Download the rich XLSX via the server endpoint
       const tokenStr = tokens.map((t: any) => t.token).join(",");
       try {
-        const res = await fetch(`/api/share-list-export?tokens=${encodeURIComponent(tokenStr)}&listUrl=${encodeURIComponent(listUrl)}`);
+        const origin = encodeURIComponent(window.location.origin);
+        const res = await fetch(`/api/share-list-export?tokens=${encodeURIComponent(tokenStr)}&listUrl=${encodeURIComponent(listUrl)}&origin=${origin}`);
         if (!res.ok) throw new Error("Export failed");
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);

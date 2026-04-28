@@ -60,6 +60,26 @@ function SectionHeader({ id, emoji, title, color }: {
 export default function SharePage() {
   const { token } = useParams<{ token: string }>();
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
+  const [activeSection, setActiveSection] = useState<string>("urgency");
+
+  const NAV_SECTIONS = [
+    { id: "urgency",  label: "⚡ URGENCY",  activeClass: "bg-red-600 text-white",   inactiveClass: "text-red-600 hover:bg-red-50" },
+    { id: "approach", label: "💬 APPROACH", activeClass: "bg-green-600 text-white", inactiveClass: "text-green-600 hover:bg-green-50" },
+    { id: "fit",      label: "🎯 FIT",      activeClass: "bg-blue-600 text-white",  inactiveClass: "text-blue-600 hover:bg-blue-50" },
+  ];
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const scrollY = window.scrollY + 130;
+      const ids = ["urgency", "approach", "fit"];
+      for (let i = ids.length - 1; i >= 0; i--) {
+        const el = document.getElementById(ids[i]);
+        if (el && el.offsetTop <= scrollY) { setActiveSection(ids[i]); break; }
+      }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
 
   const { data, isLoading, error } = trpc.share.resolveToken.useQuery(
     { token: token ?? "" },
@@ -156,6 +176,24 @@ export default function SharePage() {
             </div>
           </div>
           <Badge variant="outline" className="text-xs font-black text-gray-500 border-gray-400">Read-only · Confidential</Badge>
+        </div>
+      </div>
+
+      {/* ── Sticky jump nav ── */}
+      <div className="bg-white border-b-2 border-black sticky top-[57px] z-30">
+        <div className="max-w-6xl mx-auto px-6 flex items-center overflow-x-auto">
+          {NAV_SECTIONS.map((s) => (
+            <a
+              key={s.id}
+              href={`#${s.id}`}
+              onClick={(e) => { e.preventDefault(); document.getElementById(s.id)?.scrollIntoView({ behavior: "smooth", block: "start" }); setActiveSection(s.id); }}
+              className={`shrink-0 px-5 py-3 text-xs font-black border-r-2 border-black transition-colors ${
+                activeSection === s.id ? s.activeClass : s.inactiveClass
+              }`}
+            >
+              {s.label}
+            </a>
+          ))}
         </div>
       </div>
 

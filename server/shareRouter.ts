@@ -122,12 +122,37 @@ export const shareRouter = router({
         .from(contacts)
         .where(eq(contacts.companyId, tokenRow.companyId));
 
+      // Fetch 2 company images via Serper image search
+      let companyImages: string[] = [];
+      try {
+        const serperKey = process.env.SERPER_API_KEY;
+        if (serperKey && company.name) {
+          const searchQuery = `${company.name} company office headquarters`;
+          const serperRes = await fetch("https://google.serper.dev/images", {
+            method: "POST",
+            headers: { "X-API-KEY": serperKey, "Content-Type": "application/json" },
+            body: JSON.stringify({ q: searchQuery, num: 5 }),
+          });
+          if (serperRes.ok) {
+            const serperData = await serperRes.json() as { images?: Array<{ imageUrl?: string; thumbnailUrl?: string }> };
+            const images = serperData.images ?? [];
+            companyImages = images
+              .map((img) => img.imageUrl ?? img.thumbnailUrl ?? "")
+              .filter((url) => url && url.startsWith("http"))
+              .slice(0, 2);
+          }
+        }
+      } catch {
+        // Image fetch is best-effort — never fail the page load
+      }
+
       return {
         company,
         brain,
         brainOutput,
         contacts: contactRows,
         shareListName: tokenRow.shareListName,
+        companyImages,
       };
     }),
 

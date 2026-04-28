@@ -117,7 +117,7 @@ export default function SharePage() {
     );
   }
 
-  const { company, brain, brainOutput, contacts: contactList } = data;
+  const { company, brain, brainOutput, contacts: contactList, companyImages = [] } = data;
 
   // Parse JSON fields
   const rawBriefData = brainOutput?.briefData ?? company.briefData;
@@ -225,9 +225,30 @@ export default function SharePage() {
                 </div>
               )}
             </div>
-            <div className="flex gap-5 shrink-0">
-              <ScoreBadge score={fitScore} label="Fit" color={fitColor} />
-              <ScoreBadge score={urgencyScore} label="Urgency" color={urgencyColor} />
+            <div className="flex items-start gap-4 shrink-0">
+              {/* Company image strip */}
+              {companyImages.length > 0 && (
+                <div className="flex gap-2">
+                  {companyImages.map((url: string, i: number) => (
+                    <div
+                      key={i}
+                      className="w-28 h-20 rounded-lg overflow-hidden border border-gray-200 cursor-pointer shrink-0"
+                      onClick={() => setLightboxImage(url)}
+                    >
+                      <img
+                        src={url}
+                        alt={`${company.name} ${i + 1}`}
+                        className="w-full h-full object-cover"
+                        onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
+                      />
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-3">
+                <ScoreBadge score={fitScore} label="Fit" color={fitColor} />
+                <ScoreBadge score={urgencyScore} label="Urgency" color={urgencyColor} />
+              </div>
             </div>
           </div>
         </div>

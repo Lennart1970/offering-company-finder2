@@ -2307,3 +2307,20 @@
 - [x] Create TermsOfUse.tsx page with full content
 - [x] Add "Terms of Use" menu item to sidebar (LEGAL section) in DashboardLayout.tsx
 - [x] Register /terms route in App.tsx
+
+
+## Public Share System
+- [x] Public share links for company+brain pages (token-based URLs)
+- [x] Select mode with checkboxes in Search Results for share list creation
+- [x] Select All checkbox in header row when in select mode
+- [x] Excel export with all columns (Company, Website, Country, Employee Count, Sector, Brain, Fit, Urgency, Signal, Contact, Share Link)
+- [x] Public share list overview page (/share/list/:token) with company table + Download Excel
+- [x] Email-based access gate for all public share pages (domain allowlist)
+- [x] Seed connectgroup.com as only allowed email domain
+- [x] Public Brain share page (/share/brain/:token) — read-only view of all brain sections
+- [x] Share Brain button on Brain page
+- [x] Company images in share page header (Serper image search)
+- [x] Jump nav tabs with scroll spy on share pages
+- [x] Brain overview page (/share/brains) listing all shared brains with links
+- [x] Full brain audit — all schema fields covered in ShareBrainPage
+- [x] Generated share tokens for all 18 existing brains

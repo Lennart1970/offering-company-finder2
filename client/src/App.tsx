@@ -37,6 +37,7 @@ import TermsOfUse from "./pages/TermsOfUse";
 import SharePage from "./pages/SharePage";
 import ShareListPage from "./pages/ShareListPage";
 import ShareBrainPage from "./pages/ShareBrainPage";
+import BrainOverviewPage from "./pages/BrainOverviewPage";
 
 
 function Router() {
@@ -90,6 +91,7 @@ function App() {
           <Toaster />
           <Switch>
             {/* Public share list page — no login required */}
+            <Route path="/share/brains" component={() => <BrainOverviewPage />} />
             <Route path="/share/list/:listToken" component={({ params }: { params: { listToken: string } }) => <ShareListPage />} />
             {/* Public brain share page — no login required */}
             <Route path="/share/brain/:token" component={({ params }: { params: { token: string } }) => <ShareBrainPage />} />

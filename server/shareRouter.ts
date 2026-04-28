@@ -549,4 +549,33 @@ export const shareExtRouter = router({
       if (brainRows.length === 0) throw new Error("Brain not found");
       return { brain: brainRows[0] };
     }),
+
+  /** Public -- list all shared brains with their share tokens for the overview page */
+  listSharedBrains: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    // Get all brains that have share tokens
+    const tokenRows = await db.select().from(brainShareTokens);
+    if (tokenRows.length === 0) return { brains: [] };
+    const brainIds = Array.from(new Set(tokenRows.map((t) => t.brainId)));
+    const brainRows = await db
+      .select()
+      .from(offeringBrain)
+      .where(inArray(offeringBrain.id, brainIds));
+    // Map brains with their first token
+    const tokenMap = new Map<number, string>();
+    for (const t of tokenRows) {
+      if (!tokenMap.has(t.brainId)) tokenMap.set(t.brainId, t.token);
+    }
+    const brains = brainRows.map((b) => ({
+      id: b.id,
+      brainName: b.brainName,
+      companyName: b.companyName,
+      companyWebsite: b.companyWebsite,
+      offeringSummary: b.offeringSummary,
+      isActive: b.isActive,
+      token: tokenMap.get(b.id) ?? "",
+    }));
+    return { brains };
+  }),
 });

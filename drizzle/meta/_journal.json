@@ -337,6 +337,13 @@
       "when": 1777364101147,
       "tag": "0047_illegal_random",
       "breakpoints": true
+    },
+    {
+      "idx": 48,
+      "version": "5",
+      "when": 1777386081005,
+      "tag": "0048_abandoned_mathemanic",
+      "breakpoints": true
     }
   ]
 }

@@ -15,6 +15,7 @@ import {
   shareAccessLog,
   shareAllowedDomains,
   brainShareTokens,
+  shareVisitors,
 } from "../drizzle/schema";
 
 /** Generate a cryptographically random 32-char hex token */
@@ -467,6 +468,24 @@ export const shareExtRouter = router({
         ipAddress: null,
       });
 
+      // Upsert visitor record for persistent identity tracking
+      if (accessGranted) {
+        const normalizedEmail = input.email.toLowerCase();
+        const existing = await db
+          .select()
+          .from(shareVisitors)
+          .where(eq(shareVisitors.email, normalizedEmail))
+          .limit(1);
+        if (existing.length > 0) {
+          await db
+            .update(shareVisitors)
+            .set({ accessCount: existing[0].accessCount + 1 })
+            .where(eq(shareVisitors.email, normalizedEmail));
+        } else {
+          await db.insert(shareVisitors).values({ email: normalizedEmail, accessCount: 1 });
+        }
+      }
+
       return { accessGranted, domain };
     }),
 
@@ -500,7 +519,7 @@ export const shareExtRouter = router({
 
   /** Admin — get access log entries */
   getShareAccessLog: protectedProcedure
-    .input(z.object({ limit: z.number().default(100) }))
+    .input(z.object({ limit: z.number().default(200) }))
     .query(async ({ input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database unavailable");
@@ -511,6 +530,17 @@ export const shareExtRouter = router({
         .orderBy(desc(shareAccessLog.createdAt))
         .limit(input.limit);
     }),
+
+  /** Admin — get all unique visitors */
+  getShareVisitors: protectedProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const { desc } = await import("drizzle-orm");
+    return db
+      .select()
+      .from(shareVisitors)
+      .orderBy(desc(shareVisitors.lastSeen));
+  }),
 
   /** Protected — create or reuse a brain share token */
   createBrainShareToken: protectedProcedure

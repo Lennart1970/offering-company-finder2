@@ -7,32 +7,38 @@ interface ShareGateProps {
   children: React.ReactNode;
 }
 
-const STORAGE_KEY = "share_gate_email";
+const LS_KEY = "lt_share_visitor_email";
 
 /**
  * Wraps public share pages with an email-based access gate.
  * The visitor must enter their email address; if the domain is on the
- * allowlist, they are granted access for the current session.
+ * allowlist, they are granted access.
+ *
+ * Persistence:
+ * - Email is stored in localStorage so returning visitors skip the gate
+ *   automatically without re-entering their email.
+ * - On first visit, the email is verified against the server allowlist and
+ *   a visitor record is upserted in the DB.
+ * - On subsequent visits, the stored email is silently re-verified so the
+ *   server access log stays accurate.
  */
 export function ShareGate({ tokenType, tokenValue, children }: ShareGateProps) {
   const [email, setEmail] = useState("");
   const [error, setError] = useState("");
   const [granted, setGranted] = useState(false);
-  const [loading, setLoading] = useState(false);
-
-  // Check if already verified in this session
-  useEffect(() => {
-    const stored = sessionStorage.getItem(STORAGE_KEY);
-    if (stored) setGranted(true);
-  }, []);
+  const [loading, setLoading] = useState(true); // start true while we check localStorage
 
   const verify = trpc.shareExt.verifyShareAccess.useMutation({
     onSuccess: (data) => {
       setLoading(false);
       if (data.accessGranted) {
-        sessionStorage.setItem(STORAGE_KEY, email);
+        // Persist in localStorage so returning visitors skip the gate
+        const normalizedEmail = email || localStorage.getItem(LS_KEY) || "";
+        if (normalizedEmail) localStorage.setItem(LS_KEY, normalizedEmail.toLowerCase());
         setGranted(true);
       } else {
+        // Clear any stale stored email if it's no longer valid
+        localStorage.removeItem(LS_KEY);
         setError(
           `Access is restricted. Your email domain (@${data.domain}) is not on the approved list. Please contact the sender to request access.`
         );
@@ -44,6 +50,19 @@ export function ShareGate({ tokenType, tokenValue, children }: ShareGateProps) {
     },
   });
 
+  // On mount: check localStorage for a previously verified email
+  useEffect(() => {
+    const stored = localStorage.getItem(LS_KEY);
+    if (stored) {
+      // Silently re-verify to log the access and keep visitor record fresh
+      setEmail(stored);
+      verify.mutate({ email: stored, tokenType, tokenValue });
+    } else {
+      setLoading(false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.includes("@")) {
@@ -54,6 +73,15 @@ export function ShareGate({ tokenType, tokenValue, children }: ShareGateProps) {
     setLoading(true);
     verify.mutate({ email, tokenType, tokenValue });
   };
+
+  // Show nothing while silently re-verifying a stored email
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+        <div className="w-6 h-6 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+      </div>
+    );
+  }
 
   if (granted) return <>{children}</>;
 
@@ -83,7 +111,7 @@ export function ShareGate({ tokenType, tokenValue, children }: ShareGateProps) {
               type="email"
               value={email}
               onChange={(e) => { setEmail(e.target.value); setError(""); }}
-              placeholder="you@yourcompany.com"
+              placeholder="you@connectgroup.com"
               className="w-full border border-gray-200 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-gray-900 focus:border-transparent"
               autoFocus
               required
@@ -106,7 +134,7 @@ export function ShareGate({ tokenType, tokenValue, children }: ShareGateProps) {
         </form>
 
         <p className="text-xs text-gray-400 mt-4 text-center">
-          Your email is only used to verify access. It will not be stored beyond this session.
+          Your email is used to verify access. Returning visitors are recognised automatically.
         </p>
       </div>
     </div>

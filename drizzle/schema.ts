@@ -648,3 +648,18 @@ export const brainShareTokens = mysqlTable("brain_share_tokens", {
 
 export type BrainShareToken = typeof brainShareTokens.$inferSelect;
 export type InsertBrainShareToken = typeof brainShareTokens.$inferInsert;
+
+/**
+ * Persistent visitor identity for public share pages.
+ * One row per unique email address. Upserted on every verified access.
+ */
+export const shareVisitors = mysqlTable("share_visitors", {
+  id: int("id").autoincrement().primaryKey(),
+  email: varchar("email", { length: 320 }).notNull().unique(),
+  firstSeen: timestamp("firstSeen").defaultNow().notNull(),
+  lastSeen: timestamp("lastSeen").defaultNow().onUpdateNow().notNull(),
+  accessCount: int("accessCount").default(1).notNull(),
+});
+
+export type ShareVisitor = typeof shareVisitors.$inferSelect;
+export type InsertShareVisitor = typeof shareVisitors.$inferInsert;

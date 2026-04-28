@@ -38,6 +38,7 @@ import SharePage from "./pages/SharePage";
 import ShareListPage from "./pages/ShareListPage";
 import ShareBrainPage from "./pages/ShareBrainPage";
 import BrainOverviewPage from "./pages/BrainOverviewPage";
+import ShareAccessLogPage from "./pages/ShareAccessLogPage";
 
 
 function Router() {
@@ -74,6 +75,7 @@ function Router() {
         <Route path={"/cg-sites"} component={ConnectGroupSites} />
         <Route path={"/cg-team"} component={ConnectGroupTeam} />
         <Route path={"/terms"} component={TermsOfUse} />
+        <Route path={"/share-access-log"} component={ShareAccessLogPage} />
         <Route path={"/niche/:nicheId"} component={({ params }: { params: { nicheId: string } }) => <NicheCompanyList nicheId={parseInt(params.nicheId)} />} />
 
         <Route path={"/404"} component={NotFound} />

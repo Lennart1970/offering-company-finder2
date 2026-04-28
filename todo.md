@@ -2330,3 +2330,14 @@
 - [x] Shared/not-shared filter toggle on Brain Overview page
 - [x] Active/inactive filter toggle on Brain Overview page
 - [x] Download Excel button on Brain Overview page
+
+## Visitor Persistence & Access Log
+- [x] Add share_visitors table to schema (email, firstSeen, lastSeen, accessCount)
+- [x] Run migration to create share_visitors table in DB
+- [x] Update verifyShareAccess to upsert visitor record on each successful access
+- [x] Add getShareVisitors admin procedure to shareRouter
+- [x] Update ShareGate to persist email in localStorage (returning visitors skip gate)
+- [x] Silent re-verification on return visit to keep access log accurate
+- [x] Build ShareAccessLogPage with Visitors tab and Access Log tab
+- [x] Add Access Log to Admin sidebar navigation
+- [x] Register /share-access-log route in App.tsx

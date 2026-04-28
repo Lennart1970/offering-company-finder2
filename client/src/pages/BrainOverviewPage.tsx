@@ -30,22 +30,9 @@ export default function BrainOverviewPage() {
 
   const handleDownloadExcel = () => {
     // Build CSV content
-    const headers = [
-      "Brain Name",
-      "Company",
-      "Website",
-      "Status",
-      "Shared",
-      "Offering Summary",
-      "Share Link",
-    ];
+    const headers = ["Brain Name", "Share Link"];
     const rows = filtered.map((b) => [
       b.brainName || "",
-      b.companyName || "",
-      b.companyWebsite || "",
-      b.isActive ? "Active" : "Inactive",
-      b.token ? "Yes" : "No",
-      (b.offeringSummary || "").replace(/"/g, '""'),
       b.token ? `${window.location.origin}/share/brain/${b.token}` : "",
     ]);
 

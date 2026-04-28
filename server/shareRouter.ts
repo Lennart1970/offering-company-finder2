@@ -550,18 +550,14 @@ export const shareExtRouter = router({
       return { brain: brainRows[0] };
     }),
 
-  /** Public -- list all shared brains with their share tokens for the overview page */
+  /** Public -- list ALL brains with their share tokens (if any) for the overview page */
   listSharedBrains: publicProcedure.query(async () => {
     const db = await getDb();
     if (!db) throw new Error("Database unavailable");
-    // Get all brains that have share tokens
+    // Get all brains
+    const brainRows = await db.select().from(offeringBrain);
+    // Get all share tokens
     const tokenRows = await db.select().from(brainShareTokens);
-    if (tokenRows.length === 0) return { brains: [] };
-    const brainIds = Array.from(new Set(tokenRows.map((t) => t.brainId)));
-    const brainRows = await db
-      .select()
-      .from(offeringBrain)
-      .where(inArray(offeringBrain.id, brainIds));
     // Map brains with their first token
     const tokenMap = new Map<number, string>();
     for (const t of tokenRows) {

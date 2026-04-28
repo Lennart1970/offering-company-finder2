@@ -2324,3 +2324,9 @@
 - [x] Brain overview page (/share/brains) listing all shared brains with links
 - [x] Full brain audit — all schema fields covered in ShareBrainPage
 - [x] Generated share tokens for all 18 existing brains
+
+## Brain Overview Page Enhancements
+- [x] Quick link to Brain Overview page on main Offering Brain page
+- [x] Shared/not-shared filter toggle on Brain Overview page
+- [x] Active/inactive filter toggle on Brain Overview page
+- [x] Download Excel button on Brain Overview page

@@ -1,9 +1,63 @@
+import { useState, useMemo } from "react";
 import { trpc } from "@/lib/trpc";
 import { ShareGate } from "@/components/ShareGate";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+
+type FilterShared = "all" | "shared" | "not-shared";
+type FilterActive = "all" | "active" | "inactive";
 
 export default function BrainOverviewPage() {
   const { data, isLoading, error } = trpc.shareExt.listSharedBrains.useQuery();
+  const [filterShared, setFilterShared] = useState<FilterShared>("all");
+  const [filterActive, setFilterActive] = useState<FilterActive>("all");
+
+  const brains = data?.brains ?? [];
+
+  const filtered = useMemo(() => {
+    return brains.filter((b) => {
+      if (filterShared === "shared" && !b.token) return false;
+      if (filterShared === "not-shared" && b.token) return false;
+      if (filterActive === "active" && !b.isActive) return false;
+      if (filterActive === "inactive" && b.isActive) return false;
+      return true;
+    });
+  }, [brains, filterShared, filterActive]);
+
+  const handleDownloadExcel = () => {
+    // Build CSV content
+    const headers = [
+      "Brain Name",
+      "Company",
+      "Website",
+      "Status",
+      "Shared",
+      "Offering Summary",
+      "Share Link",
+    ];
+    const rows = filtered.map((b) => [
+      b.brainName || "",
+      b.companyName || "",
+      b.companyWebsite || "",
+      b.isActive ? "Active" : "Inactive",
+      b.token ? "Yes" : "No",
+      (b.offeringSummary || "").replace(/"/g, '""'),
+      b.token ? `${window.location.origin}/share/brain/${b.token}` : "",
+    ]);
+
+    const csvContent = [
+      headers.join(","),
+      ...rows.map((r) => r.map((c) => `"${c}"`).join(",")),
+    ].join("\n");
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `brain-overview-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   if (isLoading) {
     return (
@@ -25,7 +79,8 @@ export default function BrainOverviewPage() {
     );
   }
 
-  const brains = data?.brains ?? [];
+  const activeCount = brains.filter((b) => b.isActive).length;
+  const sharedCount = brains.filter((b) => b.token).length;
 
   return (
     <ShareGate tokenType="brain" tokenValue="overview">
@@ -49,38 +104,107 @@ export default function BrainOverviewPage() {
         </div>
 
         <div className="max-w-5xl mx-auto px-6 py-8">
-          {/* Title */}
-          <div className="mb-8">
-            <h1 className="text-3xl font-black text-gray-900 mb-2">Offering Brains</h1>
-            <p className="text-sm text-gray-500">
-              Browse all shared Offering Brains below. Each brain represents a distinct offering profile with ICP, fit criteria, and urgency triggers.
-            </p>
+          {/* Title + Download */}
+          <div className="flex items-start justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-black text-gray-900 mb-2">Offering Brains</h1>
+              <p className="text-sm text-gray-500">
+                {brains.length} brains total &middot; {activeCount} active &middot; {sharedCount} shared
+              </p>
+            </div>
+            <Button
+              onClick={handleDownloadExcel}
+              variant="outline"
+              className="text-xs font-bold gap-2 border-gray-300"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+                <polyline points="7 10 12 15 17 10" />
+                <line x1="12" y1="15" x2="12" y2="3" />
+              </svg>
+              DOWNLOAD EXCEL
+            </Button>
           </div>
 
-          {brains.length === 0 ? (
+          {/* Filters */}
+          <div className="flex items-center gap-6 mb-6 pb-4 border-b border-gray-200">
+            {/* Shared filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Shared:</span>
+              <div className="flex gap-1">
+                {(["all", "shared", "not-shared"] as FilterShared[]).map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => setFilterShared(val)}
+                    className={`px-3 py-1 text-xs font-bold rounded-full transition-colors ${
+                      filterShared === val
+                        ? "bg-black text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {val === "all" ? "All" : val === "shared" ? "Shared" : "Not Shared"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Active filter */}
+            <div className="flex items-center gap-2">
+              <span className="text-xs font-bold text-gray-500 uppercase tracking-wider">Status:</span>
+              <div className="flex gap-1">
+                {(["all", "active", "inactive"] as FilterActive[]).map((val) => (
+                  <button
+                    key={val}
+                    onClick={() => setFilterActive(val)}
+                    className={`px-3 py-1 text-xs font-bold rounded-full transition-colors ${
+                      filterActive === val
+                        ? "bg-black text-white"
+                        : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                    }`}
+                  >
+                    {val === "all" ? "All" : val === "active" ? "Active" : "Inactive"}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Result count */}
+            <span className="text-xs text-gray-400 ml-auto">
+              Showing {filtered.length} of {brains.length}
+            </span>
+          </div>
+
+          {filtered.length === 0 ? (
             <div className="bg-white rounded-2xl border border-gray-100 p-12 shadow-sm text-center">
               <div className="text-4xl mb-4">&#129504;</div>
-              <h2 className="text-lg font-black text-gray-900 mb-2">No shared brains yet</h2>
-              <p className="text-sm text-gray-500">Brains will appear here once they are shared from the LeadTrigger platform.</p>
+              <h2 className="text-lg font-black text-gray-900 mb-2">No brains match filters</h2>
+              <p className="text-sm text-gray-500">Try adjusting the filters above to see more results.</p>
             </div>
           ) : (
             <div className="space-y-4">
-              {brains.map((brain) => (
+              {filtered.map((brain) => (
                 <a
                   key={brain.id}
-                  href={`/share/brain/${brain.token}`}
-                  className="block bg-white rounded-2xl border border-gray-100 p-6 shadow-sm hover:shadow-md hover:border-gray-200 transition-all group"
+                  href={brain.token ? `/share/brain/${brain.token}` : undefined}
+                  className={`block bg-white rounded-2xl border border-gray-100 p-6 shadow-sm transition-all group ${
+                    brain.token ? "hover:shadow-md hover:border-gray-200 cursor-pointer" : "opacity-70 cursor-default"
+                  }`}
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-3 mb-1">
-                        <h2 className="text-lg font-black text-gray-900 group-hover:text-blue-700 transition-colors truncate">
+                      <div className="flex items-center gap-3 mb-1 flex-wrap">
+                        <h2 className={`text-lg font-black text-gray-900 truncate ${brain.token ? "group-hover:text-blue-700" : ""} transition-colors`}>
                           {brain.brainName}
                         </h2>
                         {brain.isActive ? (
                           <Badge className="text-[10px] bg-green-100 text-green-700 border-0 shrink-0">Active</Badge>
                         ) : (
                           <Badge variant="secondary" className="text-[10px] shrink-0">Inactive</Badge>
+                        )}
+                        {brain.token ? (
+                          <Badge className="text-[10px] bg-blue-100 text-blue-700 border-0 shrink-0">Shared</Badge>
+                        ) : (
+                          <Badge variant="secondary" className="text-[10px] shrink-0 bg-gray-50 text-gray-400">Not Shared</Badge>
                         )}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-gray-500 mb-3">
@@ -96,12 +220,14 @@ export default function BrainOverviewPage() {
                         <p className="text-sm text-gray-600 line-clamp-2">{brain.offeringSummary}</p>
                       )}
                     </div>
-                    <div className="shrink-0 text-gray-300 group-hover:text-blue-500 transition-colors mt-2">
-                      <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <path d="M5 12h14" />
-                        <path d="m12 5 7 7-7 7" />
-                      </svg>
-                    </div>
+                    {brain.token && (
+                      <div className="shrink-0 text-gray-300 group-hover:text-blue-500 transition-colors mt-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M5 12h14" />
+                          <path d="m12 5 7 7-7 7" />
+                        </svg>
+                      </div>
+                    )}
                   </div>
                 </a>
               ))}

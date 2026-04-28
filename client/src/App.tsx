@@ -35,6 +35,7 @@ import ConnectGroupSites from "./pages/ConnectGroupSites";
 import ConnectGroupTeam from "./pages/ConnectGroupTeam";
 import TermsOfUse from "./pages/TermsOfUse";
 import SharePage from "./pages/SharePage";
+import ShareListPage from "./pages/ShareListPage";
 
 
 function Router() {
@@ -87,6 +88,8 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Switch>
+            {/* Public share list page — no login required */}
+            <Route path="/share/list/:listToken" component={({ params }: { params: { listToken: string } }) => <ShareListPage />} />
             {/* Public share page — no login required, no sidebar */}
             <Route path="/share/:token" component={({ params }: { params: { token: string } }) => <SharePage />} />
             {/* All other routes go through DashboardLayout */}

@@ -575,3 +575,30 @@ export const shareTokens = mysqlTable("share_tokens", {
 
 export type ShareToken = typeof shareTokens.$inferSelect;
 export type InsertShareToken = typeof shareTokens.$inferInsert;
+
+/**
+ * A share list groups multiple share tokens under a single public list token.
+ * The list token gives access to a public overview page + Excel download.
+ */
+export const shareLists = mysqlTable("share_lists", {
+  id: int("id").autoincrement().primaryKey(),
+  listToken: varchar("listToken", { length: 64 }).notNull().unique(),
+  shareListName: varchar("shareListName", { length: 256 }),
+  createdBy: int("createdBy").notNull().references(() => users.id),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ShareList = typeof shareLists.$inferSelect;
+export type InsertShareList = typeof shareLists.$inferInsert;
+
+/**
+ * Join table linking a share list to its individual company share tokens.
+ */
+export const shareListItems = mysqlTable("share_list_items", {
+  id: int("id").autoincrement().primaryKey(),
+  shareListId: int("shareListId").notNull().references(() => shareLists.id, { onDelete: "cascade" }),
+  shareTokenId: int("shareTokenId").notNull().references(() => shareTokens.id, { onDelete: "cascade" }),
+});
+
+export type ShareListItem = typeof shareListItems.$inferSelect;
+export type InsertShareListItem = typeof shareListItems.$inferInsert;

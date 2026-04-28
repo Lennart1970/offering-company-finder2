@@ -22,7 +22,7 @@ router.get("/", async (req: Request, res: Response) => {
       return;
     }
 
-    const { tokens: tokensParam } = req.query as { tokens?: string };
+    const { tokens: tokensParam, listUrl: listUrlParam } = req.query as { tokens?: string; listUrl?: string };
     if (!tokensParam) {
       res.status(400).json({ error: "Provide tokens as comma-separated list" });
       return;
@@ -123,6 +123,7 @@ router.get("/", async (req: Request, res: Response) => {
         "Contact Title": contact?.title ?? "",
         "Contact Email": contact?.email ?? "",
         "Share Link": `${baseUrl}/share/${tokenRow.token}`,
+        ...(listUrlParam ? { "Share List URL": listUrlParam } : {}),
       });
     }
 
@@ -146,6 +147,7 @@ router.get("/", async (req: Request, res: Response) => {
       { wch: 32 }, // Contact Title
       { wch: 36 }, // Contact Email
       { wch: 60 }, // Share Link
+      { wch: 70 }, // Share List URL (optional)
     ];
     ws["!freeze"] = { xSplit: 0, ySplit: 1 };
 

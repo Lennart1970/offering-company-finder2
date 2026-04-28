@@ -172,13 +172,15 @@ export default function SearchResults() {
   // ── Share List selection ────────────────────────────────────────────────────
   const [isSelectMode2, setIsSelectMode2] = useState(false);
   const [selectedCompanyIds, setSelectedCompanyIds] = useState<Set<number>>(new Set());
-  const createShareListMutation = trpc.share.createShareList.useMutation({
-    onSuccess: async (tokens) => {
+  const createShareListMutation = trpc.share.createShareListWithToken.useMutation({
+    onSuccess: async (result) => {
+      const { listToken, tokens } = result;
       if (!tokens.length) { toast.error("No companies selected"); return; }
+      const listUrl = `${window.location.origin}/share/list/${listToken}`;
       // Download the rich XLSX via the server endpoint
       const tokenStr = tokens.map((t: any) => t.token).join(",");
       try {
-        const res = await fetch(`/api/share-list-export?tokens=${encodeURIComponent(tokenStr)}`);
+        const res = await fetch(`/api/share-list-export?tokens=${encodeURIComponent(tokenStr)}&listUrl=${encodeURIComponent(listUrl)}`);
         if (!res.ok) throw new Error("Export failed");
         const blob = await res.blob();
         const url = URL.createObjectURL(blob);
@@ -187,7 +189,9 @@ export default function SearchResults() {
         a.download = `share-list-${new Date().toISOString().slice(0,10)}.xlsx`;
         a.click();
         URL.revokeObjectURL(url);
-        toast.success(`${tokens.length} share links created — Excel downloaded`);
+        // Copy list URL to clipboard
+        try { await navigator.clipboard.writeText(listUrl); } catch {}
+        toast.success(`${tokens.length} companies shared — Excel downloaded & list link copied!`);
       } catch {
         toast.error("Share list created but Excel download failed");
       }

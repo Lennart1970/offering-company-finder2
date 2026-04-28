@@ -602,3 +602,49 @@ export const shareListItems = mysqlTable("share_list_items", {
 
 export type ShareListItem = typeof shareListItems.$inferSelect;
 export type InsertShareListItem = typeof shareListItems.$inferInsert;
+
+/**
+ * Logs email-based access attempts to public share pages.
+ * Used for audit trail and domain allowlist enforcement.
+ */
+export const shareAccessLog = mysqlTable("share_access_log", {
+  id: int("id").autoincrement().primaryKey(),
+  email: varchar("email", { length: 320 }).notNull(),
+  domain: varchar("domain", { length: 128 }).notNull(),
+  tokenType: mysqlEnum("tokenType", ["company", "list", "brain"]).notNull(),
+  tokenValue: varchar("tokenValue", { length: 64 }).notNull(),
+  accessGranted: tinyint("accessGranted").notNull().default(0),
+  ipAddress: varchar("ipAddress", { length: 64 }),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ShareAccessLog = typeof shareAccessLog.$inferSelect;
+export type InsertShareAccessLog = typeof shareAccessLog.$inferInsert;
+
+/**
+ * Allowlist of email domains permitted to access public share pages.
+ * Admins can add/remove domains from the app.
+ */
+export const shareAllowedDomains = mysqlTable("share_allowed_domains", {
+  id: int("id").autoincrement().primaryKey(),
+  domain: varchar("domain", { length: 128 }).notNull().unique(),
+  addedBy: int("addedBy").references(() => users.id),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ShareAllowedDomain = typeof shareAllowedDomains.$inferSelect;
+export type InsertShareAllowedDomain = typeof shareAllowedDomains.$inferInsert;
+
+/**
+ * Share tokens for public read-only Brain (ICP) pages.
+ */
+export const brainShareTokens = mysqlTable("brain_share_tokens", {
+  id: int("id").autoincrement().primaryKey(),
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  brainId: int("brainId").notNull().references(() => offeringBrain.id, { onDelete: "cascade" }),
+  createdBy: int("createdBy").notNull().references(() => users.id),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type BrainShareToken = typeof brainShareTokens.$inferSelect;
+export type InsertBrainShareToken = typeof brainShareTokens.$inferInsert;

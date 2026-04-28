@@ -330,6 +330,13 @@
       "when": 1777363300141,
       "tag": "0046_vengeful_shadow_king",
       "breakpoints": true
+    },
+    {
+      "idx": 47,
+      "version": "5",
+      "when": 1777364101147,
+      "tag": "0047_illegal_random",
+      "breakpoints": true
     }
   ]
 }

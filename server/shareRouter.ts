@@ -3,6 +3,7 @@ import { eq, and } from "drizzle-orm";
 import crypto from "crypto";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { getDb } from "./db";
+import { inArray } from "drizzle-orm";
 import {
   shareTokens,
   shareLists,
@@ -11,6 +12,9 @@ import {
   offeringBrain,
   companyBrainOutputs,
   contacts,
+  shareAccessLog,
+  shareAllowedDomains,
+  brainShareTokens,
 } from "../drizzle/schema";
 
 /** Generate a cryptographically random 32-char hex token */
@@ -422,5 +426,127 @@ export const shareRouter = router({
         createdAt: shareList.createdAt,
         companies: companyRows,
       };
+    }),
+});
+
+// ─── Extended share procedures (email gate, brain share) ──────────────────────
+
+export const shareExtRouter = router({
+  /**
+   * Public — verify an email address against the domain allowlist.
+   * Logs the access attempt and returns whether access is granted.
+   */
+  verifyShareAccess: publicProcedure
+    .input(z.object({
+      email: z.string().email(),
+      tokenType: z.enum(["company", "list", "brain"]),
+      tokenValue: z.string(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+
+      const domain = input.email.split("@")[1]?.toLowerCase() ?? "";
+
+      // Check allowlist
+      const allowed = await db
+        .select()
+        .from(shareAllowedDomains)
+        .where(eq(shareAllowedDomains.domain, domain))
+        .limit(1);
+
+      const accessGranted = allowed.length > 0;
+
+      // Log the attempt
+      await db.insert(shareAccessLog).values({
+        email: input.email.toLowerCase(),
+        domain,
+        tokenType: input.tokenType,
+        tokenValue: input.tokenValue,
+        accessGranted: accessGranted ? 1 : 0,
+        ipAddress: null,
+      });
+
+      return { accessGranted, domain };
+    }),
+
+  /** Admin — get all allowed domains */
+  getShareAllowedDomains: protectedProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    return db.select().from(shareAllowedDomains).orderBy(shareAllowedDomains.createdAt);
+  }),
+
+  /** Admin — add a domain to the allowlist */
+  addShareAllowedDomain: protectedProcedure
+    .input(z.object({ domain: z.string().min(3) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const domain = input.domain.toLowerCase().trim().replace(/^@/, "");
+      await db.insert(shareAllowedDomains).values({ domain, addedBy: ctx.user.id });
+      return { domain };
+    }),
+
+  /** Admin — remove a domain from the allowlist */
+  removeShareAllowedDomain: protectedProcedure
+    .input(z.object({ domain: z.string() }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      await db.delete(shareAllowedDomains).where(eq(shareAllowedDomains.domain, input.domain));
+      return { ok: true };
+    }),
+
+  /** Admin — get access log entries */
+  getShareAccessLog: protectedProcedure
+    .input(z.object({ limit: z.number().default(100) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const { desc } = await import("drizzle-orm");
+      return db
+        .select()
+        .from(shareAccessLog)
+        .orderBy(desc(shareAccessLog.createdAt))
+        .limit(input.limit);
+    }),
+
+  /** Protected — create or reuse a brain share token */
+  createBrainShareToken: protectedProcedure
+    .input(z.object({ brainId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const existing = await db
+        .select()
+        .from(brainShareTokens)
+        .where(and(eq(brainShareTokens.brainId, input.brainId), eq(brainShareTokens.createdBy, ctx.user.id)))
+        .limit(1);
+      if (existing.length > 0) return { token: existing[0].token };
+      const token = crypto.randomBytes(16).toString("hex");
+      await db.insert(brainShareTokens).values({ token, brainId: input.brainId, createdBy: ctx.user.id });
+      return { token };
+    }),
+
+  /** Public — resolve a brain share token */
+  resolveBrainToken: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const rows = await db
+        .select()
+        .from(brainShareTokens)
+        .where(eq(brainShareTokens.token, input.token))
+        .limit(1);
+      if (rows.length === 0) throw new Error("Invalid or expired brain share link");
+      const brainRows = await db
+        .select()
+        .from(offeringBrain)
+        .where(eq(offeringBrain.id, rows[0].brainId))
+        .limit(1);
+      if (brainRows.length === 0) throw new Error("Brain not found");
+      return { brain: brainRows[0] };
     }),
 });

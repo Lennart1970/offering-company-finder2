@@ -4,8 +4,9 @@ import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { normaliseSalesApproach } from "@shared/normaliseStarters";
 import { stripGrokCitations } from "@/lib/utils";
+import { ShareGate } from "@/components/ShareGate";
 
-// ─── Helpers ────────────────────────────────────────────────────────────────
+// --- Helpers ----------------------------------------------------------------
 
 function safeJson<T>(str: string | null | undefined, fallback: T): T {
   if (!str) return fallback;
@@ -42,7 +43,7 @@ function ScoreBadge({ score, label, color }: { score: number | null; label: stri
   );
 }
 
-// ─── Section Header ──────────────────────────────────────────────────────────
+// --- Section Header ----------------------------------------------------------
 function SectionHeader({ id, emoji, title, color }: {
   id: string; emoji: string; title: string; color: string;
 }) {
@@ -55,7 +56,7 @@ function SectionHeader({ id, emoji, title, color }: {
   );
 }
 
-// ─── Main Component ──────────────────────────────────────────────────────────
+// --- Main Component ----------------------------------------------------------
 
 export default function SharePage() {
   const { token } = useParams<{ token: string }>();
@@ -162,8 +163,9 @@ export default function SharePage() {
   const employeeBand = sliceMeta?.employeeBand ?? null;
 
   return (
+    <ShareGate tokenType="company" tokenValue={token ?? ""}>
     <div className="min-h-screen bg-gray-50">
-      {/* ── Top header bar ── */}
+      {/* -- Top header bar -- */}
       <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
         <div className="max-w-6xl mx-auto px-6 py-3 flex items-center justify-between">
           <div className="flex items-center gap-3">
@@ -179,7 +181,7 @@ export default function SharePage() {
         </div>
       </div>
 
-      {/* ── Sticky jump nav ── */}
+      {/* -- Sticky jump nav -- */}
       <div className="bg-white border-b-2 border-black sticky top-[57px] z-30">
         <div className="max-w-6xl mx-auto px-6 flex items-center overflow-x-auto">
           {NAV_SECTIONS.map((s) => (
@@ -199,7 +201,7 @@ export default function SharePage() {
 
       <div className="max-w-6xl mx-auto px-6 py-6">
 
-        {/* ── Company Header Card ── */}
+        {/* -- Company Header Card -- */}
         <div className="bg-white border border-gray-200 rounded-xl p-6 mb-6">
           <div className="flex items-start justify-between gap-4 flex-wrap">
             <div className="flex-1 min-w-0">
@@ -253,10 +255,10 @@ export default function SharePage() {
           </div>
         </div>
 
-        {/* ── Two-column layout ── */}
+        {/* -- Two-column layout -- */}
         <div className="flex gap-6 items-start">
 
-          {/* ═══ LEFT SIDEBAR (sticky) ═══ */}
+          {/* --- LEFT SIDEBAR (sticky) --- */}
           <div className="w-64 shrink-0 space-y-4 sticky top-[57px]">
 
             {/* Contacts panel */}
@@ -333,10 +335,10 @@ export default function SharePage() {
             </div>
           </div>
 
-          {/* ═══ RIGHT MAIN CONTENT ═══ */}
+          {/* --- RIGHT MAIN CONTENT --- */}
           <div className="flex-1 min-w-0 space-y-10">
 
-            {/* ── URGENCY SIGNALS ── */}
+            {/* -- URGENCY SIGNALS -- */}
             <section>
               <div id="urgency" className="flex items-center border-b-2 border-gray-200 pb-2 mb-5 scroll-mt-4">
                 <h2 className="text-xs font-black uppercase tracking-widest text-gray-400">Urgency Signals</h2>
@@ -378,7 +380,7 @@ export default function SharePage() {
               )}
             </section>
 
-            {/* ── SALES APPROACH ── */}
+            {/* -- SALES APPROACH -- */}
             <section>
               <div id="approach" className="flex items-center border-b-2 border-gray-200 pb-2 mb-5 scroll-mt-4">
                 <h2 className="text-xs font-black uppercase tracking-widest text-gray-400">Sales Approach</h2>
@@ -481,7 +483,7 @@ export default function SharePage() {
               )}
             </section>
 
-            {/* ── FIT ANALYSIS ── */}
+            {/* -- FIT ANALYSIS -- */}
             {briefData && (
               <section>
                 <div id="fit" className="flex items-center border-b-2 border-gray-200 pb-2 mb-5 scroll-mt-4">
@@ -548,7 +550,7 @@ export default function SharePage() {
         </div>
       </div>
 
-      {/* ── Lightbox ── */}
+      {/* -- Lightbox -- */}
       {lightboxImage && (
         <div className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onClick={() => setLightboxImage(null)}>
           <img src={lightboxImage} alt="Image" className="max-w-full max-h-full object-contain" onClick={(e) => e.stopPropagation()} />
@@ -556,5 +558,6 @@ export default function SharePage() {
         </div>
       )}
     </div>
+    </ShareGate>
   );
 }

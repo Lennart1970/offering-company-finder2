@@ -104,6 +104,17 @@ export default function Brain() {
     },
   });
 
+  const createBrainShareMutation = trpc.shareExt.createBrainShareToken.useMutation({
+    onSuccess: (data) => {
+      const shareUrl = `${window.location.origin}/share/brain/${data.token}`;
+      navigator.clipboard.writeText(shareUrl).catch(() => {});
+      toast.success(`Brain share link copied to clipboard!`, { description: shareUrl, duration: 6000 });
+    },
+    onError: (error) => {
+      toast.error(`Failed to create share link: ${error.message}`);
+    },
+  });
+
   const toggleSharedMutation = trpc.companyFinder.toggleBrainShared.useMutation({
     onSuccess: (data) => {
       toast.success(data.isShared ? "Brain is now shared with all users" : "Brain is now private");
@@ -376,13 +387,21 @@ export default function Brain() {
 
           {/* View/Edit active brain button */}
           {brain && (
-            <div className="mt-4">
+            <div className="mt-4 flex flex-wrap gap-2">
               <Button
                 onClick={() => setShowEditSection(!showEditSection)}
                 variant="outline"
                 className="font-black border-2 border-black text-sm hover:bg-black hover:text-white"
               >
                 ✏️ {showEditSection ? "HIDE BRAIN EDITOR" : "VIEW / EDIT ACTIVE BRAIN"}
+              </Button>
+              <Button
+                onClick={() => createBrainShareMutation.mutate({ brainId: brain.id })}
+                disabled={createBrainShareMutation.isPending}
+                variant="outline"
+                className="font-black border-2 border-gray-400 text-sm hover:bg-gray-900 hover:text-white"
+              >
+                🔗 {createBrainShareMutation.isPending ? "GENERATING…" : "SHARE BRAIN"}
               </Button>
             </div>
           )}

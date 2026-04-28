@@ -1291,6 +1291,38 @@ export default function SearchResults() {
           {/* Company Cards / List */}
           {viewMode === "list" ? (
             <div className="border border-gray-200 divide-y divide-gray-100">
+              {/* Select All header row */}
+              {isSelectMode2 && (
+                <div className="flex items-center gap-3 px-4 py-2 bg-purple-50 border-b border-purple-200">
+                  <input
+                    type="checkbox"
+                    checked={!!displayedCompanies?.length && selectedCompanyIds.size === displayedCompanies.length}
+                    ref={(el) => {
+                      if (el) {
+                        el.indeterminate =
+                          selectedCompanyIds.size > 0 &&
+                          selectedCompanyIds.size < (displayedCompanies?.length ?? 0);
+                      }
+                    }}
+                    onChange={() => {
+                      if (selectedCompanyIds.size === displayedCompanies?.length) {
+                        setSelectedCompanyIds(new Set());
+                      } else {
+                        setSelectedCompanyIds(new Set(displayedCompanies?.map((c) => c.id) ?? []));
+                      }
+                    }}
+                    className="w-4 h-4 accent-purple-600 shrink-0 cursor-pointer"
+                  />
+                  <span className="text-xs font-black text-purple-700 uppercase tracking-widest">
+                    {selectedCompanyIds.size === displayedCompanies?.length && displayedCompanies?.length > 0
+                      ? `DESELECT ALL (${displayedCompanies.length})`
+                      : `SELECT ALL (${displayedCompanies?.length ?? 0})`}
+                  </span>
+                  {selectedCompanyIds.size > 0 && selectedCompanyIds.size < (displayedCompanies?.length ?? 0) && (
+                    <span className="text-xs text-purple-500 ml-1">{selectedCompanyIds.size} selected</span>
+                  )}
+                </div>
+              )}
               {displayedCompanies?.map((company, index) => (
                 <CompanyListRow
                   key={company.id}

@@ -236,30 +236,54 @@ export default function SharePage() {
               <div className="bg-white rounded-xl border border-gray-200 p-5">
                 <h2 className="text-xs font-bold uppercase tracking-widest text-gray-400 mb-4">Sales Approach</h2>
 
-                {salesApproach.emailSubject && (
+                {/* Email Draft — nested structure: emailDraft.subject + emailDraft.body */}
+                {(salesApproach.emailDraft?.subject || salesApproach.emailDraft?.body || salesApproach.emailSubject || salesApproach.emailBody) && (
                   <div className="mb-4">
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Email</p>
-                    <p className="text-sm font-medium text-gray-700 mb-1">Subject: {salesApproach.emailSubject}</p>
+                    <p className="text-sm font-medium text-gray-700 mb-1">
+                      Subject: {salesApproach.emailDraft?.subject ?? salesApproach.emailSubject ?? ""}
+                    </p>
                     <p className="text-sm text-gray-600 whitespace-pre-line">
-                      {stripGrokCitations(salesApproach.emailBody ?? "")}
+                      {stripGrokCitations(
+                        typeof salesApproach.emailDraft?.body === "string" ? salesApproach.emailDraft.body
+                        : typeof salesApproach.emailBody === "string" ? salesApproach.emailBody
+                        : ""
+                      )}
                     </p>
                   </div>
                 )}
 
+                {/* LinkedIn — nested: linkedinMessage.connectionRequest */}
                 {salesApproach.linkedinMessage && (
                   <div className="mb-4 pt-3 border-t border-gray-100">
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">LinkedIn</p>
                     <p className="text-sm text-gray-600 whitespace-pre-line">
-                      {stripGrokCitations(salesApproach.linkedinMessage ?? "")}
+                      {stripGrokCitations(
+                        typeof salesApproach.linkedinMessage === "string" ? salesApproach.linkedinMessage
+                        : typeof salesApproach.linkedinMessage?.connectionRequest === "string" ? salesApproach.linkedinMessage.connectionRequest
+                        : ""
+                      )}
                     </p>
+                    {salesApproach.linkedinMessage?.followUp && (
+                      <p className="text-sm text-gray-600 whitespace-pre-line mt-2">
+                        <span className="text-xs font-semibold text-gray-400 block mb-1">Follow-up</span>
+                        {stripGrokCitations(typeof salesApproach.linkedinMessage.followUp === "string" ? salesApproach.linkedinMessage.followUp : "")}
+                      </p>
+                    )}
                   </div>
                 )}
 
+                {/* Call Script — nested: callScript.opening / callScript.fullScript */}
                 {salesApproach.callScript && (
                   <div className="pt-3 border-t border-gray-100">
                     <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-1">Call Script</p>
                     <p className="text-sm text-gray-600 whitespace-pre-line">
-                      {stripGrokCitations(salesApproach.callScript ?? "")}
+                      {stripGrokCitations(
+                        typeof salesApproach.callScript === "string" ? salesApproach.callScript
+                        : typeof salesApproach.callScript?.fullScript === "string" ? salesApproach.callScript.fullScript
+                        : typeof salesApproach.callScript?.opening === "string" ? salesApproach.callScript.opening
+                        : ""
+                      )}
                     </p>
                   </div>
                 )}

@@ -259,7 +259,7 @@ function DashboardLayoutContent({
           className="border-r-0"
           disableTransition={isResizing}
         >
-          <SidebarHeader className="h-16 justify-center">
+          <SidebarHeader className="h-12 justify-center">
             <div className="flex items-center gap-3 px-2 transition-all w-full">
               <button
                 onClick={toggleSidebar}
@@ -278,12 +278,12 @@ function DashboardLayoutContent({
 
           <SidebarContent className="gap-0">
             {navGroups.map(group => (
-              <SidebarGroup key={group.label} className="pt-3 pb-0">
-                <SidebarGroupLabel className="px-3 mb-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground/60 group-data-[collapsible=icon]:hidden">
+              <SidebarGroup key={group.label} className="pt-1.5 pb-0">
+                <SidebarGroupLabel className="px-3 mb-0.5 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 group-data-[collapsible=icon]:hidden">
                   {group.label}
                 </SidebarGroupLabel>
                 <SidebarGroupContent>
-                  <SidebarMenu className="px-2">
+                  <SidebarMenu className="px-1.5">
                     {group.items.map((item: NavItem) => {
                       const isActive = item.path === "/search-results"
                         ? location.startsWith("/search-results")
@@ -296,7 +296,7 @@ function DashboardLayoutContent({
                             isActive={isActive}
                             onClick={() => handleNavClick(item.path)}
                             tooltip={item.label}
-                            className="h-9 transition-all font-bold"
+                            className="h-7 text-xs transition-all font-semibold"
                           >
                             <item.icon
                               className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
@@ -312,11 +312,11 @@ function DashboardLayoutContent({
             ))}
           </SidebarContent>
 
-          <SidebarFooter className="p-3">
+          <SidebarFooter className="p-2">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <button className="flex items-center gap-3 rounded-lg px-1 py-1 transition-colors w-full text-left group-data-[collapsible=icon]:justify-center focus:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-                  <Avatar className="h-9 w-9 border shrink-0">
+                  <Avatar className="h-7 w-7 border shrink-0">
                     <AvatarFallback className="text-xs font-medium">
                       {user?.name?.charAt(0).toUpperCase()}
                     </AvatarFallback>

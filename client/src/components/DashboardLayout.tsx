@@ -24,8 +24,8 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, LogOut, PanelLeft, BrainCircuit, FileSpreadsheet, Phone, ScrollText, Network, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook, UserPlus, BookMarked, Eye, FolderOpen, MapPin, Building2, Users, Activity } from "lucide-react";
-import { CSSProperties, useEffect, useRef, useState } from "react";
+import { List, LogOut, PanelLeft, BrainCircuit, FileSpreadsheet, Phone, ScrollText, Network, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook, UserPlus, BookMarked, Eye, FolderOpen, MapPin, Building2, Users, Activity, ChevronDown } from "lucide-react";
+import { CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
 import { Button } from "./ui/button";
@@ -105,9 +105,18 @@ const navGroups: NavGroup[] = [
 ];
 
 const SIDEBAR_WIDTH_KEY = "sidebar-width";
+const COLLAPSED_GROUPS_KEY = "sidebar-collapsed-groups";
 const DEFAULT_WIDTH = 260;
 const MIN_WIDTH = 200;
 const MAX_WIDTH = 400;
+
+function getInitialCollapsedGroups(): Set<string> {
+  try {
+    const saved = localStorage.getItem(COLLAPSED_GROUPS_KEY);
+    if (saved) return new Set(JSON.parse(saved));
+  } catch { /* ignore */ }
+  return new Set();
+}
 
 export default function DashboardLayout({
   children,
@@ -174,41 +183,53 @@ function NavGroupBlock({
   group,
   location,
   handleNavClick,
+  collapsed,
+  onToggle,
 }: {
   group: NavGroup;
   location: string;
   handleNavClick: (path: string) => void;
+  collapsed: boolean;
+  onToggle: () => void;
 }) {
   return (
     <SidebarGroup className="pt-1.5 pb-0">
-      <SidebarGroupLabel className="px-3 mb-0.5 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 group-data-[collapsible=icon]:hidden">
-        {group.label}
+      <SidebarGroupLabel
+        className="px-3 mb-0.5 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 group-data-[collapsible=icon]:hidden cursor-pointer select-none flex items-center justify-between hover:text-muted-foreground/90 transition-colors"
+        onClick={onToggle}
+      >
+        <span>{group.label}</span>
+        <ChevronDown
+          className={`h-3 w-3 transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`}
+        />
       </SidebarGroupLabel>
-      <SidebarGroupContent>
-        <SidebarMenu className="px-1.5">
-          {group.items.map((item: NavItem) => {
-            const isActive =
-              item.path === "/search-results"
-                ? location.startsWith("/search-results")
-                : item.path === "/call-today"
-                ? location.startsWith("/call-today")
-                : location === item.path;
-            return (
-              <SidebarMenuItem key={item.path}>
-                <SidebarMenuButton
-                  isActive={isActive}
-                  onClick={() => handleNavClick(item.path)}
-                  tooltip={item.label}
-                  className="h-7 text-xs transition-all font-semibold"
-                >
-                  <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
-                  <span>{item.label}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            );
-          })}
-        </SidebarMenu>
-      </SidebarGroupContent>
+      {!collapsed && (
+        <SidebarGroupContent>
+          <SidebarMenu className="px-1.5">
+            {group.items.map((item: NavItem) => {
+              const isActive =
+                item.path === "/search-results"
+                  ? location.startsWith("/search-results")
+                  : item.path === "/call-today"
+                  ? location.startsWith("/call-today")
+                  : location === item.path;
+              return (
+                <SidebarMenuItem key={item.path}>
+                  <SidebarMenuButton
+                    isActive={isActive}
+                    onClick={() => handleNavClick(item.path)}
+                    tooltip={item.label}
+                    className="h-7 text-xs transition-all font-semibold"
+                  >
+                    <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
+                    <span>{item.label}</span>
+                  </SidebarMenuButton>
+                </SidebarMenuItem>
+              );
+            })}
+          </SidebarMenu>
+        </SidebarGroupContent>
+      )}
     </SidebarGroup>
   );
 }
@@ -231,6 +252,22 @@ function DashboardLayoutContent({
   const isMobile = useIsMobile();
 
   const isAdmin = user?.role === "admin";
+
+  // Collapsible group state
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(getInitialCollapsedGroups);
+
+  const toggleGroup = useCallback((label: string) => {
+    setCollapsedGroups(prev => {
+      const next = new Set(prev);
+      if (next.has(label)) {
+        next.delete(label);
+      } else {
+        next.add(label);
+      }
+      localStorage.setItem(COLLAPSED_GROUPS_KEY, JSON.stringify(Array.from(next)));
+      return next;
+    });
+  }, []);
 
   // Match active menu item - handle parameterized routes
   const allNavItems = navGroups.flatMap(g => g.items);
@@ -328,7 +365,14 @@ function DashboardLayoutContent({
           <SidebarContent className="gap-0">
             {/* ── User section ── */}
             {navGroups.filter(g => !g.adminOnly).map(group => (
-              <NavGroupBlock key={group.label} group={group} location={location} handleNavClick={handleNavClick} />
+              <NavGroupBlock
+                key={group.label}
+                group={group}
+                location={location}
+                handleNavClick={handleNavClick}
+                collapsed={collapsedGroups.has(group.label)}
+                onToggle={() => toggleGroup(group.label)}
+              />
             ))}
 
             {/* ── Admin section (admins only) ── */}
@@ -339,7 +383,14 @@ function DashboardLayoutContent({
                   <span className="text-[9px] font-black uppercase tracking-widest text-amber-600/80">Admin</span>
                 </div>
                 {navGroups.filter(g => g.adminOnly).map(group => (
-                  <NavGroupBlock key={group.label} group={group} location={location} handleNavClick={handleNavClick} />
+                  <NavGroupBlock
+                    key={group.label}
+                    group={group}
+                    location={location}
+                    handleNavClick={handleNavClick}
+                    collapsed={collapsedGroups.has(group.label)}
+                    onToggle={() => toggleGroup(group.label)}
+                  />
                 ))}
               </>
             )}

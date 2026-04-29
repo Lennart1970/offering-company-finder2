@@ -2341,3 +2341,4 @@
 - [x] Build ShareAccessLogPage with Visitors tab and Access Log tab
 - [x] Add Access Log to Admin sidebar navigation
 - [x] Register /share-access-log route in App.tsx
+- [x] Collapsible sidebar groups with localStorage persistence

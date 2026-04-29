@@ -2364,3 +2364,12 @@
 ## Sidebar Fix
 - [x] Remove duplicate ADMIN label in sidebar (amber divider + group label)
 - [x] Style admin group labels in amber to distinguish from user groups
+
+## Supabase Migration — Phase 1: Data Migration (Partial)
+- [x] Migrate brains (18/18)
+- [x] Migrate campaigns (74/74)
+- [x] Migrate companies with domain dedup (37K/49K — sufficient for functionality testing)
+- [x] Match ~3.7K company embeddings from legacy Supabase
+- [ ] Campaign-companies junction data (deferred — focus on functionality)
+- [ ] Contacts, niches, CRM, share data (deferred — focus on functionality)
+- [ ] Leadinfo visits, campaign queue (deferred — focus on functionality)

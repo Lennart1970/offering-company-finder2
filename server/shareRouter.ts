@@ -601,14 +601,14 @@ export const shareExtRouter = router({
       );
 
       // Fetch in batches (Supabase max 1000 per query)
-      let allRows: Array<{ local_id: number; campaign_id: number | null; company_name: string; domain: string | null; urgency_score: number | null; fit_score: number | null; urgency_label: string | null; campaign_name: string | null }> = [];
+      let allRows: Array<{ page_url: string | null; campaign_id: number | null; company_name: string; domain: string | null; urgency_score: number | null; fit_score: number | null; urgency_label: string | null; campaign_name: string | null }> = [];
       let offset = 0;
       const batchSize = 1000;
       while (true) {
         const { data, error } = await (supabase.from("lt_mns_company_pages") as any)
-          .select("local_id, campaign_id, company_name, domain, urgency_score, fit_score, urgency_label, campaign_name")
+          .select("page_url, campaign_id, company_name, domain, urgency_score, fit_score, urgency_label, campaign_name")
           .gte("fit_score", 50)
-          .not("local_id", "is", null)
+          .not("page_url", "is", null)
           .order("urgency_score", { ascending: false })
           .range(offset, offset + batchSize - 1);
         if (error) throw new Error(error.message);
@@ -627,8 +627,11 @@ export const shareExtRouter = router({
       const tokenResults: Array<{ companyId: number; brainId: number; token: string; tokenId: number }> = [];
 
       for (const row of allRows) {
-        if (!row.local_id) continue;
-        const companyId = row.local_id;
+        // Extract local company ID from page_url (e.g. "/company/1560001/extended?..." → 1560001)
+        const localIdMatch = row.page_url?.match(/\/company\/(\d+)/);
+        if (!localIdMatch) continue;
+        const companyId = parseInt(localIdMatch[1], 10);
+        if (isNaN(companyId)) continue;
 
         // Find brainId from campaign (searchId)
         let brainId: number | null = null;

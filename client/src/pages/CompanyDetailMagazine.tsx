@@ -745,6 +745,78 @@ export default function CompanyDetailMagazine() {
       </div>
 
       {/* ════════════════════════════════════════════════════════════════════════
+          LEADINFO WEBSITE VISITOR BLOCK (shown only when data exists)
+      ════════════════════════════════════════════════════════════════════════ */}
+      {leadinfoVisit && (
+        <section className="mb-8">
+          <div className="border-4 border-emerald-500 bg-emerald-50 p-5">
+            {/* Header */}
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-[10px] font-black uppercase tracking-widest bg-emerald-500 text-white px-2 py-0.5">WEBSITE VISITOR</span>
+              <span className="text-[10px] font-black uppercase tracking-widest border border-emerald-500 text-emerald-700 px-2 py-0.5">LEADINFO</span>
+            </div>
+            {/* Metrics row */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-4">
+              <div>
+                <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest">ENGAGEMENT</div>
+                <div className="text-3xl font-black text-emerald-600 leading-none mt-1">{leadinfoVisit.engagementScore ?? 0}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest">SESSIONS</div>
+                <div className="text-3xl font-black leading-none mt-1">{leadinfoVisit.totalSessions ?? 0}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest">PAGES VIEWED</div>
+                <div className="text-3xl font-black leading-none mt-1">{leadinfoVisit.totalPages ?? 0}</div>
+              </div>
+              <div>
+                <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest">TIME ON SITE</div>
+                <div className="text-3xl font-black leading-none mt-1">
+                  {leadinfoVisit.totalDuration
+                    ? leadinfoVisit.totalDuration >= 60
+                      ? `${Math.floor(leadinfoVisit.totalDuration / 60)}m`
+                      : `${leadinfoVisit.totalDuration}s`
+                    : "—"}
+                </div>
+              </div>
+            </div>
+            {/* Intent signals */}
+            {leadinfoVisit.intentSignals && (() => {
+              try {
+                const signals: string[] = JSON.parse(leadinfoVisit.intentSignals as string);
+                if (signals.length > 0) return (
+                  <div className="mb-3">
+                    <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">INTENT SIGNALS</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {signals.map((s, i) => (
+                        <span key={i} className="text-xs font-bold border border-emerald-400 text-emerald-700 bg-white px-2 py-0.5">{s}</span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              } catch { return null; }
+            })()}
+            {/* Top pages visited */}
+            {leadinfoVisit.topPages && (() => {
+              try {
+                const pages: string[] = JSON.parse(leadinfoVisit.topPages as string);
+                if (pages.length > 0) return (
+                  <div>
+                    <div className="text-[10px] font-black text-gray-500 uppercase tracking-widest mb-1.5">PAGES VISITED</div>
+                    <div className="flex flex-wrap gap-2">
+                      {pages.map((p, i) => (
+                        <span key={i} className="text-xs text-gray-600 font-medium">{p}{i < pages.length - 1 ? " ·" : ""}</span>
+                      ))}
+                    </div>
+                  </div>
+                );
+              } catch { return null; }
+            })()}
+          </div>
+        </section>
+      )}
+
+      {/* ════════════════════════════════════════════════════════════════════════
           BRAIN-SPECIFIC SECTION 1 — URGENCY
       ════════════════════════════════════════════════════════════════════════ */}
       <section className="mb-12">

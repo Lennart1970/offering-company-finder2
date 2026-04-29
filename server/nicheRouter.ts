@@ -408,9 +408,16 @@ export const nicheRouter = router({
 
   /**
    * Get all niches for the current user (across all searches).
+   * Admins always see niches from the owner account (userId=1) to handle
+   * the case where an admin logs in via a secondary account.
    */
   getAllNiches: protectedProcedure.query(async ({ ctx }) => {
-    const niches = await getNichesByUserId(ctx.user.id);
+    // For admins, fall back to the primary owner account if the current user has no niches
+    let niches = await getNichesByUserId(ctx.user.id);
+    if (niches.length === 0 && ctx.user.role === 'admin') {
+      // Try the owner account (userId=1) — handles secondary admin logins
+      niches = await getNichesByUserId(1);
+    }
     return niches.map(parseNicheFields);
   }),
 

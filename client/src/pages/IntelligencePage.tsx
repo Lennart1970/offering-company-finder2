@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ExternalLink, Zap, Target, RefreshCw, Building2, Send, CheckCircle2 } from "lucide-react";
+import { Search, ExternalLink, Zap, Target, RefreshCw, Building2, Send, CheckCircle2, Share2, Link } from "lucide-react";
 import { toast } from "sonner";
 
 type UrgencyFilter = "ALL" | "HIGH" | "MEDIUM" | "LOW";
@@ -44,6 +44,18 @@ export default function IntelligencePage() {
       toast.error("Telegram error", { description: err.message });
       setSendingTelegram(null);
     },
+  });
+
+  // Share Intelligence list
+  const shareIntelligenceMutation = trpc.shareExt.shareIntelligenceList.useMutation({
+    onSuccess: (result) => {
+      navigator.clipboard.writeText(result.listUrl).catch(() => {});
+      toast.success(`Shareable list created — ${result.count} companies`, {
+        description: "Link copied to clipboard!",
+        action: { label: "Open", onClick: () => window.open(result.listUrl, "_blank") },
+      });
+    },
+    onError: (err) => toast.error("Share failed", { description: err.message }),
   });
 
   const [sendingAllHigh, setSendingAllHigh] = useState(false);
@@ -206,11 +218,27 @@ export default function IntelligencePage() {
 
           {isFetching && <RefreshCw className="w-4 h-4 animate-spin text-muted-foreground" />}
 
+          {/* Share Intelligence button */}
+          <Button
+            size="sm"
+            variant="outline"
+            className="ml-auto flex items-center gap-1.5 border-blue-300 text-blue-600 hover:bg-blue-50"
+            disabled={shareIntelligenceMutation.isPending}
+            onClick={() => shareIntelligenceMutation.mutate({ origin: window.location.origin })}
+          >
+            {shareIntelligenceMutation.isPending ? (
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Share2 className="w-3.5 h-3.5" />
+            )}
+            {shareIntelligenceMutation.isPending ? "Creating…" : "Share Intelligence"}
+          </Button>
+
           {/* Send All HIGH button */}
           <Button
             size="sm"
             variant="outline"
-            className="ml-auto flex items-center gap-1.5 border-red-300 text-red-600 hover:bg-red-50"
+            className="flex items-center gap-1.5 border-red-300 text-red-600 hover:bg-red-50"
             disabled={sendingAllHigh}
             onClick={() => {
               setSendingAllHigh(true);

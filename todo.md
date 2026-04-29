@@ -2342,3 +2342,4 @@
 - [x] Add Access Log to Admin sidebar navigation
 - [x] Register /share-access-log route in App.tsx
 - [x] Collapsible sidebar groups with localStorage persistence
+- [x] Make Intelligence page into a dynamic shareable list with email gate

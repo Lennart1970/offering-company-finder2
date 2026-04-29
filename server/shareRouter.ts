@@ -580,6 +580,111 @@ export const shareExtRouter = router({
       return { brain: brainRows[0] };
     }),
 
+  /**
+   * Protected — create a shareable intelligence list.
+   * Fetches all researched companies with fit > 50 from Supabase,
+   * auto-generates share tokens for each, and returns a list token URL.
+   */
+  shareIntelligenceList: protectedProcedure
+    .input(z.object({ origin: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const userId = ctx.user.id;
+
+      // 1. Fetch all companies with fit_score > 50 from Supabase
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { persistSession: false } }
+      );
+
+      // Fetch in batches (Supabase max 1000 per query)
+      let allRows: Array<{ local_id: number; campaign_id: number | null; company_name: string; domain: string | null; urgency_score: number | null; fit_score: number | null; urgency_label: string | null; campaign_name: string | null }> = [];
+      let offset = 0;
+      const batchSize = 1000;
+      while (true) {
+        const { data, error } = await (supabase.from("lt_mns_company_pages") as any)
+          .select("local_id, campaign_id, company_name, domain, urgency_score, fit_score, urgency_label, campaign_name")
+          .gte("fit_score", 50)
+          .not("local_id", "is", null)
+          .order("urgency_score", { ascending: false })
+          .range(offset, offset + batchSize - 1);
+        if (error) throw new Error(error.message);
+        if (!data || data.length === 0) break;
+        allRows = allRows.concat(data);
+        if (data.length < batchSize) break;
+        offset += batchSize;
+      }
+
+      if (allRows.length === 0) throw new Error("No companies with fit > 50 found");
+
+      // 2. For each company, find the brainId via searches table
+      const { searches } = await import("../drizzle/schema");
+      const searchCache = new Map<number, number | null>();
+
+      const tokenResults: Array<{ companyId: number; brainId: number; token: string; tokenId: number }> = [];
+
+      for (const row of allRows) {
+        if (!row.local_id) continue;
+        const companyId = row.local_id;
+
+        // Find brainId from campaign (searchId)
+        let brainId: number | null = null;
+        if (row.campaign_id) {
+          if (searchCache.has(row.campaign_id)) {
+            brainId = searchCache.get(row.campaign_id) ?? null;
+          } else {
+            const searchRows = await db.select({ brainId: searches.brainId }).from(searches).where(eq(searches.id, row.campaign_id)).limit(1);
+            brainId = searchRows[0]?.brainId ?? null;
+            searchCache.set(row.campaign_id, brainId);
+          }
+        }
+
+        // Fallback: use the active brain
+        if (!brainId) {
+          const { getActiveBrain } = await import("./db");
+          const active = await getActiveBrain(userId);
+          brainId = active?.id ?? null;
+        }
+        if (!brainId) continue; // skip if no brain available
+
+        // 3. Upsert share token
+        const existing = await db
+          .select()
+          .from(shareTokens)
+          .where(and(eq(shareTokens.companyId, companyId), eq(shareTokens.brainId, brainId), eq(shareTokens.createdBy, userId)))
+          .limit(1);
+
+        if (existing.length > 0) {
+          tokenResults.push({ companyId, brainId, token: existing[0].token, tokenId: existing[0].id });
+        } else {
+          const token = generateToken();
+          await db.insert(shareTokens).values({ token, companyId, brainId, createdBy: userId, shareListName: "Intelligence Share" });
+          const inserted = await db.select().from(shareTokens).where(eq(shareTokens.token, token)).limit(1);
+          tokenResults.push({ companyId, brainId, token, tokenId: inserted[0].id });
+        }
+      }
+
+      if (tokenResults.length === 0) throw new Error("No companies could be shared (missing brain links)");
+
+      // 4. Create the list-level token
+      const listToken = generateToken();
+      const listName = `Intelligence — ${new Date().toLocaleDateString()} (${tokenResults.length} companies)`;
+      await db.insert(shareLists).values({ listToken, shareListName: listName, createdBy: userId });
+      const listRows = await db.select().from(shareLists).where(eq(shareLists.listToken, listToken)).limit(1);
+      const shareListId = listRows[0].id;
+
+      // 5. Link tokens to the list
+      for (const t of tokenResults) {
+        await db.insert(shareListItems).values({ shareListId, shareTokenId: t.tokenId });
+      }
+
+      const listUrl = `${input.origin}/share/list/${listToken}`;
+      return { listToken, listUrl, count: tokenResults.length };
+    }),
+
   /** Public -- list ALL brains with their share tokens (if any) for the overview page */
   listSharedBrains: publicProcedure.query(async () => {
     const db = await getDb();

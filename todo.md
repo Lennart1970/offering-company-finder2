@@ -2343,3 +2343,24 @@
 - [x] Register /share-access-log route in App.tsx
 - [x] Collapsible sidebar groups with localStorage persistence
 - [x] Make Intelligence page into a dynamic shareable list with email gate
+
+## Supabase Migration — Phase 0: Schema Creation
+- [x] Create lt_companies table in Supabase (central entity, deduped by domain)
+- [x] Create lt_brains table in Supabase
+- [x] Create lt_campaigns table in Supabase
+- [x] Create lt_campaign_companies junction table (many-to-many with scores)
+- [x] Create lt_contacts table in Supabase
+- [x] Create lt_niches table in Supabase
+- [x] Create lt_leadinfo_visits table in Supabase
+- [x] Create sharing tables (lt_share_tokens, lt_share_lists, lt_share_list_items, lt_share_access_log, lt_share_visitors)
+- [x] Create CRM tables (lt_call_outcomes, lt_company_decisions)
+- [x] Create lt_campaign_queue table
+- [x] Add embedding vector(1536) columns to lt_companies and lt_brains
+- [x] Add legacy_supabase_id columns for migration mapping
+- [x] Drop conflicting match_companies_by_embedding function and recreate
+- [x] Create pgvector RPC functions (match_companies_by_embedding, match_companies_by_brain, nearest_cluster_centroid, batch_similarity_scores)
+- [x] Verify all 16 tables and 4 RPC functions
+
+## Sidebar Fix
+- [x] Remove duplicate ADMIN label in sidebar (amber divider + group label)
+- [x] Style admin group labels in amber to distinguish from user groups

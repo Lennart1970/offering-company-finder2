@@ -185,12 +185,14 @@ function NavGroupBlock({
   handleNavClick,
   collapsed,
   onToggle,
+  isAdminGroup,
 }: {
   group: NavGroup;
   location: string;
   handleNavClick: (path: string) => void;
   collapsed: boolean;
   onToggle: () => void;
+  isAdminGroup?: boolean;
 }) {
   return (
     <SidebarGroup className="pt-1.5 pb-0">
@@ -198,7 +200,7 @@ function NavGroupBlock({
         className="px-3 mb-0.5 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 group-data-[collapsible=icon]:hidden cursor-pointer select-none flex items-center justify-between hover:text-muted-foreground/90 transition-colors"
         onClick={onToggle}
       >
-        <span>{group.label}</span>
+        <span className={isAdminGroup ? "text-amber-600/80" : ""}>{group.label}</span>
         <ChevronDown
           className={`h-3 w-3 transition-transform duration-200 ${collapsed ? "-rotate-90" : ""}`}
         />
@@ -378,10 +380,7 @@ function DashboardLayoutContent({
             {/* ── Admin section (admins only) ── */}
             {isAdmin && (
               <>
-                <div className="mx-3 my-2 border-t border-dashed border-muted-foreground/30 group-data-[collapsible=icon]:hidden" />
-                <div className="px-3 mb-1 mt-0.5 group-data-[collapsible=icon]:hidden">
-                  <span className="text-[9px] font-black uppercase tracking-widest text-amber-600/80">Admin</span>
-                </div>
+                <div className="mx-3 my-2 border-t border-dashed border-amber-600/30 group-data-[collapsible=icon]:hidden" />
                 {navGroups.filter(g => g.adminOnly).map(group => (
                   <NavGroupBlock
                     key={group.label}
@@ -390,6 +389,7 @@ function DashboardLayoutContent({
                     handleNavClick={handleNavClick}
                     collapsed={collapsedGroups.has(group.label)}
                     onToggle={() => toggleGroup(group.label)}
+                    isAdminGroup
                   />
                 ))}
               </>

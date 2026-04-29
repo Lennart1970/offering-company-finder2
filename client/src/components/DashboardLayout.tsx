@@ -39,6 +39,7 @@ interface NavItem {
 interface NavGroup {
   label: string;
   items: NavItem[];
+  adminOnly?: boolean;
 }
 
 const navGroups: NavGroup[] = [
@@ -77,6 +78,7 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "Admin",
+    adminOnly: true,
     items: [
       { icon: ScrollText, label: "Prompt Repository", path: "/prompts" },
       { icon: Webhook, label: "Webhook Log", path: "/webhook-log" },
@@ -87,6 +89,7 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "Under Development",
+    adminOnly: true,
     items: [
       { icon: Camera, label: "Fast Prototype", path: "/fast-prototype" },
       { icon: Package, label: "Prototype Requests", path: "/prototype-requests" },
@@ -94,6 +97,7 @@ const navGroups: NavGroup[] = [
   },
   {
     label: "Legal",
+    adminOnly: true,
     items: [
       { icon: ScrollText, label: "Terms of Use", path: "/terms" },
     ],
@@ -182,6 +186,8 @@ function DashboardLayoutContent({
   const [isResizing, setIsResizing] = useState(false);
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
+
+  const isAdmin = user?.role === "admin";
 
   // Match active menu item - handle parameterized routes
   const allNavItems = navGroups.flatMap(g => g.items);
@@ -277,7 +283,7 @@ function DashboardLayoutContent({
           </SidebarHeader>
 
           <SidebarContent className="gap-0">
-            {navGroups.map(group => (
+            {navGroups.filter(group => !group.adminOnly || isAdmin).map(group => (
               <SidebarGroup key={group.label} className="pt-1.5 pb-0">
                 <SidebarGroupLabel className="px-3 mb-0.5 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 group-data-[collapsible=icon]:hidden">
                   {group.label}

@@ -170,6 +170,49 @@ export default function DashboardLayout({
   );
 }
 
+function NavGroupBlock({
+  group,
+  location,
+  handleNavClick,
+}: {
+  group: NavGroup;
+  location: string;
+  handleNavClick: (path: string) => void;
+}) {
+  return (
+    <SidebarGroup className="pt-1.5 pb-0">
+      <SidebarGroupLabel className="px-3 mb-0.5 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 group-data-[collapsible=icon]:hidden">
+        {group.label}
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu className="px-1.5">
+          {group.items.map((item: NavItem) => {
+            const isActive =
+              item.path === "/search-results"
+                ? location.startsWith("/search-results")
+                : item.path === "/call-today"
+                ? location.startsWith("/call-today")
+                : location === item.path;
+            return (
+              <SidebarMenuItem key={item.path}>
+                <SidebarMenuButton
+                  isActive={isActive}
+                  onClick={() => handleNavClick(item.path)}
+                  tooltip={item.label}
+                  className="h-7 text-xs transition-all font-semibold"
+                >
+                  <item.icon className={`h-4 w-4 ${isActive ? "text-primary" : ""}`} />
+                  <span>{item.label}</span>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+}
+
 type DashboardLayoutContentProps = {
   children: React.ReactNode;
   setSidebarWidth: (width: number) => void;
@@ -283,39 +326,23 @@ function DashboardLayoutContent({
           </SidebarHeader>
 
           <SidebarContent className="gap-0">
-            {navGroups.filter(group => !group.adminOnly || isAdmin).map(group => (
-              <SidebarGroup key={group.label} className="pt-1.5 pb-0">
-                <SidebarGroupLabel className="px-3 mb-0.5 text-[9px] font-black uppercase tracking-widest text-muted-foreground/60 group-data-[collapsible=icon]:hidden">
-                  {group.label}
-                </SidebarGroupLabel>
-                <SidebarGroupContent>
-                  <SidebarMenu className="px-1.5">
-                    {group.items.map((item: NavItem) => {
-                      const isActive = item.path === "/search-results"
-                        ? location.startsWith("/search-results")
-                        : item.path === "/call-today"
-                        ? location.startsWith("/call-today")
-                        : location === item.path;
-                      return (
-                        <SidebarMenuItem key={item.path}>
-                          <SidebarMenuButton
-                            isActive={isActive}
-                            onClick={() => handleNavClick(item.path)}
-                            tooltip={item.label}
-                            className="h-7 text-xs transition-all font-semibold"
-                          >
-                            <item.icon
-                              className={`h-4 w-4 ${isActive ? "text-primary" : ""}`}
-                            />
-                            <span>{item.label}</span>
-                          </SidebarMenuButton>
-                        </SidebarMenuItem>
-                      );
-                    })}
-                  </SidebarMenu>
-                </SidebarGroupContent>
-              </SidebarGroup>
+            {/* ── User section ── */}
+            {navGroups.filter(g => !g.adminOnly).map(group => (
+              <NavGroupBlock key={group.label} group={group} location={location} handleNavClick={handleNavClick} />
             ))}
+
+            {/* ── Admin section (admins only) ── */}
+            {isAdmin && (
+              <>
+                <div className="mx-3 my-2 border-t border-dashed border-muted-foreground/30 group-data-[collapsible=icon]:hidden" />
+                <div className="px-3 mb-1 mt-0.5 group-data-[collapsible=icon]:hidden">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-amber-600/80">Admin</span>
+                </div>
+                {navGroups.filter(g => g.adminOnly).map(group => (
+                  <NavGroupBlock key={group.label} group={group} location={location} handleNavClick={handleNavClick} />
+                ))}
+              </>
+            )}
           </SidebarContent>
 
           <SidebarFooter className="p-2">

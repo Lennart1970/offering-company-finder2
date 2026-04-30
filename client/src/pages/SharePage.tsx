@@ -56,6 +56,147 @@ function SectionHeader({ id, emoji, title, color }: {
   );
 }
 
+// --- Contacts Panel Component -----------------------------------------------
+function ContactsPanel({ token }: { token: string }) {
+  const [contacts, setContacts] = useState<any[]>([]);
+  const [seniority, setSeniority] = useState<"all" | "senior">("all");
+  const [dept, setDept] = useState<string>("all");
+  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [mode, setMode] = useState<"dm" | "all" | null>(null);
+
+  const visitorEmail = typeof window !== "undefined" ? localStorage.getItem("lt_share_visitor_email") ?? "" : "";
+
+  const findDM = trpc.shareExt.findDecisionMakers.useMutation({
+    onSuccess: (data) => {
+      setContacts(data.contacts.filter(Boolean));
+      setStatus("done");
+    },
+    onError: (e) => { setErrorMsg(e.message); setStatus("error"); },
+  });
+
+  const getAllP = trpc.shareExt.getAllPersonnelForShare.useMutation({
+    onSuccess: (data) => {
+      setContacts(data.contacts.filter(Boolean));
+      setStatus("done");
+    },
+    onError: (e) => { setErrorMsg(e.message); setStatus("error"); },
+  });
+
+  const handleFindDM = () => {
+    if (!visitorEmail) return;
+    setMode("dm"); setStatus("loading"); setErrorMsg("");
+    findDM.mutate({ token, visitorEmail });
+  };
+
+  const handleGetAll = () => {
+    if (!visitorEmail) return;
+    setMode("all"); setStatus("loading"); setErrorMsg("");
+    const seniorities = seniority === "senior" ? ["owner", "founder", "c_suite", "vp", "head", "director"] : undefined;
+    const department = dept !== "all" ? dept : undefined;
+    getAllP.mutate({ token, visitorEmail, seniorities, department, limit: 50 });
+  };
+
+  const DEPT_OPTIONS = [
+    { value: "all", label: "ALL" },
+    { value: "engineering", label: "Engineering" },
+    { value: "sales", label: "Sales" },
+    { value: "marketing", label: "Marketing" },
+    { value: "operations", label: "Operations" },
+    { value: "finance", label: "Finance" },
+    { value: "hr", label: "HR / People" },
+    { value: "product", label: "Product" },
+  ];
+
+  const filtered = contacts.filter((c) => {
+    if (!c) return false;
+    return true; // filters applied server-side; client filter is just for display
+  });
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+      <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">Contacts</h3>
+
+      {/* Action buttons */}
+      <div className="flex flex-col gap-2">
+        <button
+          onClick={handleFindDM}
+          disabled={status === "loading" || !visitorEmail}
+          className="w-full border-2 border-purple-600 text-purple-700 text-xs font-black py-2 px-3 rounded hover:bg-purple-50 disabled:opacity-50 flex items-center justify-center gap-1"
+        >
+          👤 FIND DECISION-MAKERS
+        </button>
+        <button
+          onClick={handleGetAll}
+          disabled={status === "loading" || !visitorEmail}
+          className="w-full border-2 border-blue-600 text-blue-700 text-xs font-black py-2 px-3 rounded hover:bg-blue-50 disabled:opacity-50 flex items-center justify-center gap-1"
+        >
+          📋 GET ALL PERSONNEL
+        </button>
+      </div>
+
+      {/* Filters (only shown when getting all personnel) */}
+      {mode === "all" || status === "done" ? (
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-1 items-center">
+            <span className="text-[10px] font-black text-gray-400 uppercase">Seniority</span>
+            {(["all", "senior"] as const).map((s) => (
+              <button key={s} onClick={() => setSeniority(s)}
+                className={`text-[10px] font-black px-2 py-0.5 rounded border ${
+                  seniority === s ? "bg-gray-900 text-white border-gray-900" : "border-gray-300 text-gray-500 hover:border-gray-500"
+                }`}>
+                {s === "all" ? "ALL" : "Lead / Senior"}
+              </button>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-1 items-center">
+            <span className="text-[10px] font-black text-gray-400 uppercase">Dept</span>
+            {DEPT_OPTIONS.slice(0, 4).map((d) => (
+              <button key={d.value} onClick={() => setDept(d.value)}
+                className={`text-[10px] font-black px-2 py-0.5 rounded border ${
+                  dept === d.value ? "bg-gray-900 text-white border-gray-900" : "border-gray-300 text-gray-500 hover:border-gray-500"
+                }`}>
+                {d.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Loading state */}
+      {status === "loading" && (
+        <div className="flex items-center gap-2 py-3">
+          <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
+          <span className="text-xs text-gray-500 font-bold">Searching Apollo…</span>
+        </div>
+      )}
+
+      {/* Error state */}
+      {status === "error" && (
+        <p className="text-xs text-red-600 font-bold">{errorMsg}</p>
+      )}
+
+      {/* Results */}
+      {status === "done" && filtered.length === 0 && (
+        <p className="text-xs text-gray-400 font-bold">No contacts found.</p>
+      )}
+      {filtered.length > 0 && (
+        <div className="space-y-3 max-h-96 overflow-y-auto">
+          {filtered.map((c: any, i: number) => (
+            <div key={i} className="text-sm border-b border-gray-100 pb-2 last:border-0 last:pb-0">
+              <p className="font-black text-gray-900 text-xs leading-tight">{c.fullName || `${c.firstName || ""} ${c.lastName || ""}`.trim() || "—"}</p>
+              {c.title && <p className="text-[10px] text-gray-500 mt-0.5 leading-tight">{c.title}</p>}
+              {c.email && <a href={`mailto:${c.email}`} className="text-blue-600 text-[10px] hover:underline block mt-1 font-medium break-all">{c.email}</a>}
+              {c.phone && <a href={`tel:${c.phone}`} className="text-green-600 text-[10px] hover:underline block font-medium">{c.phone}</a>}
+              {c.linkedinUrl && <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-[10px] hover:underline block">LinkedIn ↗</a>}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // --- Main Component ----------------------------------------------------------
 
 export default function SharePage() {
@@ -262,32 +403,7 @@ export default function SharePage() {
           <div className="w-64 shrink-0 space-y-4 sticky top-[57px]">
 
             {/* Contacts panel */}
-            <div className="bg-white border border-gray-200 rounded-xl p-5">
-              <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Contacts</h3>
-              {contactList.length === 0 ? (
-                <p className="text-xs text-gray-400 font-bold">No contacts available.</p>
-              ) : (
-                <div className="space-y-4">
-                  {contactList.map((c: any, i: number) => (
-                    <div key={i} className="text-sm border-b border-gray-100 pb-3 last:border-0 last:pb-0">
-                      <p className="font-black text-gray-900">{c.fullName || c.name || `${c.firstName || ""} ${c.lastName || ""}`.trim() || "—"}</p>
-                      {(c.title || c.jobTitle) && <p className="text-xs text-gray-500 mt-0.5">{c.title || c.jobTitle}</p>}
-                      {c.email && (
-                        <a href={`mailto:${c.email}`} className="text-blue-600 text-xs hover:underline block mt-1 font-medium">{c.email}</a>
-                      )}
-                      {c.phone && (
-                        <a href={`tel:${c.phone}`} className="text-green-600 text-xs hover:underline block font-medium">{c.phone}</a>
-                      )}
-                      {c.linkedinUrl && (
-                        <a href={c.linkedinUrl} target="_blank" rel="noopener noreferrer" className="text-blue-500 text-xs hover:underline block">
-                          LinkedIn ↗
-                        </a>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <ContactsPanel token={token ?? ""} />
 
             {/* Fit score breakdown panel */}
             {fitScoreData?.breakdown?.length > 0 && (

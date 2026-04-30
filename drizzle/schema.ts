@@ -570,6 +570,10 @@ export const shareTokens = mysqlTable("share_tokens", {
   createdBy: int("createdBy").notNull().references(() => users.id),
   // Optional label for the share list this token belongs to
   shareListName: varchar("shareListName", { length: 256 }),
+  // Pre-rendered image URLs (JSON array) — avoids Serper API call on every page visit
+  cachedImages: text("cachedImages"),
+  // When the cache was last refreshed
+  cachedAt: timestamp("cachedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

@@ -37,7 +37,7 @@ export default function ShareListPage() {
   // -- Excel download ----------------------------------------------------------
   function handleDownloadExcel() {
     if (!data) return;
-    const rows = data.companies.map((c) => ({
+    const rows = data.companies.map((c: any) => ({
       "Company Name": c.companyName,
       Website: c.website,
       Country: c.country,
@@ -57,7 +57,7 @@ export default function ShareListPage() {
     const ws = XLSX.utils.json_to_sheet(rows);
     // Auto-width
     const colWidths = Object.keys(rows[0] ?? {}).map((k) => ({
-      wch: Math.max(k.length, ...rows.map((r) => String((r as Record<string, unknown>)[k] ?? "").length)) + 2,
+      wch: Math.max(k.length, ...rows.map((r: any) => String((r as Record<string, unknown>)[k] ?? "").length)) + 2,
     }));
     ws["!cols"] = colWidths;
 
@@ -165,7 +165,7 @@ export default function ShareListPage() {
                 </tr>
               </thead>
               <tbody>
-                {data.companies.map((c, idx) => (
+                {data.companies.map((c: any, idx: number) => (
                   <tr
                     key={c.token}
                     className="border-b border-gray-100 hover:bg-gray-50 transition-colors"

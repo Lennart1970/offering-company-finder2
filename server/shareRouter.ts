@@ -1,9 +1,12 @@
 import { z } from "zod";
-import { eq, and } from "drizzle-orm";
+import { eq, and, or } from "drizzle-orm";
 import crypto from "crypto";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { getDb } from "./db";
+import { createContact, getContactsByCompanyId } from "./db";
 import { inArray } from "drizzle-orm";
+import { getCachedToken, setCachedToken, getCachedList, setCachedList } from "./shareCache";
+import { trickleDownSearch, getAllPersonnel } from "./apolloPeopleSearch";
 import {
   shareTokens,
   shareLists,
@@ -85,6 +88,10 @@ export const shareRouter = router({
   resolveToken: publicProcedure
     .input(z.object({ token: z.string() }))
     .query(async ({ input }) => {
+      // Check cache first — avoids DB queries + Serper API call
+      const cached = getCachedToken(input.token);
+      if (cached) return cached;
+
       const db = await getDb();
       if (!db) throw new Error("Database unavailable");
 
@@ -129,31 +136,42 @@ export const shareRouter = router({
         .from(contacts)
         .where(eq(contacts.companyId, tokenRow.companyId));
 
-      // Fetch 2 company images via Serper image search
+      // Use cached images from DB, or fetch from Serper and cache
       let companyImages: string[] = [];
-      try {
-        const serperKey = process.env.SERPER_API_KEY;
-        if (serperKey && company.name) {
-          const searchQuery = `${company.name} company office headquarters`;
-          const serperRes = await fetch("https://google.serper.dev/images", {
-            method: "POST",
-            headers: { "X-API-KEY": serperKey, "Content-Type": "application/json" },
-            body: JSON.stringify({ q: searchQuery, num: 5 }),
-          });
-          if (serperRes.ok) {
-            const serperData = await serperRes.json() as { images?: Array<{ imageUrl?: string; thumbnailUrl?: string }> };
-            const images = serperData.images ?? [];
-            companyImages = images
-              .map((img) => img.imageUrl ?? img.thumbnailUrl ?? "")
-              .filter((url) => url && url.startsWith("http"))
-              .slice(0, 2);
+      if (tokenRow.cachedImages) {
+        try { companyImages = JSON.parse(tokenRow.cachedImages); } catch {}
+      }
+      if (companyImages.length === 0) {
+        try {
+          const serperKey = process.env.SERPER_API_KEY;
+          if (serperKey && company.name) {
+            const searchQuery = `${company.name} company office headquarters`;
+            const serperRes = await fetch("https://google.serper.dev/images", {
+              method: "POST",
+              headers: { "X-API-KEY": serperKey, "Content-Type": "application/json" },
+              body: JSON.stringify({ q: searchQuery, num: 5 }),
+            });
+            if (serperRes.ok) {
+              const serperData = await serperRes.json() as { images?: Array<{ imageUrl?: string; thumbnailUrl?: string }> };
+              const images = serperData.images ?? [];
+              companyImages = images
+                .map((img) => img.imageUrl ?? img.thumbnailUrl ?? "")
+                .filter((url) => url && url.startsWith("http"))
+                .slice(0, 2);
+              // Persist to DB so next visit skips Serper
+              if (companyImages.length > 0) {
+                await db.update(shareTokens)
+                  .set({ cachedImages: JSON.stringify(companyImages), cachedAt: new Date() })
+                  .where(eq(shareTokens.id, tokenRow.id));
+              }
+            }
           }
+        } catch {
+          // Image fetch is best-effort — never fail the page load
         }
-      } catch {
-        // Image fetch is best-effort — never fail the page load
       }
 
-      return {
+      const result = {
         company,
         brain,
         brainOutput,
@@ -161,6 +179,11 @@ export const shareRouter = router({
         shareListName: tokenRow.shareListName,
         companyImages,
       };
+
+      // Cache for 24h
+      setCachedToken(input.token, result);
+
+      return result;
     }),
 
   /**
@@ -336,6 +359,10 @@ export const shareRouter = router({
   resolveListToken: publicProcedure
     .input(z.object({ listToken: z.string() }))
     .query(async ({ input }) => {
+      // Check cache first — avoids N+1 queries for 700+ companies
+      const cached = getCachedList(input.listToken);
+      if (cached) return cached;
+
       const db = await getDb();
       if (!db) throw new Error("Database unavailable");
 
@@ -422,11 +449,16 @@ export const shareRouter = router({
         });
       }
 
-      return {
+      const result = {
         shareListName: shareList.shareListName,
         createdAt: shareList.createdAt,
         companies: companyRows,
       };
+
+      // Cache for 24h
+      setCachedList(input.listToken, result);
+
+      return result;
     }),
 });
 
@@ -686,6 +718,157 @@ export const shareExtRouter = router({
 
       const listUrl = `${input.origin}/share/list/${listToken}`;
       return { listToken, listUrl, count: tokenResults.length };
+    }),
+
+  /**
+   * Public — Find Decision-Makers at a company via share token.
+   * Requires email verification (checked via shareAllowedDomains).
+   * Saves found contacts to DB and returns them.
+   */
+  findDecisionMakers: publicProcedure
+    .input(z.object({
+      token: z.string(),
+      visitorEmail: z.string().email(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+
+      // Verify visitor email is on allowlist
+      const domain = input.visitorEmail.split("@")[1]?.toLowerCase() ?? "";
+      const allowed = await db.select().from(shareAllowedDomains).where(eq(shareAllowedDomains.domain, domain)).limit(1);
+      if (allowed.length === 0) throw new Error("Access denied: email domain not on allowlist");
+
+      // Resolve token → company
+      const tokenRows = await db.select().from(shareTokens).where(eq(shareTokens.token, input.token)).limit(1);
+      if (tokenRows.length === 0) throw new Error("Invalid share token");
+      const { companyId } = tokenRows[0];
+
+      const companyRows = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
+      if (companyRows.length === 0) throw new Error("Company not found");
+      const company = companyRows[0];
+
+      const companyDomain = company.websiteUrl
+        ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
+        : company.primaryDomain ?? null;
+      if (!companyDomain) throw new Error("Company has no domain");
+
+      // Run trickle-down decision-maker search
+      const result = await trickleDownSearch(companyDomain, company.name ?? "", 5, false);
+
+      // Upsert contacts to DB
+      const savedContacts: any[] = [];
+      const existingContacts = await getContactsByCompanyId(companyId);
+      const existingEmails = new Set(existingContacts.map((c: any) => c.email?.toLowerCase()).filter(Boolean));
+      const existingNames = new Set(existingContacts.map((c: any) => c.fullName?.toLowerCase()).filter(Boolean));
+
+      for (const contact of result.contacts) {
+        const emailKey = contact.email?.toLowerCase();
+        const nameKey = contact.name?.toLowerCase();
+        // Skip if already exists
+        if ((emailKey && existingEmails.has(emailKey)) || (nameKey && existingNames.has(nameKey))) {
+          savedContacts.push(existingContacts.find((c: any) => c.email?.toLowerCase() === emailKey || c.fullName?.toLowerCase() === nameKey));
+          continue;
+        }
+        try {
+          const saved = await createContact({
+            companyId,
+            apolloPersonId: contact.id ?? null,
+            firstName: contact.firstName ?? null,
+            lastName: contact.lastName ?? null,
+            fullName: contact.name ?? null,
+            title: contact.title ?? null,
+            email: contact.email ?? null,
+            phone: contact.phone ?? null,
+            linkedinUrl: contact.linkedinUrl ?? null,
+            searchedTitle: "Decision Maker",
+          });
+          savedContacts.push(saved);
+          if (emailKey) existingEmails.add(emailKey);
+          if (nameKey) existingNames.add(nameKey);
+        } catch { /* skip duplicates */ }
+      }
+
+      return { contacts: savedContacts, tierLabel: result.tierLabel, tiersSearched: result.tiersSearched };
+    }),
+
+  /**
+   * Public — Get All Personnel at a company via share token.
+   * Requires email verification. Saves contacts to DB and returns them.
+   */
+  getAllPersonnelForShare: publicProcedure
+    .input(z.object({
+      token: z.string(),
+      visitorEmail: z.string().email(),
+      seniorities: z.array(z.string()).optional(),
+      department: z.string().optional(),
+      limit: z.number().min(1).max(100).default(50),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+
+      // Verify visitor email is on allowlist
+      const domain = input.visitorEmail.split("@")[1]?.toLowerCase() ?? "";
+      const allowed = await db.select().from(shareAllowedDomains).where(eq(shareAllowedDomains.domain, domain)).limit(1);
+      if (allowed.length === 0) throw new Error("Access denied: email domain not on allowlist");
+
+      // Resolve token → company
+      const tokenRows = await db.select().from(shareTokens).where(eq(shareTokens.token, input.token)).limit(1);
+      if (tokenRows.length === 0) throw new Error("Invalid share token");
+      const { companyId } = tokenRows[0];
+
+      const companyRows = await db.select().from(companies).where(eq(companies.id, companyId)).limit(1);
+      if (companyRows.length === 0) throw new Error("Company not found");
+      const company = companyRows[0];
+
+      const companyDomain = company.websiteUrl
+        ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "")
+        : company.primaryDomain ?? null;
+      if (!companyDomain) throw new Error("Company has no domain");
+
+      // Run get all personnel search
+      const result = await getAllPersonnel(
+        companyDomain,
+        company.name ?? "",
+        input.limit,
+        input.seniorities,
+        input.department,
+      );
+
+      // Upsert contacts to DB
+      const savedContacts: any[] = [];
+      const existingContacts = await getContactsByCompanyId(companyId);
+      const existingEmails = new Set(existingContacts.map((c: any) => c.email?.toLowerCase()).filter(Boolean));
+      const existingNames = new Set(existingContacts.map((c: any) => c.fullName?.toLowerCase()).filter(Boolean));
+
+      for (const contact of result.contacts) {
+        const emailKey = contact.email?.toLowerCase();
+        const nameKey = contact.name?.toLowerCase();
+        if ((emailKey && existingEmails.has(emailKey)) || (nameKey && existingNames.has(nameKey))) {
+          savedContacts.push(existingContacts.find((c: any) => c.email?.toLowerCase() === emailKey || c.fullName?.toLowerCase() === nameKey));
+          continue;
+        }
+        try {
+          const saved = await createContact({
+            companyId,
+            apolloPersonId: contact.id ?? null,
+            firstName: contact.firstName ?? null,
+            lastName: contact.lastName ?? null,
+            fullName: contact.name ?? null,
+            title: contact.title ?? null,
+            email: contact.email ?? null,
+            phone: contact.phone ?? null,
+            linkedinUrl: contact.linkedinUrl ?? null,
+            searchedTitle: "All Personnel",
+          });
+          savedContacts.push(saved);
+          if (emailKey) existingEmails.add(emailKey);
+          if (nameKey) existingNames.add(nameKey);
+        } catch { /* skip duplicates */ }
+      }
+
+      return { contacts: savedContacts, total: result.totalFound };
     }),
 
   /** Public -- list ALL brains with their share tokens (if any) for the overview page */

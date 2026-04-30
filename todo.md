@@ -2376,3 +2376,31 @@
 
 ## Share List UI
 - [x] Remove Employees, Key Signal, and Contact columns from share list table to fit on one page
+
+## Share Page Performance — Pre-render Cache
+- [ ] Add cached_data JSON column to share_tokens table
+- [ ] Modify resolveToken to serve from cache, fall back to live fetch
+- [ ] Add /api/scheduled/refresh-shares endpoint to pre-render all share pages
+- [ ] Set up daily scheduled task to call refresh endpoint
+
+## Share Page — Get All Personnel
+- [ ] Add public tRPC procedure to call Apollo people search by company domain (gated by email verification)
+- [ ] Add Get All Personnel UI section to share page with seniority/dept filters
+- [ ] Show contact cards with name, title, email, LinkedIn, Get Phone button
+
+## Share Page — Apollo Contact Search (Email-Gated)
+- [ ] Add public tRPC procedure: share.findDecisionMakers (calls trickleDownSearch by domain, no DB save)
+- [ ] Add public tRPC procedure: share.getAllPersonnel (calls getAllPersonnel by domain, no DB save)
+- [ ] Add contacts section to SharePage.tsx with Find Decision-Makers + Get All Personnel buttons
+- [ ] Add seniority filter (All / Lead+Senior) and department filter (All / HR / Product / etc.)
+- [ ] Show contact cards: name, title, email, LinkedIn, Get Phone button
+- [ ] Gate both procedures behind email verification (check share visitor session)
+
+## Share Page — Apollo Contacts (Done)
+- [x] Add Find Decision-Makers button to share page (gated by email verification)
+- [x] Add Get All Personnel button to share page (gated by email verification)
+- [x] Add seniority/department filters to Get All Personnel
+- [x] Save found contacts to MySQL DB (dedup by email/name, refresh existing)
+- [x] Show contacts in sidebar with email/LinkedIn/phone links
+- [x] Share page image caching: store Serper image URLs in share_tokens.cachedImages column
+- [x] Share list table: remove Employees, Key Signal, Contact columns to fit one page

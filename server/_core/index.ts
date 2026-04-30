@@ -16,6 +16,7 @@ import apolloWebhookRouter from "../routes/apolloWebhook";
 import { startCampaignQueueWorker } from "../campaignQueueWorker";
 import { runBatchContactsAndReps, getBatchProgress } from "../batchContactsAndReps";
 import { runBatchSignalOpeners, batchSignalProgress } from "../batchSignalOpeners";
+import { scheduledRefreshSharesRouter } from "../scheduledRefreshShares";
 
 function isPortAvailable(port: number): Promise<boolean> {
   return new Promise(resolve => {
@@ -56,6 +57,8 @@ async function startServer() {
   app.use("/api/share-list-export", shareListExportRouter);
   // Apollo async phone enrichment webhook
   app.use("/api/apollo-webhook", apolloWebhookRouter);
+  // Scheduled task: pre-fetch images for share pages
+  app.use("/api/scheduled/refresh-shares", scheduledRefreshSharesRouter);
 
   // Batch contacts + sales rep trigger (admin only, no auth for internal use)
   app.post("/api/batch-contacts-reps", (req, res) => {

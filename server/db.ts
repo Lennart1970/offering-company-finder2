@@ -703,6 +703,55 @@ export async function getNichesByUserId(userId: number): Promise<Niche[]> {
     .orderBy(desc(niches.fitScore));
 }
 
+/**
+ * Lightweight niche queries for UI display — excludes centroid (~33KB each) and companyIds
+ * to reduce payload from ~6MB to ~0.5MB for 173 niches.
+ */
+const nicheDisplayColumns = {
+  id: niches.id,
+  userId: niches.userId,
+  searchId: niches.searchId,
+  brainId: niches.brainId,
+  name: niches.name,
+  description: niches.description,
+  companyCount: niches.companyCount,
+  topKeywords: niches.topKeywords,
+  sampleCompanies: niches.sampleCompanies,
+  rationale: niches.rationale,
+  fitScore: niches.fitScore,
+  fitReasoning: niches.fitReasoning,
+  scoreBreakdown: niches.scoreBreakdown,
+  scoredAt: niches.scoredAt,
+  scoredWithBrainId: niches.scoredWithBrainId,
+  parentNicheId: niches.parentNicheId,
+  createdAt: niches.createdAt,
+  updatedAt: niches.updatedAt,
+};
+
+export async function getNichesLightBySearchId(searchId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select(nicheDisplayColumns).from(niches)
+    .where(eq(niches.searchId, searchId))
+    .orderBy(desc(niches.fitScore));
+}
+
+export async function getNichesLightByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select(nicheDisplayColumns).from(niches)
+    .where(eq(niches.userId, userId))
+    .orderBy(desc(niches.fitScore));
+}
+
+export async function getNichesLightByParentId(parentNicheId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select(nicheDisplayColumns).from(niches)
+    .where(eq(niches.parentNicheId, parentNicheId))
+    .orderBy(desc(niches.fitScore));
+}
+
 export async function getNicheById(id: number): Promise<Niche | null> {
   const db = await getDb();
   if (!db) return null;

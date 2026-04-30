@@ -296,6 +296,7 @@
 
 ## Bug Fixes: Brief Generation
 - [x] Fix Python version mismatch (use /usr/bin/python3.11 instead of python3)
+- [x] Fix /niche-review page not loading on live site (excluded centroid/companyIds from UI queries, 6MB→0.5MB)
 - [x] Fix button positioning issue (changed flex layout to flex-col for vertical stacking)
 
 ## Bug Fix: PYTHONPATH Issue

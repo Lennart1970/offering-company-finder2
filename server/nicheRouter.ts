@@ -31,6 +31,9 @@ import {
   createSearch,
   getSearchById,
   createCompanies,
+  getNichesLightBySearchId,
+  getNichesLightByUserId,
+  getNichesLightByParentId,
 } from "./db";
 import { scoreNicheFit, NicheClusterInput } from "./nicheFitScorer";
 import { generateEmbeddings } from "./embeddingService";
@@ -408,7 +411,7 @@ export const nicheRouter = router({
   getNiches: protectedProcedure
     .input(z.object({ searchId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const niches = await getNichesBySearchId(input.searchId);
+      const niches = await getNichesLightBySearchId(input.searchId);
       return niches.map(parseNicheFields);
     }),
 
@@ -416,13 +419,14 @@ export const nicheRouter = router({
    * Get all niches for the current user (across all searches).
    * Admins always see niches from the owner account (userId=1) to handle
    * the case where an admin logs in via a secondary account.
+   * Uses lightweight query (excludes centroid/companyIds) to reduce payload from ~6MB to ~0.5MB.
    */
   getAllNiches: protectedProcedure.query(async ({ ctx }) => {
-    // For admins, fall back to the primary owner account if the current user has no niches
-    let niches = await getNichesByUserId(ctx.user.id);
-    if (niches.length === 0 && ctx.user.role === 'admin') {
+    // For admins/super_admins, fall back to the primary owner account if the current user has no niches
+    let niches = await getNichesLightByUserId(ctx.user.id);
+    if (niches.length === 0 && (ctx.user.role === 'admin' || ctx.user.role === 'super_admin')) {
       // Try the owner account (userId=1) — handles secondary admin logins
-      niches = await getNichesByUserId(1);
+      niches = await getNichesLightByUserId(1);
     }
     return niches.map(parseNicheFields);
   }),
@@ -900,11 +904,12 @@ export const nicheRouter = router({
 
   /**
    * Get child niches for a given parent niche ID.
+   * Uses lightweight query (excludes centroid/companyIds).
    */
   getChildNiches: protectedProcedure
     .input(z.object({ parentNicheId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const children = await getNichesByParentId(input.parentNicheId);
+      const children = await getNichesLightByParentId(input.parentNicheId);
       return children.map(parseNicheFields);
     }),
 
@@ -1073,7 +1078,7 @@ function parseNicheFields(niche: any) {
     ...niche,
     topKeywords: niche.topKeywords ? tryParse(niche.topKeywords, []) : [],
     sampleCompanies: niche.sampleCompanies ? tryParse(niche.sampleCompanies, []) : [],
-    companyIds: niche.companyIds ? tryParse(niche.companyIds, []) : [],
+    companyIds: niche.companyIds ? tryParse(niche.companyIds, []) : [],  // may be undefined from lightweight queries
     scoreBreakdown: niche.scoreBreakdown ? tryParse(niche.scoreBreakdown, []) : [],
   };
 }

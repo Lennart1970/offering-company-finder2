@@ -2,6 +2,7 @@ import { useParams } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { useState, useMemo } from "react";
 import * as XLSX from "xlsx";
 import { ShareGate } from "@/components/ShareGate";
 
@@ -25,6 +26,32 @@ function scoreColor(score: number | null): string {
   return "#ef4444";
 }
 
+type SortKey = "fitScore" | "urgencyScore" | "companyName";
+type SortDir = "desc" | "asc";
+
+// --- Sort header button -------------------------------------------------------
+function SortTh({
+  label, sortKey, current, dir, onSort,
+}: {
+  label: string; sortKey: SortKey; current: SortKey; dir: SortDir;
+  onSort: (k: SortKey) => void;
+}) {
+  const active = current === sortKey;
+  return (
+    <th
+      className="px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700 cursor-pointer select-none whitespace-nowrap"
+      onClick={() => onSort(sortKey)}
+    >
+      <span className={`inline-flex items-center gap-1 ${active ? "text-black" : "text-gray-500"}`}>
+        {label}
+        <span className="text-[10px]">
+          {active ? (dir === "desc" ? "▼" : "▲") : "⇅"}
+        </span>
+      </span>
+    </th>
+  );
+}
+
 // --- Main Component -----------------------------------------------------------
 export default function ShareListPage() {
   const { listToken } = useParams<{ listToken: string }>();
@@ -34,10 +61,66 @@ export default function ShareListPage() {
     { enabled: !!listToken }
   );
 
+  // -- Sort & filter state -----------------------------------------------------
+  const [sortKey, setSortKey] = useState<SortKey>("fitScore");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
+  const [minFit, setMinFit] = useState<number>(0);
+  const [minUrgency, setMinUrgency] = useState<number>(0);
+  const [search, setSearch] = useState<string>("");
+
+  function handleSort(key: SortKey) {
+    if (key === sortKey) {
+      setSortDir((d) => (d === "desc" ? "asc" : "desc"));
+    } else {
+      setSortKey(key);
+      setSortDir("desc");
+    }
+  }
+
+  // -- Filtered + sorted companies ---------------------------------------------
+  const displayCompanies = useMemo(() => {
+    if (!data?.companies) return [];
+    let list = [...data.companies] as any[];
+
+    // Text search
+    if (search.trim()) {
+      const q = search.trim().toLowerCase();
+      list = list.filter(
+        (c) =>
+          c.companyName?.toLowerCase().includes(q) ||
+          c.website?.toLowerCase().includes(q) ||
+          c.country?.toLowerCase().includes(q) ||
+          c.city?.toLowerCase().includes(q) ||
+          c.sector?.toLowerCase().includes(q)
+      );
+    }
+
+    // Score filters
+    if (minFit > 0) list = list.filter((c) => (c.fitScore ?? 0) >= minFit);
+    if (minUrgency > 0) list = list.filter((c) => (c.urgencyScore ?? 0) >= minUrgency);
+
+    // Sort
+    list.sort((a, b) => {
+      let av: any, bv: any;
+      if (sortKey === "companyName") {
+        av = (a.companyName ?? "").toLowerCase();
+        bv = (b.companyName ?? "").toLowerCase();
+      } else {
+        av = a[sortKey] ?? -1;
+        bv = b[sortKey] ?? -1;
+      }
+      if (av < bv) return sortDir === "desc" ? 1 : -1;
+      if (av > bv) return sortDir === "desc" ? -1 : 1;
+      return 0;
+    });
+
+    return list;
+  }, [data, search, minFit, minUrgency, sortKey, sortDir]);
+
   // -- Excel download ----------------------------------------------------------
   function handleDownloadExcel() {
     if (!data) return;
-    const rows = data.companies.map((c: any) => ({
+    const rows = displayCompanies.map((c: any) => ({
       "Company Name": c.companyName,
       Website: c.website,
       Country: c.country,
@@ -55,7 +138,6 @@ export default function ShareListPage() {
     }));
 
     const ws = XLSX.utils.json_to_sheet(rows);
-    // Auto-width
     const colWidths = Object.keys(rows[0] ?? {}).map((k) => ({
       wch: Math.max(k.length, ...rows.map((r: any) => String((r as Record<string, unknown>)[k] ?? "").length)) + 2,
     }));
@@ -95,6 +177,10 @@ export default function ShareListPage() {
     day: "numeric", month: "long", year: "numeric",
   });
 
+  const totalCount = data.companies.length;
+  const filteredCount = displayCompanies.length;
+  const isFiltered = filteredCount !== totalCount;
+
   return (
     <ShareGate tokenType="list" tokenValue={listToken ?? ""}>
     <div className="min-h-screen bg-gray-50">
@@ -132,8 +218,14 @@ export default function ShareListPage() {
       <div className="bg-black text-white">
         <div className="max-w-7xl mx-auto px-6 py-4 flex items-center gap-8 flex-wrap">
           <div>
-            <div className="text-2xl font-black">{data.companies.length}</div>
-            <div className="text-xs text-gray-400 uppercase tracking-widest">Companies</div>
+            <div className="text-2xl font-black">
+              {isFiltered ? (
+                <span>{filteredCount} <span className="text-gray-400 text-lg">/ {totalCount}</span></span>
+              ) : totalCount}
+            </div>
+            <div className="text-xs text-gray-400 uppercase tracking-widest">
+              {isFiltered ? "Filtered" : "Companies"}
+            </div>
           </div>
           {data.shareListName && (
             <div>
@@ -147,6 +239,85 @@ export default function ShareListPage() {
         </div>
       </div>
 
+      {/* -- Filter & sort toolbar -- */}
+      <div className="bg-white border-b border-gray-200 sticky top-[57px] z-30">
+        <div className="max-w-7xl mx-auto px-6 py-3 flex items-center gap-4 flex-wrap">
+          {/* Search */}
+          <div className="relative flex-1 min-w-[180px] max-w-xs">
+            <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">🔍</span>
+            <input
+              type="text"
+              placeholder="Search companies…"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              className="w-full pl-8 pr-3 py-1.5 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-black"
+            />
+          </div>
+
+          {/* Min Fit Score */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-black text-gray-600 uppercase tracking-widest whitespace-nowrap">
+              Min Fit
+            </label>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={minFit}
+                onChange={(e) => setMinFit(Number(e.target.value))}
+                className="w-24 accent-black"
+              />
+              <span
+                className="inline-flex items-center justify-center w-8 h-8 rounded-full text-white font-black text-xs"
+                style={{ background: scoreColor(minFit || null) }}
+              >
+                {minFit}
+              </span>
+            </div>
+          </div>
+
+          {/* Min Urgency Score */}
+          <div className="flex items-center gap-2">
+            <label className="text-xs font-black text-gray-600 uppercase tracking-widest whitespace-nowrap">
+              Min Urgency
+            </label>
+            <div className="flex items-center gap-1.5">
+              <input
+                type="range"
+                min={0}
+                max={100}
+                step={5}
+                value={minUrgency}
+                onChange={(e) => setMinUrgency(Number(e.target.value))}
+                className="w-24 accent-black"
+              />
+              <span
+                className="inline-flex items-center justify-center w-8 h-8 rounded-full text-white font-black text-xs"
+                style={{ background: scoreColor(minUrgency || null) }}
+              >
+                {minUrgency}
+              </span>
+            </div>
+          </div>
+
+          {/* Reset */}
+          {(minFit > 0 || minUrgency > 0 || search) && (
+            <button
+              onClick={() => { setMinFit(0); setMinUrgency(0); setSearch(""); }}
+              className="text-xs text-gray-500 underline hover:text-black"
+            >
+              Reset
+            </button>
+          )}
+
+          <div className="ml-auto text-xs text-gray-400">
+            {isFiltered && `Showing ${filteredCount} of ${totalCount}`}
+          </div>
+        </div>
+      </div>
+
       {/* -- Company table -- */}
       <div className="max-w-7xl mx-auto px-6 py-8">
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
@@ -155,17 +326,17 @@ export default function ShareListPage() {
               <thead>
                 <tr className="border-b-2 border-black bg-gray-50">
                   <th className="text-left px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">#</th>
-                  <th className="text-left px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">Company</th>
+                  <SortTh label="Company" sortKey="companyName" current={sortKey} dir={sortDir} onSort={handleSort} />
                   <th className="text-left px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">Location</th>
                   <th className="text-left px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">Sector</th>
-                  <th className="text-center px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">Fit</th>
-                  <th className="text-center px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">Urgency</th>
+                  <SortTh label="Fit" sortKey="fitScore" current={sortKey} dir={sortDir} onSort={handleSort} />
+                  <SortTh label="Urgency" sortKey="urgencyScore" current={sortKey} dir={sortDir} onSort={handleSort} />
                   <th className="text-left px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">ICP</th>
                   <th className="px-4 py-3"></th>
                 </tr>
               </thead>
               <tbody>
-                {data.companies.map((c: any, idx: number) => (
+                {displayCompanies.map((c: any, idx: number) => (
                   <tr
                     key={c.token}
                     className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
@@ -215,10 +386,20 @@ export default function ShareListPage() {
             </table>
           </div>
 
-          {data.companies.length === 0 && (
+          {displayCompanies.length === 0 && (
             <div className="text-center py-16 text-gray-400">
-              <div className="text-4xl mb-3">📋</div>
-              <p className="font-medium">No companies in this list</p>
+              <div className="text-4xl mb-3">🔍</div>
+              <p className="font-medium">
+                {isFiltered ? "No companies match the current filters" : "No companies in this list"}
+              </p>
+              {isFiltered && (
+                <button
+                  onClick={() => { setMinFit(0); setMinUrgency(0); setSearch(""); }}
+                  className="mt-3 text-xs text-black underline"
+                >
+                  Clear filters
+                </button>
+              )}
             </div>
           )}
         </div>

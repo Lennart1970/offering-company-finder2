@@ -448,70 +448,7 @@ export default function SharePage() {
               initialFetchedAt={contactsFetchedAt ? new Date(contactsFetchedAt as any) : null}
             />
 
-            {/* Website Visitors (Leadinfo) panel */}
-            {leadinfo && (
-              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                {/* Header row */}
-                <div className="flex items-center justify-between px-4 pt-3 pb-2 border-b border-gray-100">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-500">Website Visitors</h3>
-                  <div className="flex gap-1">
-                    <span className="text-[9px] font-black px-1.5 py-0.5 bg-green-100 text-green-700 rounded uppercase">Website Visitor</span>
-                    <span className="text-[9px] font-black px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded uppercase">Leadinfo</span>
-                  </div>
-                </div>
-                {/* 2×2 stat grid */}
-                <div className="grid grid-cols-2 divide-x divide-y divide-gray-100">
-                  <div className="p-3">
-                    <p className="text-[10px] font-black text-gray-400 uppercase leading-tight">Engagement</p>
-                    <p className="text-3xl font-black text-gray-900 leading-tight mt-0.5">{leadinfo.engagementScore}</p>
-                  </div>
-                  <div className="p-3">
-                    <p className="text-[10px] font-black text-gray-400 uppercase leading-tight">Sessions</p>
-                    <p className="text-3xl font-black text-gray-900 leading-tight mt-0.5">{leadinfo.totalSessions}</p>
-                  </div>
-                  <div className="p-3">
-                    <p className="text-[10px] font-black text-gray-400 uppercase leading-tight">Pages Viewed</p>
-                    <p className="text-3xl font-black text-gray-900 leading-tight mt-0.5">{leadinfo.totalPages}</p>
-                  </div>
-                  <div className="p-3">
-                    <p className="text-[10px] font-black text-gray-400 uppercase leading-tight">Avg Pages</p>
-                    <p className="text-3xl font-black text-gray-900 leading-tight mt-0.5">{leadinfo.avgPagesPerSession}</p>
-                  </div>
-                </div>
-                {/* Time on site row */}
-                {leadinfo.totalDuration > 0 && (
-                  <div className="px-3 py-2 border-t border-gray-100">
-                    <p className="text-[10px] font-black text-gray-400 uppercase leading-tight">Time on Site</p>
-                    <p className="text-2xl font-black text-gray-900 leading-tight mt-0.5">
-                      {leadinfo.totalDuration >= 60
-                        ? `${Math.floor(leadinfo.totalDuration / 60)}m ${leadinfo.totalDuration % 60}s`
-                        : `${leadinfo.totalDuration}s`}
-                    </p>
-                  </div>
-                )}
-                {/* Intent signals */}
-                {leadinfo.intentSignals.length > 0 && (
-                  <div className="px-3 py-2 border-t border-gray-100 space-y-1">
-                    <p className="text-[10px] font-black text-gray-400 uppercase">Intent Signals</p>
-                    {leadinfo.intentSignals.map((sig: string, i: number) => (
-                      <div key={i} className="flex items-start gap-1.5">
-                        <span className="text-green-500 text-[10px] mt-0.5 shrink-0">●</span>
-                        <span className="text-[10px] text-gray-700 font-medium leading-snug">{sig}</span>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                {/* Pages visited */}
-                {leadinfo.topPages.length > 0 && (
-                  <div className="px-3 py-2 border-t border-gray-100 space-y-1">
-                    <p className="text-[10px] font-black text-gray-400 uppercase">Pages Visited</p>
-                    {leadinfo.topPages.map((pg: string, i: number) => (
-                      <p key={i} className="text-[10px] text-gray-600 truncate leading-snug">{pg}</p>
-                    ))}
-                  </div>
-                )}
-              </div>
-            )}
+{/* Website Visitors moved to main content column */}
 
             {/* Fit score breakdown panel */}
             {fitScoreData?.breakdown?.length > 0 && (
@@ -561,6 +498,74 @@ export default function SharePage() {
 
           {/* --- RIGHT MAIN CONTENT --- */}
           <div className="flex-1 min-w-0 space-y-10">
+
+            {/* -- WEBSITE VISITORS (Leadinfo) -- */}
+            {leadinfo && (
+              <section>
+                <div id="visitors" className="flex items-center justify-between border-b-2 border-gray-200 pb-2 mb-5 scroll-mt-4">
+                  <div className="flex items-center gap-3">
+                    <span className="text-green-600 text-base">👁</span>
+                    <h2 className="text-xs font-black uppercase tracking-widest text-green-700">Website Visitors</h2>
+                  </div>
+                  <div className="flex gap-1">
+                    <span className="text-[9px] font-black px-1.5 py-0.5 bg-green-100 text-green-700 rounded uppercase">Website Visitor</span>
+                    <span className="text-[9px] font-black px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded uppercase">Leadinfo</span>
+                  </div>
+                </div>
+                {/* Stat row — horizontal layout matching the internal magazine view */}
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-0 border border-gray-200 rounded-xl overflow-hidden mb-4">
+                  <div className="p-4 border-r border-gray-100">
+                    <p className="text-[10px] font-black text-gray-400 uppercase leading-tight">Engagement</p>
+                    <p className="text-4xl font-black text-gray-900 leading-tight mt-1">{leadinfo.engagementScore}</p>
+                  </div>
+                  <div className="p-4 border-r border-gray-100">
+                    <p className="text-[10px] font-black text-gray-400 uppercase leading-tight">Sessions</p>
+                    <p className="text-4xl font-black text-gray-900 leading-tight mt-1">{leadinfo.totalSessions}</p>
+                  </div>
+                  <div className="p-4 border-r border-gray-100">
+                    <p className="text-[10px] font-black text-gray-400 uppercase leading-tight">Pages Viewed</p>
+                    <p className="text-4xl font-black text-gray-900 leading-tight mt-1">{leadinfo.totalPages}</p>
+                  </div>
+                  <div className="p-4">
+                    <p className="text-[10px] font-black text-gray-400 uppercase leading-tight">Avg Pages / Session</p>
+                    <p className="text-4xl font-black text-gray-900 leading-tight mt-1">{leadinfo.avgPagesPerSession}</p>
+                  </div>
+                </div>
+                {/* Second row: time on site + intent signals + pages visited */}
+                <div className="flex flex-wrap gap-6">
+                  {leadinfo.totalDuration > 0 && (
+                    <div>
+                      <p className="text-[10px] font-black text-gray-400 uppercase leading-tight">Time on Site</p>
+                      <p className="text-2xl font-black text-gray-900 leading-tight mt-0.5">
+                        {leadinfo.totalDuration >= 60
+                          ? `${Math.floor(leadinfo.totalDuration / 60)}m ${leadinfo.totalDuration % 60}s`
+                          : `${leadinfo.totalDuration}s`}
+                      </p>
+                    </div>
+                  )}
+                  {leadinfo.intentSignals.length > 0 && (
+                    <div className="flex-1 min-w-[200px]">
+                      <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Intent Signals</p>
+                      <div className="flex flex-wrap gap-1">
+                        {leadinfo.intentSignals.map((sig: string, i: number) => (
+                          <span key={i} className="text-[10px] font-medium bg-green-50 text-green-800 border border-green-200 px-2 py-0.5 rounded-full">{sig}</span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                  {leadinfo.topPages.length > 0 && (
+                    <div className="flex-1 min-w-[200px]">
+                      <p className="text-[10px] font-black text-gray-400 uppercase mb-1">Pages Visited</p>
+                      <div className="space-y-0.5">
+                        {leadinfo.topPages.map((pg: string, i: number) => (
+                          <p key={i} className="text-[10px] text-gray-600 truncate">{pg}</p>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </section>
+            )}
 
             {/* -- URGENCY SIGNALS -- */}
             <section>

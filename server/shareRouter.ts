@@ -405,84 +405,46 @@ export const shareRouter = router({
       if (listRows.length === 0) throw new Error("Invalid or expired share list link");
       const shareList = listRows[0];
 
-      // Get all items in this list
-      const items = await db
-        .select()
-        .from(shareListItems)
-        .where(eq(shareListItems.shareListId, shareList.id));
+      // Single-query path via pre-joined view — replaces the old 5-queries-per-company loop
+      const db2 = await getDb();
+      if (!db2) throw new Error("Database unavailable");
+      const viewRows = await db2.execute(
+        `SELECT * FROM share_list_company_view WHERE shareListId = ${shareList.id}`
+      ) as unknown as Array<Record<string, unknown>>;
+      const rawRows: Array<Record<string, unknown>> = Array.isArray(viewRows[0]) ? viewRows[0] as Array<Record<string, unknown>> : viewRows;
 
-      const companyRows: Array<{
-        companyId: number;
-        brainId: number;
-        token: string;
-        companyName: string;
-        website: string;
-        country: string;
-        city: string;
-        employeeCount: string;
-        sector: string;
-        brainName: string;
-        fitScore: number | null;
-        urgencyScore: number | null;
-        keySignal: string;
-        contactName: string;
-        contactTitle: string;
-        contactEmail: string;
-      }> = [];
-
-      for (const item of items) {
-        const tokenRows = await db.select().from(shareTokens).where(eq(shareTokens.id, item.shareTokenId)).limit(1);
-        if (tokenRows.length === 0) continue;
-        const tokenRow = tokenRows[0];
-
-        const companyData = await db.select().from(companies).where(eq(companies.id, tokenRow.companyId)).limit(1);
-        if (companyData.length === 0) continue;
-        const company = companyData[0];
-
-        const brainData = await db.select().from(offeringBrain).where(eq(offeringBrain.id, tokenRow.brainId)).limit(1);
-        const brain = brainData[0] ?? null;
-
-        const outputData = await db.select().from(companyBrainOutputs).where(and(eq(companyBrainOutputs.companyId, tokenRow.companyId), eq(companyBrainOutputs.brainId, tokenRow.brainId))).limit(1);
-        const brainOutput = outputData[0] ?? null;
-
-        const contactData = await db.select().from(contacts).where(eq(contacts.companyId, tokenRow.companyId)).limit(1);
-        const firstContact = contactData[0] ?? null;
-
+      const companyRows = rawRows.map((row) => {
         let keySignal = "";
-        const briefStr = brainOutput?.briefData ?? company.briefData;
+        const briefStr = (row.outputBriefData ?? row.briefData) as string | null;
         if (briefStr) {
           try {
             const brief = JSON.parse(briefStr);
             keySignal = brief?.urgencySignals?.[0]?.signal ?? brief?.signals?.[0]?.signal ?? brief?.keySignal ?? "";
           } catch {}
         }
-
         let sector = "";
-        if (company.sliceMetadata) {
-          try { const meta = JSON.parse(company.sliceMetadata); sector = meta?.industry ?? ""; } catch {}
+        if (row.sliceMetadata) {
+          try { const meta = JSON.parse(row.sliceMetadata as string); sector = meta?.industry ?? ""; } catch {}
         }
-
-        const empCount = (company as any).employeeCount ?? (company as any).headcount ?? "";
-
-        companyRows.push({
-          companyId: tokenRow.companyId,
-          brainId: tokenRow.brainId,
-          token: tokenRow.token,
-          companyName: company.name,
-          website: company.websiteUrl ?? "",
-          country: company.country ?? "",
-          city: (company as any).city ?? "",
-          employeeCount: String(empCount),
+        return {
+          companyId: Number(row.companyId),
+          brainId: Number(row.brainId),
+          token: String(row.token ?? ""),
+          companyName: String(row.companyName ?? ""),
+          website: String(row.websiteUrl ?? ""),
+          country: String(row.country ?? ""),
+          city: String(row.city ?? ""),
+          employeeCount: "",
           sector,
-          brainName: brain?.brainName ?? "",
-          fitScore: brainOutput?.fitScore ?? company.fitScore ?? null,
-          urgencyScore: brainOutput?.urgencyScore ?? company.urgencyScore ?? null,
+          brainName: String(row.brainName ?? ""),
+          fitScore: row.outputFitScore != null ? Number(row.outputFitScore) : row.fitScore != null ? Number(row.fitScore) : null,
+          urgencyScore: row.outputUrgencyScore != null ? Number(row.outputUrgencyScore) : row.urgencyScore != null ? Number(row.urgencyScore) : null,
           keySignal,
-          contactName: firstContact?.fullName ?? "",
-          contactTitle: firstContact?.title ?? "",
-          contactEmail: firstContact?.email ?? "",
-        });
-      }
+          contactName: String(row.contactName ?? ""),
+          contactTitle: String(row.contactTitle ?? ""),
+          contactEmail: String(row.contactEmail ?? ""),
+        };
+      });
 
       const result = {
         shareListName: shareList.shareListName,

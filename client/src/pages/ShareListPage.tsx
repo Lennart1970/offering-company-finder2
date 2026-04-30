@@ -158,11 +158,8 @@ export default function ShareListPage() {
                   <th className="text-left px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">Company</th>
                   <th className="text-left px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">Location</th>
                   <th className="text-left px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">Sector</th>
-                  <th className="text-left px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">Employees</th>
                   <th className="text-center px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">Fit</th>
                   <th className="text-center px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">Urgency</th>
-                  <th className="text-left px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">Key Signal</th>
-                  <th className="text-left px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">Contact</th>
                   <th className="text-left px-4 py-3 font-black text-xs uppercase tracking-widest text-gray-700">ICP</th>
                   <th className="px-4 py-3"></th>
                 </tr>
@@ -193,32 +190,11 @@ export default function ShareListPage() {
                     <td className="px-4 py-4 text-gray-600 text-xs max-w-[140px] truncate" title={c.sector}>
                       {c.sector || "—"}
                     </td>
-                    <td className="px-4 py-4 text-gray-600 text-xs">
-                      {c.employeeCount || "—"}
-                    </td>
                     <td className="px-4 py-4 text-center">
                       <ScorePill score={c.fitScore} color={scoreColor(c.fitScore)} />
                     </td>
                     <td className="px-4 py-4 text-center">
                       <ScorePill score={c.urgencyScore} color={scoreColor(c.urgencyScore)} />
-                    </td>
-                    <td className="px-4 py-4 text-gray-600 text-xs max-w-[200px]">
-                      <span className="line-clamp-2">{c.keySignal || "—"}</span>
-                    </td>
-                    <td className="px-4 py-4">
-                      {c.contactName ? (
-                        <div>
-                          <div className="font-semibold text-xs text-gray-900">{c.contactName}</div>
-                          {c.contactTitle && <div className="text-xs text-gray-500">{c.contactTitle}</div>}
-                          {c.contactEmail && (
-                            <a href={`mailto:${c.contactEmail}`} className="text-xs text-blue-600 hover:underline">
-                              {c.contactEmail}
-                            </a>
-                          )}
-                        </div>
-                      ) : (
-                        <span className="text-gray-400 text-xs">—</span>
-                      )}
                     </td>
                     <td className="px-4 py-4 text-xs text-gray-500 max-w-[120px] truncate" title={c.brainName}>
                       {c.brainName || "—"}

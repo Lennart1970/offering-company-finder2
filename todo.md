@@ -2373,3 +2373,6 @@
 - [ ] Campaign-companies junction data (deferred — focus on functionality)
 - [ ] Contacts, niches, CRM, share data (deferred — focus on functionality)
 - [ ] Leadinfo visits, campaign queue (deferred — focus on functionality)
+
+## Share List UI
+- [x] Remove Employees, Key Signal, and Contact columns from share list table to fit on one page

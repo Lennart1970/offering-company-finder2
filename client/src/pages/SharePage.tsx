@@ -83,18 +83,30 @@ function ContactsPanel({ token }: { token: string }) {
     onError: (e) => { setErrorMsg(e.message); setStatus("error"); },
   });
 
+  const runGetAll = (newSeniority: "all" | "senior", newDept: string) => {
+    if (!visitorEmail) return;
+    setMode("all"); setStatus("loading"); setErrorMsg("");
+    const seniorities = newSeniority === "senior" ? ["owner", "founder", "c_suite", "vp", "head", "director"] : undefined;
+    const department = newDept !== "all" ? newDept : undefined;
+    getAllP.mutate({ token, visitorEmail, seniorities, department, limit: 50 });
+  };
+
   const handleFindDM = () => {
     if (!visitorEmail) return;
     setMode("dm"); setStatus("loading"); setErrorMsg("");
     findDM.mutate({ token, visitorEmail });
   };
 
-  const handleGetAll = () => {
-    if (!visitorEmail) return;
-    setMode("all"); setStatus("loading"); setErrorMsg("");
-    const seniorities = seniority === "senior" ? ["owner", "founder", "c_suite", "vp", "head", "director"] : undefined;
-    const department = dept !== "all" ? dept : undefined;
-    getAllP.mutate({ token, visitorEmail, seniorities, department, limit: 50 });
+  const handleGetAll = () => runGetAll(seniority, dept);
+
+  const handleSeniorityChange = (s: "all" | "senior") => {
+    setSeniority(s);
+    if (mode === "all") runGetAll(s, dept);
+  };
+
+  const handleDeptChange = (d: string) => {
+    setDept(d);
+    if (mode === "all") runGetAll(seniority, d);
   };
 
   const DEPT_OPTIONS = [
@@ -108,10 +120,7 @@ function ContactsPanel({ token }: { token: string }) {
     { value: "product", label: "Product" },
   ];
 
-  const filtered = contacts.filter((c) => {
-    if (!c) return false;
-    return true; // filters applied server-side; client filter is just for display
-  });
+  const filtered = contacts.filter(Boolean);
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
@@ -141,7 +150,7 @@ function ContactsPanel({ token }: { token: string }) {
           <div className="flex flex-wrap gap-1 items-center">
             <span className="text-[10px] font-black text-gray-400 uppercase">Seniority</span>
             {(["all", "senior"] as const).map((s) => (
-              <button key={s} onClick={() => setSeniority(s)}
+              <button key={s} onClick={() => handleSeniorityChange(s as "all" | "senior")}
                 className={`text-[10px] font-black px-2 py-0.5 rounded border ${
                   seniority === s ? "bg-gray-900 text-white border-gray-900" : "border-gray-300 text-gray-500 hover:border-gray-500"
                 }`}>
@@ -152,7 +161,7 @@ function ContactsPanel({ token }: { token: string }) {
           <div className="flex flex-wrap gap-1 items-center">
             <span className="text-[10px] font-black text-gray-400 uppercase">Dept</span>
             {DEPT_OPTIONS.slice(0, 4).map((d) => (
-              <button key={d.value} onClick={() => setDept(d.value)}
+              <button key={d.value} onClick={() => handleDeptChange(d.value)}
                 className={`text-[10px] font-black px-2 py-0.5 rounded border ${
                   dept === d.value ? "bg-gray-900 text-white border-gray-900" : "border-gray-300 text-gray-500 hover:border-gray-500"
                 }`}>

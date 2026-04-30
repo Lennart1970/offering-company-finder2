@@ -13,6 +13,7 @@ import exportExcelRouter from "../routes/exportExcel";
 import shareListExportRouter from "../routes/shareListExport";
 import { serveStatic, setupVite } from "./vite";
 import apolloWebhookRouter from "../routes/apolloWebhook";
+import publicShareListApiRouter from "../routes/publicShareListApi";
 import { startCampaignQueueWorker } from "../campaignQueueWorker";
 import { runBatchContactsAndReps, getBatchProgress } from "../batchContactsAndReps";
 import { runBatchSignalOpeners, batchSignalProgress } from "../batchSignalOpeners";
@@ -57,6 +58,8 @@ async function startServer() {
   app.use("/api/share-list-export", shareListExportRouter);
   // Apollo async phone enrichment webhook
   app.use("/api/apollo-webhook", apolloWebhookRouter);
+  // Public REST API — no auth required (listToken in URL acts as access key)
+  app.use("/api/public/share-lists", publicShareListApiRouter);
   // Scheduled task: pre-fetch images for share pages
   app.use("/api/scheduled/refresh-shares", scheduledRefreshSharesRouter);
 

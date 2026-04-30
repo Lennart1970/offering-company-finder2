@@ -800,9 +800,6 @@ export const shareExtRouter = router({
     .input(z.object({
       token: z.string(),
       visitorEmail: z.string().email(),
-      seniorities: z.array(z.string()).optional(),
-      department: z.string().optional(),
-      limit: z.number().min(1).max(100).default(50),
     }))
     .mutation(async ({ input }) => {
       const db = await getDb();
@@ -827,17 +824,10 @@ export const shareExtRouter = router({
         : company.primaryDomain ?? null;
       if (!companyDomain) throw new Error("Company has no domain");
 
-      // Run get all personnel search
-      const result = await getAllPersonnel(
-        companyDomain,
-        company.name ?? "",
-        input.limit,
-        input.seniorities,
-        input.department,
-      );
+      // Fetch ALL personnel from Apollo (no limit)
+      const result = await getAllPersonnel(companyDomain, company.name ?? "", 500);
 
-      // Upsert contacts to DB
-      const savedContacts: any[] = [];
+      // Upsert all contacts to DB
       const existingContacts = await getContactsByCompanyId(companyId);
       const existingEmails = new Set(existingContacts.map((c: any) => c.email?.toLowerCase()).filter(Boolean));
       const existingNames = new Set(existingContacts.map((c: any) => c.fullName?.toLowerCase()).filter(Boolean));
@@ -845,12 +835,9 @@ export const shareExtRouter = router({
       for (const contact of result.contacts) {
         const emailKey = contact.email?.toLowerCase();
         const nameKey = contact.name?.toLowerCase();
-        if ((emailKey && existingEmails.has(emailKey)) || (nameKey && existingNames.has(nameKey))) {
-          savedContacts.push(existingContacts.find((c: any) => c.email?.toLowerCase() === emailKey || c.fullName?.toLowerCase() === nameKey));
-          continue;
-        }
+        if ((emailKey && existingEmails.has(emailKey)) || (nameKey && existingNames.has(nameKey))) continue;
         try {
-          const saved = await createContact({
+          await createContact({
             companyId,
             apolloPersonId: contact.id ?? null,
             firstName: contact.firstName ?? null,
@@ -862,13 +849,36 @@ export const shareExtRouter = router({
             linkedinUrl: contact.linkedinUrl ?? null,
             searchedTitle: "All Personnel",
           });
-          savedContacts.push(saved);
           if (emailKey) existingEmails.add(emailKey);
           if (nameKey) existingNames.add(nameKey);
         } catch { /* skip duplicates */ }
       }
 
-      return { contacts: savedContacts, total: result.totalFound };
+      // Stamp contactsFetchedAt on the company
+      await db.update(companies).set({ contactsFetchedAt: new Date() }).where(eq(companies.id, companyId));
+
+      // Return all stored contacts
+      const allContacts = await getContactsByCompanyId(companyId);
+      return { contacts: allContacts, total: result.totalFound, fetchedAt: new Date() };
+    }),
+
+  /** Public -- get stored contacts for a company via share token (no Apollo call) */
+  getStoredContacts: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+
+      const tokenRows = await db.select().from(shareTokens).where(eq(shareTokens.token, input.token)).limit(1);
+      if (tokenRows.length === 0) throw new Error("Invalid share token");
+      const { companyId } = tokenRows[0];
+
+      const companyRows = await db.select({ contactsFetchedAt: companies.contactsFetchedAt })
+        .from(companies).where(eq(companies.id, companyId)).limit(1);
+      const fetchedAt = companyRows[0]?.contactsFetchedAt ?? null;
+
+      const storedContacts = await getContactsByCompanyId(companyId);
+      return { contacts: storedContacts, fetchedAt };
     }),
 
   /** Public -- list ALL brains with their share tokens (if any) for the overview page */

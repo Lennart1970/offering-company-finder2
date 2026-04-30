@@ -110,6 +110,7 @@ export const companies = mysqlTable("companies", {
   // Niche cluster assignment (set during Phase 1 seed clustering or Phase 2 proximity assignment)
   // Note: FK constraint added via SQL migration to avoid circular reference in schema definition
   nicheId: int("nicheId"),
+  contactsFetchedAt: timestamp("contactsFetchedAt"), // When all personnel were last fetched from Apollo
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

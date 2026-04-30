@@ -58,55 +58,59 @@ function SectionHeader({ id, emoji, title, color }: {
 
 // --- Contacts Panel Component -----------------------------------------------
 function ContactsPanel({ token }: { token: string }) {
-  const [contacts, setContacts] = useState<any[]>([]);
   const [seniority, setSeniority] = useState<"all" | "senior">("all");
   const [dept, setDept] = useState<string>("all");
-  const [status, setStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
+  const [mutStatus, setMutStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  const [mode, setMode] = useState<"dm" | "all" | null>(null);
+  const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
+  const [allContacts, setAllContacts] = useState<any[]>([]);
 
   const visitorEmail = typeof window !== "undefined" ? localStorage.getItem("lt_share_visitor_email") ?? "" : "";
 
+  // Load stored contacts on mount
+  const storedQ = trpc.shareExt.getStoredContacts.useQuery(
+    { token },
+    { enabled: !!token }
+  );
+
+  useEffect(() => {
+    if (storedQ.data) {
+      setAllContacts(storedQ.data.contacts.filter(Boolean));
+      setFetchedAt(storedQ.data.fetchedAt ? new Date(storedQ.data.fetchedAt as any) : null);
+    }
+  }, [storedQ.data]);
+
   const findDM = trpc.shareExt.findDecisionMakers.useMutation({
     onSuccess: (data) => {
-      setContacts(data.contacts.filter(Boolean));
-      setStatus("done");
+      setAllContacts(prev => {
+        const existing = new Set(prev.map((c: any) => c.email?.toLowerCase()).filter(Boolean));
+        const newOnes = data.contacts.filter((c: any) => !existing.has(c.email?.toLowerCase()));
+        return [...prev, ...newOnes].filter(Boolean);
+      });
+      setMutStatus("done");
     },
-    onError: (e) => { setErrorMsg(e.message); setStatus("error"); },
+    onError: (e) => { setErrorMsg(e.message); setMutStatus("error"); },
   });
 
   const getAllP = trpc.shareExt.getAllPersonnelForShare.useMutation({
     onSuccess: (data) => {
-      setContacts(data.contacts.filter(Boolean));
-      setStatus("done");
+      setAllContacts(data.contacts.filter(Boolean));
+      setFetchedAt(data.fetchedAt ? new Date(data.fetchedAt as any) : new Date());
+      setMutStatus("done");
     },
-    onError: (e) => { setErrorMsg(e.message); setStatus("error"); },
+    onError: (e) => { setErrorMsg(e.message); setMutStatus("error"); },
   });
-
-  const runGetAll = (newSeniority: "all" | "senior", newDept: string) => {
-    if (!visitorEmail) return;
-    setMode("all"); setStatus("loading"); setErrorMsg("");
-    const seniorities = newSeniority === "senior" ? ["owner", "founder", "c_suite", "vp", "head", "director"] : undefined;
-    const department = newDept !== "all" ? newDept : undefined;
-    getAllP.mutate({ token, visitorEmail, seniorities, department, limit: 50 });
-  };
 
   const handleFindDM = () => {
     if (!visitorEmail) return;
-    setMode("dm"); setStatus("loading"); setErrorMsg("");
+    setMutStatus("loading"); setErrorMsg("");
     findDM.mutate({ token, visitorEmail });
   };
 
-  const handleGetAll = () => runGetAll(seniority, dept);
-
-  const handleSeniorityChange = (s: "all" | "senior") => {
-    setSeniority(s);
-    if (mode === "all") runGetAll(s, dept);
-  };
-
-  const handleDeptChange = (d: string) => {
-    setDept(d);
-    if (mode === "all") runGetAll(seniority, d);
+  const handleGetAll = () => {
+    if (!visitorEmail) return;
+    setMutStatus("loading"); setErrorMsg("");
+    getAllP.mutate({ token, visitorEmail });
   };
 
   const DEPT_OPTIONS = [
@@ -120,37 +124,64 @@ function ContactsPanel({ token }: { token: string }) {
     { value: "product", label: "Product" },
   ];
 
-  const filtered = contacts.filter(Boolean);
+  // Client-side filtering on stored contacts
+  const SENIOR_TITLES = ["ceo", "cto", "coo", "cfo", "cmo", "cso", "founder", "co-founder", "president", "vp", "vice president", "director", "head of", "chief", "owner", "partner", "principal"];
+  const DEPT_KEYWORDS: Record<string, string[]> = {
+    engineering: ["engineer", "developer", "architect", "devops", "infrastructure", "software", "backend", "frontend", "fullstack", "data", "ml", "ai", "cloud", "security", "qa", "test"],
+    sales: ["sales", "account", "business development", "revenue", "commercial", "growth"],
+    marketing: ["marketing", "brand", "content", "seo", "demand", "communications", "pr ", "public relations"],
+    operations: ["operations", "ops", "supply chain", "logistics", "procurement", "facilities"],
+    finance: ["finance", "financial", "accounting", "controller", "treasurer", "audit", "tax", "fp&a"],
+    hr: ["hr", "human resources", "people", "talent", "recruiting", "recruiter", "culture", "learning", "l&d"],
+    product: ["product", "ux", "ui", "design", "user experience", "user research", "product owner", "scrum"],
+  };
+
+  const filtered = allContacts.filter((c: any) => {
+    const title = (c.title ?? "").toLowerCase();
+    if (seniority === "senior" && !SENIOR_TITLES.some(t => title.includes(t))) return false;
+    if (dept !== "all") {
+      const keywords = DEPT_KEYWORDS[dept] ?? [];
+      if (!keywords.some(k => title.includes(k))) return false;
+    }
+    return true;
+  });
+
+  const isLoading = mutStatus === "loading" || storedQ.isLoading;
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-      <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">Contacts</h3>
+      <div className="flex items-center justify-between">
+        <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">Contacts {allContacts.length > 0 && <span className="text-gray-600">({allContacts.length})</span>}</h3>
+        {fetchedAt && (
+          <span className="text-[9px] text-gray-400">fetched {fetchedAt.toLocaleDateString()}</span>
+        )}
+      </div>
 
       {/* Action buttons */}
       <div className="flex flex-col gap-2">
         <button
           onClick={handleFindDM}
-          disabled={status === "loading" || !visitorEmail}
+          disabled={isLoading || !visitorEmail}
           className="w-full border-2 border-purple-600 text-purple-700 text-xs font-black py-2 px-3 rounded hover:bg-purple-50 disabled:opacity-50 flex items-center justify-center gap-1"
         >
           👤 FIND DECISION-MAKERS
         </button>
         <button
           onClick={handleGetAll}
-          disabled={status === "loading" || !visitorEmail}
+          disabled={isLoading || !visitorEmail}
           className="w-full border-2 border-blue-600 text-blue-700 text-xs font-black py-2 px-3 rounded hover:bg-blue-50 disabled:opacity-50 flex items-center justify-center gap-1"
         >
-          📋 GET ALL PERSONNEL
+          {allContacts.length > 0 ? "🔄 REFRESH PERSONNEL" : "📋 GET ALL PERSONNEL"}
         </button>
       </div>
 
-      {/* Filters (only shown when getting all personnel) */}
-      {mode === "all" || status === "done" ? (
+      {/* Filters — always visible once contacts are loaded */}
+      {allContacts.length > 0 && (
         <div className="space-y-2">
           <div className="flex flex-wrap gap-1 items-center">
             <span className="text-[10px] font-black text-gray-400 uppercase">Seniority</span>
             {(["all", "senior"] as const).map((s) => (
-              <button key={s} onClick={() => handleSeniorityChange(s as "all" | "senior")}
+              <button key={s} onClick={() => setSeniority(s)}
                 className={`text-[10px] font-black px-2 py-0.5 rounded border ${
                   seniority === s ? "bg-gray-900 text-white border-gray-900" : "border-gray-300 text-gray-500 hover:border-gray-500"
                 }`}>
@@ -160,8 +191,8 @@ function ContactsPanel({ token }: { token: string }) {
           </div>
           <div className="flex flex-wrap gap-1 items-center">
             <span className="text-[10px] font-black text-gray-400 uppercase">Dept</span>
-            {DEPT_OPTIONS.slice(0, 4).map((d) => (
-              <button key={d.value} onClick={() => handleDeptChange(d.value)}
+            {DEPT_OPTIONS.map((d) => (
+              <button key={d.value} onClick={() => setDept(d.value)}
                 className={`text-[10px] font-black px-2 py-0.5 rounded border ${
                   dept === d.value ? "bg-gray-900 text-white border-gray-900" : "border-gray-300 text-gray-500 hover:border-gray-500"
                 }`}>
@@ -169,26 +200,32 @@ function ContactsPanel({ token }: { token: string }) {
               </button>
             ))}
           </div>
+          <p className="text-[10px] text-gray-400">{filtered.length} of {allContacts.length} shown</p>
         </div>
-      ) : null}
+      )}
 
       {/* Loading state */}
-      {status === "loading" && (
+      {isLoading && (
         <div className="flex items-center gap-2 py-3">
           <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-          <span className="text-xs text-gray-500 font-bold">Searching Apollo…</span>
+          <span className="text-xs text-gray-500 font-bold">{storedQ.isLoading ? "Loading contacts…" : "Searching Apollo…"}</span>
         </div>
       )}
 
       {/* Error state */}
-      {status === "error" && (
+      {mutStatus === "error" && (
         <p className="text-xs text-red-600 font-bold">{errorMsg}</p>
       )}
 
-      {/* Results */}
-      {status === "done" && filtered.length === 0 && (
-        <p className="text-xs text-gray-400 font-bold">No contacts found.</p>
+      {/* Empty state */}
+      {!isLoading && allContacts.length === 0 && (
+        <p className="text-xs text-gray-400">No contacts yet. Click a button above to search.</p>
       )}
+      {allContacts.length > 0 && filtered.length === 0 && (
+        <p className="text-xs text-gray-400 font-bold">No contacts match the current filters.</p>
+      )}
+
+      {/* Results */}
       {filtered.length > 0 && (
         <div className="space-y-3 max-h-96 overflow-y-auto">
           {filtered.map((c: any, i: number) => (

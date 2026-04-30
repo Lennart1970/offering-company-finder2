@@ -2404,3 +2404,17 @@
 - [x] Show contacts in sidebar with email/LinkedIn/phone links
 - [x] Share page image caching: store Serper image URLs in share_tokens.cachedImages column
 - [x] Share list table: remove Employees, Key Signal, Contact columns to fit one page
+
+## Share Page — Contacts Refactor (Store-then-Filter)
+- [ ] Add contacts_fetched_at column to companies table
+- [ ] Update getAllPersonnelForShare to fetch all (no limit) and store to DB
+- [ ] Add getStoredContacts public procedure to return contacts from DB for a share token
+- [ ] Refactor ContactsPanel: load stored contacts on mount, filter client-side
+- [ ] Show last-fetched timestamp and Refresh button
+- [ ] Filters (seniority, dept) work instantly on stored data without Apollo calls
+
+## Website Visitors (Leadinfo) on Share Page & Company Card
+- [ ] Analyze Leadinfo data structure and domain matching
+- [ ] Add Leadinfo visit aggregates to resolveToken response
+- [ ] Add Website Visitors section to share page (engagement, pages, page views, time on site)
+- [ ] Add Website Visitors section to internal company card

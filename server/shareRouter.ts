@@ -19,6 +19,7 @@ import {
   shareAllowedDomains,
   brainShareTokens,
   shareVisitors,
+  leadinfoVisits,
 } from "../drizzle/schema";
 
 /** Generate a cryptographically random 32-char hex token */
@@ -136,6 +137,38 @@ export const shareRouter = router({
         .from(contacts)
         .where(eq(contacts.companyId, tokenRow.companyId));
 
+      // Fetch Leadinfo visit data for this company (if any)
+      const leadinfoRows = await db
+        .select()
+        .from(leadinfoVisits)
+        .where(eq(leadinfoVisits.companyId, tokenRow.companyId));
+      // Aggregate across all rows (a company may have multiple import batches)
+      const leadinfoData = leadinfoRows.length > 0 ? {
+        totalSessions: leadinfoRows.reduce((s, r) => s + (r.totalSessions ?? 0), 0),
+        totalPages: leadinfoRows.reduce((s, r) => s + (r.totalPages ?? 0), 0),
+        totalDuration: leadinfoRows.reduce((s, r) => s + (r.totalDuration ?? 0), 0),
+        engagementScore: Math.max(...leadinfoRows.map(r => r.engagementScore ?? 0)),
+        avgPagesPerSession: (() => {
+          const sessions = leadinfoRows.reduce((s, r) => s + (r.totalSessions ?? 0), 0);
+          const pages = leadinfoRows.reduce((s, r) => s + (r.totalPages ?? 0), 0);
+          return sessions > 0 ? Math.round((pages / sessions) * 10) / 10 : 0;
+        })(),
+        intentSignals: (() => {
+          const all: string[] = [];
+          for (const r of leadinfoRows) {
+            try { all.push(...(JSON.parse(r.intentSignals ?? "[]") as string[])); } catch {}
+          }
+          return Array.from(new Set(all));
+        })(),
+        topPages: (() => {
+          const all: string[] = [];
+          for (const r of leadinfoRows) {
+            try { all.push(...(JSON.parse(r.topPages ?? "[]") as string[])); } catch {}
+          }
+          return Array.from(new Set(all)).slice(0, 5);
+        })(),
+      } : null;
+
       // Use cached images from DB, or fetch from Serper and cache
       let companyImages: string[] = [];
       if (tokenRow.cachedImages) {
@@ -176,6 +209,8 @@ export const shareRouter = router({
         brain,
         brainOutput,
         contacts: contactRows,
+        contactsFetchedAt: company.contactsFetchedAt ?? null,
+        leadinfo: leadinfoData,
         shareListName: tokenRow.shareListName,
         companyImages,
       };

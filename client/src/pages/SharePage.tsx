@@ -57,28 +57,19 @@ function SectionHeader({ id, emoji, title, color }: {
 }
 
 // --- Contacts Panel Component -----------------------------------------------
-function ContactsPanel({ token }: { token: string }) {
+function ContactsPanel({ token, initialContacts = [], initialFetchedAt = null }: {
+  token: string;
+  initialContacts?: any[];
+  initialFetchedAt?: Date | null;
+}) {
   const [seniority, setSeniority] = useState<"all" | "senior">("all");
   const [dept, setDept] = useState<string>("all");
   const [mutStatus, setMutStatus] = useState<"idle" | "loading" | "done" | "error">("idle");
   const [errorMsg, setErrorMsg] = useState("");
-  const [fetchedAt, setFetchedAt] = useState<Date | null>(null);
-  const [allContacts, setAllContacts] = useState<any[]>([]);
+  const [fetchedAt, setFetchedAt] = useState<Date | null>(initialFetchedAt ?? null);
+  const [allContacts, setAllContacts] = useState<any[]>(initialContacts.filter(Boolean));
 
   const visitorEmail = typeof window !== "undefined" ? localStorage.getItem("lt_share_visitor_email") ?? "" : "";
-
-  // Load stored contacts on mount
-  const storedQ = trpc.shareExt.getStoredContacts.useQuery(
-    { token },
-    { enabled: !!token }
-  );
-
-  useEffect(() => {
-    if (storedQ.data) {
-      setAllContacts(storedQ.data.contacts.filter(Boolean));
-      setFetchedAt(storedQ.data.fetchedAt ? new Date(storedQ.data.fetchedAt as any) : null);
-    }
-  }, [storedQ.data]);
 
   const findDM = trpc.shareExt.findDecisionMakers.useMutation({
     onSuccess: (data) => {
@@ -146,7 +137,7 @@ function ContactsPanel({ token }: { token: string }) {
     return true;
   });
 
-  const isLoading = mutStatus === "loading" || storedQ.isLoading;
+  const isLoading = mutStatus === "loading";
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
@@ -208,7 +199,7 @@ function ContactsPanel({ token }: { token: string }) {
       {isLoading && (
         <div className="flex items-center gap-2 py-3">
           <div className="w-4 h-4 border-2 border-gray-300 border-t-gray-900 rounded-full animate-spin" />
-          <span className="text-xs text-gray-500 font-bold">{storedQ.isLoading ? "Loading contacts…" : "Searching Apollo…"}</span>
+          <span className="text-xs text-gray-500 font-bold">Searching Apollo…</span>
         </div>
       )}
 
@@ -305,7 +296,7 @@ export default function SharePage() {
     );
   }
 
-  const { company, brain, brainOutput, contacts: contactList, companyImages = [] } = data;
+  const { company, brain, brainOutput, contacts: contactList, contactsFetchedAt, leadinfo, companyImages = [] } = data;
 
   // Parse JSON fields
   const rawBriefData = brainOutput?.briefData ?? company.briefData;
@@ -449,7 +440,65 @@ export default function SharePage() {
           <div className="w-64 shrink-0 space-y-4 sticky top-[57px]">
 
             {/* Contacts panel */}
-            <ContactsPanel token={token ?? ""} />
+            <ContactsPanel
+              token={token ?? ""}
+              initialContacts={contactList ?? []}
+              initialFetchedAt={contactsFetchedAt ? new Date(contactsFetchedAt as any) : null}
+            />
+
+            {/* Website Visitors (Leadinfo) panel */}
+            {leadinfo && (
+              <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
+                <h3 className="text-xs font-black uppercase tracking-widest text-gray-400">Website Visitors</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="bg-gray-50 rounded-lg p-2.5">
+                    <p className="text-[10px] font-black text-gray-400 uppercase leading-tight">Engagement</p>
+                    <p className="text-xl font-black text-gray-900 mt-0.5">{leadinfo.engagementScore}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-2.5">
+                    <p className="text-[10px] font-black text-gray-400 uppercase leading-tight">Sessions</p>
+                    <p className="text-xl font-black text-gray-900 mt-0.5">{leadinfo.totalSessions}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-2.5">
+                    <p className="text-[10px] font-black text-gray-400 uppercase leading-tight">Pages Viewed</p>
+                    <p className="text-xl font-black text-gray-900 mt-0.5">{leadinfo.totalPages}</p>
+                  </div>
+                  <div className="bg-gray-50 rounded-lg p-2.5">
+                    <p className="text-[10px] font-black text-gray-400 uppercase leading-tight">Avg Pages</p>
+                    <p className="text-xl font-black text-gray-900 mt-0.5">{leadinfo.avgPagesPerSession}</p>
+                  </div>
+                </div>
+                {leadinfo.totalDuration > 0 && (
+                  <div className="text-xs text-gray-500">
+                    <span className="font-black text-gray-400">TIME ON SITE </span>
+                    <span className="font-bold">
+                      {leadinfo.totalDuration >= 60
+                        ? `${Math.floor(leadinfo.totalDuration / 60)}m ${leadinfo.totalDuration % 60}s`
+                        : `${leadinfo.totalDuration}s`}
+                    </span>
+                  </div>
+                )}
+                {leadinfo.intentSignals.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Intent Signals</p>
+                    {leadinfo.intentSignals.map((sig: string, i: number) => (
+                      <div key={i} className="flex items-start gap-1">
+                        <span className="text-green-500 text-[10px] mt-0.5">●</span>
+                        <span className="text-[10px] text-gray-600">{sig}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+                {leadinfo.topPages.length > 0 && (
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-gray-400 uppercase">Pages Visited</p>
+                    {leadinfo.topPages.map((pg: string, i: number) => (
+                      <p key={i} className="text-[10px] text-gray-600 truncate">{pg}</p>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
 
             {/* Fit score breakdown panel */}
             {fitScoreData?.breakdown?.length > 0 && (

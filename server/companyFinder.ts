@@ -1,4 +1,4 @@
-import { protectedProcedure, router } from "./_core/trpc";
+import { protectedProcedure, superAdminProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { randomUUID } from "crypto";
@@ -3776,7 +3776,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
   /**
    * Toggle show_on_leadtrigger for a single brain.
    */
-  toggleBrainVisibility: protectedProcedure
+  toggleBrainVisibility: superAdminProcedure
     .input(z.object({
       brainId: z.number().int().positive(),
       visible: z.boolean(),

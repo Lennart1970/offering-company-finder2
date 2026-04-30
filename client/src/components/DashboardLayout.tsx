@@ -34,6 +34,7 @@ interface NavItem {
   icon: React.ElementType;
   label: string;
   path: string;
+  superAdminOnly?: boolean;
 }
 
 interface NavGroup {
@@ -82,7 +83,7 @@ const navGroups: NavGroup[] = [
     items: [
       { icon: ScrollText, label: "Prompt Repository", path: "/prompts" },
       { icon: Webhook, label: "Webhook Log", path: "/webhook-log" },
-      { icon: Eye, label: "Brain Visibility", path: "/brain-visibility" },
+      { icon: Eye, label: "Brain Visibility", path: "/brain-visibility", superAdminOnly: true },
       { icon: FolderOpen, label: "Sales Materials", path: "/sales-materials" },
       { icon: Activity, label: "Access Log", path: "/share-access-log" },
     ],
@@ -186,6 +187,7 @@ function NavGroupBlock({
   collapsed,
   onToggle,
   isAdminGroup,
+  isSuperAdmin,
 }: {
   group: NavGroup;
   location: string;
@@ -193,6 +195,7 @@ function NavGroupBlock({
   collapsed: boolean;
   onToggle: () => void;
   isAdminGroup?: boolean;
+  isSuperAdmin?: boolean;
 }) {
   return (
     <SidebarGroup className="pt-1.5 pb-0">
@@ -208,7 +211,7 @@ function NavGroupBlock({
       {!collapsed && (
         <SidebarGroupContent>
           <SidebarMenu className="px-1.5">
-            {group.items.map((item: NavItem) => {
+            {group.items.filter((item: NavItem) => !item.superAdminOnly || isSuperAdmin).map((item: NavItem) => {
               const isActive =
                 item.path === "/search-results"
                   ? location.startsWith("/search-results")
@@ -253,7 +256,8 @@ function DashboardLayoutContent({
   const sidebarRef = useRef<HTMLDivElement>(null);
   const isMobile = useIsMobile();
 
-  const isAdmin = user?.role === "admin";
+  const isAdmin = user?.role === "admin" || user?.role === "super_admin";
+  const isSuperAdmin = user?.role === "super_admin";
 
   // Collapsible group state
   const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(getInitialCollapsedGroups);
@@ -374,6 +378,7 @@ function DashboardLayoutContent({
                 handleNavClick={handleNavClick}
                 collapsed={collapsedGroups.has(group.label)}
                 onToggle={() => toggleGroup(group.label)}
+                isSuperAdmin={isSuperAdmin}
               />
             ))}
 
@@ -390,6 +395,7 @@ function DashboardLayoutContent({
                     collapsed={collapsedGroups.has(group.label)}
                     onToggle={() => toggleGroup(group.label)}
                     isAdminGroup
+                    isSuperAdmin={isSuperAdmin}
                   />
                 ))}
               </>

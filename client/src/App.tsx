@@ -2,6 +2,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "@/pages/NotFound";
 import { Route, Switch } from "wouter";
+import { useAuth } from "./_core/hooks/useAuth";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import DashboardLayout from "./components/DashboardLayout";
@@ -65,7 +66,12 @@ function Router() {
         <Route path={"/nurture"} component={NurtureList} />
         <Route path={"/prompts"} component={PromptRepository} />
         <Route path={"/webhook-log"} component={WebhookLogPage} />
-        <Route path={"/brain-visibility"} component={BrainVisibility} />
+        <Route path={"/brain-visibility"} component={() => {
+          const { user } = useAuth();
+          if (!user) return null;
+          if (user.role !== 'super_admin') return <div className="p-8 text-muted-foreground text-sm">Access restricted to super admins only.</div>;
+          return <BrainVisibility />;
+        }} />
         <Route path={"/sales-materials"} component={SalesMaterials} />
         <Route path={"/niche-review"} component={NicheReview} />
         <Route path={"/fast-prototype"} component={FastPrototype} />

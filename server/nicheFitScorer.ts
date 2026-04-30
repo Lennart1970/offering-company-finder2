@@ -202,11 +202,38 @@ Rules:
   try {
     parsed = JSON.parse(contentStr);
   } catch {
-    // Fallback: extract JSON from content
+    // Fallback: extract JSON from content between first { and last }
     const firstBrace = contentStr.indexOf("{");
     const lastBrace = contentStr.lastIndexOf("}");
-    if (firstBrace === -1 || lastBrace === -1) throw new Error("No valid JSON in LLM response");
-    parsed = JSON.parse(contentStr.slice(firstBrace, lastBrace + 1));
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      try {
+        parsed = JSON.parse(contentStr.slice(firstBrace, lastBrace + 1));
+      } catch {
+        // LLM returned plain text — return a null score so the UI can show a retry option
+        console.warn(`[Niche Fit Scorer] LLM returned non-JSON for "${niche.name}": ${contentStr.slice(0, 80)}`);
+        return {
+          fitScore: 0,
+          fitReasoning: `Scoring failed: LLM returned an unexpected response. Please retry.`,
+          scoreBreakdown: [],
+          scoredAt: new Date().toISOString(),
+          brainName: brain.brainName,
+          brainId: brain.id,
+          nicheName: niche.name,
+        };
+      }
+    } else {
+      // No JSON braces at all — graceful fallback
+      console.warn(`[Niche Fit Scorer] LLM returned plain text for "${niche.name}": ${contentStr.slice(0, 80)}`);
+      return {
+        fitScore: 0,
+        fitReasoning: `Scoring failed: LLM returned an unexpected response. Please retry.`,
+        scoreBreakdown: [],
+        scoredAt: new Date().toISOString(),
+        brainName: brain.brainName,
+        brainId: brain.id,
+        nicheName: niche.name,
+      };
+    }
   }
 
   // Validate and clamp scores

@@ -374,7 +374,13 @@ export const nicheRouter = router({
         companyCount: niche.companyCount,
       };
 
-      const result = await scoreNicheFit(clusterInput, userId);
+      let result;
+      try {
+        result = await scoreNicheFit(clusterInput, userId);
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Scoring failed: ${msg}` });
+      }
 
       await updateNiche(niche.id, {
         fitScore: result.fitScore,

@@ -242,15 +242,16 @@ export default function SharePage() {
   const [activeSection, setActiveSection] = useState<string>("urgency");
 
   const NAV_SECTIONS = [
-    { id: "urgency",  label: "⚡ URGENCY",  activeClass: "bg-red-600 text-white",   inactiveClass: "text-red-600 hover:bg-red-50" },
-    { id: "approach", label: "💬 APPROACH", activeClass: "bg-green-600 text-white", inactiveClass: "text-green-600 hover:bg-green-50" },
-    { id: "fit",      label: "🎯 FIT",      activeClass: "bg-blue-600 text-white",  inactiveClass: "text-blue-600 hover:bg-blue-50" },
+    { id: "urgency",  label: "⚡ URGENCY",  activeClass: "bg-red-600 text-white",    inactiveClass: "text-red-600 hover:bg-red-50" },
+    { id: "approach", label: "💬 APPROACH", activeClass: "bg-green-600 text-white",  inactiveClass: "text-green-600 hover:bg-green-50" },
+    { id: "fit",      label: "🎯 FIT",      activeClass: "bg-blue-600 text-white",   inactiveClass: "text-blue-600 hover:bg-blue-50" },
+    { id: "media",    label: "🖼 MEDIA",    activeClass: "bg-yellow-500 text-black", inactiveClass: "text-yellow-600 hover:bg-yellow-50" },
   ];
 
   useEffect(() => {
     const handleScroll = () => {
       const scrollY = window.scrollY + 130;
-      const ids = ["urgency", "approach", "fit"];
+      const ids = ["urgency", "approach", "fit", "media"];
       for (let i = ids.length - 1; i >= 0; i--) {
         const el = document.getElementById(ids[i]);
         if (el && el.offsetTop <= scrollY) { setActiveSection(ids[i]); break; }
@@ -325,6 +326,7 @@ export default function SharePage() {
   const fitScore = brainOutput?.fitScore ?? company.fitScore ?? null;
   const urgencyScore = brainOutput?.urgencyScore ?? company.urgencyScore ?? null;
   const urgency = briefData?.urgencySignals ?? [];
+  const urgencyBreakdown = briefData?.urgencyBreakdown ?? null;
 
   const fitColor = fitScore !== null
     ? fitScore >= 70 ? "bg-green-500" : fitScore >= 40 ? "bg-yellow-500" : "bg-red-400"
@@ -551,9 +553,49 @@ export default function SharePage() {
 
             {/* -- URGENCY SIGNALS -- */}
             <section>
-              <div id="urgency" className="flex items-center border-b-2 border-gray-200 pb-2 mb-5 scroll-mt-4">
-                <h2 className="text-xs font-black uppercase tracking-widest text-gray-400">Urgency Signals</h2>
+              <div id="urgency" className="flex items-center gap-3 border-b-2 border-gray-200 pb-2 mb-5 scroll-mt-4">
+                <span className="text-red-600 text-base">⚡</span>
+                <h2 className="text-xs font-black uppercase tracking-widest text-red-600">Urgency</h2>
               </div>
+
+              {/* Urgency score bar */}
+              {urgencyScore !== null && (
+                <div className="border-2 border-red-300 bg-red-50 rounded-lg px-6 py-4 mb-5 flex items-center justify-between gap-4">
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-5xl font-black text-red-600 leading-none">{urgencyScore}</span>
+                    <span className="text-sm font-black text-red-400">/100</span>
+                    <span className="text-xs font-black text-gray-400 uppercase tracking-widest ml-2">Urgency Score</span>
+                  </div>
+                  {urgencyBreakdown && (
+                    <div className="flex items-center gap-6 shrink-0">
+                      {urgencyBreakdown.companyContext !== undefined && (
+                        <div className="text-center">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Company</p>
+                          <p className="text-lg font-black text-gray-900">
+                            {urgencyBreakdown.companyContext}<span className="text-xs text-gray-400">/40</span>
+                          </p>
+                        </div>
+                      )}
+                      {urgencyBreakdown.marketSignals !== undefined && (
+                        <div className="text-center">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Market</p>
+                          <p className="text-lg font-black text-gray-900">
+                            {urgencyBreakdown.marketSignals}<span className="text-xs text-gray-400">/35</span>
+                          </p>
+                        </div>
+                      )}
+                      {urgencyBreakdown.recentActivity !== undefined && (
+                        <div className="text-center">
+                          <p className="text-[10px] font-black text-gray-400 uppercase tracking-widest">Activity</p>
+                          <p className="text-lg font-black text-gray-900">
+                            {urgencyBreakdown.recentActivity}<span className="text-xs text-gray-400">/25</span>
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
 
               {!briefData || urgency.length === 0 ? (
                 <p className="text-sm text-gray-400 font-bold">No urgency signals available.</p>
@@ -760,6 +802,32 @@ export default function SharePage() {
           </div>
         </div>
       </div>
+
+      {/* -- MEDIA section (full-width below two-col layout) -- */}
+      {companyImages.length > 0 && (
+        <div className="max-w-6xl mx-auto px-6 pb-10">
+          <div id="media" className="flex items-center gap-3 border-b-2 border-gray-200 pb-2 mb-5 scroll-mt-4">
+            <span className="text-yellow-600 text-base">🖼</span>
+            <h2 className="text-xs font-black uppercase tracking-widest text-yellow-600">Media</h2>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {companyImages.map((url: string, i: number) => (
+              <div
+                key={i}
+                className="rounded-xl overflow-hidden border border-gray-200 cursor-pointer bg-gray-100 aspect-video"
+                onClick={() => setLightboxImage(url)}
+              >
+                <img
+                  src={url}
+                  alt={`${company.name} ${i + 1}`}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.currentTarget.parentElement as HTMLElement).style.display = "none"; }}
+                />
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* -- Lightbox -- */}
       {lightboxImage && (

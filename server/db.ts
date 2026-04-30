@@ -56,8 +56,10 @@ export async function upsertUser(user: InsertUser): Promise<void> {
       values.role = user.role;
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
+      // Only set role=admin on INSERT (new user). Never overwrite an existing role
+      // on UPDATE — this prevents super_admin from being downgraded on every login.
       values.role = 'admin';
-      updateSet.role = 'admin';
+      // Intentionally NOT added to updateSet so existing role is preserved on duplicate
     }
 
     if (!values.lastSignedIn) {

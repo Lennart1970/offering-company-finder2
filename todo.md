@@ -2469,3 +2469,23 @@
 - [x] Update SearchResults brain selector to handle string IDs (Supabase brain IDs)
 - [x] Update doNext10/doAll mutations to accept string brainId
 - [ ] Update getActiveBrain to also resolve from Supabase when no local active brain (future)
+
+## Fix: Apollo CSV Import Duplicate Key + Restart
+- [ ] Fix duplicate key constraint on lt_mns_watchlist_company_name_domain_key (upsert instead of insert)
+- [ ] Fix "Update batch: TypeError: fetch failed" error
+- [ ] Add restart capability for stuck/failed import jobs
+
+## Feature: Clean Embedding Prompt in Brain Creation
+- [ ] Integrate buyer-characteristics-only embedding prompt into brain creation/update flow
+- [ ] New brains automatically get clean embedding text (no solution-domain language)
+
+## Feature: Country Exclusion Filter on Campaign from Brain
+- [ ] Add country exclusion chip filter (same pattern as sector exclusion)
+
+## Feature: Auto Pull-then-Activate for Supabase-only Brains
+- [ ] Clicking radio on Supabase-only brain triggers background pull + set active in one step
+
+## Feature: Brain Selector on Market Segments Re-score
+- [x] Add brain selector dropdown to Market Segments (Niche Review) page header
+- [x] Wire selected brain to Re-score action (pass brainId to rescore procedure)
+- [x] Default to active brain, allow switching to any available brain

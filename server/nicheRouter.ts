@@ -288,6 +288,7 @@ export const nicheRouter = router({
       z.object({
         searchId: z.number(),
         force: z.boolean().default(false), // force re-score even if already scored
+        brainId: z.number().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -313,7 +314,7 @@ export const nicheRouter = router({
             companyCount: niche.companyCount,
           };
 
-          const result = await scoreNicheFit(clusterInput, userId);
+          const result = await scoreNicheFit(clusterInput, userId, input.brainId);
 
           await updateNiche(niche.id, {
             fitScore: result.fitScore,
@@ -359,7 +360,7 @@ export const nicheRouter = router({
    * Re-score a single niche against the active Offering Brain.
    */
   rescoreNiche: adminProcedure
-    .input(z.object({ nicheId: z.number() }))
+    .input(z.object({ nicheId: z.number(), brainId: z.number().optional() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
       const niche = await getNicheById(input.nicheId);
@@ -379,7 +380,7 @@ export const nicheRouter = router({
 
       let result;
       try {
-        result = await scoreNicheFit(clusterInput, userId);
+        result = await scoreNicheFit(clusterInput, userId, input.brainId);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Scoring failed: ${msg}` });

@@ -19,7 +19,7 @@
  */
 
 import { invokeLLM } from "./_core/llm";
-import { getActiveBrain } from "./db";
+import { getActiveBrain, getOfferingBrainById } from "./db";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -64,9 +64,12 @@ export interface NicheClusterInput {
  */
 export async function scoreNicheFit(
   niche: NicheClusterInput,
-  userId: number
+  userId: number,
+  brainId?: number
 ): Promise<NicheFitResult> {
-  const brain = await getActiveBrain(userId);
+  const brain = brainId
+    ? await getOfferingBrainById(brainId, userId)
+    : await getActiveBrain(userId);
   if (!brain || brain.status !== "completed") {
     throw new Error("No active Offering Brain found — cannot score niche fit without ICP criteria");
   }
@@ -271,12 +274,13 @@ Rules:
  */
 export async function scoreNichesBatch(
   niches: NicheClusterInput[],
-  userId: number
+  userId: number,
+  brainId?: number
 ): Promise<Array<NicheFitResult | { error: string; nicheName: string }>> {
   const results = [];
   for (const niche of niches) {
     try {
-      const result = await scoreNicheFit(niche, userId);
+      const result = await scoreNicheFit(niche, userId, brainId);
       results.push(result);
     } catch (err: any) {
       console.error(`[Niche Fit Scorer] Failed to score niche "${niche.name}":`, err.message);

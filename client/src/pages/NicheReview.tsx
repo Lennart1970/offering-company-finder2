@@ -592,9 +592,13 @@ export default function NicheReview() {
   const [expandResult, setExpandResult] = useState<{ assigned: number; remaining: number; newNichesCreated?: number; newNicheNames?: string[] } | null>(null);
   const [subClusterResults, setSubClusterResults] = useState<Map<number, { childNichesCreated: number; companiesProcessed: number }>>(new Map());
   const [creatingCampaignId, setCreatingCampaignId] = useState<number | null>(null);
+  const [selectedBrainId, setSelectedBrainId] = useState<number | undefined>(undefined);
 
   // Fetch all searches for the selector
   const { data: searches } = trpc.companyFinder.getSearchHistory.useQuery({ showArchived: false });
+
+  // Fetch available brains for the brain selector
+  const { data: brainHistory } = trpc.companyFinder.getBrainHistory.useQuery();
 
   // Fetch niches — either by search or all
   const {
@@ -874,12 +878,12 @@ export default function NicheReview() {
       return;
     }
     setScoringAll(true);
-    scoreAllMutation.mutate({ searchId: selectedSearchId });
+    scoreAllMutation.mutate({ searchId: selectedSearchId, brainId: selectedBrainId });
   };
 
   const handleRescore = (nicheId: number) => {
     setRescoringId(nicheId);
-    rescoreMutation.mutate({ nicheId });
+    rescoreMutation.mutate({ nicheId, brainId: selectedBrainId });
   };
 
   const renameMutation = trpc.niche.renameNiche.useMutation({
@@ -937,6 +941,25 @@ export default function NicheReview() {
                 {(searches as any[])?.map((s: any) => (
                   <SelectItem key={s.id} value={String(s.id)}>
                     {s.offeringName || s.companyWebsite || String(s.id)}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {/* Brain selector for re-scoring */}
+            <Select
+              value={selectedBrainId ? String(selectedBrainId) : "active"}
+              onValueChange={(v) => setSelectedBrainId(v === "active" ? undefined : parseInt(v))}
+            >
+              <SelectTrigger className="w-56 font-bold text-sm h-9 border-2 border-black">
+                <Brain className="w-3.5 h-3.5 mr-1.5 shrink-0" />
+                <SelectValue placeholder="Active Brain" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="active">Active Brain (default)</SelectItem>
+                {((brainHistory as any)?.history as any[])?.filter((b: any) => b.status === "completed").map((b: any) => (
+                  <SelectItem key={b.id} value={String(b.id)}>
+                    {b.brainName}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -5,7 +5,7 @@
  * and matches incoming feed items against them for campaign creation.
  */
 import { z } from "zod";
-import { protectedProcedure, router } from "./_core/trpc";
+import { superAdminProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -52,7 +52,7 @@ export const triggerRouter = router({
   /**
    * Get trigger reference items (synthetic + approved) with optional brain filter
    */
-  listTriggerReferences: protectedProcedure
+  listTriggerReferences: superAdminProcedure
     .input(
       z.object({
         brainId: z.string().optional(),
@@ -85,7 +85,7 @@ export const triggerRouter = router({
    * Get recent feed items with their trigger match status.
    * Matches feed items against the trigger reference set using embeddings.
    */
-  getMatchedFeedItems: protectedProcedure
+  getMatchedFeedItems: superAdminProcedure
     .input(
       z.object({
         limit: z.number().min(1).max(200).default(50),
@@ -237,7 +237,7 @@ export const triggerRouter = router({
   /**
    * Embed feed items that don't have embeddings yet (batch job)
    */
-  embedFeedItems: protectedProcedure
+  embedFeedItems: superAdminProcedure
     .input(z.object({ batchSize: z.number().min(1).max(100).default(50) }))
     .mutation(async ({ input }) => {
       const sb = getSupabase();
@@ -291,7 +291,7 @@ export const triggerRouter = router({
   /**
    * Update trigger match status (approve/dismiss)
    */
-  updateMatchStatus: protectedProcedure
+  updateMatchStatus: superAdminProcedure
     .input(
       z.object({
         feedItemId: z.string(),
@@ -327,7 +327,7 @@ export const triggerRouter = router({
   /**
    * Get trigger stats (counts by status, by brain)
    */
-  getStats: protectedProcedure.query(async () => {
+  getStats: superAdminProcedure.query(async () => {
     const sb = getSupabase();
 
     const { data: refs } = await sb
@@ -373,7 +373,7 @@ export const triggerRouter = router({
   /**
    * Upload synthetic triggers to Supabase as reference set
    */
-  uploadSyntheticTriggers: protectedProcedure
+  uploadSyntheticTriggers: superAdminProcedure
     .input(
       z.object({
         triggers: z.array(

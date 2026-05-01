@@ -52,8 +52,8 @@ const navGroups: NavGroup[] = [
       { icon: LayoutList, label: "Sales Menu", path: "/sales-menu" },
       { icon: Zap, label: "Intelligence", path: "/intelligence" },
       { icon: Network, label: "Market Segments", path: "/niche-review" },
-      { icon: Crosshair, label: "Campaign from Brain", path: "/campaign-from-brain" },
-      { icon: Zap, label: "Trigger Review", path: "/trigger-review" },
+      { icon: Crosshair, label: "Campaign from Brain", path: "/campaign-from-brain", superAdminOnly: true },
+      { icon: Zap, label: "Trigger Review", path: "/trigger-review", superAdminOnly: true },
     ],
   },
   {

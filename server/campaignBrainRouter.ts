@@ -6,7 +6,7 @@
  * companies semantically similar to a Brain's ICP embedding.
  */
 import { z } from "zod";
-import { protectedProcedure, router } from "./_core/trpc";
+import { superAdminProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { createClient } from "@supabase/supabase-js";
 import { getDb, createSearch, createCompanies } from "./db";
@@ -33,7 +33,7 @@ export const campaignBrainRouter = router({
   /**
    * Get all brains with their embedding status (for brain picker UI)
    */
-  listBrains: protectedProcedure.query(async () => {
+  listBrains: superAdminProcedure.query(async () => {
     const sb = getSupabase();
 
     // Fetch brains from Supabase (source of truth for all brains)
@@ -71,7 +71,7 @@ export const campaignBrainRouter = router({
    * Find companies by Brain similarity.
    * Fetches the brain's embedding from Supabase, then calls the RPC.
    */
-  findByBrain: protectedProcedure
+  findByBrain: superAdminProcedure
     .input(
       z.object({
         brainId: z.string(),
@@ -165,7 +165,7 @@ export const campaignBrainRouter = router({
   /**
    * Get available filter options (sectors, countries) from the matched companies
    */
-  getFilterOptions: protectedProcedure
+  getFilterOptions: superAdminProcedure
     .input(z.object({ brainId: z.string() }))
     .query(async ({ input }) => {
       const sb = getSupabase();
@@ -213,7 +213,7 @@ export const campaignBrainRouter = router({
    * Create a campaign from Brain similarity results.
    * Imports matched companies from Supabase into the local DB and creates a search record.
    */
-  createCampaignFromBrain: protectedProcedure
+  createCampaignFromBrain: superAdminProcedure
     .input(
       z.object({
         brainId: z.string(),
@@ -340,7 +340,7 @@ export const campaignBrainRouter = router({
    * Find companies by free text query.
    * Embeds the text using OpenAI, then runs vector similarity.
    */
-  findByText: protectedProcedure
+  findByText: superAdminProcedure
     .input(
       z.object({
         query: z.string().min(3).max(1000),

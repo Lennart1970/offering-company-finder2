@@ -2435,3 +2435,4 @@
 - [x] Wire navigation and routing for new pages
 - [ ] UI: Campaign Dashboard (list campaigns, status, progress tracking)
 - [ ] Embed remaining 261 feed items
+- [x] Restrict Campaign from Brain and Trigger Review pages to super-admin only (backend: superAdminProcedure, frontend: superAdminOnly nav flag)

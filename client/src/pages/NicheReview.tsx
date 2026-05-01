@@ -602,6 +602,11 @@ export default function NicheReview() {
   const { data: brainHistory } = trpc.companyFinder.getBrainHistory.useQuery();
   const availableBrains = ((brainHistory as any)?.history as any[] ?? []).filter((b: any) => b.status === "completed");
   const activeBrain = availableBrains.find((b: any) => b.isActive === 1) ?? availableBrains[0];
+  // For mutations: use localId (numeric MySQL ID) so the backend can look up the brain.
+  const selectedBrainEntry = availableBrains.find((b: any) => String(b.id) === selectedBrainId);
+  const selectedBrainLocalId: number | undefined =
+    selectedBrainEntry?.localId ?? (activeBrain?.localId ?? undefined);
+  const isSupabaseOnlyBrain = !!selectedBrainEntry && !selectedBrainEntry.localId;
 
   // Fetch available angles
   const { data: anglesData } = trpc.companyFinder.getAngles.useQuery();
@@ -899,12 +904,12 @@ export default function NicheReview() {
       return;
     }
     setScoringAll(true);
-    scoreAllMutation.mutate({ searchId: selectedSearchId, brainId: selectedBrainId });
+    scoreAllMutation.mutate({ searchId: selectedSearchId, brainId: selectedBrainLocalId });
   };
 
   const handleRescore = (nicheId: number) => {
     setRescoringId(nicheId);
-    rescoreMutation.mutate({ nicheId, brainId: selectedBrainId });
+    rescoreMutation.mutate({ nicheId, brainId: selectedBrainLocalId });
   };
 
   const renameMutation = trpc.niche.renameNiche.useMutation({
@@ -1020,7 +1025,12 @@ export default function NicheReview() {
           </div>
 
           {/* Warning when non-active brain selected */}
-          {selectedBrainId && selectedBrainId !== String(activeBrain?.id) && (
+          {isSupabaseOnlyBrain && (
+            <div className="mt-2 text-xs font-bold text-red-600 border border-red-400 px-2 py-1 bg-red-50 inline-block">
+              ⚠ This brain is Supabase-only (no local record). Re-score will use the active brain instead.
+            </div>
+          )}
+          {!isSupabaseOnlyBrain && selectedBrainId && selectedBrainId !== String(activeBrain?.id) && (
             <div className="mt-2 text-xs font-bold text-amber-600 border border-amber-400 px-2 py-1 bg-amber-50 inline-block">
               ⚠ Using a different brain than the active one
             </div>

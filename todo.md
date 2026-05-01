@@ -2579,3 +2579,9 @@
 - [x] UI: "Generate Synthetic News…" dropdown in Trigger Review filters bar
 - [x] Handles Supabase string brain IDs (hash to numeric for trigger refs)
 - [x] InsertChat brain ID: insertchat-branded-ai (ICP: content-rich brands, white-label AI assistant)
+
+## Bug: Enrich Run Uses Wrong Brain (Active Brain Instead of Selected Brain)
+- [ ] Stop the running DO ALL job immediately
+- [ ] Diagnose why the enrichment pipeline ignores the selectedBrainId from the command panel
+- [ ] Fix: ensure the brainId passed from the UI command panel is correctly forwarded to the enrichment worker
+- [ ] Verify companies show the correct brain badge after fix

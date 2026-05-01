@@ -307,8 +307,14 @@ export default function SearchResults() {
     }
   }, [jobStatusQuery.data?.status]);
 
-  const selectedBrainIdForMutation = selectedBrainId ?? (activeBrain ? String(activeBrain.id) : undefined);
+  // For mutations: use localId (numeric MySQL ID) so the backend can look up the brain.
+  // Supabase-only brains (no localId) cannot be used for enrichment — show a warning.
+  const selectedBrainEntry = availableBrains.find((b: any) => String(b.id) === selectedBrainId);
+  const selectedBrainLocalId: number | undefined =
+    selectedBrainEntry?.localId ?? (activeBrain ? activeBrain.id : undefined);
+  const selectedBrainIdForMutation: number | undefined = selectedBrainLocalId;
   const selectedAngleIdForMutation = selectedAngleId || undefined;
+  const isSupabaseOnlyBrain = !!selectedBrainEntry && !selectedBrainEntry.localId;
   const doNext10Mutation = trpc.companyFinder.doNext10.useMutation({
     onSuccess: (data) => {
       setActiveJobId(data.jobId);
@@ -1164,7 +1170,12 @@ export default function SearchResults() {
             </div>
 
             {/* Warning when non-active brain selected */}
-            {selectedBrainId && selectedBrainId !== String(activeBrain?.id) && (
+            {isSupabaseOnlyBrain && (
+              <div className="mt-2 text-xs font-bold text-red-600 border border-red-400 px-2 py-1 bg-red-50 inline-block">
+                ⚠ This brain is Supabase-only (no local record). DO 10 / DO ALL will use the active brain instead. Pull it locally first to use it.
+              </div>
+            )}
+            {!isSupabaseOnlyBrain && selectedBrainId && selectedBrainId !== String(activeBrain?.id) && (
               <div className="mt-2 text-xs font-bold text-amber-600 border border-amber-400 px-2 py-1 bg-amber-50 inline-block">
                 ⚠ Using a different brain than the active one
               </div>

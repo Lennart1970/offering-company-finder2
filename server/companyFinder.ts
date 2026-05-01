@@ -96,11 +96,17 @@ async function assertCompanyAccess(companyId: number, userId: number) {
   return company;
 }
 
-// Helper: stamp the active brain on a company after any generation pass
-// Call this after every updateCompany that stores LLM-generated content
-async function stampBrainOnCompany(companyId: number, userId: number) {
+// Helper: stamp the resolved brain on a company after any generation pass.
+// IMPORTANT: always pass the explicitly selected brain from the mutation input to avoid
+// overwriting with the active brain when a different brain was intentionally chosen.
+// Falls back to active brain only when no resolvedBrain is provided.
+async function stampBrainOnCompany(
+  companyId: number,
+  userId: number,
+  resolvedBrain?: { id: number; brainName: string } | null
+) {
   try {
-    const brain = await getActiveBrain(userId);
+    const brain = resolvedBrain ?? await getActiveBrain(userId);
     if (brain) {
       await updateCompany(companyId, {
         generatedWithBrainId: brain.id,
@@ -1087,7 +1093,9 @@ export const companyFinderRouter = router({
           briefData: JSON.stringify(brief),
           briefGeneratedAt: new Date(),
         });
-        await stampBrainOnCompany(input.companyId, ctx.user.id);
+        // Resolve brain for stamping — prefer the explicitly selected brain
+        const briefBrain = input.brainId ? await getOfferingBrainById(input.brainId, ctx.user.id) : null;
+        await stampBrainOnCompany(input.companyId, ctx.user.id, briefBrain);
 
         console.log(`[generateBrief] ✓ Brief generated with urgency score: ${brief.urgencyScore}`);
 
@@ -1166,7 +1174,9 @@ export const companyFinderRouter = router({
           salesApproachData: JSON.stringify(salesApproach),
           salesApproachGeneratedAt: new Date(),
         });
-        await stampBrainOnCompany(input.companyId, ctx.user.id);
+        // Resolve brain for stamping — prefer the explicitly selected brain
+        const approachBrain = input.brainId ? await getOfferingBrainById(input.brainId, ctx.user.id) : null;
+        await stampBrainOnCompany(input.companyId, ctx.user.id, approachBrain);
 
         console.log(`[generateSalesApproach] ✓ Sales approach generated for ${company.name}`);
 
@@ -1592,7 +1602,8 @@ export const companyFinderRouter = router({
   getBrainHistory: protectedProcedure
     .query(async ({ ctx }) => {
       type BrainEntry = {
-        id: string;
+        id: string;         // Supabase UUID (display/selector key)
+        localId: number | null; // Local MySQL numeric ID (used for mutations)
         brainName: string;
         companyName: string;
         status: string;
@@ -1611,13 +1622,14 @@ export const companyFinderRouter = router({
           const sb = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
           const { data: sbBrains, error } = await sb
             .from("lt_mns_offering_brains")
-            .select("id, brain_name, company_name, status, show_on_leadtrigger, is_active, created_at")
+            .select("id, brain_name, company_name, status, show_on_leadtrigger, is_active, created_at, local_brain_id")
             .eq("show_on_leadtrigger", true)
             .order("created_at", { ascending: false });
 
           if (!error && sbBrains) {
             const history: BrainEntry[] = sbBrains.map((b: any): BrainEntry => ({
               id: String(b.id),
+              localId: b.local_brain_id ? Number(b.local_brain_id) : null,
               brainName: b.brain_name ?? "Unnamed Brain",
               companyName: b.company_name ?? "",
               status: b.status ?? "completed",
@@ -1637,6 +1649,7 @@ export const companyFinderRouter = router({
       const localHistory = await getBrainHistory(ctx.user.id);
       const history: BrainEntry[] = localHistory.map((b): BrainEntry => ({
         id: String(b.id),
+        localId: typeof b.id === 'number' ? b.id : null, // local MySQL fallback uses numeric IDs
         brainName: b.brainName,
         companyName: b.companyName,
         status: b.status,

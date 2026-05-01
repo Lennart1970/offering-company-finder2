@@ -598,13 +598,36 @@ function inferIndustryFromNAICS(naicsCodes: string[]): string {
 // FitScoreResult is now defined in shared/contractTypes.ts and imported at the top
 
 /**
+ * Build angle context string for injection into prompts.
+ * Returns empty string for default (Potential Customer) angle.
+ */
+export async function getAngleContext(angleId?: string): Promise<{ context: string; isDistributor: boolean; angleName: string }> {
+  if (!angleId) return { context: "", isDistributor: false, angleName: "Potential Customer" };
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+    const sb = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+    const { data: angle } = await sb.from("lt_mns_angles").select("id, name, description").eq("id", angleId).single();
+    if (!angle) return { context: "", isDistributor: false, angleName: "Potential Customer" };
+    const isDistributor = angle.name === "Distributor";
+    const context = isDistributor
+      ? `\n**ENGAGEMENT ANGLE: DISTRIBUTOR / CHANNEL PARTNER**\nYou are NOT evaluating this company as a direct end-customer. You are evaluating it as a potential DISTRIBUTOR or CHANNEL PARTNER.\nThe goal is to find companies that can RESELL, DISTRIBUTE, or REPRESENT the seller's products to end-users.\nEvaluate: (1) Does this company sell to the target end-customer segment? (2) Does it have an existing complementary product portfolio? (3) Does it have commercial infrastructure (sales team, logistics, showroom/store)? (4) Is there commercial motivation to add a new premium product line?\n`
+      : `\n**ENGAGEMENT ANGLE: ${angle.name}**\n${angle.description}\n`;
+    return { context, isDistributor, angleName: angle.name };
+  } catch (err) {
+    console.warn("[Angle Context] Failed to load angle:", err);
+    return { context: "", isDistributor: false, angleName: "Potential Customer" };
+  }
+}
+
+/**
  * Score a company's fit against the active Brain's ICP criteria.
  * Returns a 0-100 fit score with full breakdown for transparency.
  * Does NOT require a web search — uses only stored company data + Brain context.
  */
 export async function scoreCompanyFit(
   companyId: number,
-  userId?: number
+  userId?: number,
+  angleId?: string
 ): Promise<FitScoreResult> {
   const company = await getCompanyById(companyId);
   if (!company) throw new Error(`Company ${companyId} not found`);
@@ -615,6 +638,7 @@ export async function scoreCompanyFit(
   }
 
   const brainContext = await getBrainContext(userId!);
+  const angleInfo = await getAngleContext(angleId);
 
   // Parse brain fields for structured scoring
   const fitCriteria = brain.fitCriteria ? JSON.parse(brain.fitCriteria) : { mustHave: [], niceToHave: [], disqualifiers: [] };
@@ -631,7 +655,22 @@ Industry (SIC): ${company.sicCodes ? JSON.parse(company.sicCodes).slice(0, 5).jo
 Short description: ${(company as any).shortDescription || "not available"}
 `;
 
-  const prompt = `You are a B2B sales qualification analyst. Score the prospect company's fit against the seller's Ideal Customer Profile (ICP).
+  const distributorScoringRules = angleInfo.isDistributor
+    ? `DISTRIBUTOR SCORING RULES (override standard ICP scoring):
+- industryFit (0-30): Does this company operate in DISTRIBUTION, RETAIL, or RESELLER space for the relevant end-market? Are they a dealer, importer, wholesaler, or specialty retailer?
+- sizeFit (0-20): Does the company have sufficient commercial scale to be a meaningful channel partner? (revenue, team size, geographic reach)
+- mustHavesFit (0-30): Does the company have: (1) existing product portfolio in adjacent/complementary categories, (2) access to the target end-customer segment, (3) commercial infrastructure (sales team, logistics, showroom/online store)?
+- disqualifiers: Disqualify if the company IS the end-user (uses products internally only), is a pure manufacturer with no distribution arm, or is a direct competitor.
+- buyingSignalsFit (0-20): Evidence of channel expansion, new brand partnerships, trade show presence, or distributor agreements?
+- overallRationale: Frame as channel partnership potential, not direct sales fit.`
+    : `Scoring rules:
+- industryFit (0-30): Does the company operate in the Brain's ICP industries? Full score = perfect match, 0 = complete mismatch
+- sizeFit (0-20): Does the company's revenue/headcount match the Brain's ICP company size?
+- mustHavesFit (0-30): How many of the Brain's must-have criteria does this company appear to meet?
+- disqualifiers: If ANY disqualifier is triggered, cap fitScore at 25 regardless of other scores
+- buyingSignalsFit (0-20): Does the company profile suggest any of the Brain's buying signals are present?`;
+
+  const prompt = `You are a B2B sales qualification analyst. Score the prospect company's fit against the seller's Ideal Customer Profile (ICP).${angleInfo.context}
 
 ${brainContext}
 
@@ -639,7 +678,7 @@ ${brainContext}
 ${companyProfile}
 
 **SCORING TASK:**
-Evaluate the prospect against the Brain's ICP criteria and return a JSON object with this exact structure:
+Evaluate the prospect and return a JSON object with this exact structure:
 
 {
   "fitScore": <integer 0-100>,
@@ -671,16 +710,11 @@ Evaluate the prospect against the Brain's ICP criteria and return a JSON object 
       "rationale": "<1-2 sentences on buying signal alignment>"
     }
   },
-  "overallRationale": "<3-4 sentence executive summary of why this company is or isn't a strong fit>"
+  "overallRationale": "<3-4 sentence executive summary of why this company is or isn't a strong fit as a ${angleInfo.isDistributor ? 'DISTRIBUTOR / CHANNEL PARTNER' : 'direct customer'}>"
 }
 
-Scoring rules:
-- industryFit (0-30): Does the company operate in the Brain's ICP industries? Full score = perfect match, 0 = complete mismatch
-- sizeFit (0-20): Does the company's revenue/headcount match the Brain's ICP company size?
-- mustHavesFit (0-30): How many of the Brain's must-have criteria does this company appear to meet?
-- disqualifiers: If ANY disqualifier is triggered, cap fitScore at 25 regardless of other scores
-- buyingSignalsFit (0-20): Does the company profile suggest any of the Brain's buying signals are present?
-- fitScore = industryFit.score + sizeFit.score + mustHavesFit.score + buyingSignalsFit.score (capped at 25 if disqualifier triggered)
+${distributorScoringRules}
+fitScore = industryFit.score + sizeFit.score + mustHavesFit.score + buyingSignalsFit.score (capped at 25 if disqualifier triggered)
 
 ICP Industries to match against: ${icpIndustries.join(", ")}
 Must-haves: ${fitCriteria.mustHave?.join("; ") || "none specified"}

@@ -2498,3 +2498,9 @@
 - [x] Update listAllBrainsAdmin to read Supabase lt_mns_offering_brains as primary source
 - [x] Fall back to local MySQL only if Supabase is unavailable
 - [x] Update BrainVisibility frontend to handle string Supabase IDs for push/pull/toggle actions
+
+## Feature: Distributor Angle (First-Class)
+- [ ] Insert Distributor angle into lt_mns_angles with description and embedding
+- [ ] Update fit scoring prompts to use Distributor-specific criteria when angle = Distributor
+- [ ] Update brief/approach generation to produce channel-partnership framing when angle = Distributor
+- [ ] Ensure angle selection propagates through full content pipeline (fit score → brief → approach → trigger)

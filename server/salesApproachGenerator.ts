@@ -14,6 +14,7 @@
  */
 
 import { getCompanyById, getActiveBrain, getOfferingBrainById } from "./db";
+import { getAngleContext } from "./briefGenerator";
 import type { SalesApproach } from "../shared/contractTypes";
 
 // SalesApproach type is defined in shared/contractTypes.ts and imported above.
@@ -215,7 +216,8 @@ async function callGrokWithWebSearch(input: string): Promise<string> {
 export async function generateSalesApproach(
   companyId: number,
   userId?: number,
-  brainId?: number
+  brainId?: number,
+  angleId?: string
 ): Promise<SalesApproach> {
   // Load company data from database
   const company = await getCompanyById(companyId);
@@ -237,6 +239,9 @@ export async function generateSalesApproach(
   const brainInfo = userId ? await getBrainContextForApproach(userId, brainId) : { context: "", companyName: "Your Company" };
   const sellerName = brainInfo.companyName;
 
+  // Load angle context for Distributor / Channel Partner framing
+  const angleInfo = await getAngleContext(angleId);
+
   // Build verified developments summary with source URLs
   const verifiedDevelopments = (briefData.recentDevelopments || [])
     .filter((d: any) => d && (typeof d === "string" || d.text))
@@ -256,7 +261,23 @@ export async function generateSalesApproach(
   const todayStr = new Date().toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
 
   // Generate comprehensive sales approach
-  const approachPrompt = `You are a B2B sales expert. Today is ${todayStr}. You are crafting a complete sales approach for ${sellerName}.
+  const distributorInstructions = angleInfo.isDistributor ? `
+**ENGAGEMENT ANGLE: DISTRIBUTOR / CHANNEL PARTNER**
+You are crafting a CHANNEL PARTNERSHIP outreach — NOT a direct sales pitch.
+The goal is to explore whether ${company.name} would be a strong DISTRIBUTOR, RESELLER, or CHANNEL PARTNER for ${sellerName}.
+
+FRAMING RULES for all outreach materials:
+- Email subject should reference partnership/distribution opportunity, NOT product features
+- Email body should lead with their market position and distribution reach, then propose a channel partnership conversation
+- LinkedIn message should reference their role in the market and mutual customer base
+- Call script should open with acknowledging their market presence, then pivot to channel opportunity
+- conversationStarters should be about their distribution network, customer base, or product portfolio — NOT about their own needs
+- engagementStrategy.whyThisProspectMatters should explain why they are a strong CHANNEL PARTNER candidate
+- engagementStrategy.recommendedApproach should describe the channel partnership pitch sequence
+- engagementStrategy.keyTalkingPoints should cover: mutual customer base, margin opportunity, exclusivity potential, support model
+` : "";
+
+  const approachPrompt = `You are a B2B sales expert. Today is ${todayStr}. You are crafting a complete sales approach for ${sellerName}.${distributorInstructions}
 ${brainInfo.context ? `${brainInfo.context}
 **Use the seller intelligence above to tailor all outreach materials to the seller's specific capabilities and value propositions.**
 ` : ""}
@@ -280,11 +301,12 @@ ${verifiedSources || "No verified sources available."}
 2. Ground ALL conversation starters in specific, verified developments with working source URLs
 3. The email draft should reference at least one specific, verified development
 4. Only use verified data from your searches — do NOT hallucinate URLs or facts
+5. ${angleInfo.isDistributor ? "Frame ALL materials as a CHANNEL PARTNERSHIP opportunity — never as a direct product sale" : "Personalize all materials to the prospect's specific situation and pain points"}
 
 **Generate a complete sales approach. Return JSON matching the required schema:**
 - conversationStarters: 3 specific openers, each tied to a verified source URL
-- engagementStrategy: why this prospect matters, recommended approach, key talking points
-- emailDraft: personalized cold email with subject, body (3 paragraphs), and referenced sources
+- engagementStrategy: why this prospect matters${angleInfo.isDistributor ? " as a CHANNEL PARTNER" : ""}, recommended approach, key talking points
+- emailDraft: personalized ${angleInfo.isDistributor ? "channel partnership" : "cold"} email with subject, body (3 paragraphs), and referenced sources
 - linkedinMessage: connection request (max 200 chars) and follow-up message
 - callScript: 30-second opening, 3 discovery questions, value proposition, call to action`;
 

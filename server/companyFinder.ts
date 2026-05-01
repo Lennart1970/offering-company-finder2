@@ -329,7 +329,7 @@ export const companyFinderRouter = router({
   // fire-and-forget: returns jobId immediately, runs in background.
   // Job state is persisted to batch_jobs table so it survives server restarts.
   doNext10: protectedProcedure
-    .input(z.object({ searchId: z.number(), limit: z.number().optional().default(10), brainId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? (typeof v === 'string' ? (isNaN(Number(v)) ? undefined : Number(v)) : v) : undefined) }))
+    .input(z.object({ searchId: z.number(), limit: z.number().optional().default(10), brainId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? (typeof v === 'string' ? (isNaN(Number(v)) ? undefined : Number(v)) : v) : undefined), angleId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       await assertSearchAccess(input.searchId, ctx.user.id);
       const jobId = randomUUID();
@@ -441,7 +441,7 @@ export const companyFinderRouter = router({
                   console.log(`[doNext10] ✓ Researched: ${company.name}`);
                 }
                 if (!hasApproach) {
-                  const approach = await generateSalesApproach(company.id, ctx.user.id, input.brainId);
+                  const approach = await generateSalesApproach(company.id, ctx.user.id, input.brainId, input.angleId);
                   if (resolvedBrainId) {
                     await upsertCompanyBrainOutput(company.id, resolvedBrainId, {
                       salesApproachData: JSON.stringify(approach),
@@ -557,7 +557,7 @@ export const companyFinderRouter = router({
   // Same logic as doNext10 but no limit and checks for cancellation each step.
   // ---------------------------------------------------------------------------
   doAll: protectedProcedure
-    .input(z.object({ searchId: z.number(), brainId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? (typeof v === 'string' ? (isNaN(Number(v)) ? undefined : Number(v)) : v) : undefined) }))
+    .input(z.object({ searchId: z.number(), brainId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? (typeof v === 'string' ? (isNaN(Number(v)) ? undefined : Number(v)) : v) : undefined), angleId: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       await assertSearchAccess(input.searchId, ctx.user.id);
       const jobId = randomUUID();
@@ -660,7 +660,7 @@ export const companyFinderRouter = router({
                 console.log(`[doAll] ✓ Researched: ${company.name}`);
               }
               if (!hasApproach) {
-                const approach = await generateSalesApproach(company.id, ctx.user.id, input.brainId);
+                const approach = await generateSalesApproach(company.id, ctx.user.id, input.brainId, input.angleId);
                 if (resolvedBrainId) {
                   await upsertCompanyBrainOutput(company.id, resolvedBrainId, {
                     salesApproachData: JSON.stringify(approach),
@@ -1035,6 +1035,7 @@ export const companyFinderRouter = router({
       companyId: z.number(),
       force: z.boolean().optional(), // If true, bypass cache and regenerate
       brainId: z.number().optional(), // If provided, use this brain and write to company_brain_outputs
+      angleId: z.string().optional(), // If provided, use this angle for scoring/content framing
     }))
     .mutation(async ({ ctx, input }) => {
       const company = await assertCompanyAccess(input.companyId, ctx.user.id);
@@ -1106,6 +1107,7 @@ export const companyFinderRouter = router({
     .input(z.object({
       companyId: z.number(),
       brainId: z.number().optional(), // If provided, use this brain and write to company_brain_outputs
+      angleId: z.string().optional(), // If provided, use this angle for content framing
     }))
     .mutation(async ({ ctx, input }) => {
       const company = await assertCompanyAccess(input.companyId, ctx.user.id);
@@ -1148,7 +1150,7 @@ export const companyFinderRouter = router({
 
       try {
         // Generate personalized sales approach with Brain context
-        const salesApproach = await generateSalesApproach(input.companyId, ctx.user.id, input.brainId);
+        const salesApproach = await generateSalesApproach(input.companyId, ctx.user.id, input.brainId, input.angleId);
 
         // Write to brain-scoped output table
         const resolvedBrainId = input.brainId ?? (await getActiveBrain(ctx.user.id))?.id;
@@ -1615,7 +1617,7 @@ export const companyFinderRouter = router({
           const sb = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
           const { data: sbBrains } = await sb
             .from("lt_mns_offering_brains")
-            .select("id, brain_name, company_name, status, show_on_leadtrigger, is_active, is_shared, user_id, created_at")
+            .select("id, brain_name, company_name, status, show_on_leadtrigger, is_active, local_brain_id, created_at")
             .eq("show_on_leadtrigger", true)
             .order("created_at", { ascending: false });
 
@@ -1629,7 +1631,7 @@ export const companyFinderRouter = router({
               companyName: b.company_name ?? "",
               status: b.status ?? "completed",
               isActive: b.is_active ? 1 : 0,
-              isShared: b.is_shared ? 1 : 0,
+              isShared: 0, // not stored in Supabase
               userId: b.user_id ?? ctx.user.id,
               isSupabase: true,
               showOnLeadtrigger: b.show_on_leadtrigger ? 1 : 0,
@@ -3827,7 +3829,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
           const sb = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
           const { data, error } = await sb
             .from("lt_mns_offering_brains")
-            .select("id, brain_name, company_name, status, is_active, is_shared, show_on_leadtrigger, created_at, updated_at, local_brain_id")
+            .select("id, brain_name, company_name, status, is_active, show_on_leadtrigger, created_at, updated_at, local_brain_id")
             .order("created_at", { ascending: false });
           if (!error && data) {
             const brains = data.map((b: any) => ({
@@ -3837,7 +3839,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
               companyName: b.company_name ?? "",
               status: b.status ?? "completed",
               isActive: b.is_active ? 1 : 0,
-              isShared: b.is_shared ? 1 : 0,
+              isShared: 0, // not stored in Supabase, defaults to 0
               showOnLeadtrigger: b.show_on_leadtrigger ? 1 : 0,
               createdAt: b.created_at ?? null,
               updatedAt: b.updated_at ?? null,

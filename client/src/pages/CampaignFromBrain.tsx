@@ -12,12 +12,16 @@ export default function CampaignFromBrain() {
   const [sectorFilter, setSectorFilter] = useState("");
   const [excludedSectors, setExcludedSectors] = useState<string[]>([]);
   const [countryFilter, setCountryFilter] = useState("");
+  const [selectedAngleId, setSelectedAngleId] = useState<string | undefined>(undefined);
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set());
   const [campaignName, setCampaignName] = useState("");
   const [step, setStep] = useState<"select-brain" | "review-companies" | "creating">("select-brain");
 
   // Fetch brains
   const { data: brains, isLoading: brainsLoading } = trpc.campaignBrain.listBrains.useQuery();
+  // Fetch angles
+  const { data: anglesData } = trpc.companyFinder.getAngles.useQuery();
+  const availableAngles = anglesData?.angles ?? [];
 
   // Fetch companies when brain is selected
   const { data: companies, isLoading: companiesLoading } = trpc.campaignBrain.findByBrain.useQuery(
@@ -121,6 +125,7 @@ export default function CampaignFromBrain() {
       campaignName: campaignName.trim(),
       companyIds: Array.from(selectedCompanies),
       autoEnqueue: true,
+      angleId: selectedAngleId,
     });
   };
 
@@ -202,6 +207,38 @@ export default function CampaignFromBrain() {
 
             {/* Controls */}
             <div className="border border-gray-200 p-4 mb-4">
+              {/* Angle selector */}
+              {availableAngles.length > 1 && (
+                <div className="mb-3 flex items-center gap-3">
+                  <label className="text-[10px] font-black text-gray-400 tracking-widest whitespace-nowrap">ANGLE:</label>
+                  <div className="flex gap-2 flex-wrap">
+                    <button
+                      onClick={() => setSelectedAngleId(undefined)}
+                      className={`text-xs font-bold px-3 py-1 border-2 transition-colors ${
+                        !selectedAngleId
+                          ? "border-black bg-black text-white"
+                          : "border-gray-300 text-gray-600 hover:border-gray-500"
+                      }`}
+                    >
+                      Default
+                    </button>
+                    {availableAngles.map((a: any) => (
+                      <button
+                        key={a.id}
+                        onClick={() => setSelectedAngleId(a.id === selectedAngleId ? undefined : a.id)}
+                        title={a.description ?? ""}
+                        className={`text-xs font-bold px-3 py-1 border-2 transition-colors ${
+                          selectedAngleId === a.id
+                            ? "border-blue-600 bg-blue-600 text-white"
+                            : "border-gray-300 text-gray-600 hover:border-blue-400"
+                        }`}
+                      >
+                        {a.name}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <label className="text-[10px] font-black text-gray-400 tracking-widest block mb-1">THRESHOLD</label>

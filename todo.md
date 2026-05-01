@@ -2504,3 +2504,43 @@
 - [ ] Update fit scoring prompts to use Distributor-specific criteria when angle = Distributor
 - [ ] Update brief/approach generation to produce channel-partnership framing when angle = Distributor
 - [ ] Ensure angle selection propagates through full content pipeline (fit score → brief → approach → trigger)
+
+## UX Redesign: 3-Step Command Panel (SearchResults)
+- [x] Campaign displayed as read-only step 1
+- [x] Brain selector as step 2 with auto-select active brain
+- [x] Angle selector as step 3 with auto-select first angle
+- [x] DO 10 / DO ALL / CANCEL as the "loose" action
+- [x] Secondary actions (Export, Share, Deduplicate) moved below
+- [x] Warning when non-active brain is selected
+
+## DONE: UX Redesign: 3-Step Command Panel (Campaign → Brain → Angle)
+- [ ] Replace scattered Brain/Angle dropdowns with unified 3-step command panel
+- [ ] Step 1: Campaign (already selected — show campaign name as confirmed step)
+- [ ] Step 2: Brain selector — clear dropdown with active brain highlighted
+- [ ] Step 3: Angle selector — button group (Potential Customer / Distributor / etc.)
+- [ ] DO 10 / DO ALL buttons only enabled when all 3 steps are set
+- [ ] Fix angle selector not working (was broken in previous implementation)
+- [ ] Maintain all existing functionality (hero sentence DO 10 links, etc.)
+
+## Bug Fix: Multiple Brains Showing ACTIVE in Brain Visibility
+- [x] Supabase-only brains all show ACTIVE badge — should be exactly one active brain
+- [x] Fix listAllBrainsAdmin to correctly determine which brain is the single active one (cross-ref with local MySQL)
+- [x] Ensure is_active from Supabase is properly interpreted (only one should be true)
+- [x] Clean up Supabase data: deactivated all, activated only 210017
+- [x] setActiveBrain now syncs active status to Supabase (deactivate all → activate one)
+
+## Simplify Brain Visibility — Supabase Only
+- [ ] Remove Push to Supabase / Pull from Supabase buttons
+- [ ] Remove Private/Shared toggle
+- [ ] Keep only: Visible toggle + Active radio (one active brain at a time)
+- [ ] Supabase is single source of truth — no local MySQL cross-reference needed
+- [ ] Update setActiveBrain to work directly on Supabase (deactivate all, activate one)
+- [ ] Update toggleBrainVisibility to work directly on Supabase
+- [ ] Simplify listAllBrainsAdmin to read only from Supabase
+
+## Simplify Offering Brain Cockpit (MY SAVED BRAINS) — Supabase Only
+- [x] Update getBrainHistory to read from Supabase instead of local MySQL
+- [x] Remove SHARED badge — not relevant when Supabase is single source
+- [x] Keep ACTIVE badge and brain name only
+- [x] Remove dead mutation code (toggleShared, pushToSupabase, pullFromSupabase)
+- [x] handleSetActive now accepts both numeric and string brain IDs

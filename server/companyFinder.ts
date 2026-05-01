@@ -1588,77 +1588,63 @@ export const companyFinderRouter = router({
       return { brain };
     }),
 
-  // Get brain history for the current user (Supabase as primary source of truth)
+  // Get brain history — Supabase is single source of truth
   getBrainHistory: protectedProcedure
     .query(async ({ ctx }) => {
-      // Normalized shape used throughout the app
       type BrainEntry = {
         id: string;
         brainName: string;
         companyName: string;
         status: string;
         isActive: number;
-        isShared: number;
         userId: number;
-        isSupabase: boolean;
         showOnLeadtrigger: number;
         createdAt: Date | null;
       };
 
-      const localHistory = await getBrainHistory(ctx.user.id);
-
-      // Fetch Supabase brains as primary source
-      let supabaseBrains: BrainEntry[] = [];
+      // ── Supabase primary ─────────────────────────────────────────────────
       try {
         const { createClient } = await import("@supabase/supabase-js");
         const supabaseUrl = process.env.SUPABASE_URL;
         const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
         if (supabaseUrl && supabaseKey) {
           const sb = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
-          const { data: sbBrains } = await sb
+          const { data: sbBrains, error } = await sb
             .from("lt_mns_offering_brains")
-            .select("id, brain_name, company_name, status, show_on_leadtrigger, is_active, local_brain_id, created_at")
+            .select("id, brain_name, company_name, status, show_on_leadtrigger, is_active, created_at")
             .eq("show_on_leadtrigger", true)
             .order("created_at", { ascending: false });
 
-          // Only include Supabase brains that are NOT already in local history
-          const localIds = new Set(localHistory.map((b) => String(b.id)));
-          supabaseBrains = (sbBrains ?? [])
-            .filter((b: any) => !localIds.has(String(b.id)))
-            .map((b: any): BrainEntry => ({
+          if (!error && sbBrains) {
+            const history: BrainEntry[] = sbBrains.map((b: any): BrainEntry => ({
               id: String(b.id),
               brainName: b.brain_name ?? "Unnamed Brain",
               companyName: b.company_name ?? "",
               status: b.status ?? "completed",
               isActive: b.is_active ? 1 : 0,
-              isShared: 0, // not stored in Supabase
-              userId: b.user_id ?? ctx.user.id,
-              isSupabase: true,
+              userId: ctx.user.id,
               showOnLeadtrigger: b.show_on_leadtrigger ? 1 : 0,
               createdAt: b.created_at ? new Date(b.created_at) : null,
             }));
+            return { history };
+          }
         }
       } catch (err) {
-        console.warn("[getBrainHistory] Failed to fetch Supabase brains:", err);
+        console.warn("[getBrainHistory] Supabase unavailable, falling back to local MySQL:", err);
       }
 
-      // Merge: local brains first (normalized), then Supabase-only brains
-      const history: BrainEntry[] = [
-        ...localHistory.map((b): BrainEntry => ({
-          id: String(b.id),
-          brainName: b.brainName,
-          companyName: b.companyName,
-          status: b.status,
-          isActive: b.isActive ?? 0,
-          isShared: b.isShared ?? 0,
-          userId: b.userId,
-          isSupabase: false,
-          showOnLeadtrigger: b.showOnLeadtrigger ?? 1,
-          createdAt: b.createdAt ?? null,
-        })),
-        ...supabaseBrains,
-      ];
-
+      // ── Local MySQL fallback ───────────────────────────────────────────
+      const localHistory = await getBrainHistory(ctx.user.id);
+      const history: BrainEntry[] = localHistory.map((b): BrainEntry => ({
+        id: String(b.id),
+        brainName: b.brainName,
+        companyName: b.companyName,
+        status: b.status,
+        isActive: b.isActive ?? 0,
+        userId: b.userId,
+        showOnLeadtrigger: b.showOnLeadtrigger ?? 1,
+        createdAt: b.createdAt ?? null,
+      }));
       return { history };
     }),
 
@@ -1819,10 +1805,41 @@ export const companyFinderRouter = router({
   // Set a brain as active
   setActiveBrain: protectedProcedure
     .input(z.object({
-      brainId: z.number(),
+      brainId: z.union([z.number(), z.string()]),
     }))
     .mutation(async ({ ctx, input }) => {
-      await setOfferingBrainActive(input.brainId, ctx.user.id);
+      const brainIdStr = String(input.brainId);
+      const brainIdNum = typeof input.brainId === "number" ? input.brainId : parseInt(input.brainId, 10);
+
+      // ── Supabase: deactivate all, activate the selected one ────────────
+      try {
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (supabaseUrl && supabaseKey) {
+          const { createClient } = await import("@supabase/supabase-js");
+          const sb = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+          // Deactivate all
+          await sb.from("lt_mns_offering_brains").update({ is_active: false }).neq("id", "__none__");
+          // Activate by Supabase id
+          await sb.from("lt_mns_offering_brains").update({ is_active: true }).eq("id", brainIdStr);
+          // Also try by local_brain_id (for numeric IDs)
+          if (!isNaN(brainIdNum)) {
+            await sb.from("lt_mns_offering_brains").update({ is_active: true }).eq("local_brain_id", brainIdNum);
+          }
+        }
+      } catch (err) {
+        console.warn("[setActiveBrain] Supabase update failed:", err);
+      }
+
+      // ── Local MySQL: also sync if the brain has a local record ───────────
+      if (!isNaN(brainIdNum)) {
+        try {
+          await setOfferingBrainActive(brainIdNum, ctx.user.id);
+        } catch {
+          // Supabase-only brain — no local record, that's fine
+        }
+      }
+
       const brain = await getActiveBrain(ctx.user.id);
       return { brain };
     }),
@@ -3832,19 +3849,43 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
             .select("id, brain_name, company_name, status, is_active, show_on_leadtrigger, created_at, updated_at, local_brain_id")
             .order("created_at", { ascending: false });
           if (!error && data) {
-            const brains = data.map((b: any) => ({
-              id: String(b.id),           // Supabase string ID
-              localId: b.local_brain_id ? Number(b.local_brain_id) : null, // local MySQL int (if synced)
-              brainName: b.brain_name ?? "Unnamed Brain",
-              companyName: b.company_name ?? "",
-              status: b.status ?? "completed",
-              isActive: b.is_active ? 1 : 0,
-              isShared: 0, // not stored in Supabase, defaults to 0
-              showOnLeadtrigger: b.show_on_leadtrigger ? 1 : 0,
-              createdAt: b.created_at ?? null,
-              updatedAt: b.updated_at ?? null,
-              isSupabaseOnly: !b.local_brain_id, // true = no local MySQL record
-            }));
+            // Cross-reference with local MySQL to find the true single active brain.
+            // Supabase is_active can be stale if setActiveBrain wasn't synced.
+            let localActiveId: number | null = null;
+            try {
+              const { getDb: getDbLocal } = await import("./db");
+              const dbLocal = await getDbLocal();
+              if (dbLocal) {
+                const { offeringBrain: obSchema } = await import("../drizzle/schema");
+                const { eq: eqOp } = await import("drizzle-orm");
+                const [activeRow] = await dbLocal.select({ id: obSchema.id }).from(obSchema).where(eqOp(obSchema.isActive, 1)).limit(1);
+                if (activeRow) localActiveId = activeRow.id;
+              }
+            } catch { /* local DB unavailable — trust Supabase */ }
+
+            const brains = data.map((b: any) => {
+              // Determine active: if we have a local active ID, use that as truth.
+              // A brain is active if its local_brain_id matches OR its id matches.
+              let isActive = false;
+              if (localActiveId !== null) {
+                isActive = (b.local_brain_id === localActiveId) || (String(b.id) === String(localActiveId));
+              } else {
+                isActive = !!b.is_active;
+              }
+              return {
+                id: String(b.id),           // Supabase string ID
+                localId: b.local_brain_id ? Number(b.local_brain_id) : null, // local MySQL int (if synced)
+                brainName: b.brain_name ?? "Unnamed Brain",
+                companyName: b.company_name ?? "",
+                status: b.status ?? "completed",
+                isActive: isActive ? 1 : 0,
+                isShared: 0, // not stored in Supabase, defaults to 0
+                showOnLeadtrigger: b.show_on_leadtrigger ? 1 : 0,
+                createdAt: b.created_at ?? null,
+                updatedAt: b.updated_at ?? null,
+                isSupabaseOnly: !b.local_brain_id, // true = no local MySQL record
+              };
+            });
             return { brains };
           }
         }
@@ -3934,6 +3975,37 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         }
       }
       return { success: true, brainId: input.brainId, visible: input.visible };
+    }),
+
+  /**
+   * Fetch all available angles from Supabase lt_mns_angles table.
+   */
+  getAngles: protectedProcedure
+    .query(async () => {
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (supabaseUrl && supabaseKey) {
+          const sb = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+          const { data, error } = await sb
+            .from("lt_mns_angles")
+            .select("id, name, description")
+            .order("name", { ascending: true });
+          if (!error && data) {
+            return { angles: data.map((a: any) => ({ id: a.id as string, name: a.name as string, description: a.description as string | null })) };
+          }
+        }
+      } catch (err) {
+        console.warn("[getAngles] Supabase unavailable:", err);
+      }
+      // Fallback: return hardcoded angles if Supabase is down
+      return {
+        angles: [
+          { id: "default", name: "Potential Customer", description: "Direct end-user buyer" },
+          { id: "distributor", name: "Distributor", description: "Channel partner who resells to end customers" },
+        ],
+      };
     }),
 });
 

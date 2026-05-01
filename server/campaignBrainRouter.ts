@@ -227,6 +227,7 @@ export const campaignBrainRouter = router({
         campaignName: z.string().min(1).max(255),
         companyIds: z.array(z.string()), // Supabase UUIDs
         autoEnqueue: z.boolean().default(true),
+        angleId: z.string().optional(), // Optional angle override (e.g. Distributor)
       })
     )
     .mutation(async ({ ctx, input }) => {

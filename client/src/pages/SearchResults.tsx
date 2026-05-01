@@ -57,12 +57,22 @@ export default function SearchResults() {
   const { data: brainHistoryData } = trpc.companyFinder.getBrainHistory.useQuery();
   const availableBrains = (brainHistoryData?.history ?? []).filter((b: any) => b.status === "completed");
   const [selectedBrainId, setSelectedBrainId] = useState<string | undefined>(undefined);
+  // Angle selector — lets user pick which angle (Potential Customer, Distributor, etc.) to use for DO 10 / DO ALL
+  const { data: anglesData } = trpc.companyFinder.getAngles.useQuery();
+  const availableAngles = anglesData?.angles ?? [];
+  const [selectedAngleId, setSelectedAngleId] = useState<string | undefined>(undefined);
   // Auto-select active brain once loaded
   useEffect(() => {
     if (activeBrain && selectedBrainId === undefined) {
       setSelectedBrainId(String(activeBrain.id));
     }
   }, [activeBrain?.id]);
+  // Auto-select first angle once loaded
+  useEffect(() => {
+    if (availableAngles.length > 0 && selectedAngleId === undefined) {
+      setSelectedAngleId(availableAngles[0].id);
+    }
+  }, [availableAngles.length]);
   const selectedBrain = availableBrains.find((b: any) => String(b.id) === selectedBrainId) ?? activeBrain;
 
   const [page, setPage] = useState(0);
@@ -298,6 +308,7 @@ export default function SearchResults() {
   }, [jobStatusQuery.data?.status]);
 
   const selectedBrainIdForMutation = selectedBrainId ?? (activeBrain ? String(activeBrain.id) : undefined);
+  const selectedAngleIdForMutation = selectedAngleId || undefined;
   const doNext10Mutation = trpc.companyFinder.doNext10.useMutation({
     onSuccess: (data) => {
       setActiveJobId(data.jobId);
@@ -811,7 +822,7 @@ export default function SearchResults() {
             <strong>{researchedCount}</strong> already have a research brief.
             {" "}Press <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
-              onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation })}
+             onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
             >[DO 10]</strong>{" "}
             to process the next 10 companies.
           </>
@@ -822,7 +833,7 @@ export default function SearchResults() {
           <strong>{enrichedCount} companies</strong> from <strong>{campaignName}</strong> found in Apollo and ready to work.
           {" "}Press <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
-              onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation })}
+              onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
             >[DO 10]</strong>{" "}
             to research and write outreach scripts for the next 10.
         </>
@@ -834,7 +845,7 @@ export default function SearchResults() {
           <strong>{enrichmentStats?.pending ?? 0} companies</strong> were not found in Apollo yet.
           {" "}Press <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
-              onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation })}
+              onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
             >[DO 10]</strong>{" "}
             to enrich the next 10 companies.
         </>
@@ -848,7 +859,7 @@ export default function SearchResults() {
           {" "}Press <span className="cursor-pointer underline decoration-dotted hover:opacity-70 transition-opacity font-black" onClick={() => setEnrichmentFilter("outreach")}>OUTREACH READY</span> to go straight to your scripts, or press{" "}
             <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
-              onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation })}
+              onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
             >[DO 10]</strong>{" "}
             to process the next 10 remaining companies.
         </>
@@ -861,7 +872,7 @@ export default function SearchResults() {
           {" "}Press <strong>ENRICHED</strong> to see them, then hit{" "}
             <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
-              onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation })}
+              onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
             >[DO 10]</strong>{" "}
             to research and write outreach scripts for the next 10.
         </>
@@ -977,199 +988,231 @@ export default function SearchResults() {
             </div>
           )}
           {/* Stats Bar — supporting detail */}
-          <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
-            <div className="flex items-center gap-4">
-              <div className="text-3xl font-black">
-                [{displayedCompanies.length}{enrichmentFilter !== "all" ? ` / ${filteredCompanies.length}` : ""} MATCHES]
-                {enrichmentFilter !== "all" && (
-                  <button
-                    onClick={() => setEnrichmentFilter("all")}
-                    className="ml-2 text-sm font-black text-muted-foreground hover:text-black"
-                    title="Clear filter"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-              <div className="flex gap-3">
+          {/* ── STATS BAR ─────────────────────────────────────────────── */}
+          <div className="flex flex-wrap items-center gap-4 mb-4">
+            <div className="text-3xl font-black">
+              [{displayedCompanies.length}{enrichmentFilter !== "all" ? ` / ${filteredCompanies.length}` : ""} MATCHES]
+              {enrichmentFilter !== "all" && (
                 <button
-                  onClick={() => setEnrichmentFilter(enrichmentFilter === "enriched" ? "all" : "enriched")}
+                  onClick={() => setEnrichmentFilter("all")}
+                  className="ml-2 text-sm font-black text-muted-foreground hover:text-black"
+                  title="Clear filter"
+                >
+                  ✕
+                </button>
+              )}
+            </div>
+            <div className="flex gap-3 flex-wrap">
+              <button
+                onClick={() => setEnrichmentFilter(enrichmentFilter === "enriched" ? "all" : "enriched")}
+                className={`text-xs font-black border-2 px-3 py-1 cursor-pointer transition-colors ${
+                  enrichmentFilter === "enriched"
+                    ? "border-gray-900 bg-gray-900 text-white"
+                    : "border-gray-400 text-gray-600 hover:border-gray-700"
+                }`}
+              >
+                {enrichmentStats?.enriched || 0} ENRICHED
+              </button>
+              <button
+                onClick={() => setEnrichmentFilter(enrichmentFilter === "pending" ? "all" : "pending")}
+                className={`text-xs font-black border-2 px-3 py-1 cursor-pointer transition-colors ${
+                  enrichmentFilter === "pending"
+                    ? "border-gray-900 bg-gray-900 text-white"
+                    : "border-gray-300 text-gray-500 hover:border-gray-600"
+                }`}
+              >
+                {enrichmentStats?.pending || 0} PENDING
+              </button>
+              {(enrichmentStats?.outreachReady ?? 0) > 0 && (
+                <button
+                  onClick={() => setEnrichmentFilter(enrichmentFilter === "outreach" ? "all" : "outreach")}
                   className={`text-xs font-black border-2 px-3 py-1 cursor-pointer transition-colors ${
-                    enrichmentFilter === "enriched"
+                    enrichmentFilter === "outreach"
                       ? "border-gray-900 bg-gray-900 text-white"
                       : "border-gray-400 text-gray-600 hover:border-gray-700"
                   }`}
                 >
-                  {enrichmentStats?.enriched || 0} ENRICHED
+                  {enrichmentStats?.outreachReady || 0} OUTREACH READY
                 </button>
+              )}
+              {leadinfoSet.size > 0 && (
                 <button
-                  onClick={() => setEnrichmentFilter(enrichmentFilter === "pending" ? "all" : "pending")}
+                  onClick={() => setEnrichmentFilter(enrichmentFilter === "visitors" ? "all" : "visitors")}
                   className={`text-xs font-black border-2 px-3 py-1 cursor-pointer transition-colors ${
-                    enrichmentFilter === "pending"
-                      ? "border-gray-900 bg-gray-900 text-white"
-                      : "border-gray-300 text-gray-500 hover:border-gray-600"
+                    enrichmentFilter === "visitors"
+                      ? "border-emerald-700 bg-emerald-700 text-white"
+                      : "border-emerald-600 text-emerald-700 hover:border-emerald-800"
                   }`}
                 >
-                  {enrichmentStats?.pending || 0} PENDING
+                  🌐 {leadinfoSet.size} SITE VISITORS
                 </button>
-                {(enrichmentStats?.outreachReady ?? 0) > 0 && (
-                  <button
-                    onClick={() => setEnrichmentFilter(enrichmentFilter === "outreach" ? "all" : "outreach")}
-                    className={`text-xs font-black border-2 px-3 py-1 cursor-pointer transition-colors ${
-                      enrichmentFilter === "outreach"
-                        ? "border-gray-900 bg-gray-900 text-white"
-                        : "border-gray-400 text-gray-600 hover:border-gray-700"
-                    }`}
-                  >
-                    {enrichmentStats?.outreachReady || 0} OUTREACH READY
-                  </button>
-                )}
-                {leadinfoSet.size > 0 && (
-                  <button
-                    onClick={() => setEnrichmentFilter(enrichmentFilter === "visitors" ? "all" : "visitors")}
-                    className={`text-xs font-black border-2 px-3 py-1 cursor-pointer transition-colors ${
-                      enrichmentFilter === "visitors"
-                        ? "border-emerald-700 bg-emerald-700 text-white"
-                        : "border-emerald-600 text-emerald-700 hover:border-emerald-800"
-                    }`}
-                  >
-                    🌐 {leadinfoSet.size} SITE VISITORS
-                  </button>
-                )}
-                {excludedCompanies.length > 0 && (
-                  <button
-                    onClick={() => setShowExcluded(!showExcluded)}
-                    className="text-xs font-black border-2 border-gray-400 text-gray-600 px-3 py-1 cursor-pointer hover:border-gray-700"
-                  >
-                    {excludedCompanies.length} EXCLUDED {showExcluded ? "▲" : "▼"}
-                  </button>
+              )}
+              {excludedCompanies.length > 0 && (
+                <button
+                  onClick={() => setShowExcluded(!showExcluded)}
+                  className="text-xs font-black border-2 border-gray-400 text-gray-600 px-3 py-1 cursor-pointer hover:border-gray-700"
+                >
+                  {excludedCompanies.length} EXCLUDED {showExcluded ? "▲" : "▼"}
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* ── 3-STEP COMMAND PANEL: Campaign → Brain → Angle → LOOSE ── */}
+          <div className="border-2 border-gray-200 bg-gray-50 p-4 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-4 items-end">
+              {/* Step 1: Campaign (already selected — display only) */}
+              <div>
+                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">① CAMPAIGN</div>
+                <div className="text-sm font-black text-black truncate border-2 border-gray-300 bg-white px-3 py-2">
+                  {searchData?.search.offeringName || "—"}
+                </div>
+              </div>
+
+              {/* Step 2: Brain */}
+              <div>
+                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">② BRAIN</div>
+                <select
+                  value={selectedBrainId ?? ""}
+                  onChange={(e) => setSelectedBrainId(e.target.value || undefined)}
+                  className="w-full text-sm font-bold border-2 border-black px-3 py-2 bg-white cursor-pointer"
+                >
+                  {availableBrains.length === 0 && <option value="">Loading...</option>}
+                  {availableBrains.map((b: any) => (
+                    <option key={b.id} value={b.id}>
+                      {b.brainName}{String(b.id) === String(activeBrain?.id) ? " ★" : ""}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* Step 3: Angle */}
+              <div>
+                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">③ ANGLE</div>
+                <select
+                  value={selectedAngleId ?? ""}
+                  onChange={(e) => setSelectedAngleId(e.target.value || undefined)}
+                  className="w-full text-sm font-bold border-2 border-black px-3 py-2 bg-white cursor-pointer"
+                >
+                  {availableAngles.length === 0 && <option value="">Loading...</option>}
+                  {availableAngles.map((a: any) => (
+                    <option key={a.id} value={a.id}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              {/* LOOSE — Action buttons */}
+              <div className="flex items-end gap-2">
+                {remainingWork > 0 ? (
+                  <>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
+                            disabled={isJobRunning || !selectedBrainId}
+                            className="text-sm px-4 py-2 font-black border-2 border-black bg-black text-white whitespace-nowrap"
+                          >
+                            {doNext10Mutation.isPending ? "WORKING..." : `DO 10`}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-xs text-sm">
+                          <p>Processes the next 10 companies: enrich → deep research → sales approach.</p>
+                          <p className="text-xs text-muted-foreground mt-1">{remainingWork} remaining</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            onClick={() => doAllMutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
+                            disabled={isJobRunning || !selectedBrainId}
+                            className="text-sm px-4 py-2 font-black border-2 border-black bg-black text-white whitespace-nowrap"
+                          >
+                            {doAllMutation.isPending ? "STARTING..." : `DO ALL (${remainingWork})`}
+                          </Button>
+                        </TooltipTrigger>
+                        <TooltipContent side="bottom" className="max-w-sm text-sm">
+                          <p className="font-bold mb-1">Processes {remainingWork} companies in the background:</p>
+                          <ul className="space-y-0.5 text-xs">
+                            {remainingWorkBreakdown.pendingEnrich > 0 && <li>• <strong>{remainingWorkBreakdown.pendingEnrich}</strong> pending enrichment</li>}
+                            {remainingWorkBreakdown.needsBrief > 0 && <li>• <strong>{remainingWorkBreakdown.needsBrief}</strong> need deep research brief</li>}
+                            {remainingWorkBreakdown.needsApproach > 0 && <li>• <strong>{remainingWorkBreakdown.needsApproach}</strong> need sales approach</li>}
+                          </ul>
+                          <p className="mt-1 text-xs text-muted-foreground">You can navigate away — the job continues.</p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    {isJobRunning && activeJobId && (
+                      <Button
+                        onClick={() => cancelJobMutation.mutate({ jobId: activeJobId })}
+                        disabled={cancelJobMutation.isPending}
+                        variant="outline"
+                        className="text-sm px-3 py-2 font-black border-2 border-red-600 text-red-600 hover:bg-red-50 whitespace-nowrap"
+                      >
+                        {cancelJobMutation.isPending ? "CANCELLING..." : "CANCEL"}
+                      </Button>
+                    )}
+                  </>
+                ) : (
+                  <span className="text-xs font-bold text-green-700 bg-green-50 border border-green-300 px-3 py-2">ALL DONE ✓</span>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {/* Brain selector — shown whenever there are brains to choose from */}
-              {availableBrains.length > 1 && (
-                <div className="flex items-center gap-2 w-full mb-1">
-                  <span className="text-xs font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">BRAIN:</span>
-                  <select
-                    value={selectedBrainId ?? ""}
-                    onChange={(e) => setSelectedBrainId(e.target.value || undefined)}
-                    className="text-sm font-bold border-2 border-black px-2 py-1 bg-white cursor-pointer flex-1 max-w-xs"
-                  >
-                    {availableBrains.map((b: any) => (
-                      <option key={b.id} value={b.id}>
-                        {b.brainName}{String(b.id) === String(activeBrain?.id) ? " ★ active" : ""}
-                      </option>
-                    ))}
-                  </select>
-                  {selectedBrainId && selectedBrainId !== String(activeBrain?.id) && (
-                    <span className="text-xs font-bold text-amber-600 border border-amber-400 px-2 py-0.5 bg-amber-50">
-                      ⚠ NOT ACTIVE BRAIN
-                    </span>
-                  )}
-                </div>
-              )}
-              {remainingWork > 0 && (
-                <>
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation })}
-                          disabled={isJobRunning}
-                          className="text-lg px-6 py-4 font-black border-2 border-black bg-black text-white"
-                        >
-                          {doNext10Mutation.isPending
-                            ? "[WORKING...]"
-                            : `[DO 10 — ${remainingWork} LEFT]`}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-xs text-sm">
-                        Processes the next 10 companies: enrich → deep research → sales approach.
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
 
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Button
-                          onClick={() => doAllMutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation })}
-                          disabled={isJobRunning}
-                          className="text-lg px-6 py-4 font-black border-2 border-black bg-black text-white"
-                        >
-                          {doAllMutation.isPending
-                            ? "[STARTING...]"
-                            : `[DO ALL — ${remainingWork}]`}
-                        </Button>
-                      </TooltipTrigger>
-                      <TooltipContent side="bottom" className="max-w-sm text-sm">
-                        <p className="font-bold mb-1">Processes {remainingWork} companies in the background:</p>
-                        <ul className="space-y-0.5 text-xs">
-                          {remainingWorkBreakdown.pendingEnrich > 0 && <li>• <strong>{remainingWorkBreakdown.pendingEnrich}</strong> pending enrichment (fetch address, SIC, size from Apollo)</li>}
-                          {remainingWorkBreakdown.needsBrief > 0 && <li>• <strong>{remainingWorkBreakdown.needsBrief}</strong> need deep research brief (urgency score + conversation starter)</li>}
-                          {remainingWorkBreakdown.needsApproach > 0 && <li>• <strong>{remainingWorkBreakdown.needsApproach}</strong> need sales approach (personalised outreach script)</li>}
-                        </ul>
-                        <p className="mt-1 text-xs text-muted-foreground">You can navigate away — the job continues and resumes on page reload.</p>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
+            {/* Warning when non-active brain selected */}
+            {selectedBrainId && selectedBrainId !== String(activeBrain?.id) && (
+              <div className="mt-2 text-xs font-bold text-amber-600 border border-amber-400 px-2 py-1 bg-amber-50 inline-block">
+                ⚠ Using a different brain than the active one
+              </div>
+            )}
+          </div>
 
-                  {/* Cancel button — only shown while a job is actively running */}
-                  {isJobRunning && activeJobId && (
-                    <Button
-                      onClick={() => cancelJobMutation.mutate({ jobId: activeJobId })}
-                      disabled={cancelJobMutation.isPending}
-                      variant="outline"
-                      className="text-lg px-4 py-4 font-black border-2 border-red-600 text-red-600 hover:bg-red-50"
-                    >
-                      {cancelJobMutation.isPending ? "CANCELLING..." : "[CANCEL]"}
-                    </Button>
-                  )}
-                </>
-              )}
-
+          {/* ── SECONDARY ACTIONS ──────────────────────────────────────── */}
+          <div className="flex flex-wrap gap-2 mb-6">
+            <Button
+              onClick={handleExportSharePoint}
+              variant="outline"
+              className="text-sm px-4 py-2 font-black border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors"
+            >
+              📊 EXPORT TO SHAREPOINT
+            </Button>
+            <Button
+              onClick={() => { setIsSelectMode2(!isSelectMode2); setSelectedCompanyIds(new Set()); }}
+              variant="outline"
+              className={`text-sm px-4 py-2 font-black border-2 transition-colors ${
+                isSelectMode2
+                  ? "border-purple-600 bg-purple-600 text-white"
+                  : "border-purple-600 text-purple-700 hover:bg-purple-600 hover:text-white"
+              }`}
+            >
+              {isSelectMode2 ? `✓ ${selectedCompanyIds.size} SELECTED` : "☑ SELECT FOR SHARE"}
+            </Button>
+            {isSelectMode2 && (
               <Button
-                onClick={handleExportSharePoint}
+                onClick={handleCreateShareList}
+                disabled={createShareListMutation.isPending || !selectedCompanyIds.size}
                 variant="outline"
-                className="text-lg px-6 py-4 font-black border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors"
+                className="text-sm px-4 py-2 font-black border-2 border-indigo-600 text-indigo-700 hover:bg-indigo-600 hover:text-white transition-colors disabled:opacity-50"
               >
-                📊 EXPORT TO SHAREPOINT
+                {createShareListMutation.isPending ? "⏳ CREATING..." : "🔗 CREATE SHARE LIST"}
               </Button>
-              <Button
-                onClick={() => { setIsSelectMode2(!isSelectMode2); setSelectedCompanyIds(new Set()); }}
-                variant="outline"
-                className={`text-lg px-6 py-4 font-black border-2 transition-colors ${
-                  isSelectMode2
-                    ? "border-purple-600 bg-purple-600 text-white"
-                    : "border-purple-600 text-purple-700 hover:bg-purple-600 hover:text-white"
-                }`}
-              >
-                {isSelectMode2 ? `✓ ${selectedCompanyIds.size} SELECTED` : "☑ SELECT FOR SHARE"}
-              </Button>
-              {isSelectMode2 && (
-                <Button
-                  onClick={handleCreateShareList}
-                  disabled={createShareListMutation.isPending || !selectedCompanyIds.size}
-                  variant="outline"
-                  className="text-lg px-6 py-4 font-black border-2 border-indigo-600 text-indigo-700 hover:bg-indigo-600 hover:text-white transition-colors disabled:opacity-50"
-                >
-                  {createShareListMutation.isPending ? "⏳ CREATING..." : "🔗 CREATE SHARE LIST"}
-                </Button>
-              )}
-              <Button
-                onClick={() => {
-                  if (confirm('Remove duplicate companies (same Apollo ID) from this search? The most-enriched copy will be kept.')) {
-                    deduplicateMutation.mutate({ searchId: searchId! });
-                  }
-                }}
-                disabled={deduplicateMutation.isPending}
-                variant="outline"
-                className="text-lg px-6 py-4 font-black border-2 border-orange-500 text-orange-600 hover:bg-orange-50 disabled:opacity-50"
-              >
-                {deduplicateMutation.isPending ? '⏳ DEDUPLICATING...' : '🔁 DEDUPLICATE'}
-              </Button>
-            </div>
+            )}
+            <Button
+              onClick={() => {
+                if (confirm('Remove duplicate companies (same Apollo ID) from this search? The most-enriched copy will be kept.')) {
+                  deduplicateMutation.mutate({ searchId: searchId! });
+                }
+              }}
+              disabled={deduplicateMutation.isPending}
+              variant="outline"
+              className="text-sm px-4 py-2 font-black border-2 border-orange-500 text-orange-600 hover:bg-orange-50 disabled:opacity-50"
+            >
+              {deduplicateMutation.isPending ? '⏳ DEDUPLICATING...' : '🔁 DEDUPLICATE'}
+            </Button>
           </div>
 
           {/* Background Job Progress Bar */}

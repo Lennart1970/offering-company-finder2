@@ -115,53 +115,7 @@ export default function Brain() {
     },
   });
 
-  const toggleSharedMutation = trpc.companyFinder.toggleBrainShared.useMutation({
-    onSuccess: (data) => {
-      toast.success(data.isShared ? "Brain is now shared with all users" : "Brain is now private");
-      utils.companyFinder.getBrainHistory.invalidate();
-    },
-    onError: (error) => {
-      toast.error(`Share toggle failed: ${error.message}`);
-    },
-  });
 
-  const pushToSupabaseMutation = trpc.companyFinder.pushBrainToSupabase.useMutation({
-    onSuccess: (data) => {
-      if (data.success) {
-        toast.success(data.message);
-      } else {
-        toast.error(`Push failed: ${data.message}`);
-      }
-    },
-    onError: (error) => {
-      toast.error(`Push failed: ${error.message}`);
-    },
-  });
-
-  const pullAllFromSupabaseMutation = trpc.companyFinder.pullAllBrainsFromSupabase.useMutation({
-    onSuccess: (data) => {
-      toast.success(data.message);
-      utils.companyFinder.getActiveBrain.invalidate();
-      utils.companyFinder.getBrainHistory.invalidate();
-    },
-    onError: (error) => {
-      toast.error(`Pull all failed: ${error.message}`);
-    },
-  });
-  const pullFromSupabaseMutation = trpc.companyFinder.pullBrainFromSupabase.useMutation({
-    onSuccess: (data) => {
-      if (data.success) {
-        toast.success(data.message);
-        utils.companyFinder.getActiveBrain.invalidate();
-        utils.companyFinder.getBrainHistory.invalidate();
-      } else {
-        toast.error(`Pull failed: ${data.message}`);
-      }
-    },
-    onError: (error) => {
-      toast.error(`Pull failed: ${error.message}`);
-    },
-  });
 
   const brain = brainData?.brain;
   const brainHistory = historyData?.history || [];
@@ -262,8 +216,8 @@ export default function Brain() {
 
   const handleSetActive = (brainId: string) => {
     const numId = Number(brainId);
-    if (!isNaN(numId)) setActiveMutation.mutate({ brainId: numId });
-    else toast.error("Cannot set a Supabase-only brain as active directly. Pull it from Supabase first.");
+    // Accept both numeric (local MySQL) and string (Supabase UUID) brain IDs
+    setActiveMutation.mutate({ brainId: !isNaN(numId) ? numId : brainId });
   };
 
   const handleDelete = (brainId: string) => {
@@ -387,12 +341,7 @@ export default function Brain() {
                   {b.isActive === 1 && (
                     <span className="text-[10px] font-black bg-green-600 text-white px-1.5 py-0.5 rounded shrink-0">ACTIVE</span>
                   )}
-                  {b.isShared === 1 && (
-                    <span className="text-[10px] font-black bg-blue-600 text-white px-1.5 py-0.5 rounded shrink-0">SHARED</span>
-                  )}
-                  {b.userId !== user?.id && (
-                    <span className="text-[10px] font-bold text-blue-600 border border-blue-300 px-1.5 py-0.5 rounded shrink-0">TEAM</span>
-                  )}
+
                 </div>
 
 

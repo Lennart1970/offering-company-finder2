@@ -2451,3 +2451,9 @@
 - [x] Fix createCampaignFromBrain to handle both local int IDs and Supabase string IDs
 - [x] Fetch brain info from Supabase when brainId is not a valid integer
 - [x] Set brainId to null (instead of NaN) in searches/companies tables for Supabase-only brains
+
+## Feature: Sector Exclusion Filter on Campaign from Brain Page
+- [x] Add "does not include" sector filter to Campaign from Brain results
+- [x] Allow users to exclude specific sectors (e.g., "information technology & services") from results
+- [x] Update company list to filter out excluded sectors in real-time
+- [x] Update selected count and tier badges to reflect filtered results

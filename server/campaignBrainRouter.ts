@@ -79,6 +79,7 @@ export const campaignBrainRouter = router({
         threshold: z.number().min(0).max(1).default(0.4),
         // Optional filters
         sector: z.string().optional(),
+        excludeSectors: z.array(z.string()).optional(),
         country: z.string().optional(),
         minEmployees: z.number().optional(),
       })
@@ -136,6 +137,12 @@ export const campaignBrainRouter = router({
       if (input.sector) {
         results = results.filter(
           (r) => r.sector?.toLowerCase().includes(input.sector!.toLowerCase())
+        );
+      }
+      if (input.excludeSectors && input.excludeSectors.length > 0) {
+        const excluded = new Set(input.excludeSectors.map((s) => s.toLowerCase()));
+        results = results.filter(
+          (r) => !r.sector || !excluded.has(r.sector.toLowerCase())
         );
       }
       if (input.country) {

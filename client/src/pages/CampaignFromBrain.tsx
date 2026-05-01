@@ -10,6 +10,7 @@ export default function CampaignFromBrain() {
   const [threshold, setThreshold] = useState(0.40);
   const [limit, setLimit] = useState(100);
   const [sectorFilter, setSectorFilter] = useState("");
+  const [excludedSectors, setExcludedSectors] = useState<string[]>([]);
   const [countryFilter, setCountryFilter] = useState("");
   const [selectedCompanies, setSelectedCompanies] = useState<Set<string>>(new Set());
   const [campaignName, setCampaignName] = useState("");
@@ -19,8 +20,15 @@ export default function CampaignFromBrain() {
   const { data: brains, isLoading: brainsLoading } = trpc.campaignBrain.listBrains.useQuery();
 
   // Fetch companies when brain is selected
-  const { data: companies, isLoading: companiesLoading, refetch } = trpc.campaignBrain.findByBrain.useQuery(
-    { brainId: selectedBrainId!, limit, threshold, sector: sectorFilter || undefined, country: countryFilter || undefined },
+  const { data: companies, isLoading: companiesLoading } = trpc.campaignBrain.findByBrain.useQuery(
+    {
+      brainId: selectedBrainId!,
+      limit,
+      threshold,
+      sector: sectorFilter || undefined,
+      excludeSectors: excludedSectors.length > 0 ? excludedSectors : undefined,
+      country: countryFilter || undefined,
+    },
     { enabled: !!selectedBrainId && step === "review-companies" }
   );
 
@@ -57,6 +65,9 @@ export default function CampaignFromBrain() {
     setSelectedBrainId(brainId);
     setCampaignName(`[Brain] ${brainName}`);
     setSelectedCompanies(new Set());
+    setExcludedSectors([]);
+    setSectorFilter("");
+    setCountryFilter("");
     setStep("review-companies");
   };
 
@@ -79,6 +90,23 @@ export default function CampaignFromBrain() {
   const selectTier = (tier: string) => {
     if (!companies) return;
     setSelectedCompanies(new Set(companies.filter((c) => c.fitTier === tier).map((c) => c.companyId)));
+  };
+
+  // Toggle sector exclusion
+  const toggleExcludeSector = (sector: string) => {
+    setExcludedSectors((prev) => {
+      if (prev.includes(sector)) {
+        return prev.filter((s) => s !== sector);
+      } else {
+        return [...prev, sector];
+      }
+    });
+    setSelectedCompanies(new Set());
+  };
+
+  const removeExcludedSector = (sector: string) => {
+    setExcludedSectors((prev) => prev.filter((s) => s !== sector));
+    setSelectedCompanies(new Set());
   };
 
   // Launch campaign
@@ -173,7 +201,7 @@ export default function CampaignFromBrain() {
             </div>
 
             {/* Controls */}
-            <div className="border border-gray-200 p-4 mb-6">
+            <div className="border border-gray-200 p-4 mb-4">
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                 <div>
                   <label className="text-[10px] font-black text-gray-400 tracking-widest block mb-1">THRESHOLD</label>
@@ -228,6 +256,63 @@ export default function CampaignFromBrain() {
                     ))}
                   </select>
                 </div>
+              </div>
+            </div>
+
+            {/* Sector Exclusion Filter */}
+            <div className="border border-gray-200 p-4 mb-6">
+              <label className="text-[10px] font-black text-gray-400 tracking-widest block mb-2">
+                EXCLUDE SECTORS <span className="text-gray-300 font-medium">(does not include)</span>
+              </label>
+
+              {/* Excluded sector tags */}
+              {excludedSectors.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {excludedSectors.map((sector) => (
+                    <span
+                      key={sector}
+                      className="inline-flex items-center gap-1.5 bg-red-50 text-red-700 border border-red-200 px-2.5 py-1 text-xs font-bold"
+                    >
+                      <span className="line-through">{sector}</span>
+                      <button
+                        onClick={() => removeExcludedSector(sector)}
+                        className="text-red-400 hover:text-red-700 font-black text-sm leading-none"
+                        title="Remove exclusion"
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  <button
+                    onClick={() => { setExcludedSectors([]); setSelectedCompanies(new Set()); }}
+                    className="text-[10px] font-black text-gray-400 hover:text-black px-2 py-1"
+                  >
+                    CLEAR ALL
+                  </button>
+                </div>
+              )}
+
+              {/* Sector chips to exclude */}
+              <div className="flex flex-wrap gap-1.5">
+                {filterOptions?.sectors
+                  .filter((s) => !excludedSectors.includes(s.name))
+                  .slice(0, 25)
+                  .map((s) => (
+                    <button
+                      key={s.name}
+                      onClick={() => toggleExcludeSector(s.name)}
+                      className="text-[10px] font-medium text-gray-500 border border-gray-200 px-2 py-1 hover:bg-red-50 hover:text-red-600 hover:border-red-200 transition-colors"
+                      title={`Exclude "${s.name}" (${s.count} companies)`}
+                    >
+                      {s.name} <span className="text-gray-300">({s.count})</span>
+                    </button>
+                  ))}
+                {!filterOptions && (
+                  <span className="text-[10px] text-gray-300 italic">Loading sectors...</span>
+                )}
+                {filterOptions?.sectors.length === 0 && (
+                  <span className="text-[10px] text-gray-300 italic">No sectors available</span>
+                )}
               </div>
             </div>
 

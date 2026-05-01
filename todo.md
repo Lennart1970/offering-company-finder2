@@ -2530,13 +2530,13 @@
 - [x] setActiveBrain now syncs active status to Supabase (deactivate all → activate one)
 
 ## Simplify Brain Visibility — Supabase Only
-- [ ] Remove Push to Supabase / Pull from Supabase buttons
-- [ ] Remove Private/Shared toggle
-- [ ] Keep only: Visible toggle + Active radio (one active brain at a time)
-- [ ] Supabase is single source of truth — no local MySQL cross-reference needed
-- [ ] Update setActiveBrain to work directly on Supabase (deactivate all, activate one)
-- [ ] Update toggleBrainVisibility to work directly on Supabase
-- [ ] Simplify listAllBrainsAdmin to read only from Supabase
+- [x] Remove Push to Supabase / Pull from Supabase buttons
+- [x] Remove Private/Shared toggle
+- [x] Keep only: Visible toggle + Active radio (one active brain at a time)
+- [x] Supabase is single source of truth — no local MySQL cross-reference needed
+- [x] Update setActiveBrain to work directly on Supabase (deactivate all, activate one)
+- [x] Update toggleBrainVisibility to work directly on Supabase
+- [x] Simplify listAllBrainsAdmin to read only from Supabase
 
 ## Simplify Offering Brain Cockpit (MY SAVED BRAINS) — Supabase Only
 - [x] Update getBrainHistory to read from Supabase instead of local MySQL
@@ -2544,3 +2544,11 @@
 - [x] Keep ACTIVE badge and brain name only
 - [x] Remove dead mutation code (toggleShared, pushToSupabase, pullFromSupabase)
 - [x] handleSetActive now accepts both numeric and string brain IDs
+
+## Fix Niche Review (Market Segments) Page
+- [x] Fix brainId NaN error — nicheRouter now accepts string|number brainId with Zod transform
+- [x] Add 3-step command panel (Campaign → Brain → Angle) consistent with SearchResults
+- [x] Auto-select active brain and first angle on load
+- [x] Warning when non-active brain selected
+- [x] Admin actions moved to separate row below command panel
+- [x] Audit angle usage in prompts — confirmed angle-aware in briefGenerator, salesApproachGenerator, and companyFinder

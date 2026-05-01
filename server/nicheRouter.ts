@@ -288,7 +288,7 @@ export const nicheRouter = router({
       z.object({
         searchId: z.number(),
         force: z.boolean().default(false), // force re-score even if already scored
-        brainId: z.number().optional(),
+        brainId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? (typeof v === 'string' ? (isNaN(Number(v)) ? undefined : Number(v)) : v) : undefined),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -360,7 +360,7 @@ export const nicheRouter = router({
    * Re-score a single niche against the active Offering Brain.
    */
   rescoreNiche: adminProcedure
-    .input(z.object({ nicheId: z.number(), brainId: z.number().optional() }))
+    .input(z.object({ nicheId: z.number(), brainId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? (typeof v === 'string' ? (isNaN(Number(v)) ? undefined : Number(v)) : v) : undefined) }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
       const niche = await getNicheById(input.nicheId);

@@ -592,13 +592,34 @@ export default function NicheReview() {
   const [expandResult, setExpandResult] = useState<{ assigned: number; remaining: number; newNichesCreated?: number; newNicheNames?: string[] } | null>(null);
   const [subClusterResults, setSubClusterResults] = useState<Map<number, { childNichesCreated: number; companiesProcessed: number }>>(new Map());
   const [creatingCampaignId, setCreatingCampaignId] = useState<number | null>(null);
-  const [selectedBrainId, setSelectedBrainId] = useState<number | undefined>(undefined);
+  const [selectedBrainId, setSelectedBrainId] = useState<string | undefined>(undefined);
+  const [selectedAngleId, setSelectedAngleId] = useState<string | undefined>(undefined);
 
   // Fetch all searches for the selector
   const { data: searches } = trpc.companyFinder.getSearchHistory.useQuery({ showArchived: false });
 
   // Fetch available brains for the brain selector
   const { data: brainHistory } = trpc.companyFinder.getBrainHistory.useQuery();
+  const availableBrains = ((brainHistory as any)?.history as any[] ?? []).filter((b: any) => b.status === "completed");
+  const activeBrain = availableBrains.find((b: any) => b.isActive === 1) ?? availableBrains[0];
+
+  // Fetch available angles
+  const { data: anglesData } = trpc.companyFinder.getAngles.useQuery();
+  const availableAngles = anglesData?.angles ?? [];
+
+  // Auto-select active brain
+  useEffect(() => {
+    if (activeBrain && selectedBrainId === undefined) {
+      setSelectedBrainId(String(activeBrain.id));
+    }
+  }, [activeBrain, selectedBrainId]);
+
+  // Auto-select first angle
+  useEffect(() => {
+    if (availableAngles.length > 0 && selectedAngleId === undefined) {
+      setSelectedAngleId(availableAngles[0].id);
+    }
+  }, [availableAngles, selectedAngleId]);
 
   // Fetch niches — either by search or all
   const {
@@ -926,49 +947,90 @@ export default function NicheReview() {
               </p>
             </div>
           </div>
+        </div>
 
-          <div className="flex items-center gap-3 flex-wrap">
-            {/* Search selector */}
-            <Select
-              value={selectedSearchId ? String(selectedSearchId) : "all"}
-              onValueChange={(v) => setSelectedSearchId(v === "all" ? null : parseInt(v))}
-            >
-              <SelectTrigger className="w-52 font-bold text-sm h-9">
-                <SelectValue placeholder="All niches" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All niches</SelectItem>
+        {/* ── 3-STEP COMMAND PANEL: Campaign → Brain → Angle ── */}
+        <div className="border-2 border-gray-200 bg-gray-50 p-4 mt-4">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-4 items-end">
+            {/* Step 1: Campaign */}
+            <div>
+              <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">① CAMPAIGN</div>
+              <select
+                value={selectedSearchId ? String(selectedSearchId) : "all"}
+                onChange={(e) => setSelectedSearchId(e.target.value === "all" ? null : parseInt(e.target.value))}
+                className="w-full text-sm font-bold border-2 border-black px-3 py-2 bg-white cursor-pointer"
+              >
+                <option value="all">All niches</option>
                 {(searches as any[])?.map((s: any) => (
-                  <SelectItem key={s.id} value={String(s.id)}>
+                  <option key={s.id} value={String(s.id)}>
                     {s.offeringName || s.companyWebsite || String(s.id)}
-                  </SelectItem>
+                  </option>
                 ))}
-              </SelectContent>
-            </Select>
+              </select>
+            </div>
 
-            {/* Brain selector for re-scoring */}
-            <Select
-              value={selectedBrainId ? String(selectedBrainId) : "active"}
-              onValueChange={(v) => setSelectedBrainId(v === "active" ? undefined : parseInt(v))}
-            >
-              <SelectTrigger className="w-56 font-bold text-sm h-9 border-2 border-black">
-                <Brain className="w-3.5 h-3.5 mr-1.5 shrink-0" />
-                <SelectValue placeholder="Active Brain" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="active">Active Brain (default)</SelectItem>
-                {((brainHistory as any)?.history as any[])?.filter((b: any) => b.status === "completed").map((b: any) => (
-                  <SelectItem key={b.id} value={String(b.id)}>
-                    {b.brainName}
-                  </SelectItem>
+            {/* Step 2: Brain */}
+            <div>
+              <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">② BRAIN</div>
+              <select
+                value={selectedBrainId ?? ""}
+                onChange={(e) => setSelectedBrainId(e.target.value || undefined)}
+                className="w-full text-sm font-bold border-2 border-black px-3 py-2 bg-white cursor-pointer"
+              >
+                {availableBrains.length === 0 && <option value="">Loading...</option>}
+                {availableBrains.map((b: any) => (
+                  <option key={b.id} value={b.id}>
+                    {b.brainName}{String(b.id) === String(activeBrain?.id) ? " ★" : ""}
+                  </option>
                 ))}
-              </SelectContent>
-            </Select>
+              </select>
+            </div>
 
-            {/* Admin-only action buttons */}
-            {isAdmin && (
-            <div className="flex items-center gap-3 flex-wrap">
-            {/* PRIMARY: Cluster Companies (Phase 1) — with target group size input */}
+            {/* Step 3: Angle */}
+            <div>
+              <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">③ ANGLE</div>
+              <select
+                value={selectedAngleId ?? ""}
+                onChange={(e) => setSelectedAngleId(e.target.value || undefined)}
+                className="w-full text-sm font-bold border-2 border-black px-3 py-2 bg-white cursor-pointer"
+              >
+                {availableAngles.length === 0 && <option value="">Loading...</option>}
+                {availableAngles.map((a: any) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Action: Re-score All */}
+            <div className="flex items-end gap-2">
+              <Button
+                className="text-sm px-4 py-2 font-black border-2 border-black bg-black text-white whitespace-nowrap"
+                onClick={handleScoreAll}
+                disabled={scoringAll || !selectedSearchId || sortedNiches.length === 0}
+              >
+                {scoringAll ? (
+                  <><Loader2 className="w-4 h-4 animate-spin mr-2" />SCORING...</>
+                ) : (
+                  <><Brain className="w-4 h-4 mr-2" />RE-SCORE ALL</>
+                )}
+              </Button>
+            </div>
+          </div>
+
+          {/* Warning when non-active brain selected */}
+          {selectedBrainId && selectedBrainId !== String(activeBrain?.id) && (
+            <div className="mt-2 text-xs font-bold text-amber-600 border border-amber-400 px-2 py-1 bg-amber-50 inline-block">
+              ⚠ Using a different brain than the active one
+            </div>
+          )}
+        </div>
+
+        {/* ── ADMIN ACTIONS ── */}
+        {isAdmin && (
+          <div className="flex items-center gap-3 flex-wrap mt-3">
+            {/* Cluster Seed Sample */}
             <div className="flex items-center border-2 border-black overflow-hidden">
               <Button
                 size="sm"
@@ -1000,7 +1062,7 @@ export default function NicheReview() {
               </div>
             </div>
 
-            {/* PHASE 2: Expand Sample (+500) — iterative batch assignment */}
+            {/* Expand Sample (+500) */}
             {selectedSearchId && sortedNiches.length > 0 && unassignedData && unassignedData.unassigned > 0 && (
               <Button
                 size="sm"
@@ -1018,7 +1080,7 @@ export default function NicheReview() {
               </Button>
             )}
 
-            {/* PHASE 2: Assign All — batch 1K at a time with progress */}
+            {/* Assign All */}
             {selectedSearchId && sortedNiches.length > 0 && unassignedData && unassignedData.unassigned > 0 && (
               <div className="flex items-center gap-2">
                 <Button
@@ -1056,25 +1118,8 @@ export default function NicheReview() {
                 else refetch();
               }}
             />
-
-            <Button
-              size="sm"
-              variant="outline"
-              className="font-black border-2 border-black"
-              onClick={handleScoreAll}
-              disabled={scoringAll || !selectedSearchId || sortedNiches.length === 0}
-            >
-              {scoringAll ? (
-                <Loader2 className="w-4 h-4 animate-spin mr-2" />
-              ) : (
-                <Brain className="w-4 h-4 mr-2" />
-              )}
-              Re-score All
-            </Button>
-            </div>
-            )}
           </div>
-        </div>
+        )}
 
         {/* Stats bar */}
         {sortedNiches.length > 0 && (

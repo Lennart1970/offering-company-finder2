@@ -8,6 +8,7 @@ import { z } from "zod";
 import { superAdminProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
 import { createClient } from "@supabase/supabase-js";
+import { invokeLLM } from "./_core/llm";
 
 // ─── Supabase client ────────────────────────────────────────────────────────
 function getSupabase() {
@@ -428,5 +429,129 @@ export const triggerRouter = router({
 
       console.log(`[Trigger] Uploaded ${uploaded}/${input.triggers.length} synthetic triggers`);
       return { uploaded, total: input.triggers.length };
+    }),
+
+  /**
+   * Generate synthetic news triggers for a given brain using LLM
+   * Reads brain data from Supabase, generates realistic news scenarios,
+   * then stores them as trigger references.
+   */
+  generateSyntheticTriggers: superAdminProcedure
+    .input(
+      z.object({
+        brainId: z.string(), // Supabase brain ID (string)
+        count: z.number().min(5).max(50).default(20),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const sb = getSupabase();
+
+      // 1. Fetch brain data from Supabase
+      const { data: brain, error: brainErr } = await sb
+        .from("lt_mns_offering_brains")
+        .select("id, brain_name, company_name, offering_summary, core_capabilities, icp_description, icp_pain_points, value_propositions, urgency_triggers, strong_fit_signals, local_brain_id")
+        .eq("id", input.brainId)
+        .single();
+
+      if (brainErr || !brain) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `Brain not found: ${input.brainId}` });
+      }
+
+      // 2. Determine numeric brain_id for trigger references
+      // Use local_brain_id if available, otherwise use a hash-based synthetic ID
+      let numericBrainId: number;
+      if (brain.local_brain_id) {
+        numericBrainId = Number(brain.local_brain_id);
+      } else {
+        // Generate a stable synthetic numeric ID from the string ID
+        let hash = 900000;
+        for (let i = 0; i < brain.id.length; i++) {
+          hash = ((hash << 5) - hash) + brain.id.charCodeAt(i);
+          hash |= 0;
+        }
+        numericBrainId = Math.abs(hash) % 99999 + 900000;
+      }
+
+      // 3. Build the LLM prompt
+      const systemPrompt = `You are a B2B sales intelligence expert. Generate synthetic news trigger references for a sales team.
+
+A "trigger reference" is a realistic news headline + scenario that, when a prospect company experiences it, signals they urgently need the offering described below.
+
+Each trigger must follow this exact JSON structure:
+{
+  "headline": "Short realistic news headline (max 15 words)",
+  "snippet": "1-2 sentence news snippet expanding on the headline",
+  "triggerType": "one of: product_launch | funding | expansion | leadership_change | technology_adoption | regulatory | market_shift | pain_point",
+  "signalType": "one of: Product Launch | Financial | Expansion | Leadership Change | Technology | Regulatory | Market Shift",
+  "aEvent": "The observable trigger event at the prospect company (1 sentence)",
+  "bChallenge": "The business challenge this creates for them (1 sentence)",
+  "brainConnection": "Why this makes them a hot prospect for the offering (1 sentence)",
+  "angleTemplate": "Opening line for a sales email referencing this trigger (1 sentence)"
+}
+
+Return ONLY a JSON array of ${input.count} trigger objects. No markdown, no explanation.`;
+
+      const userPrompt = `OFFERING: ${brain.offering_summary || brain.company_name}
+CORE CAPABILITIES: ${brain.core_capabilities || ""}
+ICP: ${brain.icp_description || ""}
+ICP PAIN POINTS: ${brain.icp_pain_points || ""}
+URGENCY TRIGGERS: ${brain.urgency_triggers || ""}
+STRONG FIT SIGNALS: ${brain.strong_fit_signals || ""}
+
+Generate ${input.count} diverse, realistic synthetic trigger references. Cover different signal types and industries within the ICP.`;
+
+      // 4. Call LLM
+      const llmResponse = await invokeLLM({
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userPrompt },
+        ],
+        response_format: { type: "json_object" } as any,
+      });
+
+      const rawMsg = llmResponse?.choices?.[0]?.message?.content;
+      const rawContent: string = typeof rawMsg === "string" ? rawMsg : "[]";
+      // The LLM might return {triggers: [...]} or just [...]
+      let triggers: any[];
+      try {
+        const parsed = JSON.parse(rawContent);
+        triggers = Array.isArray(parsed) ? parsed : (parsed.triggers ?? parsed.data ?? []);
+      } catch {
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "LLM returned invalid JSON" });
+      }
+
+      // 5. Store each trigger with embedding
+      let uploaded = 0;
+      for (const t of triggers) {
+        const text = `${t.headline}. ${t.snippet}`;
+        try {
+          const emb = await embedText(text);
+          const { error } = await sb
+            .from("lt_mns_trigger_references")
+            .insert({
+              brain_id: numericBrainId,
+              brain_name: brain.brain_name,
+              headline: t.headline,
+              snippet: t.snippet,
+              trigger_type: t.triggerType ?? "market_shift",
+              signal_type: t.signalType ?? "Market Shift",
+              a_event: t.aEvent ?? "",
+              b_challenge: t.bChallenge ?? "",
+              brain_connection: t.brainConnection ?? "",
+              angle_template: t.angleTemplate ?? "",
+              embedding: emb,
+              source_type: "synthetic",
+              quality_score: 0.75,
+              is_active: true,
+            });
+          if (!error) uploaded++;
+          else console.error(`[GenerateTriggers] Insert error:`, error.message);
+        } catch (e: any) {
+          console.error(`[GenerateTriggers] Failed for "${t.headline}":`, e.message);
+        }
+      }
+
+      console.log(`[GenerateTriggers] Stored ${uploaded}/${triggers.length} triggers for brain "${brain.brain_name}"`);
+      return { count: uploaded, total: triggers.length, brainName: brain.brain_name };
     }),
 });

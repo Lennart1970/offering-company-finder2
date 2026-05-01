@@ -2552,3 +2552,30 @@
 - [x] Warning when non-active brain selected
 - [x] Admin actions moved to separate row below command panel
 - [x] Audit angle usage in prompts — confirmed angle-aware in briefGenerator, salesApproachGenerator, and companyFinder
+
+## Fix Trigger Review Contrast/Readability
+- [ ] Fix dark card background with dark text — very low contrast
+- [ ] Improve readability of trigger reference text and matched news items
+- [ ] Ensure synthetic trigger text and news headlines are clearly legible
+
+## Synthetic News Generation for InsertChat Brain
+- [ ] Understand the trigger data model (reference triggers table structure)
+- [ ] Build a backend procedure to generate synthetic news triggers for a given brain
+- [ ] Generate 20+ realistic synthetic news items matching InsertChat AI Assistant ICP
+- [ ] Store generated triggers in the triggers table linked to InsertChat brain
+- [ ] Add a "Generate Synthetic News" button to the Trigger Review page
+
+## Fix Trigger Review Contrast & Readability
+- [x] Rewrite TriggerReview with light mode, high contrast styling
+- [x] White card backgrounds, dark text, color-coded similarity badges (green/amber/orange)
+- [x] Clear A→B→Brain chain display in best match section
+- [x] Approve/Dismiss buttons with proper color coding
+- [x] Stats bar with white cards and icons
+
+## Generate Synthetic News for Brains
+- [x] Add generateSyntheticTriggers procedure to triggerRouter
+- [x] LLM generates 20 realistic news triggers from brain ICP data (offering, pain points, urgency triggers)
+- [x] Stores triggers with embeddings in lt_mns_trigger_references
+- [x] UI: "Generate Synthetic News…" dropdown in Trigger Review filters bar
+- [x] Handles Supabase string brain IDs (hash to numeric for trigger refs)
+- [x] InsertChat brain ID: insertchat-branded-ai (ICP: content-rich brands, white-label AI assistant)

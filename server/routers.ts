@@ -14,6 +14,8 @@ import { telegramRouter } from "./telegramRouter";
 import { webhookLogRouter } from "./webhookLogRouter";
 import { salesMaterialsRouter } from "./salesMaterialsRouter";
 import { shareRouter, shareExtRouter } from "./shareRouter";
+import { campaignBrainRouter } from "./campaignBrainRouter";
+import { triggerRouter } from "./triggerRouter";
 
 export const appRouter = router({
     // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -41,6 +43,8 @@ export const appRouter = router({
   salesMaterials: salesMaterialsRouter,
   share: shareRouter,
   shareExt: shareExtRouter,
+  campaignBrain: campaignBrainRouter,
+  trigger: triggerRouter,
 
   // Prompt Repository — exposes the full prompt catalogue for transparency
   prompts: router({

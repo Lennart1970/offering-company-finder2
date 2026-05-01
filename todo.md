@@ -2419,3 +2419,19 @@
 - [ ] Add Leadinfo visit aggregates to resolveToken response
 - [ ] Add Website Visitors section to share page (engagement, pages, page views, time on site)
 - [ ] Add Website Visitors section to internal company card
+
+## Campaign + Trigger Layer (Signal-Driven Sales Intelligence)
+- [x] Create lt_mns_trigger_references table in Supabase (store synthetic triggers + embeddings)
+- [x] Create lt_mns_feed_item_embeddings table in Supabase
+- [x] Create lt_mns_trigger_matches table in Supabase
+- [x] Backend: campaignBrainRouter with findByBrain, createCampaignFromBrain procedures
+- [x] Backend: triggerRouter with RPC-based matching, embed, approve/dismiss procedures
+- [x] Backend: findByBrain integration (call match_companies_to_embedding RPC)
+- [x] Create pgvector RPC functions (match_feed_items_to_triggers, match_feed_items_to_triggers_top3)
+- [x] UI: Campaign from Brain page (select Brain → see companies ranked by similarity → create campaign)
+- [x] UI: Trigger Review page (100 news matches with A→B→Brain reasoning, approve/dismiss)
+- [x] Store 268 synthetic triggers in lt_mns_trigger_references with embeddings
+- [x] Embed 1000/1261 feed items into lt_mns_feed_item_embeddings
+- [x] Wire navigation and routing for new pages
+- [ ] UI: Campaign Dashboard (list campaigns, status, progress tracking)
+- [ ] Embed remaining 261 feed items

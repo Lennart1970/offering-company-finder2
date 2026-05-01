@@ -40,6 +40,8 @@ import ShareListPage from "./pages/ShareListPage";
 import ShareBrainPage from "./pages/ShareBrainPage";
 import BrainOverviewPage from "./pages/BrainOverviewPage";
 import ShareAccessLogPage from "./pages/ShareAccessLogPage";
+import CampaignFromBrain from "./pages/CampaignFromBrain";
+import TriggerReview from "./pages/TriggerReview";
 
 
 function Router() {
@@ -74,6 +76,8 @@ function Router() {
         }} />
         <Route path={"/sales-materials"} component={SalesMaterials} />
         <Route path={"/niche-review"} component={NicheReview} />
+        <Route path={"/campaign-from-brain"} component={CampaignFromBrain} />
+        <Route path={"/trigger-review"} component={TriggerReview} />
         <Route path={"/fast-prototype"} component={FastPrototype} />
         <Route path={"/prototype-requests"} component={PrototypeRequests} />
         <Route path={"/leadinfo"} component={LeadinfoImport} />

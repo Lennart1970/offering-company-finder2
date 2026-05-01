@@ -253,24 +253,72 @@ export const campaignBrainRouter = router({
       }
 
       // 2. Get brain info for the search record
-      const [brain] = await db
-        .select()
-        .from(offeringBrain)
-        .where(eq(offeringBrain.id, parseInt(input.brainId, 10)))
-        .limit(1);
+      //    Brain may live in local MySQL (int ID) or Supabase only (string ID like "insertchat-branded-ai")
+      const parsedBrainId = parseInt(input.brainId, 10);
+      const isLocalBrain = !isNaN(parsedBrainId);
+
+      let brainInfo: {
+        companyWebsite: string;
+        offeringSummary: string | null;
+        icpIndustries: string | null;
+        valuePropositions: string | null;
+        brainName: string | null;
+      } = {
+        companyWebsite: "",
+        offeringSummary: null,
+        icpIndustries: null,
+        valuePropositions: null,
+        brainName: null,
+      };
+
+      if (isLocalBrain) {
+        // Try local MySQL first
+        const [localBrain] = await db
+          .select()
+          .from(offeringBrain)
+          .where(eq(offeringBrain.id, parsedBrainId))
+          .limit(1);
+        if (localBrain) {
+          brainInfo = {
+            companyWebsite: localBrain.companyWebsite ?? "",
+            offeringSummary: localBrain.offeringSummary ?? null,
+            icpIndustries: localBrain.icpIndustries ?? null,
+            valuePropositions: localBrain.valuePropositions ?? null,
+            brainName: localBrain.brainName ?? null,
+          };
+        }
+      }
+
+      // If no local brain found (or string ID), fetch from Supabase
+      if (!isLocalBrain || !brainInfo.brainName) {
+        const { data: sbBrain } = await sb
+          .from("lt_mns_offering_brains")
+          .select("brain_name, company_name, offering_summary, target_sectors, icp_description")
+          .eq("id", input.brainId)
+          .single();
+        if (sbBrain) {
+          brainInfo = {
+            companyWebsite: "",
+            offeringSummary: sbBrain.offering_summary ?? null,
+            icpIndustries: sbBrain.target_sectors ?? null,
+            valuePropositions: sbBrain.icp_description ?? null,
+            brainName: sbBrain.brain_name ?? null,
+          };
+        }
+      }
 
       // 3. Create a search record (= campaign)
       const searchId = await createSearch({
         userId: ctx.user.id,
-        companyWebsite: brain?.companyWebsite ?? "",
+        companyWebsite: brainInfo.companyWebsite,
         location: "Global (Brain Similarity)",
         offeringName: input.campaignName,
-        offeringDescription: brain?.offeringSummary ?? null,
-        targetMarket: brain?.icpIndustries ?? null,
-        valueProposition: brain?.valuePropositions ?? null,
+        offeringDescription: brainInfo.offeringSummary,
+        targetMarket: brainInfo.icpIndustries,
+        valueProposition: brainInfo.valuePropositions,
         keywords: null,
         status: "completed",
-        brainId: parseInt(input.brainId, 10),
+        brainId: isLocalBrain ? parsedBrainId : null,
         sharedWithTeam: 1,
       });
 
@@ -291,8 +339,8 @@ export const campaignBrainRouter = router({
         naicsCodes: c.nace_codes ? JSON.stringify(c.nace_codes) : null,
         fitScore: c.fit_score ? Math.round(c.fit_score) : null,
         enrichmentStatus: c.apollo_id ? "enriched" as const : "pending" as const,
-        generatedWithBrainId: parseInt(input.brainId, 10) || null,
-        generatedWithBrainName: brain?.brainName ?? null,
+        generatedWithBrainId: isLocalBrain ? parsedBrainId : null,
+        generatedWithBrainName: brainInfo.brainName ?? null,
         searchLocation: "Global (Brain Similarity)",
       }));
 

@@ -2436,3 +2436,18 @@
 - [ ] UI: Campaign Dashboard (list campaigns, status, progress tracking)
 - [ ] Embed remaining 261 feed items
 - [x] Restrict Campaign from Brain and Trigger Review pages to super-admin only (backend: superAdminProcedure, frontend: superAdminOnly nav flag)
+
+## Brain Re-Embedding Pipeline (Semantic Contamination Fix)
+- [x] Diagnose InsertChat brain returning competitors instead of ICP companies
+- [x] Identify root cause: embedding text contaminated with solution-domain language
+- [x] Design buyer-characteristics-only prompt template
+- [x] Test with InsertChat — matches now return content/publishing companies instead of chat tools
+- [x] Run pipeline across all 19 brains — all successful
+- [x] Validate with 4 diverse brains (InsertChat, Marktlink, Defence, Healthcare) — all improved
+- [x] Save pipeline script (reembed_brains.cjs) for future brains
+
+## Bug Fix: Campaign Creation Fails with Supabase Brain IDs
+- [x] Diagnose: parseInt("insertchat-branded-ai") returns NaN, causing SQL query failure
+- [x] Fix createCampaignFromBrain to handle both local int IDs and Supabase string IDs
+- [x] Fetch brain info from Supabase when brainId is not a valid integer
+- [x] Set brainId to null (instead of NaN) in searches/companies tables for Supabase-only brains

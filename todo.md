@@ -2489,3 +2489,12 @@
 - [x] Add brain selector dropdown to Market Segments (Niche Review) page header
 - [x] Wire selected brain to Re-score action (pass brainId to rescore procedure)
 - [x] Default to active brain, allow switching to any available brain
+
+## Fix: Brain Visibility Missing Supabase-only Brains
+- [ ] Update listAllBrainsAdmin to merge Supabase lt_mns_offering_brains with local MySQL brains
+- [ ] Supabase-only brains show in Brain Visibility with pull button (no local delete/toggle)
+
+## Fix: Brain Visibility — Supabase Primary, Local Fallback
+- [x] Update listAllBrainsAdmin to read Supabase lt_mns_offering_brains as primary source
+- [x] Fall back to local MySQL only if Supabase is unavailable
+- [x] Update BrainVisibility frontend to handle string Supabase IDs for push/pull/toggle actions

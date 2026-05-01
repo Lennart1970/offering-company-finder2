@@ -3818,12 +3818,45 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
    */
   listAllBrainsAdmin: protectedProcedure
     .query(async () => {
+      // ── Supabase primary ──────────────────────────────────────────────────────
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (supabaseUrl && supabaseKey) {
+          const sb = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+          const { data, error } = await sb
+            .from("lt_mns_offering_brains")
+            .select("id, brain_name, company_name, status, is_active, is_shared, show_on_leadtrigger, created_at, updated_at, local_brain_id")
+            .order("created_at", { ascending: false });
+          if (!error && data) {
+            const brains = data.map((b: any) => ({
+              id: String(b.id),           // Supabase string ID
+              localId: b.local_brain_id ? Number(b.local_brain_id) : null, // local MySQL int (if synced)
+              brainName: b.brain_name ?? "Unnamed Brain",
+              companyName: b.company_name ?? "",
+              status: b.status ?? "completed",
+              isActive: b.is_active ? 1 : 0,
+              isShared: b.is_shared ? 1 : 0,
+              showOnLeadtrigger: b.show_on_leadtrigger ? 1 : 0,
+              createdAt: b.created_at ?? null,
+              updatedAt: b.updated_at ?? null,
+              isSupabaseOnly: !b.local_brain_id, // true = no local MySQL record
+            }));
+            return { brains };
+          }
+        }
+      } catch (err) {
+        console.warn("[listAllBrainsAdmin] Supabase unavailable, falling back to local MySQL:", err);
+      }
+
+      // ── Local MySQL fallback ──────────────────────────────────────────────────
       const { getDb } = await import("./db");
       const db = await getDb();
       if (!db) return { brains: [] };
       const { offeringBrain } = await import("../drizzle/schema");
       const { desc } = await import("drizzle-orm");
-      const brains = await db
+      const rows = await db
         .select({
           id: offeringBrain.id,
           brainName: offeringBrain.brainName,
@@ -3837,27 +3870,67 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         })
         .from(offeringBrain)
         .orderBy(desc(offeringBrain.createdAt));
+      const brains = rows.map((b) => ({
+        id: String(b.id),
+        localId: b.id,
+        brainName: b.brainName,
+        companyName: b.companyName,
+        status: b.status,
+        isActive: b.isActive ?? 0,
+        isShared: b.isShared ?? 0,
+        showOnLeadtrigger: b.showOnLeadtrigger ?? 1,
+        createdAt: b.createdAt ?? null,
+        updatedAt: b.updatedAt ?? null,
+        isSupabaseOnly: false,
+      }));
       return { brains };
     }),
 
   /**
    * Toggle show_on_leadtrigger for a single brain.
+   * Accepts either a Supabase string ID or a local MySQL int ID.
+   * Supabase is updated first (primary); local MySQL is updated as fallback/sync.
    */
   toggleBrainVisibility: superAdminProcedure
     .input(z.object({
-      brainId: z.number().int().positive(),
+      brainId: z.union([z.string(), z.number()]),
       visible: z.boolean(),
+      localId: z.number().int().positive().optional(), // local MySQL id if available
     }))
     .mutation(async ({ input }) => {
-      const { getDb } = await import("./db");
-      const db = await getDb();
-      if (!db) throw new Error("Database not available");
-      const { offeringBrain } = await import("../drizzle/schema");
-      const { eq } = await import("drizzle-orm");
-      await db
-        .update(offeringBrain)
-        .set({ showOnLeadtrigger: input.visible ? 1 : 0 })
-        .where(eq(offeringBrain.id, input.brainId));
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      // Update Supabase (primary)
+      if (supabaseUrl && supabaseKey) {
+        try {
+          const { createClient } = await import("@supabase/supabase-js");
+          const sb = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+          await sb
+            .from("lt_mns_offering_brains")
+            .update({ show_on_leadtrigger: input.visible })
+            .eq("id", String(input.brainId));
+        } catch (err) {
+          console.warn("[toggleBrainVisibility] Supabase update failed:", err);
+        }
+      }
+      // Also update local MySQL if we have a local int ID
+      const localId = input.localId ?? (typeof input.brainId === "number" ? input.brainId : null);
+      if (localId) {
+        try {
+          const { getDb } = await import("./db");
+          const db = await getDb();
+          if (db) {
+            const { offeringBrain } = await import("../drizzle/schema");
+            const { eq } = await import("drizzle-orm");
+            await db
+              .update(offeringBrain)
+              .set({ showOnLeadtrigger: input.visible ? 1 : 0 })
+              .where(eq(offeringBrain.id, localId));
+          }
+        } catch (err) {
+          console.warn("[toggleBrainVisibility] Local MySQL update failed:", err);
+        }
+      }
       return { success: true, brainId: input.brainId, visible: input.visible };
     }),
 });

@@ -56,20 +56,20 @@ export default function SearchResults() {
   // Brain selector — lets user pick which brain to use for DO 10 / DO ALL
   const { data: brainHistoryData } = trpc.companyFinder.getBrainHistory.useQuery();
   const availableBrains = (brainHistoryData?.history ?? []).filter((b: any) => b.status === "completed");
-  const [selectedBrainId, setSelectedBrainId] = useState<number | undefined>(undefined);
+  const [selectedBrainId, setSelectedBrainId] = useState<string | undefined>(undefined);
   // Auto-select active brain once loaded
   useEffect(() => {
     if (activeBrain && selectedBrainId === undefined) {
-      setSelectedBrainId(activeBrain.id);
+      setSelectedBrainId(String(activeBrain.id));
     }
   }, [activeBrain?.id]);
-  const selectedBrain = availableBrains.find((b: any) => b.id === selectedBrainId) ?? activeBrain;
+  const selectedBrain = availableBrains.find((b: any) => String(b.id) === selectedBrainId) ?? activeBrain;
 
   const [page, setPage] = useState(0);
   const [allCompanies, setAllCompanies] = useState<any[]>([]);
 
   const { data: searchData, isLoading: searchLoading } = trpc.companyFinder.getSearch.useQuery(
-    { searchId: searchId!, page, pageSize: 2000, brainId: selectedBrainId },
+    { searchId: searchId!, page, pageSize: 2000, brainId: selectedBrainId ? selectedBrainId : undefined },
     {
       enabled: !!searchId,
       refetchInterval: (query) => {
@@ -204,8 +204,10 @@ export default function SearchResults() {
 
   const handleCreateShareList = () => {
     if (!selectedCompanyIds.size) { toast.error("Select at least one company first"); return; }
-    const brainId = selectedBrainId ?? activeBrain?.id;
-    if (!brainId) { toast.error("No active brain selected"); return; }
+    const brainIdRaw = selectedBrainId ?? (activeBrain ? String(activeBrain.id) : undefined);
+    if (!brainIdRaw) { toast.error("No active brain selected"); return; }
+    const brainId = Number(brainIdRaw);
+    if (isNaN(brainId)) { toast.error("Cannot share with a Supabase-only brain. Pull it locally first."); return; }
     const items = Array.from(selectedCompanyIds).map((companyId) => ({ companyId, brainId }));
     createShareListMutation.mutate({ items, shareListName: `Search ${searchId} — ${new Date().toLocaleDateString()}` });
   };
@@ -295,7 +297,7 @@ export default function SearchResults() {
     }
   }, [jobStatusQuery.data?.status]);
 
-  const selectedBrainIdForMutation = selectedBrainId ?? activeBrain?.id;
+  const selectedBrainIdForMutation = selectedBrainId ?? (activeBrain ? String(activeBrain.id) : undefined);
   const doNext10Mutation = trpc.companyFinder.doNext10.useMutation({
     onSuccess: (data) => {
       setActiveJobId(data.jobId);
@@ -1051,16 +1053,16 @@ export default function SearchResults() {
                   <span className="text-xs font-black text-gray-500 uppercase tracking-wider whitespace-nowrap">BRAIN:</span>
                   <select
                     value={selectedBrainId ?? ""}
-                    onChange={(e) => setSelectedBrainId(e.target.value ? Number(e.target.value) : undefined)}
+                    onChange={(e) => setSelectedBrainId(e.target.value || undefined)}
                     className="text-sm font-bold border-2 border-black px-2 py-1 bg-white cursor-pointer flex-1 max-w-xs"
                   >
                     {availableBrains.map((b: any) => (
                       <option key={b.id} value={b.id}>
-                        {b.brainName}{b.id === activeBrain?.id ? " ★ active" : ""}
+                        {b.brainName}{String(b.id) === String(activeBrain?.id) ? " ★ active" : ""}
                       </option>
                     ))}
                   </select>
-                  {selectedBrainId && selectedBrainId !== activeBrain?.id && (
+                  {selectedBrainId && selectedBrainId !== String(activeBrain?.id) && (
                     <span className="text-xs font-bold text-amber-600 border border-amber-400 px-2 py-0.5 bg-amber-50">
                       ⚠ NOT ACTIVE BRAIN
                     </span>

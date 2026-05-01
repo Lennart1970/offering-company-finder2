@@ -260,13 +260,17 @@ export default function Brain() {
     });
   };
 
-  const handleSetActive = (brainId: number) => {
-    setActiveMutation.mutate({ brainId });
+  const handleSetActive = (brainId: string) => {
+    const numId = Number(brainId);
+    if (!isNaN(numId)) setActiveMutation.mutate({ brainId: numId });
+    else toast.error("Cannot set a Supabase-only brain as active directly. Pull it from Supabase first.");
   };
 
-  const handleDelete = (brainId: number) => {
+  const handleDelete = (brainId: string) => {
+    const numId = Number(brainId);
+    if (isNaN(numId)) { toast.error("Cannot delete a Supabase-only brain from here. Use Brain Visibility."); return; }
     if (confirm("Are you sure you want to delete this brain?")) {
-      deleteMutation.mutate({ brainId });
+      deleteMutation.mutate({ brainId: numId });
     }
   };
 

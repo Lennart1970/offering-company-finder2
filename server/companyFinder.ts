@@ -178,7 +178,7 @@ export const companyFinderRouter = router({
 
   // Get search status and results (paginated — default 100 per page)
   getSearch: protectedProcedure
-    .input(z.object({ searchId: z.number(), page: z.number().optional().default(0), pageSize: z.number().optional().default(100), brainId: z.number().optional() }))
+    .input(z.object({ searchId: z.number(), page: z.number().optional().default(0), pageSize: z.number().optional().default(100), brainId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? (typeof v === 'string' ? (isNaN(Number(v)) ? undefined : Number(v)) : v) : undefined) }))
     .query(async ({ ctx, input }) => {
       const search = await assertSearchAccess(input.searchId, ctx.user.id);
 
@@ -329,7 +329,7 @@ export const companyFinderRouter = router({
   // fire-and-forget: returns jobId immediately, runs in background.
   // Job state is persisted to batch_jobs table so it survives server restarts.
   doNext10: protectedProcedure
-    .input(z.object({ searchId: z.number(), limit: z.number().optional().default(10), brainId: z.number().optional() }))
+    .input(z.object({ searchId: z.number(), limit: z.number().optional().default(10), brainId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? (typeof v === 'string' ? (isNaN(Number(v)) ? undefined : Number(v)) : v) : undefined) }))
     .mutation(async ({ ctx, input }) => {
       await assertSearchAccess(input.searchId, ctx.user.id);
       const jobId = randomUUID();
@@ -557,7 +557,7 @@ export const companyFinderRouter = router({
   // Same logic as doNext10 but no limit and checks for cancellation each step.
   // ---------------------------------------------------------------------------
   doAll: protectedProcedure
-    .input(z.object({ searchId: z.number(), brainId: z.number().optional() }))
+    .input(z.object({ searchId: z.number(), brainId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? (typeof v === 'string' ? (isNaN(Number(v)) ? undefined : Number(v)) : v) : undefined) }))
     .mutation(async ({ ctx, input }) => {
       await assertSearchAccess(input.searchId, ctx.user.id);
       const jobId = randomUUID();
@@ -1586,10 +1586,77 @@ export const companyFinderRouter = router({
       return { brain };
     }),
 
-  // Get brain history for the current user
+  // Get brain history for the current user (Supabase as primary source of truth)
   getBrainHistory: protectedProcedure
     .query(async ({ ctx }) => {
-      const history = await getBrainHistory(ctx.user.id);
+      // Normalized shape used throughout the app
+      type BrainEntry = {
+        id: string;
+        brainName: string;
+        companyName: string;
+        status: string;
+        isActive: number;
+        isShared: number;
+        userId: number;
+        isSupabase: boolean;
+        showOnLeadtrigger: number;
+        createdAt: Date | null;
+      };
+
+      const localHistory = await getBrainHistory(ctx.user.id);
+
+      // Fetch Supabase brains as primary source
+      let supabaseBrains: BrainEntry[] = [];
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabaseUrl = process.env.SUPABASE_URL;
+        const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+        if (supabaseUrl && supabaseKey) {
+          const sb = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+          const { data: sbBrains } = await sb
+            .from("lt_mns_offering_brains")
+            .select("id, brain_name, company_name, status, show_on_leadtrigger, is_active, is_shared, user_id, created_at")
+            .eq("show_on_leadtrigger", true)
+            .order("created_at", { ascending: false });
+
+          // Only include Supabase brains that are NOT already in local history
+          const localIds = new Set(localHistory.map((b) => String(b.id)));
+          supabaseBrains = (sbBrains ?? [])
+            .filter((b: any) => !localIds.has(String(b.id)))
+            .map((b: any): BrainEntry => ({
+              id: String(b.id),
+              brainName: b.brain_name ?? "Unnamed Brain",
+              companyName: b.company_name ?? "",
+              status: b.status ?? "completed",
+              isActive: b.is_active ? 1 : 0,
+              isShared: b.is_shared ? 1 : 0,
+              userId: b.user_id ?? ctx.user.id,
+              isSupabase: true,
+              showOnLeadtrigger: b.show_on_leadtrigger ? 1 : 0,
+              createdAt: b.created_at ? new Date(b.created_at) : null,
+            }));
+        }
+      } catch (err) {
+        console.warn("[getBrainHistory] Failed to fetch Supabase brains:", err);
+      }
+
+      // Merge: local brains first (normalized), then Supabase-only brains
+      const history: BrainEntry[] = [
+        ...localHistory.map((b): BrainEntry => ({
+          id: String(b.id),
+          brainName: b.brainName,
+          companyName: b.companyName,
+          status: b.status,
+          isActive: b.isActive ?? 0,
+          isShared: b.isShared ?? 0,
+          userId: b.userId,
+          isSupabase: false,
+          showOnLeadtrigger: b.showOnLeadtrigger ?? 1,
+          createdAt: b.createdAt ?? null,
+        })),
+        ...supabaseBrains,
+      ];
+
       return { history };
     }),
 

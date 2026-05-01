@@ -2457,3 +2457,15 @@
 - [x] Allow users to exclude specific sectors (e.g., "information technology & services") from results
 - [x] Update company list to filter out excluded sectors in real-time
 - [x] Update selected count and tier badges to reflect filtered results
+
+## Feature: Supabase Brains in Search Results Brain Selector
+- [ ] Find the Brain selector on the Search Results page
+- [ ] Update brain list query to merge local MySQL brains with Supabase brains
+- [ ] Ensure Supabase brain IDs are handled correctly when selected
+
+## Strategic: Supabase as Source of Truth for Brains
+- [x] Update getBrainHistory to read from Supabase lt_mns_offering_brains (show_on_leadtrigger=true) as primary source
+- [x] Local MySQL brains without Supabase ID remain as fallback
+- [x] Update SearchResults brain selector to handle string IDs (Supabase brain IDs)
+- [x] Update doNext10/doAll mutations to accept string brainId
+- [ ] Update getActiveBrain to also resolve from Supabase when no local active brain (future)

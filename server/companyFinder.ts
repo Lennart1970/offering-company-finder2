@@ -3657,6 +3657,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
     .input(z.object({
       search: z.string().optional(),
       campaignId: z.number().optional(),
+      campaignIds: z.array(z.number()).optional(),
       urgencyLabel: z.enum(["HIGH", "MEDIUM", "LOW", "ALL"]).optional(),
       minFit: z.number().optional(),
       limit: z.number().default(100),
@@ -3679,8 +3680,14 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       if (input.search) {
         query = query.or(`company_name.ilike.%${input.search}%,domain.ilike.%${input.search}%,campaign_name.ilike.%${input.search}%`);
       }
-      if (input.campaignId) {
-        query = query.eq("campaign_id", input.campaignId);
+      // Support both single campaignId (legacy) and campaignIds array (multi-select)
+      const effectiveCampaignIds = input.campaignIds && input.campaignIds.length > 0
+        ? input.campaignIds
+        : input.campaignId ? [input.campaignId] : [];
+      if (effectiveCampaignIds.length === 1) {
+        query = query.eq("campaign_id", effectiveCampaignIds[0]);
+      } else if (effectiveCampaignIds.length > 1) {
+        query = query.in("campaign_id", effectiveCampaignIds);
       }
       if (input.urgencyLabel && input.urgencyLabel !== "ALL") {
         query = query.eq("urgency_label", input.urgencyLabel);

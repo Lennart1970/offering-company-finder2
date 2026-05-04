@@ -2585,3 +2585,10 @@
 - [ ] Diagnose why the enrichment pipeline ignores the selectedBrainId from the command panel
 - [ ] Fix: ensure the brainId passed from the UI command panel is correctly forwarded to the enrichment worker
 - [ ] Verify companies show the correct brain badge after fix
+
+## Intelligence Page: Multi-Campaign Filter
+- [x] Update getIntelligenceCompanies backend to accept campaignIds: number[] (array)
+- [x] Replace single campaign Select dropdown with multi-select checkbox dropdown
+- [x] Show selected campaign count in trigger button (e.g. "3 campaigns selected")
+- [x] Preserve "All campaigns" as default (empty array = no filter)
+- [x] X button to clear all campaign selections instantly

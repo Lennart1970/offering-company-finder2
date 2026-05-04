@@ -5,7 +5,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Search, ExternalLink, Zap, Target, RefreshCw, Building2, Send, CheckCircle2, Share2, Link } from "lucide-react";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Search, ExternalLink, Zap, Target, RefreshCw, Building2, Send, CheckCircle2, Share2, Link, ChevronDown, X } from "lucide-react";
 import { toast } from "sonner";
 
 type UrgencyFilter = "ALL" | "HIGH" | "MEDIUM" | "LOW";
@@ -71,7 +72,9 @@ export default function IntelligencePage() {
       setSendingAllHigh(false);
     },
   });
-  const [campaignId, setCampaignId] = useState<number | undefined>(undefined);
+  const [campaignId, setCampaignId] = useState<number | undefined>(undefined); // legacy, kept for compat
+  const [selectedCampaignIds, setSelectedCampaignIds] = useState<number[]>([]);
+  const [campaignDropdownOpen, setCampaignDropdownOpen] = useState(false);
   const [urgencyLabel, setUrgencyLabel] = useState<UrgencyFilter>("ALL");
   const [minFit, setMinFit] = useState<number | undefined>(undefined);
   const [hideSent, setHideSent] = useState(false);
@@ -91,9 +94,18 @@ export default function IntelligencePage() {
 
   const { data: campaigns } = trpc.companyFinder.getIntelligenceCampaigns.useQuery();
 
+  const toggleCampaign = (id: number) => {
+    setSelectedCampaignIds(prev =>
+      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
+    );
+    setPage(0);
+  };
+
+  const clearCampaigns = () => { setSelectedCampaignIds([]); setPage(0); };
+
   const { data, isLoading, isFetching } = trpc.companyFinder.getIntelligenceCompanies.useQuery({
     search: debouncedSearch || undefined,
-    campaignId,
+    campaignIds: selectedCampaignIds.length > 0 ? selectedCampaignIds : undefined,
     urgencyLabel: urgencyLabel === "ALL" ? undefined : urgencyLabel,
     minFit,
     limit: LIMIT,
@@ -158,21 +170,59 @@ export default function IntelligencePage() {
             />
           </div>
 
-          {/* Campaign filter */}
-          <Select
-            value={campaignId ? String(campaignId) : "all"}
-            onValueChange={v => { setCampaignId(v === "all" ? undefined : Number(v)); setPage(0); }}
-          >
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder="All campaigns" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">All campaigns</SelectItem>
-              {(campaigns ?? []).map(c => (
-                <SelectItem key={c.id} value={String(c.id)}>{c.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
+          {/* Campaign multi-select filter */}
+          <Popover open={campaignDropdownOpen} onOpenChange={setCampaignDropdownOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[220px] justify-between font-normal bg-white">
+                <span className="truncate">
+                  {selectedCampaignIds.length === 0
+                    ? "All campaigns"
+                    : selectedCampaignIds.length === 1
+                    ? (campaigns ?? []).find(c => c.id === selectedCampaignIds[0])?.name ?? "1 campaign"
+                    : `${selectedCampaignIds.length} campaigns selected`}
+                </span>
+                <div className="flex items-center gap-1 ml-2 shrink-0">
+                  {selectedCampaignIds.length > 0 && (
+                    <X
+                      className="w-3 h-3 text-muted-foreground hover:text-foreground"
+                      onClick={e => { e.stopPropagation(); clearCampaigns(); }}
+                    />
+                  )}
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                </div>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[280px] p-2" align="start">
+              <div className="max-h-[300px] overflow-y-auto space-y-1">
+                <button
+                  className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center gap-2"
+                  onClick={clearCampaigns}
+                >
+                  <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                    selectedCampaignIds.length === 0 ? 'bg-primary border-primary' : 'border-input'
+                  }`}>
+                    {selectedCampaignIds.length === 0 && <span className="text-primary-foreground text-xs">✓</span>}
+                  </span>
+                  <span className="font-medium">All campaigns</span>
+                </button>
+                <div className="border-t my-1" />
+                {(campaigns ?? []).map(c => (
+                  <button
+                    key={c.id}
+                    className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center gap-2"
+                    onClick={() => toggleCampaign(c.id)}
+                  >
+                    <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                      selectedCampaignIds.includes(c.id) ? 'bg-primary border-primary' : 'border-input'
+                    }`}>
+                      {selectedCampaignIds.includes(c.id) && <span className="text-primary-foreground text-xs">✓</span>}
+                    </span>
+                    <span className="truncate">{c.name}</span>
+                  </button>
+                ))}
+              </div>
+            </PopoverContent>
+          </Popover>
 
           {/* Urgency filter */}
           <div className="flex gap-1">

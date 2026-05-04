@@ -426,7 +426,7 @@ export default function IntelligencePage() {
         ) : (
           <>
             {/* Column headers */}
-            <div className="grid grid-cols-[40px_1fr_160px_80px_80px_80px_32px_32px] gap-3 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border mb-1">
+            <div className="grid grid-cols-[52px_1fr_160px_80px_80px_80px_32px_32px] gap-3 px-3 py-2 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border mb-1">
               <span>#</span>
               <span>Company</span>
               <span>Campaign</span>
@@ -441,7 +441,7 @@ export default function IntelligencePage() {
               {companies.map((c, idx) => (
                 <div
                   key={c.id}
-                  className="grid grid-cols-[40px_1fr_160px_80px_80px_80px_32px_32px] gap-3 items-center px-3 py-2.5 rounded-lg hover:bg-muted/60 transition-colors cursor-pointer group"
+                  className="grid grid-cols-[52px_1fr_160px_80px_80px_80px_32px_32px] gap-3 items-center px-3 py-2.5 rounded-lg hover:bg-muted/60 transition-colors cursor-pointer group"
                   onClick={() => {
                     // Use local_id (integer) for navigation; fall back to extracting from page_url
                     const localId = c.local_id ?? (c.page_url ? c.page_url.split('/company/')[1]?.split('?')[0] : null);

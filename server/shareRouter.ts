@@ -643,16 +643,16 @@ export const shareExtRouter = router({
       while (true) {
         let q = (supabase.from("lt_mns_company_pages") as any)
           .select("page_url, campaign_id, company_name, domain, urgency_score, fit_score, urgency_label, campaign_name")
-          .gte("fit_score", input.minFit ?? 50)
           .not("page_url", "is", null)
           .order("urgency_score", { ascending: false })
           .range(offset, offset + batchSize - 1);
-        if (input.dateFrom) q = q.gte("created_at", input.dateFrom);
+        if (input.dateFrom) q = q.gte("synced_at", input.dateFrom);
         if (input.dateTo) {
           const toDate = new Date(input.dateTo);
           toDate.setDate(toDate.getDate() + 1);
-          q = q.lt("created_at", toDate.toISOString());
+          q = q.lt("synced_at", toDate.toISOString());
         }
+        if (input.minFit) q = q.gte("fit_score", input.minFit);
         if (input.urgencyLabel) q = q.eq("urgency_label", input.urgencyLabel);
         if (input.campaignIds && input.campaignIds.length > 0) q = q.in("campaign_id", input.campaignIds);
         const { data, error } = await q;

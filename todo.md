@@ -2592,3 +2592,8 @@
 - [x] Show selected campaign count in trigger button (e.g. "3 campaigns selected")
 - [x] Preserve "All campaigns" as default (empty array = no filter)
 - [x] X button to clear all campaign selections instantly
+
+## Intelligence Page Date Filter
+- [x] Update backend getIntelligenceCompanies to accept dateFrom/dateTo (ISO strings) and filter by created_at
+- [x] Add date range inputs (From / To) to Intelligence page filter bar after campaign multi-select
+- [ ] Save checkpoint after implementation

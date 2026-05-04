@@ -3660,6 +3660,8 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       campaignIds: z.array(z.number()).optional(),
       urgencyLabel: z.enum(["HIGH", "MEDIUM", "LOW", "ALL"]).optional(),
       minFit: z.number().optional(),
+      dateFrom: z.string().optional(),
+      dateTo: z.string().optional(),
       limit: z.number().default(100),
       offset: z.number().default(0),
     }))
@@ -3694,6 +3696,15 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       }
       if (input.minFit) {
         query = query.gte("fit_score", input.minFit);
+      }
+      if (input.dateFrom) {
+        query = query.gte("created_at", input.dateFrom);
+      }
+      if (input.dateTo) {
+        // Add one day to make the "to" date inclusive
+        const toDate = new Date(input.dateTo);
+        toDate.setDate(toDate.getDate() + 1);
+        query = query.lt("created_at", toDate.toISOString());
       }
 
       const { data, count, error } = await query;

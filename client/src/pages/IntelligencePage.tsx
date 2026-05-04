@@ -78,6 +78,8 @@ export default function IntelligencePage() {
   const [urgencyLabel, setUrgencyLabel] = useState<UrgencyFilter>("ALL");
   const [minFit, setMinFit] = useState<number | undefined>(undefined);
   const [hideSent, setHideSent] = useState(false);
+  const [dateFrom, setDateFrom] = useState<string>("");
+  const [dateTo, setDateTo] = useState<string>("");
   const [page, setPage] = useState(0);
   const LIMIT = 50;
 
@@ -108,6 +110,8 @@ export default function IntelligencePage() {
     campaignIds: selectedCampaignIds.length > 0 ? selectedCampaignIds : undefined,
     urgencyLabel: urgencyLabel === "ALL" ? undefined : urgencyLabel,
     minFit,
+    dateFrom: dateFrom || undefined,
+    dateTo: dateTo || undefined,
     limit: LIMIT,
     offset: page * LIMIT,
   });
@@ -223,6 +227,35 @@ export default function IntelligencePage() {
               </div>
             </PopoverContent>
           </Popover>
+
+          {/* Date range filter */}
+          <div className="flex items-center gap-1.5 bg-white border border-input rounded-md px-2 py-1">
+            <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Added:</span>
+            <input
+              type="date"
+              className="text-xs border-0 outline-none bg-transparent text-foreground cursor-pointer"
+              value={dateFrom}
+              onChange={e => { setDateFrom(e.target.value); setPage(0); }}
+              title="From date"
+            />
+            <span className="text-xs text-muted-foreground">→</span>
+            <input
+              type="date"
+              className="text-xs border-0 outline-none bg-transparent text-foreground cursor-pointer"
+              value={dateTo}
+              onChange={e => { setDateTo(e.target.value); setPage(0); }}
+              title="To date"
+            />
+            {(dateFrom || dateTo) && (
+              <button
+                className="text-muted-foreground hover:text-foreground ml-0.5"
+                onClick={() => { setDateFrom(""); setDateTo(""); setPage(0); }}
+                title="Clear date filter"
+              >
+                <X className="w-3 h-3" />
+              </button>
+            )}
+          </div>
 
           {/* Urgency filter */}
           <div className="flex gap-1">

@@ -3737,7 +3737,11 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
 
   // Get distinct campaigns from lt_mns_company_pages for the filter dropdown
   getIntelligenceCampaigns: protectedProcedure
-    .query(async () => {
+    .input(z.object({
+      dateFrom: z.string().optional(),
+      dateTo: z.string().optional(),
+    }).optional())
+    .query(async ({ input }) => {
       const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(
         process.env.SUPABASE_URL!,
@@ -3745,9 +3749,17 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         { auth: { persistSession: false } }
       );
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { data, error } = await (supabase.from("lt_mns_company_pages") as any)
+      let query = (supabase.from("lt_mns_company_pages") as any)
         .select("campaign_id, campaign_name")
         .not("campaign_id", "is", null);
+      if (input?.dateFrom) query = query.gte("created_at", input.dateFrom);
+      if (input?.dateTo) {
+        // Include the full dateTo day by advancing to next day
+        const toDate = new Date(input.dateTo);
+        toDate.setDate(toDate.getDate() + 1);
+        query = query.lt("created_at", toDate.toISOString());
+      }
+      const { data, error } = await query;
       if (error) throw new Error(error.message);
       // Deduplicate by campaign_id
       const seen = new Set<number>();

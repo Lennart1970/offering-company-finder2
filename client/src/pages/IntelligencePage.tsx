@@ -94,7 +94,9 @@ export default function IntelligencePage() {
     }, 300);
   };
 
-  const { data: campaigns } = trpc.companyFinder.getIntelligenceCampaigns.useQuery();
+  const { data: campaigns } = trpc.companyFinder.getIntelligenceCampaigns.useQuery(
+    { dateFrom: dateFrom || undefined, dateTo: dateTo || undefined }
+  );
 
   const toggleCampaign = (id: number) => {
     setSelectedCampaignIds(prev =>
@@ -307,7 +309,14 @@ export default function IntelligencePage() {
             variant="outline"
             className="ml-auto flex items-center gap-1.5 border-blue-300 text-blue-600 hover:bg-blue-50"
             disabled={shareIntelligenceMutation.isPending}
-            onClick={() => shareIntelligenceMutation.mutate({ origin: window.location.origin })}
+            onClick={() => shareIntelligenceMutation.mutate({
+              origin: window.location.origin,
+              dateFrom: dateFrom || undefined,
+              dateTo: dateTo || undefined,
+              campaignIds: selectedCampaignIds.length > 0 ? selectedCampaignIds : undefined,
+              urgencyLabel: urgencyLabel !== "ALL" ? urgencyLabel : undefined,
+              minFit: minFit,
+            })}
           >
             {shareIntelligenceMutation.isPending ? (
               <RefreshCw className="w-3.5 h-3.5 animate-spin" />

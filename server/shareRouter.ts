@@ -615,13 +615,20 @@ export const shareExtRouter = router({
    * auto-generates share tokens for each, and returns a list token URL.
    */
   shareIntelligenceList: protectedProcedure
-    .input(z.object({ origin: z.string() }))
+    .input(z.object({
+      origin: z.string(),
+      dateFrom: z.string().optional(),
+      dateTo: z.string().optional(),
+      campaignIds: z.array(z.number()).optional(),
+      urgencyLabel: z.string().optional(),
+      minFit: z.number().optional(),
+    }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
       if (!db) throw new Error("Database unavailable");
       const userId = ctx.user.id;
 
-      // 1. Fetch all companies with fit_score > 50 from Supabase
+      // 1. Fetch companies from Supabase respecting the active filters
       const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(
         process.env.SUPABASE_URL!,
@@ -634,12 +641,21 @@ export const shareExtRouter = router({
       let offset = 0;
       const batchSize = 1000;
       while (true) {
-        const { data, error } = await (supabase.from("lt_mns_company_pages") as any)
+        let q = (supabase.from("lt_mns_company_pages") as any)
           .select("page_url, campaign_id, company_name, domain, urgency_score, fit_score, urgency_label, campaign_name")
-          .gte("fit_score", 50)
+          .gte("fit_score", input.minFit ?? 50)
           .not("page_url", "is", null)
           .order("urgency_score", { ascending: false })
           .range(offset, offset + batchSize - 1);
+        if (input.dateFrom) q = q.gte("created_at", input.dateFrom);
+        if (input.dateTo) {
+          const toDate = new Date(input.dateTo);
+          toDate.setDate(toDate.getDate() + 1);
+          q = q.lt("created_at", toDate.toISOString());
+        }
+        if (input.urgencyLabel) q = q.eq("urgency_label", input.urgencyLabel);
+        if (input.campaignIds && input.campaignIds.length > 0) q = q.in("campaign_id", input.campaignIds);
+        const { data, error } = await q;
         if (error) throw new Error(error.message);
         if (!data || data.length === 0) break;
         allRows = allRows.concat(data);
@@ -647,7 +663,7 @@ export const shareExtRouter = router({
         offset += batchSize;
       }
 
-      if (allRows.length === 0) throw new Error("No companies with fit > 50 found");
+      if (allRows.length === 0) throw new Error("No companies match the active filters");
 
       // 2. For each company, find the brainId via searches table
       const { searches } = await import("../drizzle/schema");

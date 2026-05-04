@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { useLocation } from "wouter";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
@@ -80,6 +80,8 @@ export default function IntelligencePage() {
   const [hideSent, setHideSent] = useState(false);
   const [dateFrom, setDateFrom] = useState<string>("");
   const [dateTo, setDateTo] = useState<string>("");
+  const [runFrom, setRunFrom] = useState<string>("");
+  const [runTo, setRunTo] = useState<string>("");
   const [page, setPage] = useState(0);
   const LIMIT = 50;
 
@@ -97,6 +99,29 @@ export default function IntelligencePage() {
   const { data: campaigns } = trpc.companyFinder.getIntelligenceCampaigns.useQuery(
     { dateFrom: dateFrom || undefined, dateTo: dateTo || undefined }
   );
+
+  // Derived: filter campaign list by run # range
+  const filteredCampaigns = (campaigns ?? []).filter(c => {
+    if (runFrom && c.id < parseInt(runFrom)) return false;
+    if (runTo && c.id > parseInt(runTo)) return false;
+    return true;
+  });
+
+  // Auto-select campaigns matching run # filter when runFrom/runTo changes
+  const prevRunFilter = useRef({ runFrom: "", runTo: "" });
+  useEffect(() => {
+    const changed = prevRunFilter.current.runFrom !== runFrom || prevRunFilter.current.runTo !== runTo;
+    prevRunFilter.current = { runFrom, runTo };
+    if (!changed) return;
+    if (runFrom || runTo) {
+      // Auto-select all campaigns in range
+      const ids = filteredCampaigns.map(c => c.id);
+      setSelectedCampaignIds(ids);
+    } else {
+      setSelectedCampaignIds([]);
+    }
+    setPage(0);
+  }, [runFrom, runTo]);
 
   const toggleCampaign = (id: number) => {
     setSelectedCampaignIds(prev =>
@@ -198,8 +223,37 @@ export default function IntelligencePage() {
                 </div>
               </Button>
             </PopoverTrigger>
-            <PopoverContent className="w-[280px] p-2" align="start">
-              <div className="max-h-[300px] overflow-y-auto space-y-1">
+            <PopoverContent className="w-[320px] p-2" align="start">
+              {/* Run # filter inside dropdown */}
+              <div className="flex items-center gap-1.5 px-1 pb-2">
+                <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Run #</span>
+                <input
+                  type="number"
+                  placeholder="from"
+                  className="w-20 text-xs border border-input rounded px-1.5 py-0.5 outline-none bg-background"
+                  value={runFrom}
+                  onChange={e => setRunFrom(e.target.value)}
+                />
+                <span className="text-xs text-muted-foreground">→</span>
+                <input
+                  type="number"
+                  placeholder="to"
+                  className="w-20 text-xs border border-input rounded px-1.5 py-0.5 outline-none bg-background"
+                  value={runTo}
+                  onChange={e => setRunTo(e.target.value)}
+                />
+                {(runFrom || runTo) && (
+                  <button
+                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => { setRunFrom(""); setRunTo(""); }}
+                    title="Clear run filter"
+                  >
+                    <X className="w-3 h-3" />
+                  </button>
+                )}
+              </div>
+              <div className="border-t mb-1" />
+              <div className="max-h-[280px] overflow-y-auto space-y-1">
                 <button
                   className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center gap-2"
                   onClick={clearCampaigns}
@@ -212,7 +266,7 @@ export default function IntelligencePage() {
                   <span className="font-medium">All campaigns</span>
                 </button>
                 <div className="border-t my-1" />
-                {(campaigns ?? []).map(c => (
+                {filteredCampaigns.map(c => (
                   <button
                     key={c.id}
                     className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center gap-2"
@@ -223,9 +277,13 @@ export default function IntelligencePage() {
                     }`}>
                       {selectedCampaignIds.includes(c.id) && <span className="text-primary-foreground text-xs">✓</span>}
                     </span>
-                    <span className="truncate">{c.name}</span>
+                    <span className="truncate flex-1">{c.name}</span>
+                    <span className="text-xs text-muted-foreground shrink-0 ml-1">#{c.id}</span>
                   </button>
                 ))}
+                {filteredCampaigns.length === 0 && (
+                  <p className="text-xs text-muted-foreground px-2 py-2">No campaigns match this run range</p>
+                )}
               </div>
             </PopoverContent>
           </Popover>

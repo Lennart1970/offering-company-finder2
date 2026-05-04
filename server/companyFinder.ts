@@ -3776,7 +3776,8 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         if (!data || data.length < batchSize) break;
         offset += batchSize;
       }
-      return campaigns.sort((a, b) => a.name.localeCompare(b.name));
+      // Sort by id descending (newest runs first)
+      return campaigns.sort((a, b) => b.id - a.id);
     }),
 
   // Resolve a Supabase UUID to a local integer company ID

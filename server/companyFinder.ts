@@ -3698,14 +3698,14 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         query = query.gte("fit_score", input.minFit);
       }
       if (input.dateFrom) {
-        query = query.gte("created_at", input.dateFrom);
+        query = query.gte("synced_at", input.dateFrom);
       }
       if (input.dateTo) {
         // Add one day to make the "to" date inclusive
         const toDate = new Date(input.dateTo);
         toDate.setDate(toDate.getDate() + 1);
-        query = query.lt("created_at", toDate.toISOString());
-      }
+        query = query.lt("synced_at", toDate.toISOString());
+     }
 
       const { data, count, error } = await query;
       if (error) throw new Error(error.message);
@@ -3748,27 +3748,33 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
         { auth: { persistSession: false } }
       );
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      let query = (supabase.from("lt_mns_company_pages") as any)
-        .select("campaign_id, campaign_name")
-        .not("campaign_id", "is", null);
-      if (input?.dateFrom) query = query.gte("created_at", input.dateFrom);
-      if (input?.dateTo) {
-        // Include the full dateTo day by advancing to next day
-        const toDate = new Date(input.dateTo);
-        toDate.setDate(toDate.getDate() + 1);
-        query = query.lt("created_at", toDate.toISOString());
-      }
-      const { data, error } = await query;
-      if (error) throw new Error(error.message);
-      // Deduplicate by campaign_id
+      // Paginate through all rows to avoid the 1000-row Supabase default limit
       const seen = new Set<number>();
       const campaigns: Array<{ id: number; name: string }> = [];
-      for (const row of (data ?? [])) {
-        if (!seen.has(row.campaign_id)) {
-          seen.add(row.campaign_id);
-          campaigns.push({ id: row.campaign_id, name: row.campaign_name ?? `Campaign ${row.campaign_id}` });
+      let offset = 0;
+      const batchSize = 1000;
+      while (true) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        let q = (supabase.from("lt_mns_company_pages") as any)
+          .select("campaign_id, campaign_name")
+          .not("campaign_id", "is", null)
+          .range(offset, offset + batchSize - 1);
+        if (input?.dateFrom) q = q.gte("synced_at", input.dateFrom);
+        if (input?.dateTo) {
+          const toDate = new Date(input.dateTo);
+          toDate.setDate(toDate.getDate() + 1);
+          q = q.lt("synced_at", toDate.toISOString());
         }
+        const { data, error } = await q;
+        if (error) throw new Error(error.message);
+        for (const row of (data ?? [])) {
+          if (!seen.has(row.campaign_id)) {
+            seen.add(row.campaign_id);
+            campaigns.push({ id: row.campaign_id, name: row.campaign_name ?? `Campaign ${row.campaign_id}` });
+          }
+        }
+        if (!data || data.length < batchSize) break;
+        offset += batchSize;
       }
       return campaigns.sort((a, b) => a.name.localeCompare(b.name));
     }),

@@ -232,7 +232,7 @@ export default function IntelligencePage() {
 
           {/* Date range filter */}
           <div className="flex items-center gap-1.5 bg-white border border-input rounded-md px-2 py-1">
-            <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Added:</span>
+            <span className="text-xs text-muted-foreground font-medium whitespace-nowrap">Synced:</span>
             <input
               type="date"
               className="text-xs border-0 outline-none bg-transparent text-foreground cursor-pointer"

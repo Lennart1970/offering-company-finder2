@@ -196,7 +196,6 @@ export default function SyncPage() {
           {[
             "id (uuid)",
             "company_id (uuid)",
-            "local_id (integer)",
             "company_name",
             "domain",
             "campaign_id",

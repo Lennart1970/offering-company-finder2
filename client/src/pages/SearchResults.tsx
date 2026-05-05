@@ -67,10 +67,11 @@ export default function SearchResults() {
       setSelectedBrainId(String(activeBrain.id));
     }
   }, [activeBrain?.id]);
-  // Auto-select first angle once loaded
+  // Auto-select "Potential Customer" angle by default; fall back to first if not found
   useEffect(() => {
     if (availableAngles.length > 0 && selectedAngleId === undefined) {
-      setSelectedAngleId(availableAngles[0].id);
+      const potentialCustomer = availableAngles.find((a: any) => a.name === "Potential Customer");
+      setSelectedAngleId(potentialCustomer ? potentialCustomer.id : availableAngles[0].id);
     }
   }, [availableAngles.length]);
   const selectedBrain = availableBrains.find((b: any) => String(b.id) === selectedBrainId) ?? activeBrain;

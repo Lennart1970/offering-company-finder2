@@ -239,7 +239,7 @@ export async function generateSalesApproach(
   const brainInfo = userId ? await getBrainContextForApproach(userId, brainId) : { context: "", companyName: "Your Company" };
   const sellerName = brainInfo.companyName;
 
-  // Load angle context for Distributor / Channel Partner framing
+  // Load angle context — used for all angles, not just Distributor
   const angleInfo = await getAngleContext(angleId);
 
   // Build verified developments summary with source URLs
@@ -275,7 +275,15 @@ FRAMING RULES for all outreach materials:
 - engagementStrategy.whyThisProspectMatters should explain why they are a strong CHANNEL PARTNER candidate
 - engagementStrategy.recommendedApproach should describe the channel partnership pitch sequence
 - engagementStrategy.keyTalkingPoints should cover: mutual customer base, margin opportunity, exclusivity potential, support model
-` : "";
+` : (angleInfo.angleName && angleInfo.angleName !== "Potential Customer" ? `
+**ENGAGEMENT ANGLE: ${angleInfo.angleName.toUpperCase()}**
+${angleInfo.context}
+Frame ALL outreach materials through this lens. Adjust the email, LinkedIn message, call script, and conversation starters to reflect this specific engagement angle.
+` : `
+**ENGAGEMENT ANGLE: POTENTIAL CUSTOMER**
+You are crafting a direct sales outreach — the target is a potential end-user buyer for ${sellerName}'s products/services.
+Personalize all materials to the prospect's specific situation, pain points, and business context.
+`);
 
   const approachPrompt = `You are a B2B sales expert. Today is ${todayStr}. You are crafting a complete sales approach for ${sellerName}.${distributorInstructions}
 ${brainInfo.context ? `${brainInfo.context}

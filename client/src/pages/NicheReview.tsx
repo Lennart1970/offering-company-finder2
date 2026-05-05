@@ -619,12 +619,13 @@ export default function NicheReview() {
     }
   }, [activeBrain, selectedBrainId]);
 
-  // Auto-select first angle
+  // Auto-select "Potential Customer" angle by default; fall back to first if not found
   useEffect(() => {
     if (availableAngles.length > 0 && selectedAngleId === undefined) {
-      setSelectedAngleId(availableAngles[0].id);
+      const potentialCustomer = availableAngles.find((a: any) => a.name === "Potential Customer");
+      setSelectedAngleId(potentialCustomer ? potentialCustomer.id : availableAngles[0].id);
     }
-  }, [availableAngles, selectedAngleId]);
+  }, [availableAngles.length]);
 
   // Fetch niches — either by search or all
   const {

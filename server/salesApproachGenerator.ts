@@ -325,6 +325,7 @@ ${verifiedSources || "No verified sources available."}
   const salesApproach: SalesApproach = {
     companyName: company.name,
     generatedAt: new Date().toISOString(),
+    angleId: angleId, // Stamp the angle used — enables cache invalidation when angle changes
     conversationStarters: normaliseConversationStarters(approachData.conversationStarters || []),
     engagementStrategy: approachData.engagementStrategy || {
       whyThisProspectMatters: [],

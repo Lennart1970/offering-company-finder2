@@ -104,6 +104,7 @@ export interface SalesIntelligenceBrief {
 export interface SalesApproach {
   companyName: string;
   generatedAt: string;
+  angleId?: string; // The angle UUID used to generate this approach — used for cache invalidation
   conversationStarters: Array<{
     opener: string;
     sourceUrl: string;

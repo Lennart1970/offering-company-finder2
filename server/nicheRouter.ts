@@ -365,9 +365,14 @@ export const nicheRouter = router({
       const userId = ctx.user.id;
       const niche = await getNicheById(input.nicheId);
 
-      if (!niche || niche.userId !== userId) {
+      // Allow super_admin to rescore any niche; regular admins can only rescore their own
+      const isSuperAdmin = ctx.user.role === 'super_admin';
+      if (!niche || (!isSuperAdmin && niche.userId !== userId)) {
         throw new TRPCError({ code: "NOT_FOUND", message: "Niche not found" });
       }
+
+      // Use the niche owner's userId for brain resolution (so the correct Brain is used)
+      const effectiveUserId = niche.userId;
 
       const clusterInput: NicheClusterInput = {
         name: niche.name,
@@ -380,7 +385,7 @@ export const nicheRouter = router({
 
       let result;
       try {
-        result = await scoreNicheFit(clusterInput, userId, input.brainId);
+        result = await scoreNicheFit(clusterInput, effectiveUserId, input.brainId);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Scoring failed: ${msg}` });

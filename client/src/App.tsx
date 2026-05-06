@@ -87,7 +87,6 @@ function Router() {
         <Route path={"/cg-team"} component={ConnectGroupTeam} />
         <Route path={"/terms"} component={TermsOfUse} />
         <Route path={"/share-access-log"} component={ShareAccessLogPage} />
-        <Route path={"/share-lists"} component={ShareListsPage} />
         <Route path={"/niche/:nicheId"} component={({ params }: { params: { nicheId: string } }) => <NicheCompanyList nicheId={parseInt(params.nicheId)} />} />
 
         <Route path={"/404"} component={NotFound} />
@@ -104,6 +103,8 @@ function App() {
         <TooltipProvider>
           <Toaster />
           <Switch>
+            {/* Public share lists overview — no login required */}
+            <Route path="/share-lists" component={() => <ShareListsPage />} />
             {/* Public share list page — no login required */}
             <Route path="/share/brains" component={() => <BrainOverviewPage />} />
             <Route path="/share/list/:listToken" component={({ params }: { params: { listToken: string } }) => <ShareListPage />} />

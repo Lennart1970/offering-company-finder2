@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Copy, Trash2, ExternalLink, Share2 } from "lucide-react";
+import { Copy, Trash2, ExternalLink, Share2, Pencil, Check, X } from "lucide-react";
 
 const BASE_URL = window.location.origin;
 
@@ -20,6 +21,7 @@ export default function ShareListsPage() {
   const utils = trpc.useUtils();
 
   const { data, isLoading } = trpc.share.getShareLists.useQuery();
+
   const deleteMutation = trpc.share.deleteShareList.useMutation({
     onSuccess: () => {
       utils.share.getShareLists.invalidate();
@@ -30,7 +32,39 @@ export default function ShareListsPage() {
     },
   });
 
+  const renameMutation = trpc.share.renameShareList.useMutation({
+    onSuccess: () => {
+      utils.share.getShareLists.invalidate();
+      toast.success("List renamed");
+    },
+    onError: (err) => {
+      toast.error("Rename failed", { description: err.message });
+    },
+  });
+
   const [confirmDelete, setConfirmDelete] = useState<number | null>(null);
+  // editingId → the list being renamed; editValue → current input value
+  const [editingId, setEditingId] = useState<number | null>(null);
+  const [editValue, setEditValue] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  function startEdit(id: number, currentName: string | null) {
+    setEditingId(id);
+    setEditValue(currentName ?? "");
+    // Focus after render
+    setTimeout(() => inputRef.current?.focus(), 0);
+  }
+
+  function cancelEdit() {
+    setEditingId(null);
+    setEditValue("");
+  }
+
+  function commitEdit(listId: number) {
+    renameMutation.mutate({ listId, name: editValue });
+    setEditingId(null);
+    setEditValue("");
+  }
 
   function copyLink(token: string) {
     const url = `${BASE_URL}/share/list/${token}`;
@@ -75,7 +109,7 @@ export default function ShareListsPage() {
       {!isLoading && lists.length > 0 && (
         <div className="border rounded-lg overflow-hidden">
           {/* Table header */}
-          <div className="grid grid-cols-[1fr_80px_160px_120px] gap-4 px-4 py-2 bg-muted/50 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-b">
+          <div className="grid grid-cols-[1fr_80px_160px_140px] gap-4 px-4 py-2 bg-muted/50 text-xs font-semibold uppercase tracking-wide text-muted-foreground border-b">
             <span>List name</span>
             <span className="text-center">Companies</span>
             <span>Created</span>
@@ -84,23 +118,69 @@ export default function ShareListsPage() {
 
           {lists.map((list, idx: number) => {
             const isConfirming = confirmDelete === list.id;
+            const isEditing = editingId === list.id;
             return (
               <div
                 key={list.id}
-                className={`grid grid-cols-[1fr_80px_160px_120px] gap-4 px-4 py-3 items-center text-sm ${
+                className={`grid grid-cols-[1fr_80px_160px_140px] gap-4 px-4 py-3 items-center text-sm ${
                   idx < lists.length - 1 ? "border-b" : ""
                 } hover:bg-muted/20 transition-colors`}
               >
-                {/* Name */}
+                {/* Name — inline edit */}
                 <div className="min-w-0">
-                  <p className="font-medium truncate">
-                    {list.shareListName ?? (
-                      <span className="text-muted-foreground italic">Unnamed list</span>
-                    )}
-                  </p>
-                  <p className="text-xs text-muted-foreground font-mono truncate">
-                    {list.listToken}
-                  </p>
+                  {isEditing ? (
+                    <div className="flex items-center gap-1">
+                      <Input
+                        ref={inputRef}
+                        value={editValue}
+                        onChange={(e) => setEditValue(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") commitEdit(list.id);
+                          if (e.key === "Escape") cancelEdit();
+                        }}
+                        className="h-7 text-sm py-0 px-2"
+                        placeholder="List name…"
+                        maxLength={200}
+                      />
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 text-green-600 hover:text-green-700 shrink-0"
+                        title="Save"
+                        onClick={() => commitEdit(list.id)}
+                        disabled={renameMutation.isPending}
+                      >
+                        <Check className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="ghost"
+                        className="h-7 w-7 shrink-0"
+                        title="Cancel"
+                        onClick={cancelEdit}
+                      >
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  ) : (
+                    <div
+                      className="group flex items-center gap-1.5 cursor-pointer"
+                      onClick={() => startEdit(list.id, list.shareListName)}
+                      title="Click to rename"
+                    >
+                      <p className="font-medium truncate">
+                        {list.shareListName ?? (
+                          <span className="text-muted-foreground italic">Unnamed list</span>
+                        )}
+                      </p>
+                      <Pencil className="w-3 h-3 text-muted-foreground/40 group-hover:text-muted-foreground/80 shrink-0 transition-colors" />
+                    </div>
+                  )}
+                  {!isEditing && (
+                    <p className="text-xs text-muted-foreground font-mono truncate mt-0.5">
+                      {list.listToken}
+                    </p>
+                  )}
                 </div>
 
                 {/* Company count */}
@@ -175,7 +255,7 @@ export default function ShareListsPage() {
 
       {!isLoading && lists.length > 0 && (
         <p className="text-xs text-muted-foreground mt-3 text-right">
-          {lists.length} list{lists.length !== 1 ? "s" : ""} total
+          {lists.length} list{lists.length !== 1 ? "s" : ""} total · click a name to rename
         </p>
       )}
     </div>

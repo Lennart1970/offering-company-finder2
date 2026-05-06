@@ -508,6 +508,28 @@ export const shareRouter = router({
       await db.delete(shareLists).where(eq(shareLists.id, input.listId));
       return { ok: true };
     }),
+
+  /**
+   * Rename a share list. Only the owner can rename their own list.
+   */
+  renameShareList: protectedProcedure
+    .input(z.object({ listId: z.number(), name: z.string().max(200) }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const userId = ctx.user.id;
+      const [existing] = await db
+        .select({ id: shareLists.id })
+        .from(shareLists)
+        .where(and(eq(shareLists.id, input.listId), eq(shareLists.createdBy, userId)))
+        .limit(1);
+      if (!existing) throw new Error("Share list not found or access denied");
+      await db
+        .update(shareLists)
+        .set({ shareListName: input.name.trim() || null })
+        .where(eq(shareLists.id, input.listId));
+      return { ok: true };
+    }),
 });
 
 // ─── Extended share procedures (email gate, brain share) ──────────────────────

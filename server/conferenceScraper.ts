@@ -318,7 +318,7 @@ ${truncated}`;
     const response = await axios.post(
       "https://api.x.ai/v1/chat/completions",
       {
-        model: "grok-3-fast-beta",
+        model: "grok-4.20-non-reasoning",
         messages: [{ role: "user", content: prompt }],
         temperature: 0,
         max_tokens: 8000,

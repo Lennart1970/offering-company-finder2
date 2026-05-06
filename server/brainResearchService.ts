@@ -49,7 +49,7 @@ async function callGrokWithWebSearch(input: string): Promise<string> {
       "Content-Type": "application/json",
     },
     body: JSON.stringify({
-      model: "grok-4-1-fast-reasoning",
+      model: "grok-4.3",
       tools: [{ type: "web_search" }],
       input,
       response_format: { type: "json_object" },

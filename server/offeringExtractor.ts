@@ -77,7 +77,7 @@ export async function extractOffering(companyWebsite: string): Promise<OfferingD
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "grok-4-1-fast-reasoning",
+        model: "grok-4.3",
         tools: [{ type: "web_search" }],  // Explicit web_search tool
         input: `${OFFERING_EXTRACTION_PROMPT}\n\nAnalyze this company website and extract offering information: ${companyWebsite}\n\nSearch for and browse the website to extract the structured data as JSON. Pay special attention to identifying who their CUSTOMERS are — what industries and company types buy from them. Verify all information through your searches.`,
         response_format: { type: "json_object" },

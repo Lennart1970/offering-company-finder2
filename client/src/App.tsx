@@ -40,6 +40,7 @@ import ShareListPage from "./pages/ShareListPage";
 import ShareBrainPage from "./pages/ShareBrainPage";
 import BrainOverviewPage from "./pages/BrainOverviewPage";
 import ShareAccessLogPage from "./pages/ShareAccessLogPage";
+import ShareListsPage from "./pages/ShareListsPage";
 import CampaignFromBrain from "./pages/CampaignFromBrain";
 import TriggerReview from "./pages/TriggerReview";
 
@@ -86,6 +87,7 @@ function Router() {
         <Route path={"/cg-team"} component={ConnectGroupTeam} />
         <Route path={"/terms"} component={TermsOfUse} />
         <Route path={"/share-access-log"} component={ShareAccessLogPage} />
+        <Route path={"/share-lists"} component={ShareListsPage} />
         <Route path={"/niche/:nicheId"} component={({ params }: { params: { nicheId: string } }) => <NicheCompanyList nicheId={parseInt(params.nicheId)} />} />
 
         <Route path={"/404"} component={NotFound} />

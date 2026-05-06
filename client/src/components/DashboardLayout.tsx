@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, LogOut, PanelLeft, BrainCircuit, FileSpreadsheet, Phone, ScrollText, Network, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook, UserPlus, BookMarked, Eye, FolderOpen, MapPin, Building2, Users, Activity, ChevronDown, Crosshair } from "lucide-react";
+import { List, LogOut, PanelLeft, BrainCircuit, FileSpreadsheet, Phone, ScrollText, Network, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook, UserPlus, BookMarked, Eye, FolderOpen, MapPin, Building2, Users, Activity, ChevronDown, Crosshair, Share2 } from "lucide-react";
 import { CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -51,6 +51,7 @@ const navGroups: NavGroup[] = [
       { icon: List, label: "Search Results", path: "/search-results" },
       { icon: LayoutList, label: "Sales Menu", path: "/sales-menu" },
       { icon: Zap, label: "Intelligence", path: "/intelligence" },
+      { icon: Share2, label: "Shared Lists", path: "/share-lists" },
       { icon: Network, label: "Market Segments", path: "/niche-review" },
       { icon: Crosshair, label: "Campaign from Brain", path: "/campaign-from-brain", superAdminOnly: true },
       { icon: Zap, label: "Trigger Review", path: "/trigger-review", superAdminOnly: true },

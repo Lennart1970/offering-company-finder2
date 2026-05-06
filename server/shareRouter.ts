@@ -457,6 +457,57 @@ export const shareRouter = router({
 
       return result;
     }),
+
+  /**
+   * Returns all share lists created by the current user, with company count.
+   */
+  getShareLists: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user.id;
+    const mysql = await import('mysql2/promise');
+    const conn = await mysql.createConnection(process.env.DATABASE_URL!);
+    try {
+      const [rows] = await conn.execute<any[]>(
+        `SELECT sl.id, sl.listToken, sl.shareListName, sl.createdAt,
+                COUNT(sli.id) AS companyCount
+         FROM share_lists sl
+         LEFT JOIN share_list_items sli ON sli.shareListId = sl.id
+         WHERE sl.createdBy = ?
+         GROUP BY sl.id
+         ORDER BY sl.createdAt DESC`,
+        [userId]
+      );
+      const lists = rows.map((r: any) => ({
+        id: Number(r.id),
+        listToken: String(r.listToken),
+        shareListName: r.shareListName ? String(r.shareListName) : null,
+        createdAt: new Date(r.createdAt),
+        companyCount: Number(r.companyCount),
+      }));
+      return { lists };
+    } finally {
+      await conn.end();
+    }
+  }),
+
+  /**
+   * Delete a share list (and cascade-delete its items via FK).
+   * Only the owner can delete their own list.
+   */
+  deleteShareList: protectedProcedure
+    .input(z.object({ listId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const userId = ctx.user.id;
+      const [existing] = await db
+        .select({ id: shareLists.id })
+        .from(shareLists)
+        .where(and(eq(shareLists.id, input.listId), eq(shareLists.createdBy, userId)))
+        .limit(1);
+      if (!existing) throw new Error("Share list not found or access denied");
+      await db.delete(shareLists).where(eq(shareLists.id, input.listId));
+      return { ok: true };
+    }),
 });
 
 // ─── Extended share procedures (email gate, brain share) ──────────────────────
@@ -919,4 +970,56 @@ export const shareExtRouter = router({
     }));
     return { brains };
   }),
+
+  /**
+   * Returns all share lists created by the current user, with company count.
+   */
+  getShareLists: protectedProcedure.query(async ({ ctx }) => {
+    const userId = ctx.user.id;
+    const mysql = await import('mysql2/promise');
+    const conn = await mysql.createConnection(process.env.DATABASE_URL!);
+    try {
+      const [rows] = await conn.execute<any[]>(
+        `SELECT sl.id, sl.listToken, sl.shareListName, sl.createdAt,
+                COUNT(sli.id) AS companyCount
+         FROM share_lists sl
+         LEFT JOIN share_list_items sli ON sli.shareListId = sl.id
+         WHERE sl.createdBy = ?
+         GROUP BY sl.id
+         ORDER BY sl.createdAt DESC`,
+        [userId]
+      );
+      const lists = rows.map((r: any) => ({
+        id: Number(r.id),
+        listToken: String(r.listToken),
+        shareListName: r.shareListName ? String(r.shareListName) : null,
+        createdAt: new Date(r.createdAt),
+        companyCount: Number(r.companyCount),
+      }));
+      return { lists };
+    } finally {
+      await conn.end();
+    }
+  }),
+
+  /**
+   * Delete a share list (and cascade-delete its items via FK).
+   * Only the owner can delete their own list.
+   */
+  deleteShareList: protectedProcedure
+    .input(z.object({ listId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      const userId = ctx.user.id;
+      // Verify ownership
+      const [existing] = await db
+        .select({ id: shareLists.id })
+        .from(shareLists)
+        .where(and(eq(shareLists.id, input.listId), eq(shareLists.createdBy, userId)))
+        .limit(1);
+      if (!existing) throw new Error("Share list not found or access denied");
+      await db.delete(shareLists).where(eq(shareLists.id, input.listId));
+      return { ok: true };
+    }),
 });

@@ -885,7 +885,7 @@ export default function NicheReview() {
   const rescoreMutation = trpc.niche.rescoreNiche.useMutation({
     onSuccess: (data) => {
       setRescoringId(null);
-      toast.success(`${data.fitScore}/100 — scored with ${data.brainName}`);
+      toast.success(`${data.fitScore}/100 — scored with ${data.brainName ?? 'Business Unit'}`);
       if (selectedSearchId) refetchSearch();
       else refetch();
     },
@@ -977,7 +977,7 @@ export default function NicheReview() {
 
             {/* Step 2: Brain */}
             <div>
-              <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">② BRAIN</div>
+              <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">② BUSINESS UNIT</div>
               <select
                 value={selectedBrainId ?? ""}
                 onChange={(e) => setSelectedBrainId(e.target.value || undefined)}
@@ -1033,7 +1033,7 @@ export default function NicheReview() {
           )}
           {!isSupabaseOnlyBrain && selectedBrainId && selectedBrainId !== String(activeBrain?.id) && (
             <div className="mt-2 text-xs font-bold text-amber-600 border border-amber-400 px-2 py-1 bg-amber-50 inline-block">
-              ⚠ Using a different brain than the active one
+              ⚠ Using a different Business Unit than the active one
             </div>
           )}
         </div>

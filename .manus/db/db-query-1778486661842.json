@@ -1,0 +1,9 @@
+{
+  "query": "-- Step 1: Insert the Misc. brain (owned by the primary owner, userId=1)\nINSERT INTO offering_brain (userId, brainName, companyName, companyWebsite, status, isActive, isShared, show_on_leadtrigger)\nVALUES (1, 'Misc.', 'Connect Group', 'connectgroup.com', 'completed', 0, 1, 0);\n\n-- Step 2: Backfill share_lists rows that have no brainId\nUPDATE share_lists\nSET brainId = LAST_INSERT_ID()\nWHERE brainId IS NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute -- Step 1: Insert the Misc. brain (owned by the primary owner, userId=1)\nINSERT INTO offering_brain (userId, brainName, companyName, companyWebsite, status, isActive, isShared, show_on_leadtrigger)\nVALUES (1, 'Misc.', 'Connect Group', 'connectgroup.com', 'completed', 0, 1, 0);\n\n-- Step 2: Backfill share_lists rows that have no brainId\nUPDATE share_lists\nSET brainId = LAST_INSERT_ID()\nWHERE brainId IS NULL;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 306
+}

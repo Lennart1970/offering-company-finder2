@@ -1,0 +1,46 @@
+{
+  "query": "SELECT sl.id, sl.shareListName, sl.brainId, ob.brainName\nFROM share_lists sl\nLEFT JOIN offering_brain ob ON ob.id = sl.brainId\nORDER BY sl.createdAt DESC;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT sl.id, sl.shareListName, sl.brainId, ob.brainName\nFROM share_lists sl\nLEFT JOIN offering_brain ob ON ob.id = sl.brainId\nORDER BY sl.createdAt DESC;",
+  "rows": [
+    {
+      "id": "180011",
+      "shareListName": "Like LKQ #156003 — (139 companies)",
+      "brainId": "300001",
+      "brainName": "Misc."
+    },
+    {
+      "id": "180010",
+      "shareListName": "Trade show ConExpo  #810002",
+      "brainId": "300001",
+      "brainName": "Misc."
+    },
+    {
+      "id": "180009",
+      "shareListName": "Like van der Lande #78001 (699 cies, not complete)",
+      "brainId": "300001",
+      "brainName": "Misc."
+    },
+    {
+      "id": "180008",
+      "shareListName": "Lead info 29-4 (627 companies)",
+      "brainId": "300001",
+      "brainName": "Misc."
+    },
+    {
+      "id": "180006",
+      "shareListName": "Trade show BDSA  178 companies",
+      "brainId": "300001",
+      "brainName": "Misc."
+    },
+    {
+      "id": "180004",
+      "shareListName": "Trade show Wind Europe 270 companies",
+      "brainId": "300001",
+      "brainName": "Misc."
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tshareListName\tbrainId\tbrainName\n180011\tLike LKQ #156003 — (139 companies)\t300001\tMisc.\n180010\tTrade show ConExpo  #810002\t300001\tMisc.\n180009\tLike van der Lande #78001 (699 cies, not complete)\t300001\tMisc.\n180008\tLead info 29-4 (627 companies)\t300001\tMisc.\n180006\tTrade show BDSA  178 companies\t300001\tMisc.\n180004\tTrade show Wind Europe 270 companies\t300001\tMisc.\n",
+  "stderr": "",
+  "execution_time_ms": 263
+}

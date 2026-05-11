@@ -155,7 +155,7 @@ export default function ShareListsPage() {
                   : "bg-background text-muted-foreground border-border hover:border-primary/50 hover:text-foreground"
               }`}
             >
-              All brains
+              All Business Units
             </button>
             {brains.map((b) => (
               <button
@@ -183,7 +183,7 @@ export default function ShareListsPage() {
         <div className="text-center py-16 text-muted-foreground">
           <Share2 className="w-10 h-10 mx-auto mb-3 opacity-30" />
           <p className="font-medium">
-            {selectedBrainId !== null ? "No lists for this brain" : "No share lists yet"}
+            {selectedBrainId !== null ? "No lists for this business unit" : "No share lists yet"}
           </p>
         </div>
       )}

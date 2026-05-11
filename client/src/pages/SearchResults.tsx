@@ -50,7 +50,7 @@ export default function SearchResults() {
   // When navigated from Sales Menu, hide all header chrome — show only the company list
   const fromSalesMenu = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("from") === "sales-menu";
 
-  // Active brain — used for mismatch detection in BrainBadge
+  // Active Business Unit — used for mismatch detection in BrainBadge
   const { data: activeBrainData } = trpc.companyFinder.getActiveBrain.useQuery();
   const activeBrain = activeBrainData?.brain ?? null;
   // Brain selector — lets user pick which brain to use for DO 10 / DO ALL
@@ -61,7 +61,7 @@ export default function SearchResults() {
   const { data: anglesData } = trpc.companyFinder.getAngles.useQuery();
   const availableAngles = anglesData?.angles ?? [];
   const [selectedAngleId, setSelectedAngleId] = useState<string | undefined>(undefined);
-  // Auto-select active brain once loaded
+  // Auto-select active business unit once loaded
   useEffect(() => {
     if (activeBrain && selectedBrainId === undefined) {
       setSelectedBrainId(String(activeBrain.id));
@@ -216,9 +216,9 @@ export default function SearchResults() {
   const handleCreateShareList = () => {
     if (!selectedCompanyIds.size) { toast.error("Select at least one company first"); return; }
     const brainIdRaw = selectedBrainId ?? (activeBrain ? String(activeBrain.id) : undefined);
-    if (!brainIdRaw) { toast.error("No active brain selected"); return; }
+    if (!brainIdRaw) { toast.error("No active business unit selected"); return; }
     const brainId = Number(brainIdRaw);
-    if (isNaN(brainId)) { toast.error("Cannot share with a Supabase-only brain. Pull it locally first."); return; }
+    if (isNaN(brainId)) { toast.error("Cannot share with a Supabase-only business unit. Pull it locally first."); return; }
     const items = Array.from(selectedCompanyIds).map((companyId) => ({ companyId, brainId }));
     createShareListMutation.mutate({ items, shareListName: `Search ${searchId} — ${new Date().toLocaleDateString()}` });
   };
@@ -1170,10 +1170,10 @@ export default function SearchResults() {
               </div>
             </div>
 
-            {/* Warning when non-active brain selected */}
+            {/* Warning when non-active business unit selected */}
             {isSupabaseOnlyBrain && (
               <div className="mt-2 text-xs font-bold text-red-600 border border-red-400 px-2 py-1 bg-red-50 inline-block">
-                ⚠ This brain is Supabase-only (no local record). DO 10 / DO ALL will use the active brain instead. Pull it locally first to use it.
+                ⚠ This Business Unit is Supabase-only (no local record). DO 10 / DO ALL will use the active business unit instead. Pull it locally first to use it.
               </div>
             )}
             {!isSupabaseOnlyBrain && selectedBrainId && selectedBrainId !== String(activeBrain?.id) && (

@@ -135,7 +135,7 @@ export default function CampaignFromBrain() {
         {/* Header */}
         <div className="mb-8">
           <div className="text-xs font-black text-gray-400 tracking-widest mb-1">SIGNAL-DRIVEN INTELLIGENCE</div>
-          <h1 className="text-4xl font-black text-gray-900 leading-none">CAMPAIGN FROM BRAIN</h1>
+          <h1 className="text-4xl font-black text-gray-900 leading-none">CAMPAIGN FROM BUSINESS UNIT</h1>
           <p className="text-sm text-gray-500 mt-2 font-medium">
             Select a Brain → find semantically similar companies → create a campaign for deep research.
           </p>
@@ -154,7 +154,7 @@ export default function CampaignFromBrain() {
             ) : !brains || brains.length === 0 ? (
               <div className="border-4 border-black p-12 text-center">
                 <div className="text-2xl font-black mb-2">NO BRAINS AVAILABLE</div>
-                <div className="text-sm text-gray-500">Create an Offering Brain first.</div>
+                <div className="text-sm text-gray-500">Create an Business Unit first.</div>
               </div>
             ) : (
               <div className="grid gap-3">
@@ -448,7 +448,7 @@ export default function CampaignFromBrain() {
                       value={campaignName}
                       onChange={(e) => setCampaignName(e.target.value)}
                       className="w-full border-2 border-black px-3 py-2 text-sm font-bold"
-                      placeholder="e.g. [Brain] Healthcare OEMs - Netherlands"
+                      placeholder="e.g. [Business Unit] Healthcare OEMs - Netherlands"
                     />
                   </div>
                   <button

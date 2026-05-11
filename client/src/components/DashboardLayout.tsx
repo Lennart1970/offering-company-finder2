@@ -47,13 +47,13 @@ const navGroups: NavGroup[] = [
   {
     label: "Intelligence",
     items: [
-      { icon: BrainCircuit, label: "Offering Brain", path: "/brain" },
+      { icon: BrainCircuit, label: "Business Unit", path: "/brain" },
       { icon: List, label: "Search Results", path: "/search-results" },
       { icon: LayoutList, label: "Sales Menu", path: "/sales-menu" },
       { icon: Zap, label: "Intelligence", path: "/intelligence" },
       { icon: Share2, label: "Shared Lists", path: "/share-lists" },
       { icon: Network, label: "Market Segments", path: "/niche-review" },
-      { icon: Crosshair, label: "Campaign from Brain", path: "/campaign-from-brain", superAdminOnly: true },
+      { icon: Crosshair, label: "Campaign from Business Unit", path: "/campaign-from-brain", superAdminOnly: true },
       { icon: Zap, label: "Trigger Review", path: "/trigger-review", superAdminOnly: true },
     ],
   },
@@ -86,7 +86,7 @@ const navGroups: NavGroup[] = [
     items: [
       { icon: ScrollText, label: "Prompt Repository", path: "/prompts" },
       { icon: Webhook, label: "Webhook Log", path: "/webhook-log" },
-      { icon: Eye, label: "Brain Visibility", path: "/brain-visibility", superAdminOnly: true },
+      { icon: Eye, label: "Business Unit Visibility", path: "/brain-visibility", superAdminOnly: true },
       { icon: FolderOpen, label: "Sales Materials", path: "/sales-materials" },
       { icon: Activity, label: "Access Log", path: "/share-access-log" },
     ],

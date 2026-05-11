@@ -30,7 +30,7 @@ export default function BrainOverviewPage() {
 
   const handleDownloadExcel = () => {
     // Build CSV content
-    const headers = ["Brain Name", "Share Link"];
+    const headers = ["Business Unit Name", "Share Link"];
     const rows = filtered.map((b) => [
       b.brainName || "",
       b.token ? `${window.location.origin}/share/brain/${b.token}` : "",
@@ -75,7 +75,7 @@ export default function BrainOverviewPage() {
   const visibleCount = brains.filter((b) => b.showOnLeadtrigger).length;
 
   return (
-    <ShareGate tokenType="brain" tokenValue="overview">
+    <ShareGate tokenType="business unit" tokenValue="overview">
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
@@ -86,7 +86,7 @@ export default function BrainOverviewPage() {
               </div>
               <div>
                 <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">LeadTrigger - Connect Group</p>
-                <p className="text-xs font-bold text-gray-700">Offering Brains -- Overview</p>
+                <p className="text-xs font-bold text-gray-700">Business Units -- Overview</p>
               </div>
             </div>
             <span className="text-xs font-bold text-gray-400 border border-gray-200 px-3 py-1 rounded-full">
@@ -99,7 +99,7 @@ export default function BrainOverviewPage() {
           {/* Title + Download */}
           <div className="flex items-start justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-black text-gray-900 mb-2">Offering Brains</h1>
+              <h1 className="text-3xl font-black text-gray-900 mb-2">Business Units</h1>
               <p className="text-sm text-gray-500">
                 {brains.length} brains total &middot; {activeCount} active &middot; {sharedCount} shared &middot; {visibleCount} visible
               </p>

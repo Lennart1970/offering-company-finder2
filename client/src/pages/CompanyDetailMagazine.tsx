@@ -131,7 +131,7 @@ export default function CompanyDetailMagazine() {
   const [activeSection, setActiveSection] = useState<string>("urgency");
   const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
-  // Brain selector — read from URL ?brainId param, default to active brain
+  // Brain selector — read from URL ?brainId param, default to active business unit
   const urlBrainId = useMemo(() => {
     const v = urlParams.get("brainId");
     return v ? parseInt(v, 10) : undefined;
@@ -332,10 +332,10 @@ export default function CompanyDetailMagazine() {
     onSuccess: (_, vars) => {
       setRunBrainLoadingId(null);
       runBrainUtils.companyFinder.getCompany.invalidate({ companyId });
-      toast.success("Brain output generated!");
+      toast.success("Business Unit output generated!");
       handleBrainChange(vars.brainId!);
     },
-    onError: () => { setRunBrainLoadingId(null); toast.error("Brain run failed"); },
+    onError: () => { setRunBrainLoadingId(null); toast.error("Business Unit run failed"); },
   });
   const handleRunBrain = async (brainId: number, e: React.MouseEvent) => {
     e.stopPropagation();
@@ -345,7 +345,7 @@ export default function CompanyDetailMagazine() {
       runBrainApproachMutation.mutate({ companyId, brainId });
     } catch {
       setRunBrainLoadingId(null);
-      toast.error("Brain run failed");
+      toast.error("Business Unit run failed");
     }
   };
 
@@ -389,7 +389,7 @@ export default function CompanyDetailMagazine() {
     }
   }, [briefData, urgencyImagesFetched]);
 
-  // Active Brain
+  // Active Business Unit
   const { data: activeBrainData } = trpc.companyFinder.getActiveBrain.useQuery();
   const activeBrain = activeBrainData?.brain ?? null;
 
@@ -1197,7 +1197,7 @@ export default function CompanyDetailMagazine() {
         <div className="absolute inset-0 flex items-center"><div className="w-full border-t-4 border-gray-300" /></div>
         <div className="relative flex justify-center">
           <span className="bg-white px-6 py-1.5 text-[11px] font-black tracking-[0.2em] text-gray-400 uppercase border-2 border-gray-300">
-            🏢 COMPANY DATA — Same for all brains
+            🏢 COMPANY DATA — Same for all business units
           </span>
         </div>
       </div>

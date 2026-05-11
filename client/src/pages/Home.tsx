@@ -68,10 +68,10 @@ export default function Home() {
     }
   }, []);
 
-  // Fetch all brains for the brain selector
+  // Fetch all business units for the brain selector
   const { data: brainHistoryData } = trpc.companyFinder.getBrainHistory.useQuery();
   const brainList = (brainHistoryData as any)?.history ?? brainHistoryData ?? [];
-  // Auto-select the active brain when brains load
+  // Auto-select the active business unit when brains load
   useEffect(() => {
     if (brainList && brainList.length > 0 && selectedBrainId === null) {
       const activeBrain = brainList.find((b: any) => b.isActive === 1);
@@ -587,7 +587,7 @@ export default function Home() {
                 <div className="space-y-4">
                   <Label className="text-2xl font-black">[03] SELECT BRAIN</Label>
                   <div className="text-sm font-bold text-muted-foreground mb-3">
-                    Choose which Offering Brain to run this campaign against.
+                    Choose which Business Unit to run this campaign against.
                   </div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                     {brainList.map((brain: any) => (

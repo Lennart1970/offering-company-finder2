@@ -18,7 +18,7 @@ export default function CallToday() {
   // Cross-campaign: all companies marked Call Today for this user
   const { data, isLoading } = trpc.companyFinder.getCallToday.useQuery();
 
-  // Active brain — for mismatch detection
+  // Active Business Unit — for mismatch detection
   const { data: activeBrainData } = trpc.companyFinder.getActiveBrain.useQuery();
   const activeBrain = activeBrainData?.brain ?? null;
 

@@ -1,7 +1,7 @@
 /**
- * BrainBadge — Shows which Offering Brain was used to generate a company's outputs.
- * Displays a purple badge with the brain name.
- * If the active brain differs from the generation brain, shows an amber mismatch warning.
+ * BrainBadge — Shows which Business Unit was used to generate a company's outputs.
+ * Displays a purple badge with the business unit name.
+ * If the active business unit differs from the generation brain, shows an amber mismatch warning.
  *
  * Usage:
  *   <BrainBadge
@@ -46,7 +46,7 @@ export default function BrainBadge({
         }`}
         title={
           isMismatch
-            ? `Generated with "${generatedWithBrainName}" — active brain is "${activeBrainName}"`
+            ? `Generated with "${generatedWithBrainName}" — active business unit is "${activeBrainName}"`
             : `Generated with brain: ${generatedWithBrainName}`
         }
       >
@@ -80,7 +80,7 @@ export default function BrainBadge({
       </span>
       {isMismatch && (
         <span className="text-[10px] font-medium text-amber-600 pl-0.5">
-          Active brain is now "{activeBrainName}" — outputs may be stale
+          Active Business Unit is now "{activeBrainName}" — outputs may be stale
         </span>
       )}
     </div>

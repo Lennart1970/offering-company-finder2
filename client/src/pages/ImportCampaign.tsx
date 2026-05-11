@@ -94,7 +94,7 @@ export default function ImportCampaign() {
       <div className="mb-8">
         <h1 className="text-4xl font-black mb-2">IMPORT CAMPAIGN</h1>
         <p className="text-lg opacity-70">
-          Upload an Apollo CSV → auto-cluster into niches → score against your Offering Brain
+          Upload an Apollo CSV → auto-cluster into niches → score against your Business Unit
         </p>
       </div>
 
@@ -149,7 +149,7 @@ export default function ImportCampaign() {
             <p className="text-sm font-bold text-blue-900">
               <span className="font-black">WHAT HAPPENS NEXT:</span> Companies are imported, then automatically
               clustered into niches using AI embeddings + k-means. Each niche is scored against your active
-              Offering Brain. The whole process takes 1–3 minutes depending on CSV size.
+              Business Unit. The whole process takes 1–3 minutes depending on CSV size.
             </p>
           </div>
 
@@ -185,7 +185,7 @@ export default function ImportCampaign() {
               <p>① Generating semantic embeddings (OpenAI text-embedding-3-small)</p>
               <p>② Running k-means++ with silhouette auto-K selection</p>
               <p>③ Naming clusters with LLM</p>
-              <p>④ Scoring niches against your Offering Brain</p>
+              <p>④ Scoring niches against your Business Unit</p>
             </div>
             {clusteringStatus && (
               <p className="mt-4 text-sm font-bold text-blue-700">{clusteringStatus}</p>

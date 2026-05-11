@@ -35,13 +35,13 @@ export default function OfferingDetails() {
           <div className="max-w-4xl">
             <h2 className="text-6xl font-black leading-none mb-8">NO BRAIN FOUND</h2>
             <p className="text-xl font-bold text-muted-foreground mb-8">
-              You need to create an Offering Brain first before viewing offering details.
+              You need to create an Business Unit first before viewing offering details.
             </p>
             <Button
               onClick={() => navigate("/brain")}
               className="text-2xl px-12 py-8 font-black border-4 border-black bg-black text-white"
             >
-              [CREATE BRAIN]
+              [CREATE BUSINESS UNIT]
             </Button>
           </div>
         </div>
@@ -85,7 +85,7 @@ export default function OfferingDetails() {
             </h2>
             <div className="border-l-8 border-black pl-8">
               <p className="text-xl md:text-2xl font-bold text-muted-foreground">
-                Review the offering from your active brain: <strong>{brain.brainName}</strong>
+                Review the offering from your active business unit: <strong>{brain.brainName}</strong>
               </p>
             </div>
           </div>
@@ -190,7 +190,7 @@ export default function OfferingDetails() {
               <div className="p-8 border-4 border-black bg-white">
                 <div className="text-sm font-black mb-4 text-muted-foreground">[SEARCH KEYWORDS]</div>
                 <p className="text-sm font-bold mb-4 text-muted-foreground">
-                  These keywords are derived from your Offering Brain and used to find matching companies
+                  These keywords are derived from your Business Unit and used to find matching companies
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {[...coreCapabilities, ...icpIndustries.slice(0, 5)].map((keyword) => (

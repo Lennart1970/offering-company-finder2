@@ -48,7 +48,7 @@ export default function ShareBrainPage() {
         <div className="text-center max-w-sm">
           <div className="text-5xl mb-4">&#128274;</div>
           <h2 className="text-xl font-black text-gray-900 mb-2">Link not found</h2>
-          <p className="text-gray-500 text-sm">This Brain share link is invalid or has been removed.</p>
+          <p className="text-gray-500 text-sm">This Business Unit share link is invalid or has been removed.</p>
         </div>
       </div>
     );
@@ -66,7 +66,7 @@ export default function ShareBrainPage() {
   const naceCodes = safeJson<any[]>(brain.naceCodes, []);
 
   return (
-    <ShareGate tokenType="brain" tokenValue={token ?? ""}>
+    <ShareGate tokenType="business unit" tokenValue={token ?? ""}>
       <div className="min-h-screen bg-gray-50">
         {/* -- Top header bar -- */}
         <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
@@ -77,7 +77,7 @@ export default function ShareBrainPage() {
               </div>
               <div>
                 <p className="text-[10px] text-gray-400 uppercase tracking-widest font-bold">LeadTrigger - Connect Group</p>
-                <p className="text-xs font-bold text-gray-700">Offering Brain -- Read Only</p>
+                <p className="text-xs font-bold text-gray-700">Business Unit -- Read Only</p>
               </div>
             </div>
             <span className="text-xs font-bold text-gray-400 border border-gray-200 px-3 py-1 rounded-full">
@@ -129,7 +129,7 @@ export default function ShareBrainPage() {
                 </div>
               </div>
               <Badge variant="outline" className="text-xs font-bold shrink-0 mt-1">
-                &#129504; Offering Brain
+                &#129504; Business Unit
               </Badge>
             </div>
           </div>

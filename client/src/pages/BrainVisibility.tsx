@@ -23,7 +23,7 @@ export default function BrainVisibility() {
 
   const setActiveMutation = trpc.companyFinder.setActiveBrain.useMutation({
     onSuccess: () => {
-      toast.success("Brain activated");
+      toast.success("Business Unit activated");
       utils.companyFinder.listAllBrainsAdmin.invalidate();
     },
     onError: (error) => toast.error(`Activation failed: ${error.message}`),
@@ -46,7 +46,7 @@ export default function BrainVisibility() {
   return (
     <div className="p-8 max-w-5xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-2xl font-black tracking-tight mb-1">Brain Visibility</h1>
+        <h1 className="text-2xl font-black tracking-tight mb-1">Business Unit Visibility</h1>
         <p className="text-sm text-muted-foreground">
           Control which brains are visible in LeadTrigger. Hidden brains are excluded from searches, fit scores and company tabs.
         </p>
@@ -73,7 +73,7 @@ export default function BrainVisibility() {
           {/* Header row */}
           <div className="grid grid-cols-[auto_1fr_auto] items-center px-4 py-2 bg-muted/50 gap-3">
             <span className="w-4" />
-            <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Brain name</span>
+            <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Business Unit name</span>
             <span className="text-xs font-black uppercase tracking-widest text-muted-foreground w-16 text-center">Visible</span>
           </div>
 
@@ -90,7 +90,7 @@ export default function BrainVisibility() {
                   if (brain.isActive === 1) return;
                   setActiveMutation.mutate({ brainId: brain.id });
                 }}
-                title={brain.isActive === 1 ? "Active brain" : "Set as active"}
+                title={brain.isActive === 1 ? "Active Business Unit" : "Set as active"}
                 className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
                   brain.isActive === 1
                     ? "border-green-600 bg-green-600 cursor-default"
@@ -101,7 +101,7 @@ export default function BrainVisibility() {
                 {brain.isActive === 1 && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
               </button>
 
-              {/* Brain name + active badge */}
+              {/* Business Unit name + active badge */}
               <div className="flex items-center gap-2 min-w-0">
                 {brain.showOnLeadtrigger ? (
                   <Eye className="h-3.5 w-3.5 text-green-600 shrink-0" />

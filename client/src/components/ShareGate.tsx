@@ -1,5 +1,5 @@
 interface ShareGateProps {
-  tokenType: "company" | "list" | "brain";
+  tokenType: "company" | "list" | "brain" | "business unit";
   tokenValue: string;
   children: React.ReactNode;
 }

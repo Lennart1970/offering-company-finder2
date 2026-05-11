@@ -329,20 +329,20 @@ export default function CompanyDetail() {
     },
     onError: (_err, vars) => {
       setRunBrainLoading(null);
-      toast.error(`Brief generation failed for brain #${vars.brainId}`);
+      toast.error(`Brief generation failed for business unit #${vars.brainId}`);
     },
   });
   const runBrainApproachMutation = trpc.companyFinder.generateSalesApproach.useMutation({
     onSuccess: (_data, vars) => {
       setRunBrainLoading(null);
       runBrainUtils.companyFinder.getCompany.invalidate({ companyId });
-      toast.success("Brain output generated — tabs updated");
+      toast.success("Business Unit output generated — tabs updated");
       // Switch to the newly generated brain tab
       handleBrainChange(vars.brainId);
     },
     onError: (_err, vars) => {
       setRunBrainLoading(null);
-      toast.error(`Approach generation failed for brain #${vars.brainId}`);
+      toast.error(`Approach generation failed for business unit #${vars.brainId}`);
     },
   });
   const handleRunBrain = (brainId: number) => {
@@ -384,11 +384,11 @@ export default function CompanyDetail() {
     onError: () => { setProductImagesLoading(false); toast.error("Could not fetch product images"); },
   });
 
-  // Active Brain — used for BOM enrichment and brain-scoped output
+  // Active Business Unit — used for BOM enrichment and brain-scoped output
   const { data: activeBrainData } = trpc.companyFinder.getActiveBrain.useQuery();
   const activeBrain = activeBrainData?.brain ?? null;
 
-  // Brain switcher — auto-select active brain once loaded (only if not set from URL)
+  // Brain switcher — auto-select active business unit once loaded (only if not set from URL)
   useEffect(() => {
     if (activeBrain && selectedBrainId === undefined) {
       setSelectedBrainId(activeBrain.id);
@@ -514,7 +514,7 @@ export default function CompanyDetail() {
       });
       setBomEnrichLoading(false);
     },
-    onError: () => { setBomEnrichLoading(false); toast.error("Brain enrichment failed"); },
+    onError: () => { setBomEnrichLoading(false); toast.error("Business Unit enrichment failed"); },
   });
 
   const generateDomMutation = trpc.prototype.generateDomReport.useMutation({
@@ -957,10 +957,10 @@ export default function CompanyDetail() {
 
         {/* ── Brain Selector ── */}
         {(() => {
-          // Build tab list: brains that have output for this company + active brain (even if no output yet)
+          // Build tab list: brains that have output for this company + active business unit (even if no output yet)
           const outputBrains: any[] = data?.allBrainOutputs ?? [];
           const outputBrainIds = new Set(outputBrains.map((o: any) => o.brainId));
-          // Merge: output brains first, then active brain if not already present
+          // Merge: output brains first, then active business unit if not already present
           const tabBrains: Array<{ brainId: number; brainName: string; fitScore: number | null; urgencyScore: number | null; isActive: boolean }> = [
             ...outputBrains.map((o: any) => ({
               brainId: o.brainId,
@@ -1750,7 +1750,7 @@ export default function CompanyDetail() {
             <div className="p-6">
               {!briefData ? (
                 <div className="text-center py-16 flex flex-col items-center gap-4">
-                  <p className="text-muted-foreground font-bold text-lg">No research data available yet{selectedBrainId ? " for this brain" : ""}.</p>
+                  <p className="text-muted-foreground font-bold text-lg">No research data available yet{selectedBrainId ? " for this business unit" : ""}.</p>
                   <Button
                     onClick={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: false, brainId: selectedBrainId }); }}
                     disabled={reResearchLoading}
@@ -2113,7 +2113,7 @@ export default function CompanyDetail() {
                                 <div className="mb-4 flex items-center gap-3 p-3 bg-blue-50 border-2 border-blue-200">
                                   <div className="flex-1">
                                     <p className="text-xs font-black text-blue-800">
-                                      🧠 BRAIN: {activeBrain.companyName ?? "Active Brain"}
+                                      🧠 BRAIN: {activeBrain.companyName ?? "Active Business Unit"}
                                     </p>
                                     <p className="text-xs text-blue-600 mt-0.5">
                                       {bomResult.components.some(c => c.canSupply)
@@ -2131,7 +2131,7 @@ export default function CompanyDetail() {
                                 </div>
                               ) : (
                                 <div className="mb-4 p-3 bg-gray-50 border border-dashed border-gray-300">
-                                  <p className="text-xs text-muted-foreground">💡 Set up an Offering Brain to cross-reference which components your company can supply.</p>
+                                  <p className="text-xs text-muted-foreground">💡 Set up an Business Unit to cross-reference which components your company can supply.</p>
                                 </div>
                               )}
 

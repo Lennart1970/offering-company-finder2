@@ -58,7 +58,7 @@ export default function Brain() {
 
   const researchMutation = trpc.companyFinder.researchBrain.useMutation({
     onSuccess: (data) => {
-      toast.success(`Brain research completed for ${data.brain?.companyName}`);
+      toast.success(`Business Unit research completed for ${data.brain?.companyName}`);
       utils.companyFinder.getActiveBrain.invalidate();
       utils.companyFinder.getBrainHistory.invalidate();
       // Reset form
@@ -73,7 +73,7 @@ export default function Brain() {
 
   const updateMutation = trpc.companyFinder.updateBrain.useMutation({
     onSuccess: () => {
-      toast.success("Brain updated");
+      toast.success("Business Unit updated");
       utils.companyFinder.getActiveBrain.invalidate();
       utils.companyFinder.getBrainHistory.invalidate();
       setEditingField(null);
@@ -85,7 +85,7 @@ export default function Brain() {
 
   const setActiveMutation = trpc.companyFinder.setActiveBrain.useMutation({
     onSuccess: () => {
-      toast.success("Brain activated");
+      toast.success("Business Unit activated");
       utils.companyFinder.getActiveBrain.invalidate();
       utils.companyFinder.getBrainHistory.invalidate();
     },
@@ -96,7 +96,7 @@ export default function Brain() {
 
   const deleteMutation = trpc.companyFinder.deleteBrain.useMutation({
     onSuccess: () => {
-      toast.success("Brain deleted");
+      toast.success("Business Unit deleted");
       utils.companyFinder.getBrainHistory.invalidate();
     },
     onError: (error) => {
@@ -108,7 +108,7 @@ export default function Brain() {
     onSuccess: (data) => {
       const shareUrl = `${window.location.origin}/share/brain/${data.token}`;
       navigator.clipboard.writeText(shareUrl).catch(() => {});
-      toast.success(`Brain share link copied to clipboard!`, { description: shareUrl, duration: 6000 });
+      toast.success(`Business Unit share link copied to clipboard!`, { description: shareUrl, duration: 6000 });
     },
     onError: (error) => {
       toast.error(`Failed to create share link: ${error.message}`);
@@ -169,7 +169,7 @@ export default function Brain() {
       return;
     }
     if (!brainName.trim()) {
-      toast.error("Please enter a brain name");
+      toast.error("Please enter a business unit name");
       return;
     }
     researchMutation.mutate({
@@ -183,9 +183,9 @@ export default function Brain() {
     onSuccess: (data) => {
       const warnings = data.warnings ?? [];
       if (warnings.length > 0) {
-        toast.warning(`Brain created with ${warnings.length} warning(s): ${warnings[0]}`);
+        toast.warning(`Business Unit created with ${warnings.length} warning(s): ${warnings[0]}`);
       } else {
-        toast.success(`Brain created from Excel for ${data.brain?.companyName}`);
+        toast.success(`Business Unit created from Excel for ${data.brain?.companyName}`);
       }
       utils.companyFinder.getActiveBrain.invalidate();
       utils.companyFinder.getBrainHistory.invalidate();
@@ -222,8 +222,8 @@ export default function Brain() {
 
   const handleDelete = (brainId: string) => {
     const numId = Number(brainId);
-    if (isNaN(numId)) { toast.error("Cannot delete a Supabase-only brain from here. Use Brain Visibility."); return; }
-    if (confirm("Are you sure you want to delete this brain?")) {
+    if (isNaN(numId)) { toast.error("Cannot delete a Supabase-only business unit from here. Use Business Unit Visibility."); return; }
+    if (confirm("Are you sure you want to delete this business unit?")) {
       deleteMutation.mutate({ brainId: numId });
     }
   };
@@ -234,7 +234,7 @@ export default function Brain() {
       <div className="mb-8">
         <div className="text-xs font-black text-muted-foreground mb-2">[00] COCKPIT</div>
         <h1 className="text-6xl font-black tracking-tight mb-4">
-          OFFERING BRAIN
+          BUSINESS UNIT
         </h1>
 
         {/* Five-variable breakdown */}
@@ -242,7 +242,7 @@ export default function Brain() {
           <div className="border-r-4 border-black p-4">
             <div className="text-xs font-black text-muted-foreground mb-1">RIGHT COMPANY</div>
             <div className="text-sm font-black">Fit Score</div>
-            <div className="text-xs text-muted-foreground mt-1">Offering Brain × Apollo data — only companies that match your ICP enter the funnel.</div>
+            <div className="text-xs text-muted-foreground mt-1">Business Unit × Apollo data — only companies that match your ICP enter the funnel.</div>
           </div>
           <div className="border-r-4 border-black p-4">
             <div className="text-xs font-black text-muted-foreground mb-1">RIGHT MOMENT</div>
@@ -266,26 +266,26 @@ export default function Brain() {
           </div>
         </div>
 
-        {/* Quick link to public Brain Overview */}
+        {/* Quick link to public Business Unit Overview */}
         <a
           href="/share/brains"
           target="_blank"
           rel="noopener noreferrer"
           className="inline-flex items-center gap-2 px-4 py-2 bg-black text-white text-xs font-black uppercase tracking-widest hover:bg-gray-800 transition-colors"
         >
-          🌐 PUBLIC BRAIN OVERVIEW
+          🌐 PUBLIC BUSINESS UNIT OVERVIEW
           <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>
         </a>
 
       </div>
 
-      {/* My Saved Brains */}
+      {/* My Business Units */}
       {brainHistory.length > 0 && (
         <div className="mb-8">
           {/* Section header */}
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h2 className="text-2xl font-black tracking-tight">📚 MY SAVED BRAINS</h2>
+              <h2 className="text-2xl font-black tracking-tight">📚 MY BUSINESS UNITS</h2>
               <p className="text-sm text-muted-foreground mt-0.5">
                 {brainHistory.filter(b => b.isActive === 1).length} active · {brainHistory.length} total
               </p>
@@ -298,7 +298,7 @@ export default function Brain() {
             {/* Header row */}
             <div className="grid grid-cols-[auto_1fr] items-center px-4 py-2 bg-muted/50 gap-3">
               <span className="w-4" />
-              <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Brain name</span>
+              <span className="text-xs font-black uppercase tracking-widest text-muted-foreground">Business Unit name</span>
             </div>
 
             {brainHistory.map((b) => (
@@ -311,7 +311,7 @@ export default function Brain() {
                 {/* Active indicator dot */}
                 <button
                   onClick={() => b.isActive !== 1 && handleSetActive(b.id)}
-                  title={b.isActive === 1 ? "Active brain" : "Set as active"}
+                  title={b.isActive === 1 ? "Active Business Unit" : "Set as active"}
                   className={`w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0 ${
                     b.isActive === 1
                       ? "border-green-600 bg-green-600 cursor-default"
@@ -322,7 +322,7 @@ export default function Brain() {
                   {b.isActive === 1 && <div className="w-1.5 h-1.5 rounded-full bg-white" />}
                 </button>
 
-                {/* Brain name + badges */}
+                {/* Business Unit name + badges */}
                 <div className="flex items-center gap-2 min-w-0">
                   <span
                     className={`text-sm font-semibold truncate ${
@@ -334,7 +334,7 @@ export default function Brain() {
                         setTimeout(() => editSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
                       }
                     }}
-                    title={b.isActive === 1 ? "Click to view/edit this brain" : undefined}
+                    title={b.isActive === 1 ? "Click to view/edit this business unit" : undefined}
                   >
                     {b.brainName}
                   </span>
@@ -349,7 +349,7 @@ export default function Brain() {
             ))}
           </div>
 
-          {/* View/Edit active brain button */}
+          {/* View/Edit active business unit button */}
           {brain && (
             <div className="mt-4 flex flex-wrap gap-2">
               <Button
@@ -365,7 +365,7 @@ export default function Brain() {
                 variant="outline"
                 className="font-black border-2 border-gray-400 text-sm hover:bg-gray-900 hover:text-white"
               >
-                🔗 {createBrainShareMutation.isPending ? "GENERATING…" : "SHARE BRAIN"}
+                🔗 {createBrainShareMutation.isPending ? "GENERATING…" : "SHARE BUSINESS UNIT"}
               </Button>
             </div>
           )}
@@ -422,16 +422,16 @@ export default function Brain() {
               </div>
             </div>
             <div className="mb-4">
-              <label className="text-xs font-black block mb-1">BRAIN NAME</label>
+              <label className="text-xs font-black block mb-1">BUSINESS UNIT NAME</label>
               <input
                 type="text"
                 value={brainName}
                 onChange={(e) => setBrainName(e.target.value)}
-                placeholder="My Company Brain"
+                placeholder="My Business Unit"
                 className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
               />
               <div className="text-xs font-bold text-muted-foreground mt-1">
-                Give this brain a memorable name (e.g., "Acme Manufacturing Brain", "My Sales Intelligence Brain")
+                Give this business unit a memorable name (e.g., "Acme Manufacturing", "Industrial Electronics ICP")
               </div>
             </div>
             <Button
@@ -461,7 +461,7 @@ export default function Brain() {
                 download="offering-brain-template.xlsx"
                 className="inline-flex items-center gap-2 px-4 py-2 bg-white border-2 border-black text-sm font-black hover:bg-black hover:text-white transition-colors"
               >
-                ⬇ DOWNLOAD OFFERING BRAIN TEMPLATE (.xlsx)
+                ⬇ DOWNLOAD BUSINESS UNIT TEMPLATE (.xlsx)
               </a>
             </div>
 
@@ -479,12 +479,12 @@ export default function Brain() {
             </div>
 
             <div className="mb-5">
-              <label className="text-xs font-black block mb-1">BRAIN NAME (optional — overrides the name in the file)</label>
+              <label className="text-xs font-black block mb-1">BUSINESS UNIT NAME (optional — overrides the name in the file)</label>
               <input
                 type="text"
                 value={excelBrainName}
                 onChange={(e) => setExcelBrainName(e.target.value)}
-                placeholder="e.g. My Company Brain Q2 2026"
+                placeholder="e.g. My Company Business Unit Q2 2026"
                 className="w-full px-4 py-3 border-4 border-black font-bold text-lg"
               />
             </div>
@@ -519,7 +519,7 @@ export default function Brain() {
           <div className="text-3xl font-black mb-4">NO ACTIVE BRAIN</div>
           <div className="text-lg font-bold text-muted-foreground">
             {brainHistory.length > 0
-              ? "Select a brain from the list above to activate it, or create a new one below."
+              ? "Select a business unit from the list above to activate it, or create a new one below."
               : "Enter your company details below and click \"Research & Save Brain\" to build your intelligence layer."}
           </div>
         </div>
@@ -539,9 +539,9 @@ export default function Brain() {
             </div>
           </div>
 
-          {/* Brain Name (Editable) */}
+          {/* Business Unit Name (Editable) */}
           <EditableSection
-            title="BRAIN NAME"
+            title="BUSINESS UNIT NAME"
             field="brainName"
             value={brain.brainName || ""}
             editingField={editingField}

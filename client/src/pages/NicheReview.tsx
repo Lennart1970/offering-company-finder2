@@ -1,7 +1,7 @@
 /**
  * NicheReview.tsx — Market Segments
  *
- * Displays niche clusters ranked by fit score against the active Offering Brain.
+ * Displays niche clusters ranked by fit score against the active Business Unit.
  * Each niche shows a dynamic breakdown of LLM-inferred scoring dimensions.
  *
  * Flow:
@@ -612,7 +612,7 @@ export default function NicheReview() {
   const { data: anglesData } = trpc.companyFinder.getAngles.useQuery();
   const availableAngles = anglesData?.angles ?? [];
 
-  // Auto-select active brain
+  // Auto-select active business unit
   useEffect(() => {
     if (activeBrain && selectedBrainId === undefined) {
       setSelectedBrainId(String(activeBrain.id));
@@ -949,7 +949,7 @@ export default function NicheReview() {
             <div>
               <h1 className="text-xl font-black">Market Segments</h1>
               <p className="text-xs text-muted-foreground font-bold">
-                Niche clusters ranked by fit against your Offering Brain
+                Niche clusters ranked by fit against your Business Unit
               </p>
             </div>
           </div>
@@ -1025,10 +1025,10 @@ export default function NicheReview() {
             </div>
           </div>
 
-          {/* Warning when non-active brain selected */}
+          {/* Warning when non-active business unit selected */}
           {isSupabaseOnlyBrain && (
             <div className="mt-2 text-xs font-bold text-red-600 border border-red-400 px-2 py-1 bg-red-50 inline-block">
-              ⚠ This brain is Supabase-only (no local record). Re-score will use the active brain instead.
+              ⚠ This Business Unit is Supabase-only (no local record). Re-score will use the active business unit instead.
             </div>
           )}
           {!isSupabaseOnlyBrain && selectedBrainId && selectedBrainId !== String(activeBrain?.id) && (
@@ -1168,7 +1168,7 @@ export default function NicheReview() {
             <div>
               <p className="font-black">Clustering in progress...</p>
               <p className="text-sm opacity-70">
-                Generating embeddings → k-means clustering → naming segments → scoring against Offering Brain.
+                Generating embeddings → k-means clustering → naming segments → scoring against Business Unit.
                 This takes 30–120 seconds depending on company count.
               </p>
             </div>

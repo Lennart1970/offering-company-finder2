@@ -48,7 +48,7 @@ export default function SalesMenu() {
           <div className="border-4 border-black p-12 text-center">
             <div className="text-2xl font-black mb-2">NO CAMPAIGNS YET</div>
             <div className="text-sm text-gray-500 font-medium">
-              Start a new search from the Offering Brain to create your first campaign.
+              Start a new search from the Business Unit to create your first campaign.
             </div>
           </div>
         ) : (

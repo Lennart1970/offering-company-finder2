@@ -43,6 +43,17 @@ import { companies, searches } from "../drizzle/schema";
 import { eq, isNull, inArray } from "drizzle-orm";
 import { getDb } from "./db";
 
+/** Safely parse a stored string that may be a JSON array OR a plain comma-separated list */
+function safeParseStringArray(value: string | null | undefined): string[] {
+  if (!value) return [];
+  const trimmed = value.trim();
+  if (trimmed.startsWith("[")) {
+    try { return JSON.parse(trimmed); } catch { /* fall through */ }
+  }
+  // Plain comma-separated or raw string — split and clean
+  return trimmed.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
 export const nicheRouter = router({
   /**
    * Full pipeline: pre-split (Manufacturing vs Service) → generate embeddings → k-means clustering → save niches → score against Brain.
@@ -202,8 +213,8 @@ export const nicheRouter = router({
             const clusterInput: NicheClusterInput = {
               name: niche.name,
               description: niche.description,
-              topKeywords: niche.topKeywords ? JSON.parse(niche.topKeywords) : [],
-              sampleCompanies: niche.sampleCompanies ? JSON.parse(niche.sampleCompanies) : [],
+              topKeywords: safeParseStringArray(niche.topKeywords),
+              sampleCompanies: safeParseStringArray(niche.sampleCompanies),
               rationale: niche.rationale,
               companyCount: niche.companyCount,
             };
@@ -308,8 +319,8 @@ export const nicheRouter = router({
           const clusterInput: NicheClusterInput = {
             name: niche.name,
             description: niche.description,
-            topKeywords: niche.topKeywords ? JSON.parse(niche.topKeywords) : [],
-            sampleCompanies: niche.sampleCompanies ? JSON.parse(niche.sampleCompanies) : [],
+            topKeywords: safeParseStringArray(niche.topKeywords),
+            sampleCompanies: safeParseStringArray(niche.sampleCompanies),
             rationale: niche.rationale,
             companyCount: niche.companyCount,
           };
@@ -377,8 +388,8 @@ export const nicheRouter = router({
       const clusterInput: NicheClusterInput = {
         name: niche.name,
         description: niche.description,
-        topKeywords: niche.topKeywords ? JSON.parse(niche.topKeywords) : [],
-        sampleCompanies: niche.sampleCompanies ? JSON.parse(niche.sampleCompanies) : [],
+        topKeywords: safeParseStringArray(niche.topKeywords),
+        sampleCompanies: safeParseStringArray(niche.sampleCompanies),
         rationale: niche.rationale,
         companyCount: niche.companyCount,
       };
@@ -869,8 +880,8 @@ export const nicheRouter = router({
               const nicheInput: NicheClusterInput = {
                 name: childNiche.name,
                 description: childNiche.description ?? "",
-                sampleCompanies: childNiche.sampleCompanies ? JSON.parse(childNiche.sampleCompanies) : [],
-                topKeywords: childNiche.topKeywords ? JSON.parse(childNiche.topKeywords) : [],
+                sampleCompanies: safeParseStringArray(childNiche.sampleCompanies),
+                topKeywords: safeParseStringArray(childNiche.topKeywords),
                 companyCount: childNiche.companyCount,
               };
               const score = await scoreNicheFit(nicheInput, userId);

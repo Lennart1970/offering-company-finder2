@@ -53,34 +53,13 @@ export default function SearchResults() {
   // Active Business Unit — used for mismatch detection in BrainBadge
   const { data: activeBrainData } = trpc.companyFinder.getActiveBrain.useQuery();
   const activeBrain = activeBrainData?.brain ?? null;
-  // Brain selector — lets user pick which brain to use for DO 10 / DO ALL
-  const { data: brainHistoryData } = trpc.companyFinder.getBrainHistory.useQuery();
-  const availableBrains = (brainHistoryData?.history ?? []).filter((b: any) => b.status === "completed");
-  const [selectedBrainId, setSelectedBrainId] = useState<string | undefined>(undefined);
-  // Angle selector — lets user pick which angle (Potential Customer, Distributor, etc.) to use for DO 10 / DO ALL
-  const { data: anglesData } = trpc.companyFinder.getAngles.useQuery();
-  const availableAngles = anglesData?.angles ?? [];
-  const [selectedAngleId, setSelectedAngleId] = useState<string | undefined>(undefined);
-  // Auto-select active business unit once loaded
-  useEffect(() => {
-    if (activeBrain && selectedBrainId === undefined) {
-      setSelectedBrainId(String(activeBrain.id));
-    }
-  }, [activeBrain?.id]);
-  // Auto-select "Potential Customer" angle by default; fall back to first if not found
-  useEffect(() => {
-    if (availableAngles.length > 0 && selectedAngleId === undefined) {
-      const potentialCustomer = availableAngles.find((a: any) => a.name === "Potential Customer");
-      setSelectedAngleId(potentialCustomer ? potentialCustomer.id : availableAngles[0].id);
-    }
-  }, [availableAngles.length]);
-  const selectedBrain = availableBrains.find((b: any) => String(b.id) === selectedBrainId) ?? activeBrain;
+  // Brain and angle are fixed per Run — derived from the search record, not user-selectable dropdowns
 
   const [page, setPage] = useState(0);
   const [allCompanies, setAllCompanies] = useState<any[]>([]);
 
   const { data: searchData, isLoading: searchLoading } = trpc.companyFinder.getSearch.useQuery(
-    { searchId: searchId!, page, pageSize: 2000, brainId: selectedBrainId ? selectedBrainId : undefined },
+    { searchId: searchId!, page, pageSize: 2000 },
     {
       enabled: !!searchId,
       refetchInterval: (query) => {
@@ -104,11 +83,11 @@ export default function SearchResults() {
     }
   }, [searchData?.companies, page]);
 
-  // Reset accumulated companies when search or brain changes
+  // Reset accumulated companies when search changes
   useEffect(() => {
     setPage(0);
     setAllCompanies([]);
-  }, [searchId, selectedBrainId]);
+  }, [searchId]);
 
   const [showArchived, setShowArchived] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
@@ -215,10 +194,8 @@ export default function SearchResults() {
 
   const handleCreateShareList = () => {
     if (!selectedCompanyIds.size) { toast.error("Select at least one company first"); return; }
-    const brainIdRaw = selectedBrainId ?? (activeBrain ? String(activeBrain.id) : undefined);
-    if (!brainIdRaw) { toast.error("No active business unit selected"); return; }
-    const brainId = Number(brainIdRaw);
-    if (isNaN(brainId)) { toast.error("Cannot share with a Supabase-only business unit. Pull it locally first."); return; }
+    const brainId = runBrainId ?? activeBrain?.id;
+    if (!brainId) { toast.error("No active business unit found for this run"); return; }
     const items = Array.from(selectedCompanyIds).map((companyId) => ({ companyId, brainId }));
     createShareListMutation.mutate({ items, shareListName: `Search ${searchId} — ${new Date().toLocaleDateString()}` });
   };
@@ -308,14 +285,11 @@ export default function SearchResults() {
     }
   }, [jobStatusQuery.data?.status]);
 
-  // For mutations: use localId (numeric MySQL ID) so the backend can look up the brain.
-  // Supabase-only brains (no localId) cannot be used for enrichment — show a warning.
-  const selectedBrainEntry = availableBrains.find((b: any) => String(b.id) === selectedBrainId);
-  const selectedBrainLocalId: number | undefined =
-    selectedBrainEntry?.localId ?? (activeBrain ? activeBrain.id : undefined);
-  const selectedBrainIdForMutation: number | undefined = selectedBrainLocalId;
-  const selectedAngleIdForMutation = selectedAngleId || undefined;
-  const isSupabaseOnlyBrain = !!selectedBrainEntry && !selectedBrainEntry.localId;
+  // Brain is fixed per Run — use the brainId stored on the search record
+  // angleId is not stored on the search record; pass undefined (angle was already applied during niche scoring)
+  const runBrainId: number | undefined = (searchData?.search as any)?.brainId ?? undefined;
+  const selectedBrainIdForMutation: number | undefined = runBrainId;
+  const selectedAngleIdForMutation: string | undefined = undefined;
   const doNext10Mutation = trpc.companyFinder.doNext10.useMutation({
     onSuccess: (data) => {
       setActiveJobId(data.jobId);
@@ -1065,9 +1039,9 @@ export default function SearchResults() {
             </div>
           </div>
 
-          {/* ── 3-STEP COMMAND PANEL: Campaign → Brain → Angle → LOOSE ── */}
+          {/* ── COMMAND PANEL: Campaign + Business Unit (read-only) + Action ── */}
           <div className="border-2 border-gray-200 bg-gray-50 p-4 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-4 items-end">
+            <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end">
               {/* Step 1: Campaign (already selected — display only) */}
               <div>
                 <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">① CAMPAIGN</div>
@@ -1076,41 +1050,15 @@ export default function SearchResults() {
                 </div>
               </div>
 
-              {/* Step 2: Brain */}
+              {/* Step 2: Business Unit (fixed per run — display only) */}
               <div>
-                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">② BRAIN</div>
-                <select
-                  value={selectedBrainId ?? ""}
-                  onChange={(e) => setSelectedBrainId(e.target.value || undefined)}
-                  className="w-full text-sm font-bold border-2 border-black px-3 py-2 bg-white cursor-pointer"
-                >
-                  {availableBrains.length === 0 && <option value="">Loading...</option>}
-                  {availableBrains.map((b: any) => (
-                    <option key={b.id} value={b.id}>
-                      {b.brainName}{String(b.id) === String(activeBrain?.id) ? " ★" : ""}
-                    </option>
-                  ))}
-                </select>
+                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">② BUSINESS UNIT</div>
+                <div className="text-sm font-bold text-black truncate border-2 border-gray-300 bg-gray-100 px-3 py-2">
+                  {(searchData?.search as any)?.brainName ?? activeBrain?.brainName ?? "—"}
+                </div>
               </div>
 
-              {/* Step 3: Angle */}
-              <div>
-                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">③ ANGLE</div>
-                <select
-                  value={selectedAngleId ?? ""}
-                  onChange={(e) => setSelectedAngleId(e.target.value || undefined)}
-                  className="w-full text-sm font-bold border-2 border-black px-3 py-2 bg-white cursor-pointer"
-                >
-                  {availableAngles.length === 0 && <option value="">Loading...</option>}
-                  {availableAngles.map((a: any) => (
-                    <option key={a.id} value={a.id}>
-                      {a.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* LOOSE — Action buttons */}
+              {/* Action buttons */}
               <div className="flex items-end gap-2">
                 {remainingWork > 0 ? (
                   <>
@@ -1119,7 +1067,7 @@ export default function SearchResults() {
                         <TooltipTrigger asChild>
                           <Button
                             onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
-                            disabled={isJobRunning || !selectedBrainId}
+                            disabled={isJobRunning}
                             className="text-sm px-4 py-2 font-black border-2 border-black bg-black text-white whitespace-nowrap"
                           >
                             {doNext10Mutation.isPending ? "WORKING..." : `DO 10`}
@@ -1136,7 +1084,7 @@ export default function SearchResults() {
                         <TooltipTrigger asChild>
                           <Button
                             onClick={() => doAllMutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
-                            disabled={isJobRunning || !selectedBrainId}
+                            disabled={isJobRunning}
                             className="text-sm px-4 py-2 font-black border-2 border-black bg-black text-white whitespace-nowrap"
                           >
                             {doAllMutation.isPending ? "STARTING..." : `DO ALL (${remainingWork})`}
@@ -1169,18 +1117,6 @@ export default function SearchResults() {
                 )}
               </div>
             </div>
-
-            {/* Warning when non-active business unit selected */}
-            {isSupabaseOnlyBrain && (
-              <div className="mt-2 text-xs font-bold text-red-600 border border-red-400 px-2 py-1 bg-red-50 inline-block">
-                ⚠ This Business Unit is Supabase-only (no local record). DO 10 / DO ALL will use the active business unit instead. Pull it locally first to use it.
-              </div>
-            )}
-            {!isSupabaseOnlyBrain && selectedBrainId && selectedBrainId !== String(activeBrain?.id) && (
-              <div className="mt-2 text-xs font-bold text-amber-600 border border-amber-400 px-2 py-1 bg-amber-50 inline-block">
-                ⚠ Using a different brain than the active one
-              </div>
-            )}
           </div>
 
           {/* ── SECONDARY ACTIONS ──────────────────────────────────────── */}

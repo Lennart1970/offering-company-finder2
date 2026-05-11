@@ -133,16 +133,15 @@ function stripJsonFences(raw: string): string {
 
 /**
  * Call xAI Responses API with explicit web_search tool.
- * Pass a json_schema object to enforce strict structured output.
+ * 
+ * IMPORTANT: The Grok Responses API does NOT support response_format when tools
+ * includes web_search. Passing response_format alongside web_search causes a 422 error.
+ * Instead, we instruct Grok to return JSON in the prompt text and extract it via regex.
  */
 async function callGrokWithWebSearch(
   input: string,
-  jsonSchema?: Record<string, unknown>
+  _jsonSchema?: Record<string, unknown>  // kept for API compatibility, not sent to Grok
 ): Promise<string> {
-  const responseFormat = jsonSchema
-    ? { type: "json_schema", json_schema: { name: "output", strict: true, schema: jsonSchema } }
-    : { type: "json_object" };
-
   // 180-second timeout wraps the ENTIRE call including body read.
   // The controller must NOT be cleared until after response.json() completes
   // — clearing it in a finally after fetch() only covers headers, not the body stream.
@@ -160,7 +159,9 @@ async function callGrokWithWebSearch(
         model: "grok-4.3",
         tools: [{ type: "web_search" }],  // Explicit web_search tool
         input,
-        response_format: responseFormat,
+        // NOTE: response_format intentionally omitted — incompatible with web_search tools
+        // The Responses API returns 422 when response_format is combined with web_search.
+        // JSON is extracted from the text response via regex instead.
       }),
       signal: controller.signal,
     });
@@ -175,24 +176,40 @@ async function callGrokWithWebSearch(
     // Responses API returns output in nested array structure:
     // response.output[] contains tool calls and content items
     // The actual text output is in items with content[].text where content[].type === "output_text"
+    let rawText: string | null = null;
     if (data.output && Array.isArray(data.output)) {
       // Find the output item that contains content (not tool calls)
       for (const item of data.output) {
         if (item.content && Array.isArray(item.content)) {
           const textContent = item.content.find((c: any) => c.type === "output_text");
           if (textContent?.text) {
-            return stripJsonFences(textContent.text);
+            rawText = textContent.text;
+            break;
           }
         }
+        if (rawText) break;
       }
     }
 
     // Fallback: check for direct text field (older format)
-    if (data.text) {
-      return stripJsonFences(data.text);
+    if (!rawText && data.text) {
+      rawText = data.text;
     }
 
-    throw new Error("Unexpected Responses API format: no output text found in response.output[].content[]");
+    if (!rawText) {
+      throw new Error("Unexpected Responses API format: no output text found in response.output[].content[]");
+    }
+
+    // Strip markdown fences first
+    rawText = stripJsonFences(rawText);
+
+    // Extract JSON object from the text (Grok may include explanatory text around the JSON)
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return jsonMatch[0];
+    }
+
+    return rawText;
   } finally {
     clearTimeout(timeoutId);
   }
@@ -352,26 +369,52 @@ export async function generateSalesIntelligenceBrief(
   };
 
   // Phase 1: Detect urgency signals with verified sources
-  const urgencyPrompt = `You are a B2B sales intelligence analyst. Today is ${todayString()}. Your goal is to provide verifiable answers with traceable sources from the most recent content available.
+  const urgencyPrompt = `You are a B2B sales intelligence analyst. Today is ${todayString()}. Your task: score how urgently a B2B seller should contact this prospect RIGHT NOW based on verified signals from the past 12 months.
 ${brainContext ? `${brainContext}
 **Use the Offering Brain intelligence above to:**
-- Assess how well this prospect fits the seller's ICP
-- Identify specific buying signals that match the seller's offering
 - Weight urgency higher when the prospect shows signals matching the seller's urgency triggers
-- Note any disqualifiers from the fit criteria
+- Identify specific buying signals that match the seller's offering
 
 ` : ""}**Target Company:** "${company.name}" (${domain})
 
 **Instructions:**
-1. Search for the absolute latest news and developments about "${company.name}" from the past 12 months
-2. Focus on: product launches, expansions, hiring, partnerships, acquisitions, funding
+1. Search for the latest news and developments about "${company.name}" from the past 12 months
+2. Only use verified data from your searches — do NOT hallucinate URLs or facts
 3. Prioritize sources from 2026 and late 2025
-4. Only use verified data from your searches — do NOT hallucinate URLs or facts
 
-**Score urgency 0-100 based on:**
-- Company Context (0-40): Growth stage, financial health, industry momentum
-- Market Signals (0-35): Competitive pressure, market expansion, technology shifts
-- Recent Activity (0-25): Hiring, announcements, news mentions in past 12 months
+**SCORING MODEL — read carefully before scoring:**
+
+Company Context (0-40): Evidence of company growth momentum
+  - 30-40: Funding round (Series A+), acquisition, major strategic pivot, IPO filing
+  - 20-29: Seed/angel funding, significant revenue growth reported, entering new market
+  - 10-19: Award or recognition (national/industry), new product launch, key certification achieved (ISO, FDA, CE)
+  - 5-9:  Positive press coverage, new partnership announced, website redesign/relaunch
+  - 1-4:  Company has active web presence, recent blog/social activity
+  - 0:    No evidence of any company activity found
+
+Market Signals (0-35): External forces creating urgency to buy/partner NOW
+  - 25-35: Regulatory deadline, market disruption, competitor acquisition in their space
+  - 15-24: Industry growth trend directly affecting their sector, new compliance requirement
+  - 8-14:  Market expansion in their geography or vertical, technology shift they must respond to
+  - 1-7:   General industry activity, sector-level news
+  - 0:     No relevant market signals found
+
+Recent Activity (0-25): Operational signals of active change or investment
+  - 20-25: Active hiring for roles that indicate expansion (engineering, sales, ops), M&A activity
+  - 12-19: Multiple job postings, conference participation, product roadmap announcements
+  - 5-11:  Some hiring activity, event attendance, press releases in past 6 months
+  - 1-4:   Minimal recent activity but company is reachable and active
+  - 0:     No recent activity found
+
+**CALIBRATION ANCHORS:**
+- Score 70-100: Funding announced, active hiring surge, product launch + market expansion simultaneously
+- Score 50-69: Award won + new product line, or funding + hiring, or entering new geography
+- Score 30-49: Industry award, new certification, partnership announced, or notable press coverage
+- Score 15-29: Active company with some recent news but no strong growth signals
+- Score 5-14:  Company exists and is reachable but minimal recent signals
+- Score 0-4:   No signals found at all — company may be dormant or unfindable
+
+**IMPORTANT:** A company that has won a national award, launched a new product, or received a certification in the past 12 months should score AT LEAST 25. Do not score 0 unless you genuinely found zero evidence of any activity.
 
 **Return JSON only:**
 {
@@ -383,8 +426,8 @@ ${brainContext ? `${brainContext}
   },
   "recentDevelopments": [
     {
-      "text": "Launched new product line for IoT sensors",
-      "date": "2026-01-15",
+      "text": "Won EmprendeXXI national startup award for Region of Murcia",
+      "date": "2026-05-01",
       "sourceUrl": "https://working.website.com/article",
       "snippet": "Direct quote or excerpt from the verified source page"
     }
@@ -392,12 +435,12 @@ ${brainContext ? `${brainContext}
   "urgencySignals": [
     {
       "category": "Growth",
-      "type": "Product Launch",
-      "description": "Launched new IoT sensor line in Q4 2025",
+      "type": "Award / Recognition",
+      "description": "Won national startup award — signals growth phase and partner-seeking behaviour",
       "weight": 8,
       "sourceUrl": "https://working.website.com/article",
       "snippet": "Direct quote from verified source",
-      "detectedAt": "2026-01-15"
+      "detectedAt": "2026-05-01"
     }
   ],
   "sources": [
@@ -405,7 +448,7 @@ ${brainContext ? `${brainContext}
       "url": "https://working.website.com/article",
       "title": "Page title from search",
       "snippet": "Key excerpt from the page",
-      "dateAccessed": "2026-02-23"
+      "dateAccessed": "2026-05-11"
     }
   ],
   "searchNotes": "Any caveats about source availability or search limitations"

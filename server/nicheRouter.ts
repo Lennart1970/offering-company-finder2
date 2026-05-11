@@ -300,6 +300,8 @@ export const nicheRouter = router({
         searchId: z.number(),
         force: z.boolean().default(false), // force re-score even if already scored
         brainId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? (typeof v === 'string' ? (isNaN(Number(v)) ? undefined : Number(v)) : v) : undefined),
+        angleId: z.string().optional(),
+        angleName: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -325,7 +327,7 @@ export const nicheRouter = router({
             companyCount: niche.companyCount,
           };
 
-          const result = await scoreNicheFit(clusterInput, userId, input.brainId);
+          const result = await scoreNicheFit(clusterInput, userId, input.brainId, input.angleName);
 
           await updateNiche(niche.id, {
             fitScore: result.fitScore,
@@ -371,7 +373,7 @@ export const nicheRouter = router({
    * Re-score a single niche against the active Offering Brain.
    */
   rescoreNiche: adminProcedure
-    .input(z.object({ nicheId: z.number(), brainId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? (typeof v === 'string' ? (isNaN(Number(v)) ? undefined : Number(v)) : v) : undefined) }))
+    .input(z.object({ nicheId: z.number(), brainId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? (typeof v === 'string' ? (isNaN(Number(v)) ? undefined : Number(v)) : v) : undefined), angleId: z.string().optional(), angleName: z.string().optional() }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
       const niche = await getNicheById(input.nicheId);
@@ -396,7 +398,7 @@ export const nicheRouter = router({
 
       let result;
       try {
-        result = await scoreNicheFit(clusterInput, effectiveUserId, input.brainId);
+        result = await scoreNicheFit(clusterInput, effectiveUserId, input.brainId, input.angleName);
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: `Scoring failed: ${msg}` });

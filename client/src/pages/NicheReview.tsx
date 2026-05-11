@@ -592,38 +592,40 @@ export default function NicheReview() {
   const [expandResult, setExpandResult] = useState<{ assigned: number; remaining: number; newNichesCreated?: number; newNicheNames?: string[] } | null>(null);
   const [subClusterResults, setSubClusterResults] = useState<Map<number, { childNichesCreated: number; companiesProcessed: number }>>(new Map());
   const [creatingCampaignId, setCreatingCampaignId] = useState<number | null>(null);
-  const [selectedBrainId, setSelectedBrainId] = useState<string | undefined>(undefined);
-  const [selectedAngleId, setSelectedAngleId] = useState<string | undefined>(undefined);
+  // Rescoring modal state
+  const [rescoringModalOpen, setRescoringModalOpen] = useState(false);
+  const [rescoringModalMode, setRescoringModalMode] = useState<'single' | 'all'>('single');
+  const [rescoringTargetNicheId, setRescoringTargetNicheId] = useState<number | null>(null);
+  const [modalBrainId, setModalBrainId] = useState<string>('');
+  const [modalAngleId, setModalAngleId] = useState<string>('');
 
   // Fetch all searches for the selector
   const { data: searches } = trpc.companyFinder.getSearchHistory.useQuery({ showArchived: false });
 
-  // Fetch available brains for the brain selector
+  // Fetch available brains for the modal selector
   const { data: brainHistory } = trpc.companyFinder.getBrainHistory.useQuery();
   const availableBrains = ((brainHistory as any)?.history as any[] ?? []).filter((b: any) => b.status === "completed");
   const activeBrain = availableBrains.find((b: any) => b.isActive === 1) ?? availableBrains[0];
   // For mutations: use localId (numeric MySQL ID) so the backend can look up the brain.
-  const selectedBrainEntry = availableBrains.find((b: any) => String(b.id) === selectedBrainId);
-  const selectedBrainLocalId: number | undefined =
-    selectedBrainEntry?.localId ?? (activeBrain?.localId ?? undefined);
-  const isSupabaseOnlyBrain = !!selectedBrainEntry && !selectedBrainEntry.localId;
+  const modalBrainEntry = availableBrains.find((b: any) => String(b.id) === modalBrainId);
+  const modalBrainLocalId: number | undefined =
+    modalBrainEntry?.localId ?? (activeBrain?.localId ?? undefined);
 
-  // Fetch available angles
+  // Fetch available angles for the modal selector
   const { data: anglesData } = trpc.companyFinder.getAngles.useQuery();
   const availableAngles = anglesData?.angles ?? [];
 
-  // Auto-select active business unit
+  // Auto-initialise modal selectors when data arrives
   useEffect(() => {
-    if (activeBrain && selectedBrainId === undefined) {
-      setSelectedBrainId(String(activeBrain.id));
+    if (activeBrain && !modalBrainId) {
+      setModalBrainId(String(activeBrain.id));
     }
-  }, [activeBrain, selectedBrainId]);
+  }, [activeBrain?.id]);
 
-  // Auto-select "Potential Customer" angle by default; fall back to first if not found
   useEffect(() => {
-    if (availableAngles.length > 0 && selectedAngleId === undefined) {
-      const potentialCustomer = availableAngles.find((a: any) => a.name === "Potential Customer");
-      setSelectedAngleId(potentialCustomer ? potentialCustomer.id : availableAngles[0].id);
+    if (availableAngles.length > 0 && !modalAngleId) {
+      const potentialCustomer = availableAngles.find((a: any) => a.name === 'Potential Customer');
+      setModalAngleId(potentialCustomer ? potentialCustomer.id : availableAngles[0].id);
     }
   }, [availableAngles.length]);
 
@@ -904,13 +906,29 @@ export default function NicheReview() {
       toast.error("No niches in this search yet. Add niches manually or run the import pipeline first.");
       return;
     }
-    setScoringAll(true);
-    scoreAllMutation.mutate({ searchId: selectedSearchId, brainId: selectedBrainLocalId });
+    setRescoringModalMode('all');
+    setRescoringTargetNicheId(null);
+    setRescoringModalOpen(true);
   };
 
   const handleRescore = (nicheId: number) => {
-    setRescoringId(nicheId);
-    rescoreMutation.mutate({ nicheId, brainId: selectedBrainLocalId });
+    setRescoringModalMode('single');
+    setRescoringTargetNicheId(nicheId);
+    setRescoringModalOpen(true);
+  };
+
+  const handleConfirmRescore = () => {
+    const selectedAngle = availableAngles.find((a: any) => a.id === modalAngleId);
+    const angleName = selectedAngle?.name;
+    if (rescoringModalMode === 'all' && selectedSearchId) {
+      setScoringAll(true);
+      setRescoringModalOpen(false);
+      scoreAllMutation.mutate({ searchId: selectedSearchId, brainId: modalBrainLocalId, angleId: modalAngleId || undefined, angleName });
+    } else if (rescoringModalMode === 'single' && rescoringTargetNicheId !== null) {
+      setRescoringId(rescoringTargetNicheId);
+      setRescoringModalOpen(false);
+      rescoreMutation.mutate({ nicheId: rescoringTargetNicheId, brainId: modalBrainLocalId, angleId: modalAngleId || undefined, angleName });
+    }
   };
 
   const renameMutation = trpc.niche.renameNiche.useMutation({
@@ -955,9 +973,9 @@ export default function NicheReview() {
           </div>
         </div>
 
-        {/* ── 3-STEP COMMAND PANEL: Campaign → Brain → Angle ── */}
+        {/* ── COMMAND PANEL: Campaign + RE-SCORE ALL ── */}
         <div className="border-2 border-gray-200 bg-gray-50 p-4 mt-4">
-          <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_1fr_auto] gap-4 items-end">
+          <div className="grid grid-cols-1 md:grid-cols-[1fr_auto] gap-4 items-end">
             {/* Step 1: Campaign */}
             <div>
               <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">① CAMPAIGN</div>
@@ -975,41 +993,7 @@ export default function NicheReview() {
               </select>
             </div>
 
-            {/* Step 2: Brain */}
-            <div>
-              <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">② BUSINESS UNIT</div>
-              <select
-                value={selectedBrainId ?? ""}
-                onChange={(e) => setSelectedBrainId(e.target.value || undefined)}
-                className="w-full text-sm font-bold border-2 border-black px-3 py-2 bg-white cursor-pointer"
-              >
-                {availableBrains.length === 0 && <option value="">Loading...</option>}
-                {availableBrains.map((b: any) => (
-                  <option key={b.id} value={b.id}>
-                    {b.brainName}{String(b.id) === String(activeBrain?.id) ? " ★" : ""}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Step 3: Angle */}
-            <div>
-              <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">③ ANGLE</div>
-              <select
-                value={selectedAngleId ?? ""}
-                onChange={(e) => setSelectedAngleId(e.target.value || undefined)}
-                className="w-full text-sm font-bold border-2 border-black px-3 py-2 bg-white cursor-pointer"
-              >
-                {availableAngles.length === 0 && <option value="">Loading...</option>}
-                {availableAngles.map((a: any) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Action: Re-score All */}
+            {/* Action: Re-score All (opens modal) */}
             <div className="flex items-end gap-2">
               <Button
                 className="text-sm px-4 py-2 font-black border-2 border-black bg-black text-white whitespace-nowrap"
@@ -1024,18 +1008,6 @@ export default function NicheReview() {
               </Button>
             </div>
           </div>
-
-          {/* Warning when non-active business unit selected */}
-          {isSupabaseOnlyBrain && (
-            <div className="mt-2 text-xs font-bold text-red-600 border border-red-400 px-2 py-1 bg-red-50 inline-block">
-              ⚠ This Business Unit is Supabase-only (no local record). Re-score will use the active business unit instead.
-            </div>
-          )}
-          {!isSupabaseOnlyBrain && selectedBrainId && selectedBrainId !== String(activeBrain?.id) && (
-            <div className="mt-2 text-xs font-bold text-amber-600 border border-amber-400 px-2 py-1 bg-amber-50 inline-block">
-              ⚠ Using a different Business Unit than the active one
-            </div>
-          )}
         </div>
 
         {/* ── ADMIN ACTIONS ── */}
@@ -1398,6 +1370,79 @@ export default function NicheReview() {
           </div>
         )}
       </div>
+
+      {/* ── RESCORING MODAL ── */}
+      <Dialog open={rescoringModalOpen} onOpenChange={setRescoringModalOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="font-black text-base">
+              {rescoringModalMode === 'all' ? 'RE-SCORE ALL SEGMENTS' : 'RE-SCORE SEGMENT'}
+            </DialogTitle>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-2">
+            <p className="text-sm text-muted-foreground">
+              {rescoringModalMode === 'all'
+                ? `All ${sortedNiches.length} segment${sortedNiches.length !== 1 ? 's' : ''} will be re-scored using the selected Business Unit and Angle.`
+                : 'This segment will be re-scored using the selected Business Unit and Angle.'}
+            </p>
+
+            {/* Business Unit selector */}
+            <div>
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">BUSINESS UNIT</label>
+              <select
+                value={modalBrainId}
+                onChange={(e) => setModalBrainId(e.target.value)}
+                className="w-full text-sm font-bold border-2 border-black px-3 py-2 bg-white cursor-pointer"
+              >
+                {availableBrains.length === 0 && <option value="">Loading...</option>}
+                {availableBrains.map((b: any) => (
+                  <option key={b.id} value={String(b.id)}>
+                    {b.brainName}{String(b.id) === String(activeBrain?.id) ? ' ★ active' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Angle selector */}
+            <div>
+              <label className="text-[10px] font-black text-gray-400 uppercase tracking-widest block mb-1">ANGLE</label>
+              <select
+                value={modalAngleId}
+                onChange={(e) => setModalAngleId(e.target.value)}
+                className="w-full text-sm font-bold border-2 border-black px-3 py-2 bg-white cursor-pointer"
+              >
+                {availableAngles.length === 0 && <option value="">Loading...</option>}
+                {availableAngles.map((a: any) => (
+                  <option key={a.id} value={a.id}>
+                    {a.name}
+                  </option>
+                ))}
+              </select>
+              <p className="text-[11px] text-muted-foreground mt-1">
+                The angle shapes how the LLM evaluates each segment's fit.
+              </p>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <Button
+                className="flex-1 font-black bg-black text-white border-2 border-black"
+                onClick={handleConfirmRescore}
+              >
+                <Brain className="w-4 h-4 mr-2" />
+                {rescoringModalMode === 'all' ? 'Score All' : 'Re-score'}
+              </Button>
+              <Button
+                variant="outline"
+                className="font-bold border-2 border-gray-300"
+                onClick={() => setRescoringModalOpen(false)}
+              >
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

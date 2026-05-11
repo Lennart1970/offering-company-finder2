@@ -65,7 +65,8 @@ export interface NicheClusterInput {
 export async function scoreNicheFit(
   niche: NicheClusterInput,
   userId: number,
-  brainId?: number
+  brainId?: number,
+  angleName?: string
 ): Promise<NicheFitResult> {
   const brain = brainId
     ? await getOfferingBrainById(brainId, userId)
@@ -111,10 +112,15 @@ export async function scoreNicheFit(
     fitCriteria.disqualifiers?.length ? `Disqualifiers: ${fitCriteria.disqualifiers.join("; ")}` : null,
   ].filter(Boolean).join("\n");
 
+  // Build angle context if provided
+  const angleSection = angleName
+    ? `\n\n## SCORING ANGLE\nEvaluate this niche specifically from the perspective of a **${angleName}** relationship. Tailor your scoring dimensions and reasoning to reflect what matters most when approaching this niche as a ${angleName}. For example: if Potential Customer, prioritise buying likelihood and pain-point fit; if Strategic Partner, prioritise complementary capabilities and co-sell potential; if Potential Target, prioritise acquisition attractiveness and strategic value.`
+    : "";
+
   const prompt = `You are a B2B sales qualification analyst scoring a niche cluster of companies against a seller's Offering Brain.
 
 ## OFFERING BRAIN
-${brainContext}
+${brainContext}${angleSection}
 
 ## NICHE CLUSTER TO SCORE
 ${nicheProfile}

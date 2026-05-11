@@ -375,16 +375,18 @@ export const shareRouter = router({
       }
 
       // 2. Create the list-level token
+      // Derive dominant brainId from the items
+      const brainFreq2 = new Map<number, number>();
+      for (const t of tokenResults) { brainFreq2.set(t.brainId, (brainFreq2.get(t.brainId) ?? 0) + 1); }
+      const dominantBrainId2 = Array.from(brainFreq2.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
       const listToken = generateToken();
-      await db.insert(shareLists).values({ listToken, shareListName: input.shareListName ?? null, createdBy: userId });
+      await db.insert(shareLists).values({ listToken, shareListName: input.shareListName ?? null, createdBy: userId, brainId: dominantBrainId2 ?? undefined });
       const listRows = await db.select().from(shareLists).where(eq(shareLists.listToken, listToken)).limit(1);
       const shareListId = listRows[0].id;
-
       // 3. Link tokens to the list
       for (const t of tokenResults) {
         await db.insert(shareListItems).values({ shareListId, shareTokenId: t.tokenId });
       }
-
       return { listToken, tokens: tokenResults };
     }),
 

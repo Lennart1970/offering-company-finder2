@@ -1,8 +1,9 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useEffect } from "react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Copy, ExternalLink, Share2, Brain } from "lucide-react";
+import { Copy, ExternalLink, Share2, Brain, Pencil, Check, X } from "lucide-react";
+import { useAuth } from "@/_core/hooks/useAuth";
 
 const BASE_URL = window.location.origin;
 
@@ -14,9 +15,82 @@ function formatDate(d: Date) {
   });
 }
 
+/** Inline rename row — shown when editingId matches this list's id */
+function RenameInput({
+  listId,
+  currentName,
+  onDone,
+}: {
+  listId: number;
+  currentName: string | null;
+  onDone: () => void;
+}) {
+  const utils = trpc.useUtils();
+  const [value, setValue] = useState(currentName ?? "");
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    inputRef.current?.focus();
+    inputRef.current?.select();
+  }, []);
+
+  const renameMutation = trpc.share.renameShareList.useMutation({
+    onSuccess: () => {
+      utils.share.getShareLists.invalidate();
+      toast.success("List renamed");
+      onDone();
+    },
+    onError: (e) => {
+      toast.error(e.message ?? "Rename failed");
+    },
+  });
+
+  function save() {
+    if (value.trim() === (currentName ?? "")) { onDone(); return; }
+    renameMutation.mutate({ listId, name: value.trim() });
+  }
+
+  return (
+    <div className="flex items-center gap-1 min-w-0">
+      <input
+        ref={inputRef}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") save();
+          if (e.key === "Escape") onDone();
+        }}
+        className="flex-1 min-w-0 text-sm border border-primary/40 rounded px-2 py-0.5 bg-background focus:outline-none focus:ring-1 focus:ring-primary"
+        maxLength={200}
+        disabled={renameMutation.isPending}
+      />
+      <button
+        onClick={save}
+        disabled={renameMutation.isPending}
+        className="p-1 rounded hover:bg-green-50 text-green-600 disabled:opacity-40"
+        title="Save"
+      >
+        <Check className="w-3.5 h-3.5" />
+      </button>
+      <button
+        onClick={onDone}
+        disabled={renameMutation.isPending}
+        className="p-1 rounded hover:bg-red-50 text-red-500 disabled:opacity-40"
+        title="Cancel"
+      >
+        <X className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+}
+
 export default function ShareListsPage() {
+  const { user } = useAuth();
+  const isLoggedIn = !!user;
+
   const { data, isLoading } = trpc.share.getShareLists.useQuery();
   const [selectedBrainId, setSelectedBrainId] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<number | null>(null);
 
   const lists = data?.lists ?? [];
 
@@ -57,11 +131,14 @@ export default function ShareListsPage() {
           <h1 className="text-2xl font-bold">Shared Intelligence Lists</h1>
           <p className="text-sm text-muted-foreground">
             Public overview — click any list to open it
+            {isLoggedIn && (
+              <span className="ml-2 text-primary/70">· click a name to rename</span>
+            )}
           </p>
         </div>
       </div>
 
-      {/* Brain selector — only shown when there are multiple brains */}
+      {/* Brain filter pills — only shown when there are multiple brains */}
       {!isLoading && brains.length > 0 && (
         <div className="mb-4">
           <div className="flex items-center gap-2 flex-wrap">
@@ -83,9 +160,7 @@ export default function ShareListsPage() {
             {brains.map((b) => (
               <button
                 key={b.id}
-                onClick={() =>
-                  setSelectedBrainId(selectedBrainId === b.id ? null : b.id)
-                }
+                onClick={() => setSelectedBrainId(selectedBrainId === b.id ? null : b.id)}
                 className={`px-3 py-1 rounded-full text-xs font-medium border transition-colors max-w-[240px] truncate ${
                   selectedBrainId === b.id
                     ? "bg-primary text-primary-foreground border-primary"
@@ -128,15 +203,32 @@ export default function ShareListsPage() {
               key={list.id}
               className={`grid grid-cols-[1fr_80px_120px_96px] gap-4 px-4 py-3 items-center text-sm ${
                 idx < filteredLists.length - 1 ? "border-b" : ""
-              } hover:bg-muted/20 transition-colors`}
+              } hover:bg-muted/20 transition-colors group`}
             >
               {/* Name + brain tag */}
               <div className="min-w-0">
-                <p className="font-medium truncate">
-                  {list.shareListName ?? (
-                    <span className="text-muted-foreground italic">Unnamed list</span>
-                  )}
-                </p>
+                {isLoggedIn && editingId === list.id ? (
+                  <RenameInput
+                    listId={list.id}
+                    currentName={list.shareListName}
+                    onDone={() => setEditingId(null)}
+                  />
+                ) : (
+                  <div
+                    className={`flex items-center gap-1.5 min-w-0 ${isLoggedIn ? "cursor-pointer" : ""}`}
+                    onClick={() => isLoggedIn && setEditingId(list.id)}
+                    title={isLoggedIn ? "Click to rename" : undefined}
+                  >
+                    <p className="font-medium truncate">
+                      {list.shareListName ?? (
+                        <span className="text-muted-foreground italic">Unnamed list</span>
+                      )}
+                    </p>
+                    {isLoggedIn && (
+                      <Pencil className="w-3 h-3 text-muted-foreground opacity-0 group-hover:opacity-60 shrink-0 transition-opacity" />
+                    )}
+                  </div>
+                )}
                 <div className="flex items-center gap-2 mt-0.5">
                   <p className="text-xs text-muted-foreground font-mono truncate">
                     {list.listToken}

@@ -3714,7 +3714,32 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         query = query.lt("synced_at", toDate.toISOString());
       }
       if (input.brainName) {
-        query = query.eq("brain_name", input.brainName);
+        // Resolve campaign IDs for this brain from the local DB, then filter by them in Supabase
+        const { getDb: getLocalDb } = await import("./db");
+        const { offeringBrain: obSchema, searches: searchesSchema } = await import("../drizzle/schema");
+        const { eq: eqOp } = await import("drizzle-orm");
+        const localDb = await getLocalDb();
+        if (localDb) {
+          const brainRows = await localDb
+            .select({ id: obSchema.id })
+            .from(obSchema)
+            .where(eqOp(obSchema.brainName, input.brainName))
+            .limit(1);
+          if (brainRows.length > 0) {
+            const brainId = brainRows[0].id;
+            const searchRows = await localDb
+              .select({ id: searchesSchema.id })
+              .from(searchesSchema)
+              .where(eqOp(searchesSchema.brainId, brainId));
+            const campaignIds = searchRows.map((r: { id: number }) => r.id);
+            if (campaignIds.length > 0) {
+              query = query.in("campaign_id", campaignIds);
+            } else {
+              // No campaigns for this brain — return empty
+              query = query.eq("campaign_id", -1);
+            }
+          }
+        }
       }
 
       const { data, count, error } = await query;
@@ -3790,36 +3815,21 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       return campaigns.sort((a, b) => b.id - a.id);
     }),
 
-  // Get distinct business units (brain_name values) from lt_mns_company_pages for the filter dropdown
+  // Get distinct business units from the local offering_brain table (those that have at least one campaign)
   getIntelligenceBusinessUnits: protectedProcedure
     .query(async () => {
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        { auth: { persistSession: false } }
-      );
-      const seen = new Set<string>();
-      const units: string[] = [];
-      let offset = 0;
-      const batchSize = 1000;
-      while (true) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const { data, error } = await (supabase.from("lt_mns_company_pages") as any)
-          .select("brain_name")
-          .not("brain_name", "is", null)
-          .range(offset, offset + batchSize - 1);
-        if (error) throw new Error(error.message);
-        for (const row of (data ?? [])) {
-          if (row.brain_name && !seen.has(row.brain_name)) {
-            seen.add(row.brain_name);
-            units.push(row.brain_name);
-          }
-        }
-        if (!data || data.length < batchSize) break;
-        offset += batchSize;
-      }
-      return units.sort();
+      const { getDb: getLocalDb } = await import("./db");
+      const { offeringBrain: obSchema, searches: searchesSchema } = await import("../drizzle/schema");
+      const { eq: eqOp } = await import("drizzle-orm");
+      const localDb = await getLocalDb();
+      if (!localDb) return [];
+      // Return all brains that have at least one search/campaign linked
+      const rows = await localDb
+        .selectDistinct({ brainName: obSchema.brainName })
+        .from(obSchema)
+        .innerJoin(searchesSchema, eqOp(searchesSchema.brainId, obSchema.id))
+        .orderBy(obSchema.brainName);
+      return rows.map((r: { brainName: string }) => r.brainName).filter(Boolean) as string[];
     }),
 
   // Resolve a Supabase UUID to a local integer company ID

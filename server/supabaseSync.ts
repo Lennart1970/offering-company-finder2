@@ -274,14 +274,15 @@ export async function syncCompanyPagesToSupabase(
   // Fetch all researched companies with their campaign context
   type SearchRow = typeof searches.$inferSelect;
   const rows = await db
-    .select({ company: companies, search: searches })
+    .select({ company: companies, search: searches, brainName: offeringBrain.brainName })
     .from(companies)
     .leftJoin(searches, eq(companies.searchId, searches.id))
+    .leftJoin(offeringBrain, eq(searches.brainId, offeringBrain.id))
     .where(isNotNull(companies.briefData));
 
   if (rows.length === 0) return { synced: 0, errors: 0, message: "No researched companies found" };
 
-  const pageRows = rows.map(({ company, search }: { company: CompanyRow; search: SearchRow | null }) => {
+  const pageRows = rows.map(({ company, search, brainName }: { company: CompanyRow; search: SearchRow | null; brainName: string | null }) => {
     const brief: BriefData = company.briefData ? JSON.parse(company.briefData) : {};
     const fitData: FitScoreData = company.fitScoreData ? JSON.parse(company.fitScoreData) : {};
     const urgencyLabel =
@@ -297,6 +298,7 @@ export async function syncCompanyPagesToSupabase(
       domain: company.websiteUrl ?? null,
       campaign_id: company.searchId ?? null,
       campaign_name: search?.offeringName ?? null,
+      brain_name: brainName ?? null,
       urgency_score: company.urgencyScore ?? null,
       fit_score: company.fitScore ?? null,
       urgency_label: urgencyLabel,

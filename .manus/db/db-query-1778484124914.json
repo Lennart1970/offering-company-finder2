@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `share_lists` ADD `brainId` int;\nALTER TABLE `share_lists` ADD CONSTRAINT `share_lists_brainId_offering_brain_id_fk` FOREIGN KEY (`brainId`) REFERENCES `offering_brain`(`id`) ON DELETE set null ON UPDATE no action;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute ALTER TABLE `share_lists` ADD `brainId` int;\nALTER TABLE `share_lists` ADD CONSTRAINT `share_lists_brainId_offering_brain_id_fk` FOREIGN KEY (`brainId`) REFERENCES `offering_brain`(`id`) ON DELETE set null ON UPDATE no action;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1015
+}

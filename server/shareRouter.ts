@@ -466,11 +466,13 @@ export const shareRouter = router({
     const conn = await mysql.createConnection(process.env.DATABASE_URL!);
     try {
       const [rows] = await conn.execute<any[]>(
-        `SELECT sl.id, sl.listToken, sl.shareListName, sl.createdAt,
+        `SELECT sl.id, sl.listToken, sl.shareListName, sl.createdAt, sl.brainId,
+                ob.brainName,
                 COUNT(sli.id) AS companyCount
          FROM share_lists sl
          LEFT JOIN share_list_items sli ON sli.shareListId = sl.id
-         GROUP BY sl.id
+         LEFT JOIN offering_brain ob ON ob.id = sl.brainId
+         GROUP BY sl.id, ob.brainName
          ORDER BY sl.createdAt DESC`
       );
       const lists = rows.map((r: any) => ({
@@ -479,6 +481,8 @@ export const shareRouter = router({
         shareListName: r.shareListName ? String(r.shareListName) : null,
         createdAt: new Date(r.createdAt),
         companyCount: Number(r.companyCount),
+        brainId: r.brainId ? Number(r.brainId) : null,
+        brainName: r.brainName ? String(r.brainName) : null,
       }));
       return { lists };
     } finally {
@@ -786,11 +790,14 @@ export const shareExtRouter = router({
       }
 
       if (tokenResults.length === 0) throw new Error("No companies could be shared (missing brain links)");
-
       // 4. Create the list-level token
+      // Determine dominant brainId (most frequently used across all tokens in this list)
+      const brainFreq = new Map<number, number>();
+      for (const t of tokenResults) { brainFreq.set(t.brainId, (brainFreq.get(t.brainId) ?? 0) + 1); }
+      const dominantBrainId = Array.from(brainFreq.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
       const listToken = generateToken();
       const listName = `Intelligence — ${new Date().toLocaleDateString()} (${tokenResults.length} companies)`;
-      await db.insert(shareLists).values({ listToken, shareListName: listName, createdBy: userId });
+      await db.insert(shareLists).values({ listToken, shareListName: listName, createdBy: userId, brainId: dominantBrainId ?? undefined });;
       const listRows = await db.select().from(shareLists).where(eq(shareLists.listToken, listToken)).limit(1);
       const shareListId = listRows[0].id;
 

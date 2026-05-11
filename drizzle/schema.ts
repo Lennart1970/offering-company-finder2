@@ -591,6 +591,7 @@ export const shareLists = mysqlTable("share_lists", {
   shareListName: varchar("shareListName", { length: 256 }),
   createdBy: int("createdBy").notNull().references(() => users.id),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
+  brainId: int("brainId").references(() => offeringBrain.id, { onDelete: "set null" }),
 });
 
 export type ShareList = typeof shareLists.$inferSelect;

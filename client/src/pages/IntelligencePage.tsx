@@ -75,6 +75,8 @@ export default function IntelligencePage() {
   const [campaignId, setCampaignId] = useState<number | undefined>(undefined); // legacy, kept for compat
   const [selectedCampaignIds, setSelectedCampaignIds] = useState<number[]>([]);
   const [campaignDropdownOpen, setCampaignDropdownOpen] = useState(false);
+  const [selectedBrainName, setSelectedBrainName] = useState<string | undefined>(undefined);
+  const [buDropdownOpen, setBuDropdownOpen] = useState(false);
   const [urgencyLabel, setUrgencyLabel] = useState<UrgencyFilter>("ALL");
   const [minFit, setMinFit] = useState<number | undefined>(undefined);
   const [hideSent, setHideSent] = useState(false);
@@ -95,6 +97,8 @@ export default function IntelligencePage() {
       setPage(0);
     }, 300);
   };
+
+  const { data: businessUnits } = trpc.companyFinder.getIntelligenceBusinessUnits.useQuery();
 
   const { data: campaigns } = trpc.companyFinder.getIntelligenceCampaigns.useQuery(
     { dateFrom: dateFrom || undefined, dateTo: dateTo || undefined }
@@ -141,6 +145,7 @@ export default function IntelligencePage() {
     dateTo: dateTo || undefined,
     limit: LIMIT,
     offset: page * LIMIT,
+    brainName: selectedBrainName,
   });
 
   const allCompanies = data?.companies ?? [];
@@ -283,6 +288,59 @@ export default function IntelligencePage() {
                 ))}
                 {filteredCampaigns.length === 0 && (
                   <p className="text-xs text-muted-foreground px-2 py-2">No campaigns match this run range</p>
+                )}
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Business Unit filter */}
+          <Popover open={buDropdownOpen} onOpenChange={setBuDropdownOpen}>
+            <PopoverTrigger asChild>
+              <Button variant="outline" className="w-[200px] justify-between font-normal bg-white">
+                <span className="truncate">
+                  {selectedBrainName ?? "All business units"}
+                </span>
+                <div className="flex items-center gap-1 ml-2 shrink-0">
+                  {selectedBrainName && (
+                    <X
+                      className="w-3 h-3 text-muted-foreground hover:text-foreground"
+                      onClick={e => { e.stopPropagation(); setSelectedBrainName(undefined); setPage(0); }}
+                    />
+                  )}
+                  <ChevronDown className="w-4 h-4 text-muted-foreground" />
+                </div>
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-[280px] p-2" align="start">
+              <div className="max-h-[280px] overflow-y-auto space-y-1">
+                <button
+                  className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center gap-2"
+                  onClick={() => { setSelectedBrainName(undefined); setPage(0); setBuDropdownOpen(false); }}
+                >
+                  <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                    !selectedBrainName ? 'bg-primary border-primary' : 'border-input'
+                  }`}>
+                    {!selectedBrainName && <span className="text-primary-foreground text-xs">✓</span>}
+                  </span>
+                  <span className="font-medium">All business units</span>
+                </button>
+                <div className="border-t my-1" />
+                {(businessUnits ?? []).map(bu => (
+                  <button
+                    key={bu}
+                    className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-accent flex items-center gap-2"
+                    onClick={() => { setSelectedBrainName(bu); setPage(0); setBuDropdownOpen(false); }}
+                  >
+                    <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                      selectedBrainName === bu ? 'bg-primary border-primary' : 'border-input'
+                    }`}>
+                      {selectedBrainName === bu && <span className="text-primary-foreground text-xs">✓</span>}
+                    </span>
+                    <span className="truncate flex-1">{bu}</span>
+                  </button>
+                ))}
+                {(businessUnits ?? []).length === 0 && (
+                  <p className="text-xs text-muted-foreground px-2 py-2">No business units found</p>
                 )}
               </div>
             </PopoverContent>

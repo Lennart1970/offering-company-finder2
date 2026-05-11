@@ -3670,6 +3670,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       dateTo: z.string().optional(),
       limit: z.number().default(100),
       offset: z.number().default(0),
+      brainName: z.string().optional(),
     }))
     .query(async ({ input }) => {
       const { createClient } = await import("@supabase/supabase-js");
@@ -3711,7 +3712,10 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         const toDate = new Date(input.dateTo);
         toDate.setDate(toDate.getDate() + 1);
         query = query.lt("synced_at", toDate.toISOString());
-     }
+      }
+      if (input.brainName) {
+        query = query.eq("brain_name", input.brainName);
+      }
 
       const { data, count, error } = await query;
       if (error) throw new Error(error.message);
@@ -3784,6 +3788,38 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       }
       // Sort by id descending (newest runs first)
       return campaigns.sort((a, b) => b.id - a.id);
+    }),
+
+  // Get distinct business units (brain_name values) from lt_mns_company_pages for the filter dropdown
+  getIntelligenceBusinessUnits: protectedProcedure
+    .query(async () => {
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(
+        process.env.SUPABASE_URL!,
+        process.env.SUPABASE_SERVICE_ROLE_KEY!,
+        { auth: { persistSession: false } }
+      );
+      const seen = new Set<string>();
+      const units: string[] = [];
+      let offset = 0;
+      const batchSize = 1000;
+      while (true) {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const { data, error } = await (supabase.from("lt_mns_company_pages") as any)
+          .select("brain_name")
+          .not("brain_name", "is", null)
+          .range(offset, offset + batchSize - 1);
+        if (error) throw new Error(error.message);
+        for (const row of (data ?? [])) {
+          if (row.brain_name && !seen.has(row.brain_name)) {
+            seen.add(row.brain_name);
+            units.push(row.brain_name);
+          }
+        }
+        if (!data || data.length < batchSize) break;
+        offset += batchSize;
+      }
+      return units.sort();
     }),
 
   // Resolve a Supabase UUID to a local integer company ID

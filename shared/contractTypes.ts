@@ -130,6 +130,7 @@ export interface SalesApproach {
     valueProposition: string;
     callToAction: string;
   };
+  rawGrokApproach?: string; // Debug: raw Grok output for auditability and HITL review
 }
 
 // ---------------------------------------------------------------------------

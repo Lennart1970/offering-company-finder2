@@ -164,14 +164,9 @@ async function callGrokWithWebSearch(input: string): Promise<string> {
         model: "grok-4.3",
         tools: [{ type: "web_search" }],  // Explicit web_search tool
         input,
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "sales_approach",
-            strict: true,
-            schema: SALES_APPROACH_SCHEMA,
-          },
-        },
+        // NOTE: response_format intentionally omitted — incompatible with web_search tools.
+        // The Responses API returns 422 when response_format is combined with web_search.
+        // JSON is extracted from the text response via regex instead.
       }),
       signal: controller.signal,
     });
@@ -189,24 +184,39 @@ async function callGrokWithWebSearch(input: string): Promise<string> {
   // Responses API returns output in nested array structure:
   // response.output[] contains tool calls and content items
   // The actual text output is in items with content[].text where content[].type === "output_text"
+  let rawText: string | null = null;
   if (data.output && Array.isArray(data.output)) {
     // Find the output item that contains content (not tool calls)
     for (const item of data.output) {
       if (item.content && Array.isArray(item.content)) {
         const textContent = item.content.find((c: any) => c.type === "output_text");
         if (textContent?.text) {
-          return textContent.text;
+          rawText = textContent.text;
+          break;
         }
       }
     }
   }
-  
+
   // Fallback: check for direct text field (older format)
-  if (data.text) {
-    return data.text;
+  if (!rawText && data.text) {
+    rawText = data.text;
   }
-  
-  throw new Error("Unexpected Responses API format: no output text found in response.output[].content[]");
+
+  if (!rawText) {
+    throw new Error("Unexpected Responses API format: no output text found in response.output[].content[]");
+  }
+
+  // Strip markdown fences first
+  const trimmed = rawText.trim();
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/);
+  const cleaned = fenceMatch ? fenceMatch[1].trim() : trimmed;
+
+  // Extract JSON object from the text (Grok may include explanatory text around the JSON)
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (jsonMatch) return jsonMatch[0];
+
+  return cleaned;
 }
 
 /**
@@ -311,17 +321,44 @@ ${verifiedSources || "No verified sources available."}
 4. Only use verified data from your searches — do NOT hallucinate URLs or facts
 5. ${angleInfo.isDistributor ? "Frame ALL materials as a CHANNEL PARTNERSHIP opportunity — never as a direct product sale" : "Personalize all materials to the prospect's specific situation and pain points"}
 
-**Generate a complete sales approach. Return JSON matching the required schema:**
+**Generate a complete sales approach.**
 - conversationStarters: 3 specific openers, each tied to a verified source URL
 - engagementStrategy: why this prospect matters${angleInfo.isDistributor ? " as a CHANNEL PARTNER" : ""}, recommended approach, key talking points
 - emailDraft: personalized ${angleInfo.isDistributor ? "channel partnership" : "cold"} email with subject, body (3 paragraphs), and referenced sources
 - linkedinMessage: connection request (max 200 chars) and follow-up message
-- callScript: 30-second opening, 3 discovery questions, value proposition, call to action`;
+- callScript: 30-second opening, 3 discovery questions, value proposition, call to action
+
+Return ONLY a JSON object with EXACTLY these keys (camelCase, no other keys):
+{
+  "conversationStarters": [
+    {"opener": "<specific opening line>", "sourceUrl": "<url of the news/fact used>", "basedOn": "<brief description of what this is based on>"}
+  ],
+  "engagementStrategy": {
+    "whyThisProspectMatters": ["<reason 1>", "<reason 2>"],
+    "recommendedApproach": ["<step 1>", "<step 2>"],
+    "keyTalkingPoints": ["<point 1>", "<point 2>", "<point 3>"]
+  },
+  "emailDraft": {
+    "subject": "<email subject line>",
+    "body": "<full email body>",
+    "referencedSources": ["<url1>", "<url2>"]
+  },
+  "linkedinMessage": {
+    "connectionRequest": "<connection request under 200 chars>",
+    "followUp": "<follow-up message>"
+  },
+  "callScript": {
+    "opening": "<30-second opening>",
+    "discoveryQuestions": ["<question 1>", "<question 2>", "<question 3>"],
+    "valueProposition": "<core value prop paragraph>",
+    "callToAction": "<specific next step ask>"
+  }
+}`;
 
   const approachRaw = await callGrokWithWebSearch(approachPrompt);
   const approachData = JSON.parse(approachRaw);
 
-  // Assemble final sales approach — with strict json_schema, fields are guaranteed present
+  // Assemble final sales approach
   const salesApproach: SalesApproach = {
     companyName: company.name,
     generatedAt: new Date().toISOString(),
@@ -347,6 +384,7 @@ ${verifiedSources || "No verified sources available."}
       valueProposition: "Value prop generation failed.",
       callToAction: "Next step generation failed.",
     },
+    rawGrokApproach: approachRaw, // Debug: preserve raw Grok output for auditability and HITL review
   };
 
   console.log(`[Sales Approach] Personalized outreach generated for ${company.name} with ${salesApproach.conversationStarters.length} source-backed conversation starters`);

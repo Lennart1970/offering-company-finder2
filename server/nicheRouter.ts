@@ -964,6 +964,7 @@ export const nicheRouter = router({
       const parentSearch = niche.searchId ? await getSearchById(niche.searchId) : null;
 
       // 3. Create a new search record named after the niche
+      // Inherit brainId from the niche so the campaign always knows which Business Unit it belongs to
       const campaignName = `[Niche] ${niche.name}`;
       const newSearchId = await createSearch({
         userId,
@@ -975,6 +976,7 @@ export const nicheRouter = router({
         valueProposition: parentSearch?.valueProposition ?? null,
         keywords: parentSearch?.keywords ?? null,
         status: "completed",
+        brainId: niche.brainId ?? parentSearch?.brainId ?? undefined,
       });
 
       // 4. Load all companies assigned to this niche.

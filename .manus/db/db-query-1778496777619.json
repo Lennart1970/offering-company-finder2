@@ -1,0 +1,17 @@
+{
+  "query": "SELECT id, offeringName, brainId, sourceNicheId, createdAt FROM searches WHERE id = 1830001 OR id BETWEEN 1829990 AND 1830010 ORDER BY id DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, offeringName, brainId, sourceNicheId, createdAt FROM searches WHERE id = 1830001 OR id BETWEEN 1829990 AND 1830010 ORDER BY id DESC LIMIT 10;",
+  "rows": [
+    {
+      "id": "1830001",
+      "offeringName": "[Niche] [Manufacturing] Medical Device Manufacturing",
+      "brainId": "NULL",
+      "sourceNicheId": "630001",
+      "createdAt": "2026-05-11 10:17:04"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tofferingName\tbrainId\tsourceNicheId\tcreatedAt\n1830001\t[Niche] [Manufacturing] Medical Device Manufacturing\tNULL\t630001\t2026-05-11 10:17:04\n",
+  "stderr": "",
+  "execution_time_ms": 327
+}

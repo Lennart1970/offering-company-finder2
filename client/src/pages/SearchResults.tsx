@@ -1050,11 +1050,11 @@ export default function SearchResults() {
                 </div>
               </div>
 
-              {/* Step 2: Business Unit (fixed per run — display only) */}
+              {/* Step 2: Business Unit (fixed per run — display only, inherited from the niche/campaign) */}
               <div>
                 <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">② BUSINESS UNIT</div>
                 <div className="text-sm font-bold text-black truncate border-2 border-gray-300 bg-gray-100 px-3 py-2">
-                  {(searchData?.search as any)?.brainName ?? activeBrain?.brainName ?? "—"}
+                  {(searchData?.search as any)?.brainName ?? "—"}
                 </div>
               </div>
 
@@ -1328,8 +1328,8 @@ export default function SearchResults() {
                   index={index}
                   searchId={searchId!}
                   isWebsiteVisitor={leadinfoSet.has(company.id)}
-                  activeBrainId={activeBrain?.id}
-                  activeBrainName={activeBrain?.brainName}
+                  activeBrainId={runBrainId ?? activeBrain?.id}
+                  activeBrainName={(searchData?.search as any)?.brainName ?? activeBrain?.brainName}
                   isSelectMode={isSelectMode2}
                   isSelected={selectedCompanyIds.has(company.id)}
                   onToggleSelect={toggleCompanySelection}
@@ -1345,8 +1345,8 @@ export default function SearchResults() {
                 index={index}
                 searchId={searchId!}
                 isWebsiteVisitor={leadinfoSet.has(company.id)}
-                activeBrainId={activeBrain?.id}
-                activeBrainName={activeBrain?.brainName}
+                activeBrainId={runBrainId ?? activeBrain?.id}
+                activeBrainName={(searchData?.search as any)?.brainName ?? activeBrain?.brainName}
                 onViewResearch={(id) => { setQuickViewCompanyId(id); setQuickViewMode("research"); }}
                 onViewApproach={(id) => { setQuickViewCompanyId(id); setQuickViewMode("approach"); }}
               />

@@ -1,0 +1,17 @@
+{
+  "query": "SELECT s.id, s.offeringName, s.brainId, n.brainId AS nicheBrainId, n.name AS nicheName\nFROM searches s\nLEFT JOIN niches n ON s.sourceNicheId = n.id\nWHERE s.id = 1830001;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT s.id, s.offeringName, s.brainId, n.brainId AS nicheBrainId, n.name AS nicheName\nFROM searches s\nLEFT JOIN niches n ON s.sourceNicheId = n.id\nWHERE s.id = 1830001;",
+  "rows": [
+    {
+      "id": "1830001",
+      "offeringName": "[Niche] [Manufacturing] Medical Device Manufacturing",
+      "brainId": "210013",
+      "nicheBrainId": "210013",
+      "nicheName": "[Manufacturing] Medical Device Manufacturing"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tofferingName\tbrainId\tnicheBrainId\tnicheName\n1830001\t[Niche] [Manufacturing] Medical Device Manufacturing\t210013\t210013\t[Manufacturing] Medical Device Manufacturing\n",
+  "stderr": "",
+  "execution_time_ms": 267
+}

@@ -111,8 +111,14 @@ export async function getSearchById(id: number) {
   const db = await getDb();
   if (!db) return undefined;
   
-  const result = await db.select().from(searches).where(eq(searches.id, id)).limit(1);
-  return result[0];
+  const result = await db
+    .select({ search: searches, brainName: offeringBrain.brainName })
+    .from(searches)
+    .leftJoin(offeringBrain, eq(searches.brainId, offeringBrain.id))
+    .where(eq(searches.id, id))
+    .limit(1);
+  if (!result[0]) return undefined;
+  return { ...result[0].search, brainName: result[0].brainName ?? null };
 }
 
 export async function getUserSearches(userId: number, showArchived = false) {

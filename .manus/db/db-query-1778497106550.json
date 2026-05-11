@@ -1,0 +1,9 @@
+{
+  "query": "UPDATE searches s\nJOIN niches n ON s.sourceNicheId = n.id\nSET s.brainId = n.brainId\nWHERE s.sourceNicheId IS NOT NULL\n  AND s.brainId IS NULL\n  AND n.brainId IS NOT NULL;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute UPDATE searches s\nJOIN niches n ON s.sourceNicheId = n.id\nSET s.brainId = n.brainId\nWHERE s.sourceNicheId IS NOT NULL\n  AND s.brainId IS NULL\n  AND n.brainId IS NOT NULL;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 369
+}

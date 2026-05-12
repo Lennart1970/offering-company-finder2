@@ -92,6 +92,7 @@ export const companies = mysqlTable("companies", {
   urgencyScore: int("urgencyScore"), // 0-100 urgency score from Grok analysis
   fitScore: int("fitScore"), // 0-100 fit score from Grok ICP analysis
   fitScoreData: text("fitScoreData"), // JSON-stringified FitScoreResult (breakdown + rationale)
+  fitScoreGeneratedAt: timestamp("fitScoreGeneratedAt"), // When the fit score was generated
   briefData: text("briefData"), // JSON-stringified SalesIntelligenceBrief (Deep Research)
   briefGeneratedAt: timestamp("briefGeneratedAt"), // When the brief was generated
   salesApproachData: text("salesApproachData"), // JSON-stringified SalesApproach (email, LinkedIn, call script)

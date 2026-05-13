@@ -1,0 +1,85 @@
+{
+  "query": "SELECT id, companyName, LEFT(offeringSummary, 200) as summary FROM offering_brain WHERE companyName LIKE '%Connect%' OR companyName = '' ORDER BY id DESC LIMIT 15;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, companyName, LEFT(offeringSummary, 200) as summary FROM offering_brain WHERE companyName LIKE '%Connect%' OR companyName = '' ORDER BY id DESC LIMIT 15;",
+  "rows": [
+    {
+      "id": "300001",
+      "companyName": "Connect Group",
+      "summary": "NULL"
+    },
+    {
+      "id": "210017",
+      "companyName": "Connect Group",
+      "summary": "Connect Group delivers future-ready industrial electronics manufacturing across the full value chain — from early design through sustained production and long-term lifecycle support. The offering brid"
+    },
+    {
+      "id": "210015",
+      "companyName": "Connect Group",
+      "summary": "The Connect Technology Center (CTC) is Connect Group's in-house engineering and technology arm — not outsourced, but an integral part of the EMS value chain. CTC offers four integrated service pillars"
+    },
+    {
+      "id": "210014",
+      "companyName": "Connect Group",
+      "summary": "End-to-end solutions for critical infrastructure electronics, built for energy, IoT, and electrification with a focus on long-term resilience and full traceability."
+    },
+    {
+      "id": "210013",
+      "companyName": "Connect Group",
+      "summary": "Connect Group is the certified full value chain partner for life-critical medical electronics — covering design, prototyping, NPI, manufacturing, testing, and lifecycle support under ISO 13485, FDA 21"
+    },
+    {
+      "id": "210012",
+      "companyName": "Connect Group",
+      "summary": "Connect Group delivers AS 9100D-certified electronics manufacturing for defence and avionics programs — mission-critical, zero-failure execution across the full product lifecycle. Services span early "
+    },
+    {
+      "id": "210011",
+      "companyName": "",
+      "summary": "Integrated engineering, production, testing, traceability, and logistics for cable assemblies and wiring harnesses."
+    },
+    {
+      "id": "210010",
+      "companyName": "",
+      "summary": "Connect Group is a Top 20 European EMS provider delivering certified, high-volume automotive electronics manufacturing across 4 IATF 16949-certified sites on 3 continents (Romania, Spain, Mexico, Chin"
+    },
+    {
+      "id": "210009",
+      "companyName": "",
+      "summary": "End-to-end engineering, manufacturing, and lifecycle support (up to 30 years) for certified, safety-critical railway electronics."
+    },
+    {
+      "id": "210008",
+      "companyName": "",
+      "summary": "Hardware-led acquisition for market consolidation and rapid expansion."
+    },
+    {
+      "id": "210007",
+      "companyName": "",
+      "summary": "Strategic integration of EV hardware into a broader electrical distribution and automation stack."
+    },
+    {
+      "id": "210006",
+      "companyName": "",
+      "summary": "High-growth platform asset for a buy-and-build strategy."
+    },
+    {
+      "id": "210005",
+      "companyName": "",
+      "summary": "Turning energy customers into charging customers by owning the physical \"fueling\" station."
+    },
+    {
+      "id": "210002",
+      "companyName": "Connect Group",
+      "summary": "Connect Group is a top-20 European EMS (Electronic Manufacturing Services) provider headquartered in Kampenhout, Belgium. They offer PCB assembly, cable assembly, and full module/box-build manufacturi"
+    },
+    {
+      "id": "150001",
+      "companyName": "Connect Group Spain Division (CGSD)",
+      "summary": "CGSD is a contract electronics manufacturer (EMS) providing PCB assembly, cable looms, sub-assemblies, box builds, and full system integration. We serve OEMs whose electronics are mission-critical — i"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tcompanyName\tsummary\n300001\tConnect Group\tNULL\n210017\tConnect Group\tConnect Group delivers future-ready industrial electronics manufacturing across the full value chain — from early design through sustained production and long-term lifecycle support. The offering brid\n210015\tConnect Group\tThe Connect Technology Center (CTC) is Connect Group's in-house engineering and technology arm — not outsourced, but an integral part of the EMS value chain. CTC offers four integrated service pillars\n210014\tConnect Group\tEnd-to-end solutions for critical infrastructure electronics, built for energy, IoT, and electrification with a focus on long-term resilience and full traceability.\n210013\tConnect Group\tConnect Group is the certified full value chain partner for life-critical medical electronics — covering design, prototyping, NPI, manufacturing, testing, and lifecycle support under ISO 13485, FDA 21\n210012\tConnect Group\tConnect Group delivers AS 9100D-certified electronics manufacturing for defence and avionics programs — mission-critical, zero-failure execution across the full product lifecycle. Services span early \n210011\t\tIntegrated engineering, production, testing, traceability, and logistics for cable assemblies and wiring harnesses.\n210010\t\tConnect Group is a Top 20 European EMS provider delivering certified, high-volume automotive electronics manufacturing across 4 IATF 16949-certified sites on 3 continents (Romania, Spain, Mexico, Chin\n210009\t\tEnd-to-end engineering, manufacturing, and lifecycle support (up to 30 years) for certified, safety-critical railway electronics.\n210008\t\tHardware-led acquisition for market consolidation and rapid expansion.\n210007\t\tStrategic integration of EV hardware into a broader electrical distribution and automation stack.\n210006\t\tHigh-growth platform asset for a buy-and-build strategy.\n210005\t\tTurning energy customers into charging customers by owning the physical \"fueling\" station.\n210002\tConnect Group\tConnect Group is a top-20 European EMS (Electronic Manufacturing Services) provider headquartered in Kampenhout, Belgium. They offer PCB assembly, cable assembly, and full module/box-build manufacturi\n150001\tConnect Group Spain Division (CGSD)\tCGSD is a contract electronics manufacturer (EMS) providing PCB assembly, cable looms, sub-assemblies, box builds, and full system integration. We serve OEMs whose electronics are mission-critical — i\n",
+  "stderr": "",
+  "execution_time_ms": 280
+}

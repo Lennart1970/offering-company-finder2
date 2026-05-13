@@ -1,0 +1,45 @@
+{
+  "query": "SELECT lv.companyId, lv.companyName, lv.domain, lv.engagementScore, c.searchId as companySearchId FROM leadinfo_visits lv LEFT JOIN companies c ON c.id = lv.companyId WHERE lv.searchId = 1680001 LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT lv.companyId, lv.companyName, lv.domain, lv.engagementScore, c.searchId as companySearchId FROM leadinfo_visits lv LEFT JOIN companies c ON c.id = lv.companyId WHERE lv.searchId = 1680001 LIMIT 5;",
+  "rows": [
+    {
+      "companyId": "1560382",
+      "companyName": "1Stclassinspections",
+      "domain": "1stclassinspections.com",
+      "engagementScore": "4",
+      "companySearchId": "1680001"
+    },
+    {
+      "companyId": "1560473",
+      "companyName": "Aark Technologies LLC",
+      "domain": "aarktek.com",
+      "engagementScore": "1",
+      "companySearchId": "1680001"
+    },
+    {
+      "companyId": "1560200",
+      "companyName": "ADB Safegate Americas LLC",
+      "domain": "adbsafegate.com",
+      "engagementScore": "29",
+      "companySearchId": "1680001"
+    },
+    {
+      "companyId": "1560288",
+      "companyName": "All Pro Risk Management Inc",
+      "domain": "allprorisk.com",
+      "engagementScore": "1",
+      "companySearchId": "1680001"
+    },
+    {
+      "companyId": "1560289",
+      "companyName": "Amspec, L.L.C.",
+      "domain": "amspecgroup.com",
+      "engagementScore": "32",
+      "companySearchId": "1680001"
+    }
+  ],
+  "messages": [],
+  "stdout": "companyId\tcompanyName\tdomain\tengagementScore\tcompanySearchId\n1560382\t1Stclassinspections\t1stclassinspections.com\t4\t1680001\n1560473\tAark Technologies LLC\taarktek.com\t1\t1680001\n1560200\tADB Safegate Americas LLC\tadbsafegate.com\t29\t1680001\n1560288\tAll Pro Risk Management Inc\tallprorisk.com\t1\t1680001\n1560289\tAmspec, L.L.C.\tamspecgroup.com\t32\t1680001\n",
+  "stderr": "",
+  "execution_time_ms": 359
+}

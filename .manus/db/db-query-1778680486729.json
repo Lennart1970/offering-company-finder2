@@ -1,0 +1,15 @@
+{
+  "query": "SELECT COUNT(*) as total_visits, \n  SUM(CASE WHEN c.id IS NOT NULL THEN 1 ELSE 0 END) as companies_still_exist,\n  SUM(CASE WHEN c.id IS NULL THEN 1 ELSE 0 END) as companies_missing\nFROM leadinfo_visits lv\nLEFT JOIN companies c ON c.id = lv.companyId\nWHERE lv.searchId = 1680001;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT COUNT(*) as total_visits, \n  SUM(CASE WHEN c.id IS NOT NULL THEN 1 ELSE 0 END) as companies_still_exist,\n  SUM(CASE WHEN c.id IS NULL THEN 1 ELSE 0 END) as companies_missing\nFROM leadinfo_visits lv\nLEFT JOIN companies c ON c.id = lv.companyId\nWHERE lv.searchId = 1680001;",
+  "rows": [
+    {
+      "total_visits": "655",
+      "companies_still_exist": "655",
+      "companies_missing": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "total_visits\tcompanies_still_exist\tcompanies_missing\n655\t655\t0\n",
+  "stderr": "",
+  "execution_time_ms": 295
+}

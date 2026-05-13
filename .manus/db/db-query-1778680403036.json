@@ -1,0 +1,28 @@
+{
+  "query": "SELECT searchId, COUNT(*) as count, SUM(CASE WHEN companyId IS NOT NULL THEN 1 ELSE 0 END) as matched, MAX(importedAt) as lastImport FROM leadinfo_visits GROUP BY searchId ORDER BY lastImport DESC LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT searchId, COUNT(*) as count, SUM(CASE WHEN companyId IS NOT NULL THEN 1 ELSE 0 END) as matched, MAX(importedAt) as lastImport FROM leadinfo_visits GROUP BY searchId ORDER BY lastImport DESC LIMIT 10;",
+  "rows": [
+    {
+      "searchId": "1680001",
+      "count": "655",
+      "matched": "655",
+      "lastImport": "2026-04-29 06:19:56"
+    },
+    {
+      "searchId": "1500003",
+      "count": "98",
+      "matched": "98",
+      "lastImport": "2026-03-27 14:18:19"
+    },
+    {
+      "searchId": "1500002",
+      "count": "219",
+      "matched": "219",
+      "lastImport": "2026-03-26 12:06:59"
+    }
+  ],
+  "messages": [],
+  "stdout": "searchId\tcount\tmatched\tlastImport\n1680001\t655\t655\t2026-04-29 06:19:56\n1500003\t98\t98\t2026-03-27 14:18:19\n1500002\t219\t219\t2026-03-26 12:06:59\n",
+  "stderr": "",
+  "execution_time_ms": 277
+}

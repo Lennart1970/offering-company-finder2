@@ -1,0 +1,50 @@
+{
+  "query": "SELECT lv.searchId as lv_searchId, lv.companyId, lv.companyName, lv.engagementScore, c.searchId as company_searchId, c.name as company_name FROM leadinfo_visits lv JOIN companies c ON c.id = lv.companyId WHERE lv.searchId = 1680001 ORDER BY lv.engagementScore DESC LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT lv.searchId as lv_searchId, lv.companyId, lv.companyName, lv.engagementScore, c.searchId as company_searchId, c.name as company_name FROM leadinfo_visits lv JOIN companies c ON c.id = lv.companyId WHERE lv.searchId = 1680001 ORDER BY lv.engagementScore DESC LIMIT 5;",
+  "rows": [
+    {
+      "lv_searchId": "1680001",
+      "companyId": "1560488",
+      "companyName": "KPMG Bedrijfsrevisoren",
+      "engagementScore": "100",
+      "company_searchId": "1680001",
+      "company_name": "KPMG Bedrijfsrevisoren"
+    },
+    {
+      "lv_searchId": "1680001",
+      "companyId": "1560645",
+      "companyName": "Beobank NVSA",
+      "engagementScore": "100",
+      "company_searchId": "1680001",
+      "company_name": "Beobank NVSA"
+    },
+    {
+      "lv_searchId": "1680001",
+      "companyId": "1560093",
+      "companyName": "Esusdstudents",
+      "engagementScore": "100",
+      "company_searchId": "1680001",
+      "company_name": "Esusdstudents"
+    },
+    {
+      "lv_searchId": "1680001",
+      "companyId": "1560546",
+      "companyName": "Arizona State University",
+      "engagementScore": "100",
+      "company_searchId": "1680001",
+      "company_name": "Arizona State University"
+    },
+    {
+      "lv_searchId": "1680001",
+      "companyId": "1560651",
+      "companyName": "New York University",
+      "engagementScore": "100",
+      "company_searchId": "1680001",
+      "company_name": "New York University Berlin"
+    }
+  ],
+  "messages": [],
+  "stdout": "lv_searchId\tcompanyId\tcompanyName\tengagementScore\tcompany_searchId\tcompany_name\n1680001\t1560488\tKPMG Bedrijfsrevisoren\t100\t1680001\tKPMG Bedrijfsrevisoren\n1680001\t1560645\tBeobank NVSA\t100\t1680001\tBeobank NVSA\n1680001\t1560093\tEsusdstudents\t100\t1680001\tEsusdstudents\n1680001\t1560546\tArizona State University\t100\t1680001\tArizona State University\n1680001\t1560651\tNew York University\t100\t1680001\tNew York University Berlin\n",
+  "stderr": "",
+  "execution_time_ms": 428
+}

@@ -1,0 +1,100 @@
+{
+  "query": "SELECT s.id, LEFT(s.offeringName, 50) as name, s.brainId, COUNT(lv.id) as leadinfoCount FROM searches s LEFT JOIN leadinfo_visits lv ON lv.searchId = s.id GROUP BY s.id ORDER BY s.id DESC LIMIT 15;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT s.id, LEFT(s.offeringName, 50) as name, s.brainId, COUNT(lv.id) as leadinfoCount FROM searches s LEFT JOIN leadinfo_visits lv ON lv.searchId = s.id GROUP BY s.id ORDER BY s.id DESC LIMIT 15;",
+  "rows": [
+    {
+      "id": "1860001",
+      "name": "Leadinfo Mai 11th",
+      "brainId": "210002",
+      "leadinfoCount": "0"
+    },
+    {
+      "id": "1830001",
+      "name": "[Niche] [Manufacturing] Medical Device Manufacturi",
+      "brainId": "210013",
+      "leadinfoCount": "0"
+    },
+    {
+      "id": "1800003",
+      "name": "[Niche] [Manufacturing] Westfalia Food & Agri",
+      "brainId": "210017",
+      "leadinfoCount": "0"
+    },
+    {
+      "id": "1800002",
+      "name": "[Niche] [Manufacturing] Diverse Westfalia Brands",
+      "brainId": "210017",
+      "leadinfoCount": "0"
+    },
+    {
+      "id": "1800001",
+      "name": "Westfalia all",
+      "brainId": "NULL",
+      "leadinfoCount": "0"
+    },
+    {
+      "id": "1770006",
+      "name": "[Niche] [Service] Defense & Security Solutions",
+      "brainId": "210012",
+      "leadinfoCount": "0"
+    },
+    {
+      "id": "1770005",
+      "name": "[Niche] [Manufacturing] Industrial & Aerospace Man",
+      "brainId": "210012",
+      "leadinfoCount": "0"
+    },
+    {
+      "id": "1770004",
+      "name": "[Niche] [Service] Defense & Military Institutions",
+      "brainId": "210012",
+      "leadinfoCount": "0"
+    },
+    {
+      "id": "1770003",
+      "name": "[Niche] [Manufacturing] Defense & Aerospace Soluti",
+      "brainId": "210012",
+      "leadinfoCount": "0"
+    },
+    {
+      "id": "1770002",
+      "name": "Defense volledig",
+      "brainId": "NULL",
+      "leadinfoCount": "0"
+    },
+    {
+      "id": "1770001",
+      "name": "Defense Beurs",
+      "brainId": "NULL",
+      "leadinfoCount": "0"
+    },
+    {
+      "id": "1740007",
+      "name": "[Niche] [Service] Entertainment & Event Services",
+      "brainId": "270001",
+      "leadinfoCount": "0"
+    },
+    {
+      "id": "1740006",
+      "name": "[Niche] [Service] Leisure & Entertainment Business",
+      "brainId": "270001",
+      "leadinfoCount": "0"
+    },
+    {
+      "id": "1740005",
+      "name": "[Niche] [Service] Entertainment & Event Services",
+      "brainId": "270001",
+      "leadinfoCount": "0"
+    },
+    {
+      "id": "1740004",
+      "name": "[Niche] [Service] Leisure & Entertainment Business",
+      "brainId": "270001",
+      "leadinfoCount": "0"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tname\tbrainId\tleadinfoCount\n1860001\tLeadinfo Mai 11th\t210002\t0\n1830001\t[Niche] [Manufacturing] Medical Device Manufacturi\t210013\t0\n1800003\t[Niche] [Manufacturing] Westfalia Food & Agri\t210017\t0\n1800002\t[Niche] [Manufacturing] Diverse Westfalia Brands\t210017\t0\n1800001\tWestfalia all\tNULL\t0\n1770006\t[Niche] [Service] Defense & Security Solutions\t210012\t0\n1770005\t[Niche] [Manufacturing] Industrial & Aerospace Man\t210012\t0\n1770004\t[Niche] [Service] Defense & Military Institutions\t210012\t0\n1770003\t[Niche] [Manufacturing] Defense & Aerospace Soluti\t210012\t0\n1770002\tDefense volledig\tNULL\t0\n1770001\tDefense Beurs\tNULL\t0\n1740007\t[Niche] [Service] Entertainment & Event Services\t270001\t0\n1740006\t[Niche] [Service] Leisure & Entertainment Business\t270001\t0\n1740005\t[Niche] [Service] Entertainment & Event Services\t270001\t0\n1740004\t[Niche] [Service] Leisure & Entertainment Business\t270001\t0\n",
+  "stderr": "",
+  "execution_time_ms": 322
+}

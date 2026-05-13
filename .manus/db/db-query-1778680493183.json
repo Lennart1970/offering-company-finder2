@@ -1,0 +1,14 @@
+{
+  "query": "SELECT c.searchId, COUNT(*) as count FROM leadinfo_visits lv JOIN companies c ON c.id = lv.companyId WHERE lv.searchId = 1680001 GROUP BY c.searchId;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT c.searchId, COUNT(*) as count FROM leadinfo_visits lv JOIN companies c ON c.id = lv.companyId WHERE lv.searchId = 1680001 GROUP BY c.searchId;",
+  "rows": [
+    {
+      "searchId": "1680001",
+      "count": "655"
+    }
+  ],
+  "messages": [],
+  "stdout": "searchId\tcount\n1680001\t655\n",
+  "stderr": "",
+  "execution_time_ms": 297
+}

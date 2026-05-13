@@ -1,0 +1,45 @@
+{
+  "query": "SELECT lv.domain, lv.engagementScore, c.id as company_id, c.name, c.searchId FROM leadinfo_visits lv JOIN companies c ON c.websiteUrl LIKE CONCAT('%', lv.domain, '%') OR c.primaryDomain = lv.domain WHERE lv.searchId = 1680001 AND c.searchId = 1860001 LIMIT 5;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT lv.domain, lv.engagementScore, c.id as company_id, c.name, c.searchId FROM leadinfo_visits lv JOIN companies c ON c.websiteUrl LIKE CONCAT('%', lv.domain, '%') OR c.primaryDomain = lv.domain WHERE lv.searchId = 1680001 AND c.searchId = 1860001 LIMIT 5;",
+  "rows": [
+    {
+      "domain": "esusdstudents.org",
+      "engagementScore": "100",
+      "company_id": "1740004",
+      "name": "Esusdstudents",
+      "searchId": "1860001"
+    },
+    {
+      "domain": "cipsacircuits.com",
+      "engagementScore": "100",
+      "company_id": "1740007",
+      "name": "Ltp Atelier Plastique SL",
+      "searchId": "1860001"
+    },
+    {
+      "domain": "msigrupo.com",
+      "engagementScore": "9",
+      "company_id": "1740011",
+      "name": "Mondragon Sistemas de Informacion S.C.",
+      "searchId": "1860001"
+    },
+    {
+      "domain": "schwarzercardiotek.com",
+      "engagementScore": "16",
+      "company_id": "1740013",
+      "name": "Schwarzer Cardiotek GmbH",
+      "searchId": "1860001"
+    },
+    {
+      "domain": "russellreynolds.com",
+      "engagementScore": "1",
+      "company_id": "1740017",
+      "name": "Russell Reynolds Associates AS",
+      "searchId": "1860001"
+    }
+  ],
+  "messages": [],
+  "stdout": "domain\tengagementScore\tcompany_id\tname\tsearchId\nesusdstudents.org\t100\t1740004\tEsusdstudents\t1860001\ncipsacircuits.com\t100\t1740007\tLtp Atelier Plastique SL\t1860001\nmsigrupo.com\t9\t1740011\tMondragon Sistemas de Informacion S.C.\t1860001\nschwarzercardiotek.com\t16\t1740013\tSchwarzer Cardiotek GmbH\t1860001\nrussellreynolds.com\t1\t1740017\tRussell Reynolds Associates AS\t1860001\n",
+  "stderr": "",
+  "execution_time_ms": 643
+}

@@ -1,0 +1,15 @@
+{
+  "query": "SELECT lv.userId as lv_userId, s.userId as s_userId, s.offeringName FROM leadinfo_visits lv JOIN searches s ON s.id = lv.searchId WHERE lv.searchId = 1680001 LIMIT 1;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT lv.userId as lv_userId, s.userId as s_userId, s.offeringName FROM leadinfo_visits lv JOIN searches s ON s.id = lv.searchId WHERE lv.searchId = 1680001 LIMIT 1;",
+  "rows": [
+    {
+      "lv_userId": "1",
+      "s_userId": "1",
+      "offeringName": "leadinfo 29_04"
+    }
+  ],
+  "messages": [],
+  "stdout": "lv_userId\ts_userId\tofferingName\n1\t1\tleadinfo 29_04\n",
+  "stderr": "",
+  "execution_time_ms": 268
+}

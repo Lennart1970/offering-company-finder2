@@ -1,0 +1,15 @@
+{
+  "query": "SELECT s.id, s.brainId, ob.brainName FROM searches s JOIN offering_brain ob ON s.brainId = ob.id WHERE s.id = 1860001;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT s.id, s.brainId, ob.brainName FROM searches s JOIN offering_brain ob ON s.brainId = ob.id WHERE s.id = 1860001;",
+  "rows": [
+    {
+      "id": "1860001",
+      "brainId": "210002",
+      "brainName": "Connect Group EMS Intelligence - General - "
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tbrainId\tbrainName\n1860001\t210002\tConnect Group EMS Intelligence - General - \n",
+  "stderr": "",
+  "execution_time_ms": 276
+}

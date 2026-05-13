@@ -1,0 +1,15 @@
+{
+  "query": "SELECT id, companyName, LEFT(offeringSummary, 150) as summary FROM offering_brain WHERE id = 210002;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, companyName, LEFT(offeringSummary, 150) as summary FROM offering_brain WHERE id = 210002;",
+  "rows": [
+    {
+      "id": "210002",
+      "companyName": "Connect Group",
+      "summary": "Connect Group is a top-20 European EMS (Electronic Manufacturing Services) provider headquartered in Kampenhout, Belgium. They offer PCB assembly, cab"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tcompanyName\tsummary\n210002\tConnect Group\tConnect Group is a top-20 European EMS (Electronic Manufacturing Services) provider headquartered in Kampenhout, Belgium. They offer PCB assembly, cab\n",
+  "stderr": "",
+  "execution_time_ms": 262
+}

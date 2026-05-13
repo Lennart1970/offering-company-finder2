@@ -1,0 +1,130 @@
+{
+  "query": "SELECT id, brainName, companyName, LEFT(offeringSummary, 120) as summary FROM offering_brain ORDER BY id DESC LIMIT 20;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, brainName, companyName, LEFT(offeringSummary, 120) as summary FROM offering_brain ORDER BY id DESC LIMIT 20;",
+  "rows": [
+    {
+      "id": "300001",
+      "brainName": "Misc.",
+      "companyName": "Connect Group",
+      "summary": "NULL"
+    },
+    {
+      "id": "270001",
+      "brainName": "Build4Performance - Professional Race Simulators",
+      "companyName": "Build4Performance",
+      "summary": "Build4Performance designs and manufactures high-end, realistic racing simulators for professional drivers, racing enthus"
+    },
+    {
+      "id": "210017",
+      "brainName": "Connect Group - Industrial Electronics ICP",
+      "companyName": "Connect Group",
+      "summary": "Connect Group delivers future-ready industrial electronics manufacturing across the full value chain — from early design"
+    },
+    {
+      "id": "210015",
+      "brainName": "Connect Group - CTC Engineering & Technology Services ICP",
+      "companyName": "Connect Group",
+      "summary": "The Connect Technology Center (CTC) is Connect Group's in-house engineering and technology arm — not outsourced, but an "
+    },
+    {
+      "id": "210014",
+      "brainName": "Connect Group - Infrastructure ICP",
+      "companyName": "Connect Group",
+      "summary": "End-to-end solutions for critical infrastructure electronics, built for energy, IoT, and electrification with a focus on"
+    },
+    {
+      "id": "210013",
+      "brainName": "Connect Group - Healthcare & MedTech ICP",
+      "companyName": "Connect Group",
+      "summary": "Connect Group is the certified full value chain partner for life-critical medical electronics — covering design, prototy"
+    },
+    {
+      "id": "210012",
+      "brainName": "Connect Group - Defence & Avionics ICP",
+      "companyName": "Connect Group",
+      "summary": "Connect Group delivers AS 9100D-certified electronics manufacturing for defence and avionics programs — mission-critical"
+    },
+    {
+      "id": "210011",
+      "brainName": "Connect Group - Cable & Wiring Solutions ICP",
+      "companyName": "",
+      "summary": "Integrated engineering, production, testing, traceability, and logistics for cable assemblies and wiring harnesses."
+    },
+    {
+      "id": "210010",
+      "brainName": "Connect Group - Automotive Solutions ICP",
+      "companyName": "",
+      "summary": "Connect Group is a Top 20 European EMS provider delivering certified, high-volume automotive electronics manufacturing a"
+    },
+    {
+      "id": "210009",
+      "brainName": "Connect Group - Railway Solutions ICP",
+      "companyName": "",
+      "summary": "End-to-end engineering, manufacturing, and lifecycle support (up to 30 years) for certified, safety-critical railway ele"
+    },
+    {
+      "id": "210008",
+      "brainName": "M&A Strategy - Scale Seekers (Direct Competitors)",
+      "companyName": "",
+      "summary": "Hardware-led acquisition for market consolidation and rapid expansion."
+    },
+    {
+      "id": "210007",
+      "brainName": "M&A Strategy - Ecosystem Integrators (Industrial Tech)",
+      "companyName": "",
+      "summary": "Strategic integration of EV hardware into a broader electrical distribution and automation stack."
+    },
+    {
+      "id": "210006",
+      "brainName": "M&A Strategy - Financial Consolidators (PE & Holding Groups)",
+      "companyName": "",
+      "summary": "High-growth platform asset for a buy-and-build strategy."
+    },
+    {
+      "id": "210005",
+      "brainName": "M&A Strategy - Energy Pivoters (Utilities & Energy)",
+      "companyName": "",
+      "summary": "Turning energy customers into charging customers by owning the physical \"fueling\" station."
+    },
+    {
+      "id": "210004",
+      "brainName": "Charging Pole Brain",
+      "companyName": "EV Charging Infrastructure",
+      "summary": "A live decision system that detects where the EV charging market is moving, focusing on project flow, competitor activit"
+    },
+    {
+      "id": "210002",
+      "brainName": "Connect Group EMS Intelligence - General - ",
+      "companyName": "Connect Group",
+      "summary": "Connect Group is a top-20 European EMS (Electronic Manufacturing Services) provider headquartered in Kampenhout, Belgium"
+    },
+    {
+      "id": "210001",
+      "brainName": "Marktlink M&A Advisory",
+      "companyName": "Marktlink M&A Advisory",
+      "summary": "M&A advisory services including preparation, target search, transaction execution, and post-deal integration"
+    },
+    {
+      "id": "180002",
+      "brainName": "Marktlink shared",
+      "companyName": "CG Marktlink shared",
+      "summary": "Marktlink is a leading independent M&A advisory firm specializing in advising SME entrepreneurs on selling, buying, and "
+    },
+    {
+      "id": "150001",
+      "brainName": "CGSD Spain Customer Targeting Brain 2026",
+      "companyName": "Connect Group Spain Division (CGSD)",
+      "summary": "CGSD is a contract electronics manufacturer (EMS) providing PCB assembly, cable looms, sub-assemblies, box builds, and f"
+    },
+    {
+      "id": "30001",
+      "brainName": "General",
+      "companyName": "ConnectGroup",
+      "summary": "Connect Group is a leading Electronics Manufacturing Services (EMS) provider specializing in PCB assembly, cable and wir"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tbrainName\tcompanyName\tsummary\n300001\tMisc.\tConnect Group\tNULL\n270001\tBuild4Performance - Professional Race Simulators\tBuild4Performance\tBuild4Performance designs and manufactures high-end, realistic racing simulators for professional drivers, racing enthus\n210017\tConnect Group - Industrial Electronics ICP\tConnect Group\tConnect Group delivers future-ready industrial electronics manufacturing across the full value chain — from early design\n210015\tConnect Group - CTC Engineering & Technology Services ICP\tConnect Group\tThe Connect Technology Center (CTC) is Connect Group's in-house engineering and technology arm — not outsourced, but an \n210014\tConnect Group - Infrastructure ICP\tConnect Group\tEnd-to-end solutions for critical infrastructure electronics, built for energy, IoT, and electrification with a focus on\n210013\tConnect Group - Healthcare & MedTech ICP\tConnect Group\tConnect Group is the certified full value chain partner for life-critical medical electronics — covering design, prototy\n210012\tConnect Group - Defence & Avionics ICP\tConnect Group\tConnect Group delivers AS 9100D-certified electronics manufacturing for defence and avionics programs — mission-critical\n210011\tConnect Group - Cable & Wiring Solutions ICP\t\tIntegrated engineering, production, testing, traceability, and logistics for cable assemblies and wiring harnesses.\n210010\tConnect Group - Automotive Solutions ICP\t\tConnect Group is a Top 20 European EMS provider delivering certified, high-volume automotive electronics manufacturing a\n210009\tConnect Group - Railway Solutions ICP\t\tEnd-to-end engineering, manufacturing, and lifecycle support (up to 30 years) for certified, safety-critical railway ele\n210008\tM&A Strategy - Scale Seekers (Direct Competitors)\t\tHardware-led acquisition for market consolidation and rapid expansion.\n210007\tM&A Strategy - Ecosystem Integrators (Industrial Tech)\t\tStrategic integration of EV hardware into a broader electrical distribution and automation stack.\n210006\tM&A Strategy - Financial Consolidators (PE & Holding Groups)\t\tHigh-growth platform asset for a buy-and-build strategy.\n210005\tM&A Strategy - Energy Pivoters (Utilities & Energy)\t\tTurning energy customers into charging customers by owning the physical \"fueling\" station.\n210004\tCharging Pole Brain\tEV Charging Infrastructure\tA live decision system that detects where the EV charging market is moving, focusing on project flow, competitor activit\n210002\tConnect Group EMS Intelligence - General - \tConnect Group\tConnect Group is a top-20 European EMS (Electronic Manufacturing Services) provider headquartered in Kampenhout, Belgium\n210001\tMarktlink M&A Advisory\tMarktlink M&A Advisory\tM&A advisory services including preparation, target search, transaction execution, and post-deal integration\n180002\tMarktlink shared\tCG Marktlink shared\tMarktlink is a leading independent M&A advisory firm specializing in advising SME entrepreneurs on selling, buying, and \n150001\tCGSD Spain Customer Targeting Brain 2026\tConnect Group Spain Division (CGSD)\tCGSD is a contract electronics manufacturer (EMS) providing PCB assembly, cable looms, sub-assemblies, box builds, and f\n30001\tGeneral\tConnectGroup\tConnect Group is a leading Electronics Manufacturing Services (EMS) provider specializing in PCB assembly, cable and wir\n",
+  "stderr": "",
+  "execution_time_ms": 259
+}

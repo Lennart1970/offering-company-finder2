@@ -1,0 +1,22 @@
+{
+  "query": "SELECT id, brainName, \n  LEFT(coreCapabilities, 100) as caps,\n  LEFT(valuePropositions, 100) as vps,\n  LEFT(icpIndustries, 100) as industries,\n  LEFT(icpPainPoints, 100) as painPoints,\n  LEFT(icpBuyingSignals, 100) as buyingSignals,\n  LEFT(fitCriteria, 100) as fitCriteria,\n  LEFT(urgencyTriggers, 100) as urgencyTriggers,\n  status\nFROM offering_brain WHERE id = 210002;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway02.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 3y1Mn2sEwzJNeyq.043531d10524 --database jD7AgpCX9VGnkJhgqHKmjt --execute SELECT id, brainName, \n  LEFT(coreCapabilities, 100) as caps,\n  LEFT(valuePropositions, 100) as vps,\n  LEFT(icpIndustries, 100) as industries,\n  LEFT(icpPainPoints, 100) as painPoints,\n  LEFT(icpBuyingSignals, 100) as buyingSignals,\n  LEFT(fitCriteria, 100) as fitCriteria,\n  LEFT(urgencyTriggers, 100) as urgencyTriggers,\n  status\nFROM offering_brain WHERE id = 210002;",
+  "rows": [
+    {
+      "id": "210002",
+      "brainName": "Connect Group EMS Intelligence - General - ",
+      "caps": "[\"SMT and THT PCB assembly (prototype to high volume)\",\"Complex cable harness and wiring assembly\",\"",
+      "vps": "[\"Top-20 European EMS — scale and stability with specialist flexibility\",\"Full lifecycle support fro",
+      "industries": "Railway & Transportation, Healthcare & Medical Devices, Infrastructure & Smart Grid, Automotive & Of",
+      "painPoints": "[\"Capacity constraints — in-house production cannot scale with demand spikes or new product launches",
+      "buyingSignals": "[\"OEM that designs electronic products requiring PCB or cable assembly\",\"Operates in railway, health",
+      "fitCriteria": "{\"strong_fit\":[\"OEM in railway, healthcare, defense, industrial automation, or infrastructure\",\"Desi",
+      "urgencyTriggers": "[\"New product launch or product line expansion requiring production scale-up\",\"Acquisition or merger",
+      "status": "completed"
+    }
+  ],
+  "messages": [],
+  "stdout": "id\tbrainName\tcaps\tvps\tindustries\tpainPoints\tbuyingSignals\tfitCriteria\turgencyTriggers\tstatus\n210002\tConnect Group EMS Intelligence - General - \t[\"SMT and THT PCB assembly (prototype to high volume)\",\"Complex cable harness and wiring assembly\",\"\t[\"Top-20 European EMS — scale and stability with specialist flexibility\",\"Full lifecycle support fro\tRailway & Transportation, Healthcare & Medical Devices, Infrastructure & Smart Grid, Automotive & Of\t[\"Capacity constraints — in-house production cannot scale with demand spikes or new product launches\t[\"OEM that designs electronic products requiring PCB or cable assembly\",\"Operates in railway, health\t{\"strong_fit\":[\"OEM in railway, healthcare, defense, industrial automation, or infrastructure\",\"Desi\t[\"New product launch or product line expansion requiring production scale-up\",\"Acquisition or merger\tcompleted\n",
+  "stderr": "",
+  "execution_time_ms": 257
+}

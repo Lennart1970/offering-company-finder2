@@ -7,12 +7,12 @@ import { z } from "zod";
 import { protectedProcedure, router } from "./_core/trpc";
 import { getDb } from "./db";
 import { leadinfoVisits, companies } from "../drizzle/schema";
-import { eq, and, inArray, sql } from "drizzle-orm";
+import { eq, and, isNotNull, sql } from "drizzle-orm";
+import { normaliseDomain as _normaliseDomain } from "./leadinfoService";
 import {
   parseLeadinfoExcel,
   enrichCompanies,
   matchCompaniesToCampaign,
-  normaliseDomain,
 } from "./leadinfoService";
 import { randomUUID } from "crypto";
 
@@ -158,6 +158,7 @@ export const leadinfoRouter = router({
 
   /**
    * Get Leadinfo visit data for a specific company.
+   * First tries direct companyId match; falls back to domain matching across all campaigns.
    */
   getByCompany: protectedProcedure
     .input(z.object({ companyId: z.number() }))
@@ -165,14 +166,40 @@ export const leadinfoRouter = router({
       const db = await getDb();
       if (!db) return null;
 
-      const rows = await db
+      // 1. Direct companyId match (fast path)
+      const direct = await db
         .select()
         .from(leadinfoVisits)
         .where(eq(leadinfoVisits.companyId, input.companyId))
         .orderBy(sql`${leadinfoVisits.importedAt} DESC`)
         .limit(1);
 
-      return rows[0] || null;
+      if (direct[0]) return direct[0];
+
+      // 2. Domain fallback — look up the company's domain, then find any Leadinfo record with that domain
+      const companyRow = await db
+        .select({ websiteUrl: companies.websiteUrl, primaryDomain: companies.primaryDomain })
+        .from(companies)
+        .where(eq(companies.id, input.companyId))
+        .limit(1);
+
+      if (!companyRow[0]) return null;
+
+      const rawDomain =
+        companyRow[0].primaryDomain ||
+        companyRow[0].websiteUrl ||
+        "";
+      const domain = _normaliseDomain(rawDomain);
+      if (!domain) return null;
+
+      const byDomain = await db
+        .select()
+        .from(leadinfoVisits)
+        .where(eq(leadinfoVisits.domain, domain))
+        .orderBy(sql`${leadinfoVisits.engagementScore} DESC, ${leadinfoVisits.importedAt} DESC`)
+        .limit(1);
+
+      return byDomain[0] || null;
     }),
 
   /**
@@ -193,7 +220,7 @@ export const leadinfoRouter = router({
 
   /**
    * Get company IDs that have Leadinfo data for a given campaign.
-   * Used for badge rendering on SearchResults without loading full data.
+   * Combines direct companyId matches (same campaign) with domain-based cross-campaign matches.
    */
   getMatchedCompanyIds: protectedProcedure
     .input(z.object({ searchId: z.number() }))
@@ -201,17 +228,52 @@ export const leadinfoRouter = router({
       const db = await getDb();
       if (!db) return [];
 
-      const rows = await db
+      // 1. Direct matches — Leadinfo records already linked to this campaign's companies
+      const directRows = await db
         .select({ companyId: leadinfoVisits.companyId })
         .from(leadinfoVisits)
         .where(
           and(
             eq(leadinfoVisits.searchId, input.searchId),
-            sql`${leadinfoVisits.companyId} IS NOT NULL`
+            isNotNull(leadinfoVisits.companyId)
           )
         );
+      const directIds = new Set(directRows.map((r) => r.companyId!));
 
-      return rows.map((r) => r.companyId!);
+      // 2. Domain-based cross-campaign matches
+      // Get all domains that have ANY Leadinfo record
+      const allLeadinfoDomains = await db
+        .select({ domain: leadinfoVisits.domain })
+        .from(leadinfoVisits)
+        .where(isNotNull(leadinfoVisits.domain))
+        .groupBy(leadinfoVisits.domain);
+
+      const leadinfoDomainSet = new Set(
+        allLeadinfoDomains.map((r) => r.domain).filter(Boolean)
+      );
+
+      if (leadinfoDomainSet.size === 0) return Array.from(directIds);
+
+      // Find companies in this campaign whose domain matches a Leadinfo domain
+      const campaignCompanies = await db
+        .select({
+          id: companies.id,
+          websiteUrl: companies.websiteUrl,
+          primaryDomain: companies.primaryDomain,
+        })
+        .from(companies)
+        .where(eq(companies.searchId, input.searchId));
+
+      const crossIds = new Set<number>();
+      for (const c of campaignCompanies) {
+        if (directIds.has(c.id)) continue; // already included
+        const domain = _normaliseDomain(c.primaryDomain || c.websiteUrl || "");
+        if (domain && leadinfoDomainSet.has(domain)) {
+          crossIds.add(c.id);
+        }
+      }
+
+      return [...Array.from(directIds), ...Array.from(crossIds)];
     }),
 
   /**

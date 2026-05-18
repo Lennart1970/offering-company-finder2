@@ -1,0 +1,53 @@
+{
+  "build_command": "pnpm run build",
+  "capabilities": [
+    "db",
+    "server",
+    "user"
+  ],
+  "dev_command": "pnpm run dev",
+  "env_vars": {
+    "DATABASE_URL": "mysql://3y1Mn2sEwzJNeyq.043531d10524:6b058VwXLyfxzxR61HKZ@gateway02.us-east-1.prod.aws.tidbcloud.com:4000/jD7AgpCX9VGnkJhgqHKmjt?ssl={\"rejectUnauthorized\":true}"
+  },
+  "experiments": [
+    "no_db_push"
+  ],
+  "git_remote": {
+    "repo_url": "s3://vida-prod-gitrepo/webdev-git/310419663030791262/jD7AgpCX9VGnkJhgqHKmjt",
+    "access_key_id": "ASIAZV3A2ECZBYA4RBEP",
+    "secret_access_key": "rOed8cINjRI03Us1+CDVsgxmean1Rk0ZyPUHCBOa",
+    "session_token": "IQoJb3JpZ2luX2VjEPD//////////wEaCXVzLWVhc3QtMSJHMEUCIQDCfj2RWOPcgTjlBxDgPDoiLeGV7uYanq3a/aa0otcgjgIgf2N9KZz+kancp9yHLvgQMwMs6CSSalZkfL3qbOzaCdMq/wMIuf//////////ARAEGgw2NjUzODYwOTg4NjYiDMGirYI/xx//T+nY6irTA5LvN9FffFJsK4YpbxuPbyF8tMZ2foYnTiED1dLOdslB96uvRCLbqp6aGlc4Xd3US9ouqS3erDxvCLG1awYnSMCEoZsYckX+WPUHu9r2X9gwvsA9/Hh4F1Z8+xb6gMZV+SdsBXzShFUVti4HqomsKa3FNZWBxL//tKZXVu4Fl9pNtfEDJ7r93m2LBpoO8R4pCx6JKNFVRP/q72zjUhDp9OP8XHJJi4sAy2Vo8H9zwpfywhM4/W/aNaJlcX5zCB3mwPk5dL0LjGYZkeSt3Vjd7SO4viR/vDdV5XgH6lbISPuHYv2tnA0Ab3WXKxakb6lVeIS4m+dH/L41B+qwfhF82bV6joCDvMtPvxjhpoxL/5J3YUjL0hhmtIBWvZGXZq80P/VtbOiPpEdRw0o5t21828L4KB1/Xx3nF/nZlBS1A9Z+VwKy/AH/DN6YXOsz/jE3hcfzOiyJdyy9K7OwEuwUpZpPlJZfVTNitsPfMgl7ZMTLNJrYVsF6YcOEy9I9rL/ngV0vuARpl43Uq+OnorXYYB25YAZix/soClg0BRCuLRVznjTSKr7fcs3N3rhUE1Hawdz2e0oMr2oehJ2cL/30O2xrEmxL8mXruJkGvI5EiU8X1mjTMND9qtAGOp0Bh0l5afFGzAvWp6OpbGuQZTFksmyzh5c+3qx1WB8B/g3khrgxNpHvEGPgz7CfKWF3V9xDUmyxE4cTY/mCGvsJ2ToTTR1wlMUsDuBK8/HaCQan2jOmisdGaQxWYr3pvpRopq82H57419s8d+CgyCvJ/GmDGK49RCTKM3NvTfQ8q2QZpS10l3vPVntIY3YQdlae433klFGWtJmYhYu7aQ==",
+    "expiration": "2026-05-18T19:25:04.000Z"
+  },
+  "name": "offering-company-finder",
+  "path": "/home/ubuntu/offering-company-finder",
+  "port": 3000,
+  "secrets": {
+    "API_KEY": "cg-api-key-2026",
+    "APOLLO_API_KEY": "YzTo-JPr7LnomCgzidvg4w",
+    "APP_URL": "https://leadtrigger-connectgroup.com",
+    "BUILT_IN_FORGE_API_KEY": "JGJ7CAQeHFyTzzoehbKR9K",
+    "BUILT_IN_FORGE_API_URL": "https://forge.manus.ai",
+    "JWT_SECRET": "VnKtTxiPQknwfkrL4nkdAz",
+    "OAUTH_SERVER_URL": "https://api.manus.im",
+    "OPENAI_API_KEY": "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",
+    "OWNER_NAME": "Lennart van Bolderick",
+    "OWNER_OPEN_ID": "b9BWPoybthxBgdMofN9usE",
+    "SERPER_API_KEY": "64a9dbe3003ed7532acd6bf9f7eda7d9da0108f0",
+    "SUPABASE_SERVICE_ROLE_KEY": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inllb3dxeWVhZnlseW5hdnVmdWVvIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3MDQ1NTQ2MSwiZXhwIjoyMDg2MDMxNDYxfQ.64Xmk4XybiUcY4_GuTk6tWK0DiYLCtgU1XTR-1KWFic",
+    "SUPABASE_URL": "https://yeowqyeafylynavufueo.supabase.co",
+    "TELEGRAM_BOT_TOKEN": "8622253067:AAFgMNYbv6b5ag0Y1fe0G-ddPJI6Ouya-7A",
+    "TELEGRAM_CHAT_ID": "-5201172306",
+    "VITE_ANALYTICS_ENDPOINT": "https://manus-analytics.com",
+    "VITE_ANALYTICS_WEBSITE_ID": "2953dcee-ab76-4a76-af35-68419a1b972a",
+    "VITE_APP_ID": "jD7AgpCX9VGnkJhgqHKmjt",
+    "VITE_APP_LOGO": "https://files.manuscdn.com/user_upload_by_module/web_dev_logo/310419663030791262/nUrtsbWBaCuPJqZj.png",
+    "VITE_APP_TITLE": "Offering Company Finder",
+    "VITE_FRONTEND_FORGE_API_KEY": "Qme54tin7dTZii8wTrk9gx",
+    "VITE_FRONTEND_FORGE_API_URL": "https://forge.manus.ai",
+    "VITE_OAUTH_PORTAL_URL": "https://manus.im",
+    "XAI_API_KEY": "xai-zD1UvKGft0QfTgpZ4Q6CxMiDriZeBRrqJ8ymmL9fi5fvYsbb31aKi0IEo8knAQod0aNxkbVp1NPd8jfK"
+  },
+  "template_id": "web-db-user",
+  "test_command": "pnpm test"
+}

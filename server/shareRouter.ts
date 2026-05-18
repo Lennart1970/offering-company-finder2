@@ -5,7 +5,7 @@ import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { getDb } from "./db";
 import { createContact, getContactsByCompanyId } from "./db";
 import { inArray } from "drizzle-orm";
-import { getCachedToken, setCachedToken, getCachedList, setCachedList } from "./shareCache";
+import { getCachedToken, setCachedToken, getCachedList, setCachedList, invalidateToken } from "./shareCache";
 import { trickleDownSearch, getAllPersonnel } from "./apolloPeopleSearch";
 import {
   shareTokens,
@@ -90,8 +90,13 @@ export const shareRouter = router({
     .input(z.object({ token: z.string() }))
     .query(async ({ input }) => {
       // Check cache first — avoids DB queries + Serper API call
+      // Skip cache if it has no leadinfo data (domain-based fallback may now find it)
       const cached = getCachedToken(input.token);
-      if (cached) return cached;
+      if (cached && cached.leadinfo !== null) return cached;
+      if (cached) {
+        // Cached but leadinfo was null — invalidate so we re-query with domain fallback
+        invalidateToken(input.token);
+      }
 
       const db = await getDb();
       if (!db) throw new Error("Database unavailable");
@@ -138,10 +143,38 @@ export const shareRouter = router({
         .where(eq(contacts.companyId, tokenRow.companyId));
 
       // Fetch Leadinfo visit data for this company (if any)
-      const leadinfoRows = await db
+      // First try direct companyId match; if nothing found, fall back to domain-based match
+      let leadinfoRows = await db
         .select()
         .from(leadinfoVisits)
         .where(eq(leadinfoVisits.companyId, tokenRow.companyId));
+
+      if (leadinfoRows.length === 0 && company.websiteUrl) {
+        // Normalise domain: strip protocol, www., trailing slash
+        const normDomain = (url: string) =>
+          url.toLowerCase().replace(/^https?:\/\//, "").replace(/^\/\//, "").replace(/^www\./, "").split("/")[0].split("?")[0].replace(/\/$/, "");
+        const companyDomain = normDomain(company.websiteUrl);
+        if (companyDomain) {
+          // Find all companies sharing the same domain across all campaigns
+          const domainCompanies = await db
+            .select({ id: companies.id })
+            .from(companies)
+            .where(or(
+              eq(companies.websiteUrl, company.websiteUrl),
+              eq(companies.websiteUrl, `https://${companyDomain}`),
+              eq(companies.websiteUrl, `http://${companyDomain}`),
+              eq(companies.websiteUrl, `https://www.${companyDomain}`),
+              eq(companies.websiteUrl, `http://www.${companyDomain}`),
+            ));
+          const domainIds = domainCompanies.map(c => c.id);
+          if (domainIds.length > 0) {
+            leadinfoRows = await db
+              .select()
+              .from(leadinfoVisits)
+              .where(inArray(leadinfoVisits.companyId, domainIds));
+          }
+        }
+      }
       // Aggregate across all rows (a company may have multiple import batches)
       const leadinfoData = leadinfoRows.length > 0 ? {
         totalSessions: leadinfoRows.reduce((s, r) => s + (r.totalSessions ?? 0), 0),

@@ -161,7 +161,10 @@ function mapRowToCompany(
     briefGeneratedAt: null,
     salesApproachData: null,
     salesApproachGeneratedAt: null,
-    enrichmentStatus: "pending",
+    // Apollo CSV exports already contain enriched data (revenue, SIC codes, description,
+    // employees, etc.) — mark as enriched immediately so the scoring pipeline
+    // can process these companies without a separate Apollo API enrichment step.
+    enrichmentStatus: "enriched",
   };
 }
 

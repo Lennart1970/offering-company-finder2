@@ -21,6 +21,32 @@
 import { invokeLLM } from "./_core/llm";
 import { getActiveBrain, getOfferingBrainById } from "./db";
 
+// ── Safe parsers for brain fields that may be stored as plain text or JSON ────
+
+/**
+ * Parse a brain field that may be a JSON array string OR a plain comma-separated string.
+ * Returns an empty array if the value is null/undefined/empty.
+ */
+function safeParseStringArray(value: string | null | undefined): string[] {
+  if (!value || !value.trim()) return [];
+  const trimmed = value.trim();
+  if (trimmed.startsWith("[")) {
+    try { return JSON.parse(trimmed); } catch { /* fall through */ }
+  }
+  // Plain comma-separated or raw string — split and clean
+  return trimmed.split(",").map((s) => s.trim()).filter(Boolean);
+}
+
+/**
+ * Parse a brain field that should be a JSON object (e.g. fitCriteria, valuePropositions).
+ * Returns the fallback if parsing fails.
+ */
+function safeParseBrainField<T>(value: string | null | undefined, fallback: T): T {
+  if (!value || !value.trim()) return fallback;
+  const trimmed = value.trim();
+  try { return JSON.parse(trimmed); } catch { return fallback; }
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 export interface NicheScoreDimension {
@@ -75,16 +101,15 @@ export async function scoreNicheFit(
     throw new Error("No active Offering Brain found — cannot score niche fit without ICP criteria");
   }
 
-  // Parse brain fields
+  // Parse brain fields — use safe parsers to handle fields stored as plain text
+  // (not JSON arrays), which would otherwise throw "is not valid JSON" errors.
   const offeringSummary = brain.offeringSummary || "";
-  const coreCapabilities: string[] = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
-  const icpIndustries: string[] = brain.icpIndustries ? JSON.parse(brain.icpIndustries) : [];
-  const icpPainPoints: string[] = brain.icpPainPoints ? JSON.parse(brain.icpPainPoints) : [];
-  const icpBuyingSignals: string[] = brain.icpBuyingSignals ? JSON.parse(brain.icpBuyingSignals) : [];
-  const fitCriteria = brain.fitCriteria ? JSON.parse(brain.fitCriteria) : { mustHave: [], niceToHave: [], disqualifiers: [] };
-  const valuePropositions: Array<{ audience: string; value: string }> = brain.valuePropositions
-    ? JSON.parse(brain.valuePropositions)
-    : [];
+  const coreCapabilities: string[] = safeParseStringArray(brain.coreCapabilities);
+  const icpIndustries: string[] = safeParseStringArray(brain.icpIndustries);
+  const icpPainPoints: string[] = safeParseStringArray(brain.icpPainPoints);
+  const icpBuyingSignals: string[] = safeParseStringArray(brain.icpBuyingSignals);
+  const fitCriteria = safeParseBrainField(brain.fitCriteria, { mustHave: [], niceToHave: [], disqualifiers: [] });
+  const valuePropositions: Array<{ audience: string; value: string }> = safeParseBrainField(brain.valuePropositions, []);
 
   // Build niche profile string
   const nicheProfile = [

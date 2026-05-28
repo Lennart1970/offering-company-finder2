@@ -49,19 +49,9 @@ const navGroups: NavGroup[] = [
     items: [
       { icon: BrainCircuit, label: "Business Unit", path: "/brain" },
       { icon: List, label: "Search Results", path: "/search-results" },
-      { icon: LayoutList, label: "Sales Menu", path: "/sales-menu" },
       { icon: Zap, label: "Intelligence", path: "/intelligence" },
       { icon: Share2, label: "Shared Lists", path: "/share-lists" },
       { icon: Network, label: "Market Segments", path: "/niche-review" },
-      { icon: Crosshair, label: "Campaign from Business Unit", path: "/campaign-from-brain", superAdminOnly: true },
-      { icon: Zap, label: "Trigger Review", path: "/trigger-review", superAdminOnly: true },
-    ],
-  },
-  {
-    label: "CRM",
-    items: [
-      { icon: Phone, label: "Call Today", path: "/call-today" },
-      { icon: BookMarked, label: "Nurture List", path: "/nurture" },
     ],
   },
   {
@@ -70,14 +60,6 @@ const navGroups: NavGroup[] = [
       { icon: FileSpreadsheet, label: "Excel Import", path: "/excel-import" },
       { icon: Globe, label: "Leadinfo Import", path: "/leadinfo" },
       { icon: RefreshCw, label: "Sync", path: "/sync" },
-    ],
-  },
-  {
-    label: "Connect Group",
-    items: [
-      { icon: MapPin, label: "Market", path: "/cg-market" },
-      { icon: Building2, label: "Sites", path: "/cg-sites" },
-      { icon: Users, label: "Team", path: "/cg-team" },
     ],
   },
   {
@@ -95,6 +77,14 @@ const navGroups: NavGroup[] = [
     label: "Under Development",
     adminOnly: true,
     items: [
+      { icon: Phone, label: "Call Today", path: "/call-today" },
+      { icon: BookMarked, label: "Nurture List", path: "/nurture" },
+      { icon: LayoutList, label: "Sales Menu", path: "/sales-menu" },
+      { icon: Crosshair, label: "Campaign from Business Unit", path: "/campaign-from-brain" },
+      { icon: Zap, label: "Trigger Review", path: "/trigger-review" },
+      { icon: MapPin, label: "CG Market", path: "/cg-market" },
+      { icon: Building2, label: "CG Sites", path: "/cg-sites" },
+      { icon: Users, label: "CG Team", path: "/cg-team" },
       { icon: Camera, label: "Fast Prototype", path: "/fast-prototype" },
       { icon: Package, label: "Prototype Requests", path: "/prototype-requests" },
     ],

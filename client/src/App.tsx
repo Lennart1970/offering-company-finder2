@@ -6,8 +6,6 @@ import { useAuth } from "./_core/hooks/useAuth";
 import ErrorBoundary from "./components/ErrorBoundary";
 import { ThemeProvider } from "./contexts/ThemeContext";
 import DashboardLayout from "./components/DashboardLayout";
-import FocusedOffering from "./pages/FocusedOffering";
-import SearchScenario from "./pages/SearchScenario";
 import SearchResults from "./pages/SearchResults";
 import DeepResearchDashboard from "./pages/DeepResearchDashboard";
 import Exclusions from "./pages/Exclusions";
@@ -50,7 +48,6 @@ function Router() {
     <DashboardLayout>
       <Switch>
         <Route path={"/"} component={Brain} />
-        <Route path={"/search-scenario"} component={SearchScenario} />
         <Route path={"/sales-menu"} component={SalesMenu} />
         <Route path={"/sync"} component={SyncPage} />
         <Route path={"/intelligence"} component={IntelligencePage} />

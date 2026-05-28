@@ -185,13 +185,14 @@ Rules:
 
   console.log(`[Niche Fit Scorer] Scoring niche "${niche.name}" against brain "${brain.brainName}"...`);
 
-  const raw = await invokeLLM({
+  // Retry with exponential backoff to handle 429 rate-limit responses
+  const llmPayload = {
     messages: [
       { role: "system" as const, content: "You are a B2B sales qualification analyst. Return only valid JSON." },
       { role: "user" as const, content: prompt },
     ],
     response_format: {
-      type: "json_schema",
+      type: "json_schema" as const,
       json_schema: {
         name: "niche_fit_result",
         strict: true,
@@ -221,10 +222,30 @@ Rules:
         },
       },
     },
-  });
+  };
+
+  let raw: Awaited<ReturnType<typeof invokeLLM>>;
+  const MAX_RETRIES = 4;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      raw = await invokeLLM(llmPayload);
+      break; // success
+    } catch (err: any) {
+      const is429 = err?.status === 429 ||
+        (typeof err?.message === "string" && err.message.includes("429")) ||
+        (typeof err?.message === "string" && err.message.toLowerCase().includes("too many"));
+      if (is429 && attempt < MAX_RETRIES) {
+        const delayMs = Math.pow(2, attempt + 1) * 1000 + Math.random() * 500; // 2s, 4s, 8s, 16s
+        console.warn(`[Niche Fit Scorer] 429 rate limit — retrying in ${Math.round(delayMs / 1000)}s (attempt ${attempt + 1}/${MAX_RETRIES})`);
+        await new Promise((r) => setTimeout(r, delayMs));
+      } else {
+        throw err; // non-429 or exhausted retries
+      }
+    }
+  }
 
   // Parse the response
-  const rawContent = raw.choices?.[0]?.message?.content;
+  const rawContent = raw!.choices?.[0]?.message?.content;
   if (!rawContent) throw new Error("LLM returned empty response for niche fit scoring");
 
   // content can be string or array of content parts

@@ -6,22 +6,22 @@ import { toast } from "sonner";
 export default function SyncPage() {
   // ── Company Pages sync state ──────────────────────────────────────────────
   const [isSyncingPages, setIsSyncingPages] = useState(false);
-  const [pagesResult, setPagesResult] = useState<{ synced: number; errors: number; message: string } | null>(null);
+  const [pagesBackgroundRunning, setPagesBackgroundRunning] = useState(false);
 
-  const { data: pagesStats, refetch: refetchPagesStats } = trpc.companyFinder.getCompanyPagesSyncStats.useQuery(undefined, {
-    refetchOnWindowFocus: false,
-  });
+  const { data: pagesStats, refetch: refetchPagesStats, isFetching: isFetchingPagesStats } =
+    trpc.companyFinder.getCompanyPagesSyncStats.useQuery(undefined, {
+      refetchOnWindowFocus: false,
+    });
 
   const syncPagesMutation = trpc.companyFinder.syncCompanyPages.useMutation({
     onSuccess: (result) => {
-      setPagesResult(result);
       setIsSyncingPages(false);
-      refetchPagesStats();
-      if (result.errors > 0) {
-        toast.error(`Sync completed with ${result.errors} errors. ${result.synced} pages synced.`);
-      } else {
-        toast.success(result.message);
-      }
+      setPagesBackgroundRunning(true);
+      toast.info("⏳ Sync running in background — stats will update automatically");
+      // Auto-refresh every 30s for 3 minutes, then clear the "running" badge
+      const intervals = [30_000, 60_000, 90_000, 120_000, 150_000, 180_000];
+      intervals.forEach((ms) => setTimeout(() => refetchPagesStats(), ms));
+      setTimeout(() => setPagesBackgroundRunning(false), 180_000);
     },
     onError: (err) => {
       setIsSyncingPages(false);
@@ -31,28 +31,28 @@ export default function SyncPage() {
 
   function handleSyncPages() {
     setIsSyncingPages(true);
-    setPagesResult(null);
+    setPagesBackgroundRunning(false);
     syncPagesMutation.mutate({ appBaseUrl: window.location.origin });
   }
 
   // ── Companies sync state ──────────────────────────────────────────────────
   const [isSyncingCompanies, setIsSyncingCompanies] = useState(false);
-  const [companiesResult, setCompaniesResult] = useState<{ synced: number; errors: number; message: string } | null>(null);
+  const [companiesBackgroundRunning, setCompaniesBackgroundRunning] = useState(false);
 
-  const { data: companiesStats, refetch: refetchCompaniesStats } = trpc.companyFinder.getCompaniesTableSyncStats.useQuery(undefined, {
-    refetchOnWindowFocus: false,
-  });
+  const { data: companiesStats, refetch: refetchCompaniesStats, isFetching: isFetchingCompaniesStats } =
+    trpc.companyFinder.getCompaniesTableSyncStats.useQuery(undefined, {
+      refetchOnWindowFocus: false,
+    });
 
   const syncCompaniesMutation = trpc.companyFinder.syncAllCompanies.useMutation({
     onSuccess: (result) => {
-      setCompaniesResult(result);
       setIsSyncingCompanies(false);
-      refetchCompaniesStats();
-      if (result.errors > 0) {
-        toast.error(`Sync completed with ${result.errors} errors. ${result.synced} companies synced.`);
-      } else {
-        toast.success(result.message);
-      }
+      setCompaniesBackgroundRunning(true);
+      toast.info("⏳ Sync running in background — stats will update automatically");
+      // Auto-refresh every 30s for 4 minutes, then clear the "running" badge
+      const intervals = [30_000, 60_000, 90_000, 120_000, 150_000, 180_000, 210_000, 240_000];
+      intervals.forEach((ms) => setTimeout(() => refetchCompaniesStats(), ms));
+      setTimeout(() => setCompaniesBackgroundRunning(false), 240_000);
     },
     onError: (err) => {
       setIsSyncingCompanies(false);
@@ -62,7 +62,7 @@ export default function SyncPage() {
 
   function handleSyncCompanies() {
     setIsSyncingCompanies(true);
-    setCompaniesResult(null);
+    setCompaniesBackgroundRunning(false);
     syncCompaniesMutation.mutate();
   }
 
@@ -74,7 +74,7 @@ export default function SyncPage() {
         <h1 className="text-4xl font-black tracking-tight">Sync to Supabase</h1>
         <p className="mt-2 text-sm text-muted-foreground">
           Push LeadTrigger intelligence data to your Supabase project for use in Slack, Telegram, InsertChat, or any external tool.
-          Each table can be synced independently.
+          Each table can be synced independently. Syncs run in the background — the button returns immediately and stats refresh automatically.
         </p>
       </div>
 
@@ -132,19 +132,38 @@ export default function SyncPage() {
           ))}
         </div>
 
-        {/* Last sync info */}
-        {companiesStats?.lastSyncedAt && (
-          <div className="mb-4 text-xs text-muted-foreground">
-            Last synced: <span className="font-bold text-foreground">{new Date(companiesStats.lastSyncedAt).toLocaleString()}</span>
+        {/* Last sync info + Refresh button */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">
+            {companiesStats?.lastSyncedAt ? (
+              <>Last synced: <span className="font-bold text-foreground">{new Date(companiesStats.lastSyncedAt).toLocaleString()}</span></>
+            ) : (
+              <span className="italic">Never synced</span>
+            )}
           </div>
-        )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetchCompaniesStats()}
+            disabled={isFetchingCompaniesStats}
+            className="text-xs font-bold border-gray-300"
+          >
+            {isFetchingCompaniesStats ? (
+              <span className="flex items-center gap-1">
+                <span className="animate-spin inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full" />
+                Refreshing…
+              </span>
+            ) : (
+              "↻ Refresh Stats"
+            )}
+          </Button>
+        </div>
 
-        {/* Result banner */}
-        {companiesResult && (
-          <div className={`mb-4 border-2 px-4 py-3 text-sm font-bold ${companiesResult.errors > 0 ? "border-red-500 bg-red-50 text-red-700" : "border-blue-500 bg-blue-50 text-blue-800"}`}>
-            {companiesResult.errors > 0
-              ? `\u26A0 ${companiesResult.synced} synced, ${companiesResult.errors} errors`
-              : `\u2713 ${companiesResult.message}`}
+        {/* Background running badge */}
+        {companiesBackgroundRunning && (
+          <div className="mb-4 border-2 border-blue-400 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800 flex items-center gap-2">
+            <span className="animate-spin inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full shrink-0" />
+            Sync running in background — stats refresh automatically every 30s. This takes ~3 minutes for 4,000+ companies.
           </div>
         )}
 
@@ -157,15 +176,16 @@ export default function SyncPage() {
           {isSyncingCompanies ? (
             <span className="flex items-center gap-2">
               <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-              SYNCING COMPANIES...
+              STARTING SYNC…
             </span>
           ) : (
-            "\u26A1 SYNC COMPANIES"
+            "⚡ SYNC COMPANIES"
           )}
         </Button>
 
         <p className="mt-3 text-xs text-muted-foreground text-center">
           Upserts all researched companies with full intelligence data (urgency, fit, signals, contacts). Safe to run multiple times.
+          Runs in background — button returns immediately.
         </p>
       </div>
 
@@ -204,7 +224,7 @@ export default function SyncPage() {
             "fit_score",
             "urgency_label",
             "fit_label",
-            "page_url \u2192 LeadTrigger link",
+            "page_url → LeadTrigger link",
             "synced_at",
           ].map((col) => (
             <div key={col} className="flex items-center gap-1">
@@ -213,19 +233,38 @@ export default function SyncPage() {
           ))}
         </div>
 
-        {/* Last sync info */}
-        {pagesStats?.lastSyncedAt && (
-          <div className="mb-4 text-xs text-muted-foreground">
-            Last synced: <span className="font-bold text-foreground">{new Date(pagesStats.lastSyncedAt).toLocaleString()}</span>
+        {/* Last sync info + Refresh button */}
+        <div className="mb-4 flex items-center justify-between">
+          <div className="text-xs text-muted-foreground">
+            {pagesStats?.lastSyncedAt ? (
+              <>Last synced: <span className="font-bold text-foreground">{new Date(pagesStats.lastSyncedAt).toLocaleString()}</span></>
+            ) : (
+              <span className="italic">Never synced</span>
+            )}
           </div>
-        )}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => refetchPagesStats()}
+            disabled={isFetchingPagesStats}
+            className="text-xs font-bold border-gray-300"
+          >
+            {isFetchingPagesStats ? (
+              <span className="flex items-center gap-1">
+                <span className="animate-spin inline-block w-3 h-3 border-2 border-gray-400 border-t-transparent rounded-full" />
+                Refreshing…
+              </span>
+            ) : (
+              "↻ Refresh Stats"
+            )}
+          </Button>
+        </div>
 
-        {/* Result banner */}
-        {pagesResult && (
-          <div className={`mb-4 border-2 px-4 py-3 text-sm font-bold ${pagesResult.errors > 0 ? "border-red-500 bg-red-50 text-red-700" : "border-emerald-500 bg-emerald-50 text-emerald-800"}`}>
-            {pagesResult.errors > 0
-              ? `\u26A0 ${pagesResult.synced} synced, ${pagesResult.errors} errors`
-              : `\u2713 ${pagesResult.message}`}
+        {/* Background running badge */}
+        {pagesBackgroundRunning && (
+          <div className="mb-4 border-2 border-emerald-400 bg-emerald-50 px-4 py-3 text-sm font-bold text-emerald-800 flex items-center gap-2">
+            <span className="animate-spin inline-block w-4 h-4 border-2 border-emerald-600 border-t-transparent rounded-full shrink-0" />
+            Sync running in background — stats refresh automatically every 30s. This takes ~2 minutes.
           </div>
         )}
 
@@ -238,15 +277,16 @@ export default function SyncPage() {
           {isSyncingPages ? (
             <span className="flex items-center gap-2">
               <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-              SYNCING COMPANY PAGES...
+              STARTING SYNC…
             </span>
           ) : (
-            "\u26A1 SYNC COMPANY PAGES"
+            "⚡ SYNC COMPANY PAGES"
           )}
         </Button>
 
         <p className="mt-3 text-xs text-muted-foreground text-center">
           Upserts all researched companies as lightweight page links. Used by Intelligence page and external tools. Safe to run multiple times.
+          Runs in background — button returns immediately.
         </p>
       </div>
 

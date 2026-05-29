@@ -3608,11 +3608,20 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
     }),
 
   // Sync ALL researched companies to Supabase lt_mns_companies table
+  // Runs as a background job to avoid HTTP timeout (4000+ companies takes >3 min)
   syncAllCompanies: protectedProcedure
     .mutation(async () => {
-      const { syncAllCompaniesToSupabase } = await import("./supabaseSync");
-      const result = await syncAllCompaniesToSupabase();
-      return result;
+      // Fire-and-forget: kick off sync in background, return immediately
+      (async () => {
+        try {
+          const { syncAllCompaniesToSupabase } = await import("./supabaseSync");
+          const result = await syncAllCompaniesToSupabase();
+          console.log(`[SupabaseSync] syncAllCompanies complete: ${result.message}`);
+        } catch (e) {
+          console.error("[SupabaseSync] syncAllCompanies background error:", e instanceof Error ? e.message : String(e));
+        }
+      })();
+      return { synced: 0, errors: 0, message: "Sync started in background — check server logs or refresh stats in ~3 minutes" };
     }),
 
   // Get sync stats for lt_mns_companies table
@@ -3623,12 +3632,21 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
     }),
 
   // Sync all researched company pages to Supabase lt_mns_company_pages table
+  // Runs as a background job to avoid HTTP timeout
   syncCompanyPages: protectedProcedure
     .input(z.object({ appBaseUrl: z.string().optional() }).optional())
     .mutation(async ({ ctx, input }) => {
-      const { syncCompanyPagesToSupabase } = await import("./supabaseSync");
-      const result = await syncCompanyPagesToSupabase();
-      return result;
+      // Fire-and-forget: kick off sync in background, return immediately
+      (async () => {
+        try {
+          const { syncCompanyPagesToSupabase } = await import("./supabaseSync");
+          const result = await syncCompanyPagesToSupabase();
+          console.log(`[SupabaseSync] syncCompanyPages complete: ${result.message}`);
+        } catch (e) {
+          console.error("[SupabaseSync] syncCompanyPages background error:", e instanceof Error ? e.message : String(e));
+        }
+      })();
+      return { synced: 0, errors: 0, message: "Sync started in background — check server logs or refresh stats in ~2 minutes" };
     }),
 
   // Get last sync stats for the company pages table

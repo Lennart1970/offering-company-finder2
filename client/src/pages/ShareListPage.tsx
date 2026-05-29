@@ -152,6 +152,37 @@ export default function ShareListPage() {
     XLSX.writeFile(wb, `${listName.replace(/\s+/g, "-")}.xlsx`);
   }
 
+  // -- JSON download ----------------------------------------------------------
+  function handleDownloadJson() {
+    if (!data) return;
+    const listName = data.shareListName ?? "share-list";
+    const rows = displayCompanies.map((c: any) => ({
+      "Company Name": c.companyName,
+      "Campaign": listName,
+      "Website": c.website ?? "",
+      "Country": c.country ?? "",
+      "City": c.city ?? "",
+      "Employee Count": c.employeeCount ?? "",
+      "Sector": c.sector ?? "",
+      "Brain / ICP": c.brainName ?? "",
+      "Fit Score": c.fitScore ?? "",
+      "Urgency Score": c.urgencyScore ?? "",
+      "Key Signal": c.keySignal ?? "",
+      "Contact Name": c.contactName ?? "",
+      "Contact Title": c.contactTitle ?? "",
+      "Contact Email": c.contactEmail ?? "",
+      "Company Page": `${window.location.origin}/share/${c.token}`,
+    }));
+    // Plain array of objects — no hyperlink formatting, consumer handles links
+    const blob = new Blob([JSON.stringify(rows, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${listName.replace(/\s+/g, "-")}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   // -- Loading / error states --------------------------------------------------
   if (isLoading) {
     return (
@@ -212,6 +243,13 @@ export default function ShareListPage() {
               className="bg-black text-white hover:bg-gray-800 font-black text-xs px-4 py-2 h-auto"
             >
               ⬇ Download Excel
+            </Button>
+            <Button
+              onClick={handleDownloadJson}
+              variant="outline"
+              className="border-black text-black hover:bg-gray-100 font-black text-xs px-4 py-2 h-auto"
+            >
+              ⬇ Download JSON
             </Button>
           </div>
         </div>

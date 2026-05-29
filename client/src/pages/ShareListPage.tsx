@@ -122,8 +122,8 @@ export default function ShareListPage() {
     if (!data) return;
     const listName = data.shareListName ?? "share-list";
     const rows = displayCompanies.map((c: any) => ({
-      "List Name": listName,
       "Company Name": c.companyName,
+      "List Name": listName,
       Website: c.website,
       Country: c.country,
       City: c.city,

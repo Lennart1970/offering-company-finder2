@@ -120,7 +120,9 @@ export default function ShareListPage() {
   // -- Excel download ----------------------------------------------------------
   function handleDownloadExcel() {
     if (!data) return;
+    const listName = data.shareListName ?? "share-list";
     const rows = displayCompanies.map((c: any) => ({
+      "List Name": listName,
       "Company Name": c.companyName,
       Website: c.website,
       Country: c.country,
@@ -144,8 +146,9 @@ export default function ShareListPage() {
     ws["!cols"] = colWidths;
 
     const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Share List");
-    const listName = data.shareListName ?? "share-list";
+    // Sheet tab name: max 31 chars (Excel limit), strip invalid chars
+    const sheetName = listName.replace(/[\\/?*\[\]:]/g, "").substring(0, 31);
+    XLSX.utils.book_append_sheet(wb, ws, sheetName || "Share List");
     XLSX.writeFile(wb, `${listName.replace(/\s+/g, "-")}.xlsx`);
   }
 

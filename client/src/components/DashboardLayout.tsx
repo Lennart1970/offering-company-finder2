@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, LogOut, PanelLeft, BrainCircuit, FileSpreadsheet, Phone, ScrollText, Network, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook, UserPlus, BookMarked, Eye, FolderOpen, MapPin, Building2, Users, Activity, ChevronDown, Crosshair, Share2 } from "lucide-react";
+import { List, LogOut, PanelLeft, BrainCircuit, FileSpreadsheet, Phone, ScrollText, Network, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook, UserPlus, BookMarked, Eye, FolderOpen, MapPin, Building2, Users, Activity, ChevronDown, Crosshair, Share2, Table2 } from "lucide-react";
 import { CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -59,6 +59,7 @@ const navGroups: NavGroup[] = [
     items: [
       { icon: FileSpreadsheet, label: "Excel Import", path: "/excel-import" },
       { icon: Globe, label: "Leadinfo Import", path: "/leadinfo" },
+      { icon: Table2, label: "Raw Data", path: "/raw-data" },
       { icon: RefreshCw, label: "Sync", path: "/sync" },
     ],
   },
@@ -274,6 +275,9 @@ function DashboardLayoutContent({
     if (item.path === "/search-results") {
       return location.startsWith("/search-results");
     }
+    if (item.path === "/raw-data") {
+      return location.startsWith("/raw-data") || location.startsWith("/import-preview");
+    }
     if (item.path === "/call-today") {
       return location.startsWith("/call-today");
     }
@@ -319,6 +323,11 @@ function DashboardLayoutContent({
     // For Search Results, go to the listing page (no specific search)
     if (path === "/search-results") {
       setLocation("/search-results/select");
+      return;
+    }
+    // For Raw Data, go to the raw data listing page
+    if (path === "/raw-data") {
+      setLocation("/raw-data");
       return;
     }
     // For Call Today, navigate directly (cross-campaign queue, no search required)

@@ -42,6 +42,7 @@ import ShareListsPage from "./pages/ShareListsPage";
 import CampaignFromBrain from "./pages/CampaignFromBrain";
 import TriggerReview from "./pages/TriggerReview";
 import ImportPreview from "./pages/ImportPreview";
+import RawDataPage from "./pages/RawDataPage";
 
 
 function Router() {
@@ -55,6 +56,7 @@ function Router() {
         <Route path={"/search-results"} component={SearchResults} />
         <Route path={"/search-results/:searchId"} component={SearchResults} />
         <Route path={"/import-preview/:searchId"} component={ImportPreview} />
+        <Route path={"/raw-data"} component={RawDataPage} />
         <Route path={"/deep-research"} component={DeepResearchDashboard} />
         <Route path={"/exclusions"} component={Exclusions} />
         <Route path={"/import-campaign"} component={ImportCampaign} />

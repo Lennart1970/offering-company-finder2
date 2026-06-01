@@ -129,6 +129,40 @@ export async function scoreCompaniesAgainstAllBrains(
 }
 
 /**
+ * Persist all (company, brain) score pairs to lt_mns_company_brain_scores.
+ * Uses upsert so re-scoring overwrites previous results.
+ * This is the authoritative audit table — one row per (company_id, brain_id).
+ */
+export async function persistBrainScores(scores: BrainScore[]): Promise<void> {
+  if (scores.length === 0) return;
+  const sb = getSupabase();
+
+  const BATCH = 500;
+  const now = new Date().toISOString();
+
+  for (let i = 0; i < scores.length; i += BATCH) {
+    const batch = scores.slice(i, i + BATCH);
+    const rows = batch.map((s) => ({
+      company_id: s.companyUUID,
+      brain_id: s.brainId,
+      score: s.score,
+      scored_at: now,
+      method: "cosine-similarity-v1",
+    }));
+
+    const { error } = await sb
+      .from("lt_mns_company_brain_scores")
+      .upsert(rows, { onConflict: "company_id,brain_id" });
+
+    if (error) {
+      console.error(`[supabaseEmbeddings] Brain scores upsert error (batch ${i}–${i + BATCH}):`, error.message);
+    } else {
+      console.log(`[supabaseEmbeddings] Persisted ${rows.length} brain scores (batch ${Math.floor(i / BATCH) + 1})`);
+    }
+  }
+}
+
+/**
  * For each company, find the best Brain score and return a map of
  * companyId → { bestScore, allScores }
  */

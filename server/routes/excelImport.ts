@@ -23,7 +23,7 @@ import { sdk } from "../_core/sdk";
 import { createSearch, createCompanies, getDb, getCompaniesBySearchId } from "../db";
 import type { InsertCompany } from "../../drizzle/schema";
 import { generateEmbeddings } from "../embeddingService";
-import { persistCompanyEmbeddings, scoreCompaniesAgainstAllBrains, aggregateBrainScores } from "../supabaseEmbeddings";
+import { persistCompanyEmbeddings, scoreCompaniesAgainstAllBrains, persistBrainScores, aggregateBrainScores } from "../supabaseEmbeddings";
 
 const router = Router();
 
@@ -316,9 +316,13 @@ router.post("/", upload.single("file"), async (req: any, res: any) => {
 
         // 3. Score each company against all Brain embeddings
         const brainScores = await scoreCompaniesAgainstAllBrains(embeddings);
+
+        // 4. Persist all (company, brain) score pairs to lt_mns_company_brain_scores
+        await persistBrainScores(brainScores);
+
         const scoreMap = aggregateBrainScores(brainScores);
 
-        // 4. Write best Brain score back to companies.fitScore in MySQL
+        // 5. Write best Brain score back to companies.fitScore in MySQL (for display in existing UI)
         const dbConn = await getDb();
         if (dbConn && scoreMap.size > 0) {
           const { companies: companiesTable } = await import("../../drizzle/schema");

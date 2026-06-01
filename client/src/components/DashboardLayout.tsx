@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, LogOut, PanelLeft, BrainCircuit, FileSpreadsheet, Phone, ScrollText, Network, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook, UserPlus, BookMarked, Eye, FolderOpen, MapPin, Building2, Users, Activity, ChevronDown, Crosshair, Share2, Table2 } from "lucide-react";
+import { List, LogOut, PanelLeft, BrainCircuit, FileSpreadsheet, Phone, ScrollText, Network, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook, UserPlus, BookMarked, Eye, FolderOpen, MapPin, Building2, Users, Activity, ChevronDown, Crosshair, Share2, Table2, Database } from "lucide-react";
 import { CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -60,6 +60,7 @@ const navGroups: NavGroup[] = [
       { icon: FileSpreadsheet, label: "Excel Import", path: "/excel-import" },
       { icon: Globe, label: "Leadinfo Import", path: "/leadinfo" },
       { icon: Table2, label: "Raw Data", path: "/raw-data" },
+      { icon: Database, label: "Company Database", path: "/company-database" },
       { icon: RefreshCw, label: "Sync", path: "/sync" },
     ],
   },

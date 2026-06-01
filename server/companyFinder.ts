@@ -42,6 +42,10 @@ import {
   upsertCompanyBrainOutput,
   getCompanyBrainOutput,
   getCompanyBrainOutputsForSearch,
+  getCompanyDatabase,
+  countCompanyDatabase,
+  getCompanyDatabaseSearches,
+  getCompanyDatabaseCountries,
 } from "./db";
 // Brain and contacts-by-company imports are above with brainResearchService
 import { searchApolloContacts, searchApolloContacts as searchApolloContactsSingle, trickleDownSearch, getAllPersonnel, enrichPerson, SENIORITY_TIERS } from "./apolloPeopleSearch";
@@ -213,8 +217,63 @@ export const companyFinderRouter = router({
       };
     }),
 
+    // ── Company Database view (cross-campaign, scored) ──────────────────────────
+  getCompanyDb: protectedProcedure
+    .input(z.object({
+      page: z.number().optional().default(0),
+      pageSize: z.number().optional().default(100),
+      sortBy: z.enum(["name", "country", "city", "fitScore", "urgencyScore", "createdAt", "searchId"]).optional().default("fitScore"),
+      sortDir: z.enum(["asc", "desc"]).optional().default("desc"),
+      search: z.string().optional(),
+      searchId: z.number().optional(),
+      country: z.string().optional(),
+      minFitScore: z.number().optional(),
+      hasFitScore: z.boolean().optional(),
+    }))
+    .query(async ({ input }) => {
+      const offset = input.page * input.pageSize;
+      const [rows, total] = await Promise.all([
+        getCompanyDatabase({
+          limit: input.pageSize,
+          offset,
+          sortBy: input.sortBy as any,
+          sortDir: input.sortDir,
+          search: input.search || undefined,
+          searchId: input.searchId,
+          country: input.country || undefined,
+          minFitScore: input.minFitScore,
+          hasFitScore: input.hasFitScore,
+        }),
+        countCompanyDatabase({
+          search: input.search || undefined,
+          searchId: input.searchId,
+          country: input.country || undefined,
+          minFitScore: input.minFitScore,
+          hasFitScore: input.hasFitScore,
+        }),
+      ]);
+      return {
+        companies: rows,
+        pagination: {
+          page: input.page,
+          pageSize: input.pageSize,
+          total,
+          hasMore: offset + rows.length < total,
+        },
+      };
+    }),
+
+  getCompanyDbMeta: protectedProcedure
+    .query(async () => {
+      const [searches, countries] = await Promise.all([
+        getCompanyDatabaseSearches(),
+        getCompanyDatabaseCountries(),
+      ]);
+      return { searches, countries };
+    }),
+
   getSearch: protectedProcedure
-    .input(z.object({ searchId: z.number(), page: z.number().optional().default(0), pageSize: z.number().optional().default(100), brainId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? (typeof v === 'string' ? (isNaN(Number(v)) ? undefined : Number(v)) : v) : undefined) }))
+  .input(z.object({ searchId: z.number(), page: z.number().optional().default(0), pageSize: z.number().optional().default(100), brainId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? (typeof v === 'string' ? (isNaN(Number(v)) ? undefined : Number(v)) : v) : undefined) }))
     .query(async ({ ctx, input }) => {
       const search = await assertSearchAccess(input.searchId, ctx.user.id);
 

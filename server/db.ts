@@ -1092,3 +1092,133 @@ export async function getAllBrainOutputsForCompany(
     ));
   return rows as (CompanyBrainOutput & { brainName: string | null })[];
 }
+
+// ── Company Database view ─────────────────────────────────────────────────────
+// Cross-campaign query: all companies with fitScore, joined to search name.
+// Used by the /company-database page.
+
+export type CompanyDbSortBy = "name" | "country" | "city" | "fitScore" | "urgencyScore" | "createdAt" | "searchId";
+
+export async function getCompanyDatabase(opts: {
+  limit: number;
+  offset: number;
+  sortBy?: CompanyDbSortBy;
+  sortDir?: "asc" | "desc";
+  search?: string;
+  searchId?: number;
+  country?: string;
+  minFitScore?: number;
+  hasFitScore?: boolean;
+}) {
+  const { asc, desc, like, and, gte, isNotNull, or } = await import("drizzle-orm");
+  const db = await getDb();
+  if (!db) return [];
+
+  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, country, minFitScore, hasFitScore } = opts;
+
+  const conditions: Parameters<typeof and>[] = [];
+  if (search) conditions.push(like(companies.name, `%${search}%`) as any);
+  if (searchId) conditions.push(eq(companies.searchId, searchId) as any);
+  if (country) conditions.push(eq(companies.country, country) as any);
+  if (minFitScore !== undefined) conditions.push(gte(companies.fitScore, minFitScore) as any);
+  if (hasFitScore) conditions.push(isNotNull(companies.fitScore) as any);
+
+  const whereClause = conditions.length > 0 ? and(...(conditions as any)) : undefined;
+
+  const colMap: Record<CompanyDbSortBy, any> = {
+    name: companies.name,
+    country: companies.country,
+    city: companies.city,
+    fitScore: companies.fitScore,
+    urgencyScore: companies.urgencyScore,
+    createdAt: companies.createdAt,
+    searchId: companies.searchId,
+  };
+  const col = colMap[sortBy] ?? companies.fitScore;
+  const orderExpr = sortDir === "desc" ? desc(col) : asc(col);
+
+  const rows = await db
+    .select({
+      id: companies.id,
+      searchId: companies.searchId,
+      name: companies.name,
+      websiteUrl: companies.websiteUrl,
+      city: companies.city,
+      country: companies.country,
+      sliceMetadata: companies.sliceMetadata,
+      fitScore: companies.fitScore,
+      fitScoreData: companies.fitScoreData,
+      urgencyScore: companies.urgencyScore,
+      enrichmentStatus: companies.enrichmentStatus,
+      createdAt: companies.createdAt,
+      // Join search name
+      searchName: searches.location,
+    })
+    .from(companies)
+    .leftJoin(searches, eq(companies.searchId, searches.id))
+    .where(whereClause)
+    .orderBy(orderExpr)
+    .limit(limit)
+    .offset(offset);
+
+  return rows;
+}
+
+export async function countCompanyDatabase(opts: {
+  search?: string;
+  searchId?: number;
+  country?: string;
+  minFitScore?: number;
+  hasFitScore?: boolean;
+}) {
+  const { count, like, and, gte, isNotNull } = await import("drizzle-orm");
+  const db = await getDb();
+  if (!db) return 0;
+
+  const { search, searchId, country, minFitScore, hasFitScore } = opts;
+
+  const conditions: Parameters<typeof and>[] = [];
+  if (search) conditions.push(like(companies.name, `%${search}%`) as any);
+  if (searchId) conditions.push(eq(companies.searchId, searchId) as any);
+  if (country) conditions.push(eq(companies.country, country) as any);
+  if (minFitScore !== undefined) conditions.push(gte(companies.fitScore, minFitScore) as any);
+  if (hasFitScore) conditions.push(isNotNull(companies.fitScore) as any);
+
+  const whereClause = conditions.length > 0 ? and(...(conditions as any)) : undefined;
+
+  const result = await db
+    .select({ total: count() })
+    .from(companies)
+    .where(whereClause);
+  return result[0]?.total ?? 0;
+}
+
+export async function getCompanyDatabaseSearches() {
+  const db = await getDb();
+  if (!db) return [];
+  // Return all searches that have at least one company, for the campaign filter
+  const { count } = await import("drizzle-orm");
+  const rows = await db
+    .select({
+      id: searches.id,
+      location: searches.location,
+      companyCount: count(companies.id),
+    })
+    .from(searches)
+    .leftJoin(companies, eq(searches.id, companies.searchId))
+    .groupBy(searches.id)
+    .orderBy(searches.id);
+  return rows.filter(r => Number(r.companyCount) > 0);
+}
+
+export async function getCompanyDatabaseCountries() {
+  const db = await getDb();
+  if (!db) return [];
+  const { sql } = await import("drizzle-orm");
+  const rows = await db
+    .selectDistinct({ country: companies.country })
+    .from(companies)
+    .where(sql`${companies.country} IS NOT NULL AND ${companies.country} != ''`)
+    .orderBy(companies.country);
+  return rows.map(r => r.country).filter(Boolean) as string[];
+}

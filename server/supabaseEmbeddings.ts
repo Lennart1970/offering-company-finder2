@@ -82,6 +82,47 @@ export interface BrainScore {
 }
 
 /**
+ * Score a list of company embeddings against a SINGLE Brain embedding.
+ * Used on import to score against the active Brain only.
+ * Returns one BrainScore per company.
+ */
+export async function scoreCompaniesAgainstBrain(
+  embeddings: CompanyEmbedding[],
+  brainId: string
+): Promise<BrainScore[]> {
+  if (embeddings.length === 0) return [];
+  const sb = getSupabase();
+
+  const { data: brainRow, error } = await sb
+    .from("lt_mns_brain_embeddings")
+    .select("brain_id, embedding")
+    .eq("brain_id", brainId)
+    .single();
+
+  if (error || !brainRow) {
+    console.warn(`[supabaseEmbeddings] Brain embedding not found for brain_id=${brainId}:`, error?.message);
+    return [];
+  }
+
+  const brainVector = (typeof brainRow.embedding === "string"
+    ? JSON.parse(brainRow.embedding)
+    : brainRow.embedding) as number[];
+
+  console.log(`[supabaseEmbeddings] Scoring ${embeddings.length} companies against Brain ${brainId}`);
+
+  return embeddings.map((compEmb) => {
+    const similarity = cosineSimilarity(compEmb.embedding, brainVector);
+    const score = Math.round(((similarity + 1) / 2) * 100);
+    return {
+      companyId: compEmb.companyId,
+      companyUUID: toCompanyUUID(compEmb.companyId),
+      brainId,
+      score,
+    };
+  });
+}
+
+/**
  * Score a list of company embeddings against ALL Brain embeddings in Supabase.
  * Returns one BrainScore per (company, brain) pair.
  */

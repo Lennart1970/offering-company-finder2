@@ -20,10 +20,10 @@ import { Router } from "express";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import { sdk } from "../_core/sdk";
-import { createSearch, createCompanies, getDb, getCompaniesBySearchId } from "../db";
+import { createSearch, createCompanies, getDb, getCompaniesBySearchId, getActiveBrain } from "../db";
 import type { InsertCompany } from "../../drizzle/schema";
 import { generateEmbeddings } from "../embeddingService";
-import { persistCompanyEmbeddings, scoreCompaniesAgainstAllBrains, persistBrainScores, aggregateBrainScores } from "../supabaseEmbeddings";
+import { persistCompanyEmbeddings, scoreCompaniesAgainstBrain, persistBrainScores, aggregateBrainScores } from "../supabaseEmbeddings";
 
 const router = Router();
 
@@ -300,7 +300,7 @@ router.post("/", upload.single("file"), async (req: any, res: any) => {
       message: `Import complete. ${companyRows.length} companies saved directly from file — no Apollo API calls used.`,
     });
 
-    // ── Background: embed companies + score against all Brains ────────────────
+    // ── Background: embed companies + score against active Brain ─────────────
     // Fire-and-forget — does not block the NDJSON response
     setImmediate(async () => {
       try {
@@ -308,21 +308,30 @@ router.post("/", upload.single("file"), async (req: any, res: any) => {
         const allCompanies = await getCompaniesBySearchId(searchId);
         if (allCompanies.length === 0) return;
 
-        // 1. Generate embeddings for all companies
+        // 1. Fetch the active Brain (userId=1 is the owner; all users are super-admins)
+        const activeBrain = await getActiveBrain(1);
+        if (!activeBrain) {
+          console.warn(`[ExcelImport] No active Brain found — skipping scoring for search ${searchId}`);
+          return;
+        }
+        const activeBrainId = String(activeBrain.id);
+        console.log(`[ExcelImport] Active Brain: ${activeBrain.brainName} (id=${activeBrainId})`);
+
+        // 2. Generate embeddings for all companies
         const embeddings = await generateEmbeddings(allCompanies);
 
-        // 2. Persist embeddings to Supabase lt_mns_company_embeddings
+        // 3. Persist embeddings to Supabase lt_mns_company_embeddings
         await persistCompanyEmbeddings(embeddings);
 
-        // 3. Score each company against all Brain embeddings
-        const brainScores = await scoreCompaniesAgainstAllBrains(embeddings);
+        // 4. Score each company against the active Brain only
+        const brainScores = await scoreCompaniesAgainstBrain(embeddings, activeBrainId);
 
-        // 4. Persist all (company, brain) score pairs to lt_mns_company_brain_scores
+        // 5. Persist (company, brain) score pairs to lt_mns_company_brain_scores (audit table)
         await persistBrainScores(brainScores);
 
         const scoreMap = aggregateBrainScores(brainScores);
 
-        // 5. Write best Brain score back to companies.fitScore in MySQL (for display in existing UI)
+        // 6. Write score back to companies.fitScore in MySQL (for display in existing UI)
         const dbConn = await getDb();
         if (dbConn && scoreMap.size > 0) {
           const { companies: companiesTable } = await import("../../drizzle/schema");
@@ -332,11 +341,11 @@ router.post("/", upload.single("file"), async (req: any, res: any) => {
               .update(companiesTable)
               .set({
                 fitScore: bestScore,
-                fitScoreData: JSON.stringify({ brainScores: allScores, bestBrainId, method: "cosine-similarity" }),
+                fitScoreData: JSON.stringify({ brainScores: allScores, bestBrainId, method: "cosine-similarity-v1" }),
               })
               .where(eq(companiesTable.id, companyId));
           }
-          console.log(`[ExcelImport] Brain scores written for ${scoreMap.size} companies (search ${searchId})`);
+          console.log(`[ExcelImport] Scores written for ${scoreMap.size} companies against Brain ${activeBrainId} (search ${searchId})`);
         }
       } catch (bgErr: any) {
         console.error(`[ExcelImport] Background embedding/scoring error for search ${searchId}:`, bgErr.message);

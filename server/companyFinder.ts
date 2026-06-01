@@ -37,6 +37,7 @@ import {
   getLatestBatchJobForSearch,
   archiveSearch,
   getCompaniesBySearchIdPaged,
+  getCompaniesBySearchIdRaw,
   countCompaniesBySearchId,
   upsertCompanyBrainOutput,
   getCompanyBrainOutput,
@@ -183,6 +184,26 @@ export const companyFinderRouter = router({
     }),
 
   // Get search status and results (paginated — default 100 per page)
+  getSearchRaw: protectedProcedure
+    .input(z.object({ searchId: z.number(), page: z.number().optional().default(0), pageSize: z.number().optional().default(100) }))
+    .query(async ({ ctx, input }) => {
+      await assertSearchAccess(input.searchId, ctx.user.id);
+      const offset = input.page * input.pageSize;
+      const [rows, total] = await Promise.all([
+        getCompaniesBySearchIdRaw(input.searchId, input.pageSize, offset),
+        countCompaniesBySearchId(input.searchId),
+      ]);
+      return {
+        companies: rows,
+        pagination: {
+          page: input.page,
+          pageSize: input.pageSize,
+          total,
+          hasMore: offset + rows.length < total,
+        },
+      };
+    }),
+
   getSearch: protectedProcedure
     .input(z.object({ searchId: z.number(), page: z.number().optional().default(0), pageSize: z.number().optional().default(100), brainId: z.union([z.number(), z.string()]).optional().transform(v => v !== undefined ? (typeof v === 'string' ? (isNaN(Number(v)) ? undefined : Number(v)) : v) : undefined) }))
     .query(async ({ ctx, input }) => {

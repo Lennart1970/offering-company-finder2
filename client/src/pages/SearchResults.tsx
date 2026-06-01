@@ -153,7 +153,14 @@ export default function SearchResults() {
   const [showCallTodayOnly, setShowCallTodayOnly] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
   const [sortBy, setSortBy] = useState<"default" | "urgency" | "fit_urgency">("urgency");
-  const [viewMode, setViewMode] = useState<"list" | "card">("list");
+  const [viewMode, setViewMode] = useState<"list" | "card" | "raw">("list");
+  const [rawPage, setRawPage] = useState(0);
+  const RAW_PAGE_SIZE = 100;
+
+  const { data: rawData, isLoading: rawLoading } = trpc.companyFinder.getSearchRaw.useQuery(
+    { searchId: searchId!, page: rawPage, pageSize: RAW_PAGE_SIZE },
+    { enabled: !!searchId && viewMode === "raw" }
+  );
   const [enrichmentFilter, setEnrichmentFilter] = useState<"all" | "enriched" | "pending" | "outreach" | "visitors">("all");
   const [urgencyCtaAdded, setUrgencyCtaAdded] = useState(false);
   const [quickViewCompanyId, setQuickViewCompanyId] = useState<number | null>(null);
@@ -1283,11 +1290,103 @@ export default function SearchResults() {
                 viewMode === "card" ? "border-black bg-black text-white" : "border-gray-300 hover:border-black"
               }`}
             >▦ CARDS</button>
+            <button
+              onClick={() => { setViewMode("raw"); setRawPage(0); }}
+              className={`border-2 px-3 py-1 text-xs font-black transition-colors ${
+                viewMode === "raw" ? "border-black bg-black text-white" : "border-gray-300 hover:border-black"
+              }`}
+            >⊞ RAW</button>
           </div>
 
           </>}
-          {/* Company Cards / List */}
-          {viewMode === "list" ? (
+          {/* Company Cards / List / Raw */}
+          {viewMode === "raw" ? (
+            (() => {
+              // Raw view: server-side paginated, 100 rows per page, sorted by insert order
+              const pageRows = rawData?.companies ?? [];
+              const totalRaw = rawData?.pagination?.total ?? 0;
+              const pageStart = rawPage * RAW_PAGE_SIZE;
+              const totalPages = Math.ceil(totalRaw / RAW_PAGE_SIZE);
+              if (rawLoading) return (
+                <div className="border border-gray-200 p-8 text-center">
+                  <div className="w-6 h-6 border-2 border-black border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-xs font-mono text-gray-500">Loading raw data...</p>
+                </div>
+              );
+              return (
+                <div>
+                  <div className="text-xs text-gray-500 font-mono mb-2">
+                    Showing {pageStart + 1}–{Math.min(pageStart + pageRows.length, totalRaw)} of {totalRaw} companies
+                  </div>
+                  <div className="border border-gray-200 overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="bg-gray-50 border-b-2 border-gray-200">
+                          <th className="text-left px-3 py-2 font-black text-gray-500 w-8">#</th>
+                          <th className="text-left px-3 py-2 font-black text-gray-700">COMPANY</th>
+                          <th className="text-left px-3 py-2 font-black text-gray-700">WEBSITE</th>
+                          <th className="text-left px-3 py-2 font-black text-gray-700">COUNTRY</th>
+                          <th className="text-left px-3 py-2 font-black text-gray-700">CITY</th>
+                          <th className="text-left px-3 py-2 font-black text-gray-700">SECTOR</th>
+                          <th className="text-left px-3 py-2 font-black text-gray-700">EMPLOYEES</th>
+                          <th className="px-3 py-2 w-16"></th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-gray-100">
+                        {pageRows.map((company: any, idx: number) => {
+                          let industry = "";
+                          let employeeCount = "";
+                          try {
+                            const sm = company.sliceMetadata ? JSON.parse(company.sliceMetadata) : {};
+                            industry = sm.industry ?? "";
+                            employeeCount = sm.employeeCount ? String(sm.employeeCount) : "";
+                          } catch {}
+                          return (
+                            <tr
+                              key={company.id}
+                              className="hover:bg-gray-50 cursor-pointer"
+                              onClick={() => navigate(`/company/${company.id}?from=search/${searchId}`)}
+                            >
+                              <td className="px-3 py-2 text-gray-400 tabular-nums">{pageStart + idx + 1}</td>
+                              <td className="px-3 py-2 font-bold text-gray-900 max-w-[200px] truncate">{company.name}</td>
+                              <td className="px-3 py-2 text-gray-500 max-w-[160px] truncate">
+                                {company.websiteUrl?.replace(/^https?:\/\/(www\.)?/, "") ?? "—"}
+                              </td>
+                              <td className="px-3 py-2 text-gray-600">{company.country ?? "—"}</td>
+                              <td className="px-3 py-2 text-gray-600">{company.city ?? "—"}</td>
+                              <td className="px-3 py-2 text-gray-500 max-w-[140px] truncate">{industry || company.sector || "—"}</td>
+                              <td className="px-3 py-2 text-gray-500">{employeeCount || "—"}</td>
+                              <td className="px-3 py-2 text-right">
+                                <span className="text-gray-300 hover:text-gray-700 font-bold">→</span>
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between mt-3">
+                      <button
+                        onClick={() => setRawPage(p => Math.max(0, p - 1))}
+                        disabled={rawPage === 0}
+                        className="text-xs font-black border-2 border-black px-3 py-1 disabled:opacity-30 hover:bg-black hover:text-white transition-colors"
+                      >← PREV</button>
+                      <span className="text-xs font-mono text-gray-500">
+                        Page {rawPage + 1} / {totalPages}
+                      </span>
+                      <button
+                        onClick={() => setRawPage(p => Math.min(totalPages - 1, p + 1))}
+                        disabled={rawPage >= totalPages - 1}
+                        className="text-xs font-black border-2 border-black px-3 py-1 disabled:opacity-30 hover:bg-black hover:text-white transition-colors"
+                      >NEXT →</button>
+                    </div>
+                  )}
+                </div>
+              );
+            })()
+          ) : viewMode === "list" ? (
             <div className="border border-gray-200 divide-y divide-gray-100">
               {/* Select All header row */}
               {isSelectMode2 && (

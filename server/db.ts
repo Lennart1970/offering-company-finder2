@@ -248,6 +248,27 @@ export async function getCompaniesBySearchIdPaged(searchId: number, limit = 100,
     .offset(offset);
 }
 
+export async function getCompaniesBySearchIdRaw(searchId: number, limit: number, offset: number) {
+  const { asc } = await import("drizzle-orm");
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: companies.id,
+    name: companies.name,
+    websiteUrl: companies.websiteUrl,
+    city: companies.city,
+    state: companies.state,
+    country: companies.country,
+    enrichmentStatus: companies.enrichmentStatus,
+    sliceMetadata: companies.sliceMetadata,
+    createdAt: companies.createdAt,
+  }).from(companies)
+    .where(eq(companies.searchId, searchId))
+    .orderBy(asc(companies.id))
+    .limit(limit)
+    .offset(offset);
+}
+
 export async function countCompaniesBySearchId(searchId: number) {
   const { count } = await import("drizzle-orm");
   const db = await getDb();

@@ -20,8 +20,10 @@ import { Router } from "express";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import { sdk } from "../_core/sdk";
-import { createSearch, createCompanies, getDb } from "../db";
+import { createSearch, createCompanies, getDb, getCompaniesBySearchId } from "../db";
 import type { InsertCompany } from "../../drizzle/schema";
+import { generateEmbeddings } from "../embeddingService";
+import { persistCompanyEmbeddings, scoreCompaniesAgainstAllBrains, aggregateBrainScores } from "../supabaseEmbeddings";
 
 const router = Router();
 
@@ -297,6 +299,46 @@ router.post("/", upload.single("file"), async (req: any, res: any) => {
       isApolloExport,
       message: `Import complete. ${companyRows.length} companies saved directly from file — no Apollo API calls used.`,
     });
+
+    // ── Background: embed companies + score against all Brains ────────────────
+    // Fire-and-forget — does not block the NDJSON response
+    setImmediate(async () => {
+      try {
+        console.log(`[ExcelImport] Starting background embedding+scoring for search ${searchId}`);
+        const allCompanies = await getCompaniesBySearchId(searchId);
+        if (allCompanies.length === 0) return;
+
+        // 1. Generate embeddings for all companies
+        const embeddings = await generateEmbeddings(allCompanies);
+
+        // 2. Persist embeddings to Supabase lt_mns_company_embeddings
+        await persistCompanyEmbeddings(embeddings);
+
+        // 3. Score each company against all Brain embeddings
+        const brainScores = await scoreCompaniesAgainstAllBrains(embeddings);
+        const scoreMap = aggregateBrainScores(brainScores);
+
+        // 4. Write best Brain score back to companies.fitScore in MySQL
+        const dbConn = await getDb();
+        if (dbConn && scoreMap.size > 0) {
+          const { companies: companiesTable } = await import("../../drizzle/schema");
+          const { eq } = await import("drizzle-orm");
+          for (const [companyId, { bestScore, bestBrainId, allScores }] of Array.from(scoreMap.entries())) {
+            await dbConn
+              .update(companiesTable)
+              .set({
+                fitScore: bestScore,
+                fitScoreData: JSON.stringify({ brainScores: allScores, bestBrainId, method: "cosine-similarity" }),
+              })
+              .where(eq(companiesTable.id, companyId));
+          }
+          console.log(`[ExcelImport] Brain scores written for ${scoreMap.size} companies (search ${searchId})`);
+        }
+      } catch (bgErr: any) {
+        console.error(`[ExcelImport] Background embedding/scoring error for search ${searchId}:`, bgErr.message);
+      }
+    });
+
   } catch (err: any) {
     console.error("[Excel Import] Fatal error:", err.message);
     send({ error: err.message });

@@ -5,21 +5,60 @@ import { Button } from "@/components/ui/button";
 
 const PAGE_SIZE = 100;
 
+type SortKey = "name" | "country" | "city" | "sector" | "employees";
+type SortDir = "asc" | "desc";
+
 export default function ImportPreview() {
   const params = useParams<{ searchId: string }>();
   const searchId = parseInt(params.searchId, 10);
   const [, navigate] = useLocation();
   const [page, setPage] = useState(0);
+  const [sortKey, setSortKey] = useState<SortKey | null>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
+
+  function handleSort(key: SortKey) {
+    if (sortKey === key) {
+      setSortDir(d => d === "asc" ? "desc" : "asc");
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
+  }
+
+  function SortArrow({ col }: { col: SortKey }) {
+    if (sortKey !== col) return <span className="text-gray-300 ml-1">↕</span>;
+    return <span className="ml-1">{sortDir === "asc" ? "↑" : "↓"}</span>;
+  }
 
   const { data, isLoading } = trpc.companyFinder.getSearchRaw.useQuery(
     { searchId, page, pageSize: PAGE_SIZE },
     { enabled: !!searchId && !isNaN(searchId) }
   );
 
-  const rows = data?.companies ?? [];
+  const rawRows = data?.companies ?? [];
   const total = data?.pagination?.total ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
   const pageStart = page * PAGE_SIZE;
+
+  // Client-side sort within the current page
+  const rows = sortKey ? [...rawRows].sort((a: any, b: any) => {
+    let av = "", bv = "";
+    if (sortKey === "name") { av = a.name ?? ""; bv = b.name ?? ""; }
+    else if (sortKey === "country") { av = a.country ?? ""; bv = b.country ?? ""; }
+    else if (sortKey === "city") { av = a.city ?? ""; bv = b.city ?? ""; }
+    else if (sortKey === "sector" || sortKey === "employees") {
+      try {
+        const asm = a.sliceMetadata ? JSON.parse(a.sliceMetadata) : {};
+        const bsm = b.sliceMetadata ? JSON.parse(b.sliceMetadata) : {};
+        if (sortKey === "sector") { av = asm.industry ?? ""; bv = bsm.industry ?? ""; }
+        else { av = String(asm.employeeCount ?? 0); bv = String(bsm.employeeCount ?? 0); }
+      } catch {}
+    }
+    const cmp = sortKey === "employees"
+      ? Number(av) - Number(bv)
+      : av.localeCompare(bv, undefined, { sensitivity: "base" });
+    return sortDir === "asc" ? cmp : -cmp;
+  }) : rawRows;
 
   return (
     <div className="max-w-6xl">
@@ -66,12 +105,12 @@ export default function ImportPreview() {
               <thead>
                 <tr className="bg-gray-50 border-b-2 border-gray-200">
                   <th className="text-left px-3 py-2 font-black text-gray-500 w-8">#</th>
-                  <th className="text-left px-3 py-2 font-black text-gray-700">COMPANY</th>
+                  <th className="text-left px-3 py-2 font-black text-gray-700 cursor-pointer select-none hover:text-black" onClick={() => handleSort("name")}>COMPANY<SortArrow col="name" /></th>
                   <th className="text-left px-3 py-2 font-black text-gray-700">WEBSITE</th>
-                  <th className="text-left px-3 py-2 font-black text-gray-700">COUNTRY</th>
-                  <th className="text-left px-3 py-2 font-black text-gray-700">CITY</th>
-                  <th className="text-left px-3 py-2 font-black text-gray-700">SECTOR</th>
-                  <th className="text-left px-3 py-2 font-black text-gray-700">EMPLOYEES</th>
+                  <th className="text-left px-3 py-2 font-black text-gray-700 cursor-pointer select-none hover:text-black" onClick={() => handleSort("country")}>COUNTRY<SortArrow col="country" /></th>
+                  <th className="text-left px-3 py-2 font-black text-gray-700 cursor-pointer select-none hover:text-black" onClick={() => handleSort("city")}>CITY<SortArrow col="city" /></th>
+                  <th className="text-left px-3 py-2 font-black text-gray-700 cursor-pointer select-none hover:text-black" onClick={() => handleSort("sector")}>SECTOR<SortArrow col="sector" /></th>
+                  <th className="text-left px-3 py-2 font-black text-gray-700 cursor-pointer select-none hover:text-black" onClick={() => handleSort("employees")}>EMPLOYEES<SortArrow col="employees" /></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">

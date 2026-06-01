@@ -1097,7 +1097,7 @@ export async function getAllBrainOutputsForCompany(
 // Cross-campaign query: all companies with fitScore, joined to search name.
 // Used by the /company-database page.
 
-export type CompanyDbSortBy = "name" | "country" | "city" | "fitScore" | "urgencyScore" | "createdAt" | "searchId";
+export type CompanyDbSortBy = "name" | "country" | "city" | "fitScore" | "urgencyScore" | "createdAt" | "searchId" | "briefGeneratedAt" | "salesApproachGeneratedAt";
 
 export async function getCompanyDatabase(opts: {
   limit: number;
@@ -1109,12 +1109,15 @@ export async function getCompanyDatabase(opts: {
   country?: string;
   minFitScore?: number;
   hasFitScore?: boolean;
+  hasBrief?: boolean;
+  hasSalesApproach?: boolean;
+  articleFilter?: "any" | "brief" | "approach" | "both" | "none";
 }) {
-  const { asc, desc, like, and, gte, isNotNull, or } = await import("drizzle-orm");
+  const { asc, desc, like, and, gte, isNotNull, isNull } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return [];
 
-  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, country, minFitScore, hasFitScore } = opts;
+  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, country, minFitScore, hasFitScore, articleFilter } = opts;
 
   const conditions: Parameters<typeof and>[] = [];
   if (search) conditions.push(like(companies.name, `%${search}%`) as any);
@@ -1122,6 +1125,16 @@ export async function getCompanyDatabase(opts: {
   if (country) conditions.push(eq(companies.country, country) as any);
   if (minFitScore !== undefined) conditions.push(gte(companies.fitScore, minFitScore) as any);
   if (hasFitScore) conditions.push(isNotNull(companies.fitScore) as any);
+  if (articleFilter === "brief") conditions.push(isNotNull(companies.briefGeneratedAt) as any);
+  if (articleFilter === "approach") conditions.push(isNotNull(companies.salesApproachGeneratedAt) as any);
+  if (articleFilter === "both") {
+    conditions.push(isNotNull(companies.briefGeneratedAt) as any);
+    conditions.push(isNotNull(companies.salesApproachGeneratedAt) as any);
+  }
+  if (articleFilter === "none") {
+    conditions.push(isNull(companies.briefGeneratedAt) as any);
+    conditions.push(isNull(companies.salesApproachGeneratedAt) as any);
+  }
 
   const whereClause = conditions.length > 0 ? and(...(conditions as any)) : undefined;
 
@@ -1133,6 +1146,8 @@ export async function getCompanyDatabase(opts: {
     urgencyScore: companies.urgencyScore,
     createdAt: companies.createdAt,
     searchId: companies.searchId,
+    briefGeneratedAt: companies.briefGeneratedAt,
+    salesApproachGeneratedAt: companies.salesApproachGeneratedAt,
   };
   const col = colMap[sortBy] ?? companies.fitScore;
   const orderExpr = sortDir === "desc" ? desc(col) : asc(col);
@@ -1151,6 +1166,10 @@ export async function getCompanyDatabase(opts: {
       urgencyScore: companies.urgencyScore,
       enrichmentStatus: companies.enrichmentStatus,
       createdAt: companies.createdAt,
+      // Article status from companies table (legacy + current)
+      briefGeneratedAt: companies.briefGeneratedAt,
+      salesApproachGeneratedAt: companies.salesApproachGeneratedAt,
+      callReadinessSummary: companies.callReadinessSummary,
       // Join search name
       searchName: searches.location,
     })
@@ -1170,12 +1189,13 @@ export async function countCompanyDatabase(opts: {
   country?: string;
   minFitScore?: number;
   hasFitScore?: boolean;
+  articleFilter?: "any" | "brief" | "approach" | "both" | "none";
 }) {
-  const { count, like, and, gte, isNotNull } = await import("drizzle-orm");
+  const { count, like, and, gte, isNotNull, isNull } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return 0;
 
-  const { search, searchId, country, minFitScore, hasFitScore } = opts;
+  const { search, searchId, country, minFitScore, hasFitScore, articleFilter } = opts;
 
   const conditions: Parameters<typeof and>[] = [];
   if (search) conditions.push(like(companies.name, `%${search}%`) as any);
@@ -1183,6 +1203,16 @@ export async function countCompanyDatabase(opts: {
   if (country) conditions.push(eq(companies.country, country) as any);
   if (minFitScore !== undefined) conditions.push(gte(companies.fitScore, minFitScore) as any);
   if (hasFitScore) conditions.push(isNotNull(companies.fitScore) as any);
+  if (articleFilter === "brief") conditions.push(isNotNull(companies.briefGeneratedAt) as any);
+  if (articleFilter === "approach") conditions.push(isNotNull(companies.salesApproachGeneratedAt) as any);
+  if (articleFilter === "both") {
+    conditions.push(isNotNull(companies.briefGeneratedAt) as any);
+    conditions.push(isNotNull(companies.salesApproachGeneratedAt) as any);
+  }
+  if (articleFilter === "none") {
+    conditions.push(isNull(companies.briefGeneratedAt) as any);
+    conditions.push(isNull(companies.salesApproachGeneratedAt) as any);
+  }
 
   const whereClause = conditions.length > 0 ? and(...(conditions as any)) : undefined;
 

@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { trpc } from "@/lib/trpc";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
@@ -9,17 +9,38 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, ChevronUp, ChevronDown, ChevronsUpDown, ExternalLink, Database } from "lucide-react";
+import {
+  Search,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
+  ExternalLink,
+  Database,
+  FileText,
+  MessageSquare,
+  Phone,
+} from "lucide-react";
+import { useLocation } from "wouter";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
-type SortBy = "name" | "country" | "city" | "fitScore" | "urgencyScore" | "createdAt" | "searchId";
+type SortBy =
+  | "name"
+  | "country"
+  | "city"
+  | "fitScore"
+  | "urgencyScore"
+  | "createdAt"
+  | "searchId"
+  | "briefGeneratedAt"
+  | "salesApproachGeneratedAt";
 type SortDir = "asc" | "desc";
+type ArticleFilter = "any" | "brief" | "approach" | "both" | "none";
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fitBadge(score: number | null | undefined) {
-  if (score == null) return <span className="text-xs text-gray-400">—</span>;
+  if (score == null) return <span className="text-xs text-gray-300">—</span>;
   const cls =
     score >= 70
       ? "bg-green-100 text-green-800 border-green-200"
@@ -34,7 +55,7 @@ function fitBadge(score: number | null | undefined) {
 }
 
 function urgencyBadge(score: number | null | undefined) {
-  if (score == null) return <span className="text-xs text-gray-400">—</span>;
+  if (score == null) return <span className="text-xs text-gray-300">—</span>;
   const cls =
     score >= 70
       ? "bg-red-100 text-red-800 border-red-200"
@@ -45,6 +66,63 @@ function urgencyBadge(score: number | null | undefined) {
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${cls}`}>
       {score}
     </span>
+  );
+}
+
+function ArticleDots({
+  hasBrief,
+  hasApproach,
+  hasCallSummary,
+  briefDate,
+  approachDate,
+}: {
+  hasBrief: boolean;
+  hasApproach: boolean;
+  hasCallSummary: boolean;
+  briefDate?: Date | null;
+  approachDate?: Date | null;
+}) {
+  const fmt = (d: Date | null | undefined) =>
+    d ? new Date(d).toLocaleDateString(undefined, { day: "2-digit", month: "short", year: "2-digit" }) : null;
+
+  return (
+    <div className="flex items-center gap-1.5">
+      {/* Brief / Deep Research */}
+      <span
+        title={hasBrief ? `Brief generated ${fmt(briefDate)}` : "No brief yet"}
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border ${
+          hasBrief
+            ? "bg-blue-50 text-blue-700 border-blue-200"
+            : "bg-gray-50 text-gray-300 border-gray-200"
+        }`}
+      >
+        <FileText className="w-3 h-3" />
+        {hasBrief ? <span className="hidden sm:inline">Brief</span> : null}
+      </span>
+
+      {/* Sales Approach */}
+      <span
+        title={hasApproach ? `Approach generated ${fmt(approachDate)}` : "No sales approach yet"}
+        className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border ${
+          hasApproach
+            ? "bg-purple-50 text-purple-700 border-purple-200"
+            : "bg-gray-50 text-gray-300 border-gray-200"
+        }`}
+      >
+        <MessageSquare className="w-3 h-3" />
+        {hasApproach ? <span className="hidden sm:inline">Approach</span> : null}
+      </span>
+
+      {/* Call readiness */}
+      {hasCallSummary && (
+        <span
+          title="Call readiness summary available"
+          className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs border bg-teal-50 text-teal-700 border-teal-200"
+        >
+          <Phone className="w-3 h-3" />
+        </span>
+      )}
+    </div>
   );
 }
 
@@ -60,14 +138,17 @@ function getSector(sliceMetadata: string | null | undefined): string {
 
 function SortIcon({ col, sortBy, sortDir }: { col: SortBy; sortBy: SortBy; sortDir: SortDir }) {
   if (col !== sortBy) return <ChevronsUpDown className="w-3 h-3 ml-1 text-gray-400 inline" />;
-  return sortDir === "asc"
-    ? <ChevronUp className="w-3 h-3 ml-1 text-gray-700 inline" />
-    : <ChevronDown className="w-3 h-3 ml-1 text-gray-700 inline" />;
+  return sortDir === "asc" ? (
+    <ChevronUp className="w-3 h-3 ml-1 text-gray-700 inline" />
+  ) : (
+    <ChevronDown className="w-3 h-3 ml-1 text-gray-700 inline" />
+  );
 }
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function CompanyDatabase() {
+  const [, navigate] = useLocation();
   const [page, setPage] = useState(0);
   const [sortBy, setSortBy] = useState<SortBy>("fitScore");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -78,6 +159,7 @@ export default function CompanyDatabase() {
   const [selectedCountry, setSelectedCountry] = useState<string | undefined>(undefined);
   const [minFitScore, setMinFitScore] = useState<number | undefined>(undefined);
   const [hasFitScoreOnly, setHasFitScoreOnly] = useState(false);
+  const [articleFilter, setArticleFilter] = useState<ArticleFilter>("any");
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -85,53 +167,54 @@ export default function CompanyDatabase() {
       setDebouncedSearch(rawSearch);
       setPage(0);
     }, 350);
-    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+    return () => {
+      if (debounceRef.current) clearTimeout(debounceRef.current);
+    };
   }, [rawSearch]);
 
-  const search = debouncedSearch;
   const PAGE_SIZE = 100;
 
-  // Metadata: campaigns + countries for filter dropdowns
   const { data: meta } = trpc.companyFinder.getCompanyDbMeta.useQuery();
 
-  // Main data query
-  const { data, isFetching } = trpc.companyFinder.getCompanyDb.useQuery(
-    {
-      page,
-      pageSize: PAGE_SIZE,
-      sortBy,
-      sortDir,
-      search: search || undefined,
-      searchId: selectedSearchId,
-      country: selectedCountry || undefined,
-      minFitScore,
-      hasFitScore: hasFitScoreOnly || undefined,
-    },
-  );
+  const { data, isFetching } = trpc.companyFinder.getCompanyDb.useQuery({
+    page,
+    pageSize: PAGE_SIZE,
+    sortBy,
+    sortDir,
+    search: debouncedSearch || undefined,
+    searchId: selectedSearchId,
+    country: selectedCountry || undefined,
+    minFitScore,
+    hasFitScore: hasFitScoreOnly || undefined,
+    articleFilter: articleFilter === "any" ? undefined : articleFilter,
+  });
 
   const rows = data?.companies ?? [];
   const total = data?.pagination.total ?? 0;
   const totalPages = Math.ceil(total / PAGE_SIZE);
 
-  // Build campaign name map
   const campaignMap = useMemo(() => {
     const m = new Map<number, string>();
     (meta?.searches ?? []).forEach((s) => m.set(s.id, s.location || `Run #${s.id}`));
     return m;
   }, [meta]);
 
-  const handleSort = useCallback(
-    (col: SortBy) => {
-      if (col === sortBy) {
-        setSortDir((d) => (d === "asc" ? "desc" : "asc"));
-      } else {
-        setSortBy(col);
-        setSortDir(col === "fitScore" || col === "urgencyScore" ? "desc" : "asc");
-      }
-      setPage(0);
-    },
-    [sortBy]
-  );
+  // Article stats from current page
+  const articleStats = useMemo(() => {
+    const withBrief = rows.filter((r) => r.briefGeneratedAt).length;
+    const withApproach = rows.filter((r) => r.salesApproachGeneratedAt).length;
+    return { withBrief, withApproach };
+  }, [rows]);
+
+  const handleSort = (col: SortBy) => {
+    if (col === sortBy) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy(col);
+      setSortDir(["fitScore", "urgencyScore", "briefGeneratedAt", "salesApproachGeneratedAt"].includes(col) ? "desc" : "asc");
+    }
+    setPage(0);
+  };
 
   const resetFilters = () => {
     setRawSearch("");
@@ -139,12 +222,27 @@ export default function CompanyDatabase() {
     setSelectedCountry(undefined);
     setMinFitScore(undefined);
     setHasFitScoreOnly(false);
+    setArticleFilter("any");
     setPage(0);
   };
 
-  const hasFilters = rawSearch || selectedSearchId || selectedCountry || minFitScore !== undefined || hasFitScoreOnly;
+  const hasFilters =
+    rawSearch ||
+    selectedSearchId ||
+    selectedCountry ||
+    minFitScore !== undefined ||
+    hasFitScoreOnly ||
+    articleFilter !== "any";
 
-  const Th = ({ col, label, className = "" }: { col: SortBy; label: string; className?: string }) => (
+  const Th = ({
+    col,
+    label,
+    className = "",
+  }: {
+    col: SortBy;
+    label: string;
+    className?: string;
+  }) => (
     <th
       className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer select-none hover:text-gray-800 whitespace-nowrap ${className}`}
       onClick={() => handleSort(col)}
@@ -165,7 +263,9 @@ export default function CompanyDatabase() {
             {isFetching ? "Loading…" : `${total.toLocaleString()} companies`}
           </span>
         </div>
-        <p className="text-sm text-gray-500">All imported companies scored against the active Brain</p>
+        <p className="text-sm text-gray-500">
+          All imported companies · scored against active Brain · joined with created articles
+        </p>
       </div>
 
       {/* ── Filters ── */}
@@ -174,19 +274,22 @@ export default function CompanyDatabase() {
         <div className="relative">
           <Search className="absolute left-2.5 top-2.5 w-4 h-4 text-gray-400" />
           <Input
-            className="pl-8 h-8 w-56 text-sm"
+            className="pl-8 h-8 w-52 text-sm"
             placeholder="Search company name…"
             value={rawSearch}
-            onChange={(e) => { setRawSearch(e.target.value); setPage(0); }}
+            onChange={(e) => setRawSearch(e.target.value)}
           />
         </div>
 
-        {/* Campaign filter */}
+        {/* Campaign */}
         <Select
           value={selectedSearchId !== undefined ? String(selectedSearchId) : "all"}
-          onValueChange={(v) => { setSelectedSearchId(v === "all" ? undefined : Number(v)); setPage(0); }}
+          onValueChange={(v) => {
+            setSelectedSearchId(v === "all" ? undefined : Number(v));
+            setPage(0);
+          }}
         >
-          <SelectTrigger className="h-8 w-52 text-sm">
+          <SelectTrigger className="h-8 w-48 text-sm">
             <SelectValue placeholder="All campaigns" />
           </SelectTrigger>
           <SelectContent>
@@ -200,33 +303,41 @@ export default function CompanyDatabase() {
           </SelectContent>
         </Select>
 
-        {/* Country filter */}
+        {/* Country */}
         <Select
           value={selectedCountry || "all"}
-          onValueChange={(v) => { setSelectedCountry(v === "all" ? undefined : v); setPage(0); }}
+          onValueChange={(v) => {
+            setSelectedCountry(v === "all" ? undefined : v);
+            setPage(0);
+          }}
         >
-          <SelectTrigger className="h-8 w-44 text-sm">
+          <SelectTrigger className="h-8 w-40 text-sm">
             <SelectValue placeholder="All countries" />
           </SelectTrigger>
           <SelectContent className="max-h-64 overflow-y-auto">
             <SelectItem value="all">All countries</SelectItem>
             {(meta?.countries ?? []).map((c) => (
-              <SelectItem key={c} value={c}>{c}</SelectItem>
+              <SelectItem key={c} value={c}>
+                {c}
+              </SelectItem>
             ))}
           </SelectContent>
         </Select>
 
-        {/* Min FIT score */}
+        {/* Min FIT */}
         <Select
           value={minFitScore !== undefined ? String(minFitScore) : "any"}
-          onValueChange={(v) => { setMinFitScore(v === "any" ? undefined : Number(v)); setPage(0); }}
+          onValueChange={(v) => {
+            setMinFitScore(v === "any" ? undefined : Number(v));
+            setPage(0);
+          }}
         >
           <SelectTrigger className="h-8 w-36 text-sm">
-            <SelectValue placeholder="Min FIT score" />
+            <SelectValue placeholder="Min FIT" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="any">Any FIT score</SelectItem>
-            <SelectItem value="50">≥ 50 (medium+)</SelectItem>
+            <SelectItem value="any">Any FIT</SelectItem>
+            <SelectItem value="50">≥ 50</SelectItem>
             <SelectItem value="60">≥ 60</SelectItem>
             <SelectItem value="70">≥ 70 (high)</SelectItem>
             <SelectItem value="75">≥ 75</SelectItem>
@@ -234,9 +345,32 @@ export default function CompanyDatabase() {
           </SelectContent>
         </Select>
 
+        {/* Article filter */}
+        <Select
+          value={articleFilter}
+          onValueChange={(v) => {
+            setArticleFilter(v as ArticleFilter);
+            setPage(0);
+          }}
+        >
+          <SelectTrigger className="h-8 w-44 text-sm">
+            <SelectValue placeholder="Articles" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">All articles</SelectItem>
+            <SelectItem value="brief">Has brief</SelectItem>
+            <SelectItem value="approach">Has approach</SelectItem>
+            <SelectItem value="both">Has both</SelectItem>
+            <SelectItem value="none">No articles yet</SelectItem>
+          </SelectContent>
+        </Select>
+
         {/* Scored only toggle */}
         <button
-          onClick={() => { setHasFitScoreOnly(!hasFitScoreOnly); setPage(0); }}
+          onClick={() => {
+            setHasFitScoreOnly(!hasFitScoreOnly);
+            setPage(0);
+          }}
           className={`h-8 px-3 rounded text-xs font-medium border transition-colors ${
             hasFitScoreOnly
               ? "bg-gray-900 text-white border-gray-900"
@@ -247,9 +381,27 @@ export default function CompanyDatabase() {
         </button>
 
         {hasFilters && (
-          <button onClick={resetFilters} className="h-8 px-3 rounded text-xs text-gray-500 hover:text-gray-800 underline">
-            Clear filters
+          <button
+            onClick={resetFilters}
+            className="h-8 px-3 rounded text-xs text-gray-500 hover:text-gray-800 underline"
+          >
+            Clear
           </button>
+        )}
+
+        {/* Article stats pill */}
+        {rows.length > 0 && (
+          <div className="ml-auto flex items-center gap-3 text-xs text-gray-500">
+            <span className="flex items-center gap-1">
+              <FileText className="w-3 h-3 text-blue-500" />
+              {articleStats.withBrief} briefs
+            </span>
+            <span className="flex items-center gap-1">
+              <MessageSquare className="w-3 h-3 text-purple-500" />
+              {articleStats.withApproach} approaches
+            </span>
+            <span className="text-gray-300">on this page</span>
+          </div>
         )}
       </div>
 
@@ -258,22 +410,29 @@ export default function CompanyDatabase() {
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 bg-gray-50 z-10">
             <tr className="border-b border-gray-200">
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-8">#</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-8">
+                #
+              </th>
               <Th col="name" label="Company" className="min-w-[200px]" />
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Website</th>
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Website
+              </th>
               <Th col="country" label="Country" />
               <Th col="city" label="City" />
-              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Sector</th>
-              <Th col="fitScore" label="FIT" className="w-16 text-center" />
-              <Th col="urgencyScore" label="URG" className="w-16 text-center" />
-              <Th col="searchId" label="Campaign" className="min-w-[140px]" />
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                Sector
+              </th>
+              <Th col="fitScore" label="FIT" className="w-14 text-center" />
+              <Th col="urgencyScore" label="URG" className="w-14 text-center" />
+              <Th col="briefGeneratedAt" label="Articles" className="min-w-[160px]" />
+              <Th col="searchId" label="Campaign" className="min-w-[130px]" />
             </tr>
           </thead>
           <tbody>
             {isFetching && rows.length === 0 ? (
-              Array.from({ length: 10 }).map((_, i) => (
+              Array.from({ length: 12 }).map((_, i) => (
                 <tr key={i} className="border-b border-gray-100">
-                  {Array.from({ length: 9 }).map((_, j) => (
+                  {Array.from({ length: 10 }).map((_, j) => (
                     <td key={j} className="px-3 py-2">
                       <div className="h-4 bg-gray-100 rounded animate-pulse" />
                     </td>
@@ -282,53 +441,82 @@ export default function CompanyDatabase() {
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={9} className="px-6 py-12 text-center text-gray-400 text-sm">
+                <td colSpan={10} className="px-6 py-12 text-center text-gray-400 text-sm">
                   No companies found matching your filters.
                 </td>
               </tr>
             ) : (
-              rows.map((row, i) => (
-                <tr
-                  key={row.id}
-                  className="border-b border-gray-100 hover:bg-gray-50 transition-colors"
-                >
-                  <td className="px-3 py-2 text-xs text-gray-400 tabular-nums">
-                    {page * PAGE_SIZE + i + 1}
-                  </td>
-                  <td className="px-3 py-2 font-medium text-gray-900 max-w-[240px]">
-                    <span className="truncate block" title={row.name}>{row.name}</span>
-                  </td>
-                  <td className="px-3 py-2 text-gray-500">
-                    {row.websiteUrl ? (
-                      <a
-                        href={row.websiteUrl.startsWith("http") ? row.websiteUrl : `https://${row.websiteUrl}`}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="flex items-center gap-1 text-blue-600 hover:underline text-xs truncate max-w-[160px]"
+              rows.map((row, i) => {
+                const hasBrief = !!row.briefGeneratedAt;
+                const hasApproach = !!row.salesApproachGeneratedAt;
+                const hasCallSummary = !!row.callReadinessSummary;
+
+                return (
+                  <tr
+                    key={row.id}
+                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+                    onClick={() => navigate(`/company/${row.id}`)}
+                  >
+                    <td className="px-3 py-2 text-xs text-gray-400 tabular-nums">
+                      {page * PAGE_SIZE + i + 1}
+                    </td>
+                    <td className="px-3 py-2 font-medium text-gray-900 max-w-[240px]">
+                      <span className="truncate block" title={row.name}>
+                        {row.name}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-gray-500" onClick={(e) => e.stopPropagation()}>
+                      {row.websiteUrl ? (
+                        <a
+                          href={
+                            row.websiteUrl.startsWith("http")
+                              ? row.websiteUrl
+                              : `https://${row.websiteUrl}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="flex items-center gap-1 text-blue-600 hover:underline text-xs truncate max-w-[150px]"
+                        >
+                          {row.websiteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}
+                          <ExternalLink className="w-3 h-3 flex-shrink-0" />
+                        </a>
+                      ) : (
+                        <span className="text-gray-300 text-xs">—</span>
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">
+                      {row.country || "—"}
+                    </td>
+                    <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">
+                      {row.city || "—"}
+                    </td>
+                    <td className="px-3 py-2 text-gray-500 text-xs max-w-[150px]">
+                      <span className="truncate block" title={getSector(row.sliceMetadata)}>
+                        {getSector(row.sliceMetadata)}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 text-center">{fitBadge(row.fitScore)}</td>
+                    <td className="px-3 py-2 text-center">{urgencyBadge(row.urgencyScore)}</td>
+                    <td className="px-3 py-2">
+                      <ArticleDots
+                        hasBrief={hasBrief}
+                        hasApproach={hasApproach}
+                        hasCallSummary={hasCallSummary}
+                        briefDate={row.briefGeneratedAt}
+                        approachDate={row.salesApproachGeneratedAt}
+                      />
+                    </td>
+                    <td className="px-3 py-2 text-xs text-gray-500 max-w-[160px]">
+                      <span
+                        className="truncate block"
+                        title={campaignMap.get(row.searchId) ?? `Run #${row.searchId}`}
                       >
-                        {row.websiteUrl.replace(/^https?:\/\//, "").replace(/\/$/, "")}
-                        <ExternalLink className="w-3 h-3 flex-shrink-0" />
-                      </a>
-                    ) : (
-                      <span className="text-gray-300 text-xs">—</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{row.country || "—"}</td>
-                  <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">{row.city || "—"}</td>
-                  <td className="px-3 py-2 text-gray-500 text-xs max-w-[160px]">
-                    <span className="truncate block" title={getSector(row.sliceMetadata)}>
-                      {getSector(row.sliceMetadata)}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 text-center">{fitBadge(row.fitScore)}</td>
-                  <td className="px-3 py-2 text-center">{urgencyBadge(row.urgencyScore)}</td>
-                  <td className="px-3 py-2 text-xs text-gray-500 max-w-[180px]">
-                    <span className="truncate block" title={campaignMap.get(row.searchId) ?? `Run #${row.searchId}`}>
-                      {campaignMap.get(row.searchId) ?? `Run #${row.searchId}`}
-                    </span>
-                  </td>
-                </tr>
-              ))
+                        {campaignMap.get(row.searchId) ?? `Run #${row.searchId}`}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>

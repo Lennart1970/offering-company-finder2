@@ -222,13 +222,14 @@ export const companyFinderRouter = router({
     .input(z.object({
       page: z.number().optional().default(0),
       pageSize: z.number().optional().default(100),
-      sortBy: z.enum(["name", "country", "city", "fitScore", "urgencyScore", "createdAt", "searchId"]).optional().default("fitScore"),
+      sortBy: z.enum(["name", "country", "city", "fitScore", "urgencyScore", "createdAt", "searchId", "briefGeneratedAt", "salesApproachGeneratedAt"]).optional().default("fitScore"),
       sortDir: z.enum(["asc", "desc"]).optional().default("desc"),
       search: z.string().optional(),
       searchId: z.number().optional(),
       country: z.string().optional(),
       minFitScore: z.number().optional(),
       hasFitScore: z.boolean().optional(),
+      articleFilter: z.enum(["any", "brief", "approach", "both", "none"]).optional(),
     }))
     .query(async ({ input }) => {
       const offset = input.page * input.pageSize;
@@ -243,6 +244,7 @@ export const companyFinderRouter = router({
           country: input.country || undefined,
           minFitScore: input.minFitScore,
           hasFitScore: input.hasFitScore,
+          articleFilter: input.articleFilter,
         }),
         countCompanyDatabase({
           search: input.search || undefined,
@@ -250,6 +252,7 @@ export const companyFinderRouter = router({
           country: input.country || undefined,
           minFitScore: input.minFitScore,
           hasFitScore: input.hasFitScore,
+          articleFilter: input.articleFilter,
         }),
       ]);
       return {

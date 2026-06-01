@@ -252,7 +252,7 @@ export async function getCompaniesBySearchIdRaw(
   searchId: number,
   limit: number,
   offset: number,
-  sortBy: "name" | "country" | "city" | "id" = "id",
+  sortBy: "name" | "country" | "city" | "id" | "fitScore" = "id",
   sortDir: "asc" | "desc" = "asc",
   search?: string,
 ) {
@@ -270,6 +270,7 @@ export async function getCompaniesBySearchIdRaw(
     country: companies.country,
     city: companies.city,
     id: companies.id,
+    fitScore: companies.fitScore,
   } as const;
   const col = colMap[sortBy] ?? companies.id;
   const orderExpr = sortDir === "desc" ? desc(col) : asc(col);
@@ -283,6 +284,8 @@ export async function getCompaniesBySearchIdRaw(
     country: companies.country,
     enrichmentStatus: companies.enrichmentStatus,
     sliceMetadata: companies.sliceMetadata,
+    fitScore: companies.fitScore,
+    fitScoreData: companies.fitScoreData,
     createdAt: companies.createdAt,
   }).from(companies)
     .where(whereClause)

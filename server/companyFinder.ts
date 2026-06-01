@@ -191,7 +191,7 @@ export const companyFinderRouter = router({
       searchId: z.number(),
       page: z.number().optional().default(0),
       pageSize: z.number().optional().default(100),
-      sortBy: z.enum(["name", "country", "city", "id"]).optional().default("id"),
+      sortBy: z.enum(["name", "country", "city", "id", "fitScore"]).optional().default("id"),
       sortDir: z.enum(["asc", "desc"]).optional().default("asc"),
       search: z.string().optional(),
     }))
@@ -199,7 +199,7 @@ export const companyFinderRouter = router({
       await assertSearchAccess(input.searchId, ctx.user.id);
       const offset = input.page * input.pageSize;
       const [rows, total] = await Promise.all([
-        getCompaniesBySearchIdRaw(input.searchId, input.pageSize, offset, input.sortBy, input.sortDir, input.search || undefined),
+        getCompaniesBySearchIdRaw(input.searchId, input.pageSize, offset, input.sortBy as "name" | "country" | "city" | "id" | "fitScore", input.sortDir, input.search || undefined),
         countCompaniesBySearchId(input.searchId, input.search || undefined),
       ]);
       return {

@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const PAGE_SIZE = 100;
-type SortKey = "name" | "country" | "city" | "id";
+type SortKey = "name" | "country" | "city" | "id" | "fitScore";
 type SortDir = "asc" | "desc";
 
 export default function ImportPreview() {
@@ -140,6 +140,13 @@ export default function ImportPreview() {
               </th>
               <th className="text-left px-3 py-2 font-black text-gray-700">SECTOR</th>
               <th className="text-left px-3 py-2 font-black text-gray-700">EMPLOYEES</th>
+              <th
+                className="text-left px-3 py-2 font-black text-gray-700 cursor-pointer select-none hover:text-black"
+                onClick={() => handleSort("fitScore")}
+                title="Cosine similarity score against the active Brain"
+              >
+                FIT<SortArrow col="fitScore" />
+              </th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -180,6 +187,27 @@ export default function ImportPreview() {
                   <td className="px-3 py-2 text-gray-600">{company.city || <span className="text-gray-300">—</span>}</td>
                   <td className="px-3 py-2 text-gray-500">{industry || <span className="text-gray-300">—</span>}</td>
                   <td className="px-3 py-2 text-gray-500 text-right">{employeeCount || <span className="text-gray-300">—</span>}</td>
+                  <td className="px-3 py-2 text-right">
+                    {company.fitScore != null ? (
+                      <span
+                        className={`inline-block font-black text-xs px-2 py-0.5 rounded ${
+                          company.fitScore >= 70 ? 'bg-green-100 text-green-800' :
+                          company.fitScore >= 50 ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-gray-100 text-gray-600'
+                        }`}
+                        title={(() => {
+                          try {
+                            const d = JSON.parse(company.fitScoreData || '{}');
+                            return d.bestBrainId ? `Brain ${d.bestBrainId} · ${d.method ?? 'cosine-similarity'}` : '';
+                          } catch { return ''; }
+                        })()}
+                      >
+                        {company.fitScore}
+                      </span>
+                    ) : (
+                      <span className="text-gray-300">—</span>
+                    )}
+                  </td>
                 </tr>
               );
             })}

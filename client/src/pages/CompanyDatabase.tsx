@@ -19,6 +19,7 @@ import {
   FileText,
   MessageSquare,
   Phone,
+  Tag,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -126,16 +127,6 @@ function ArticleDots({
   );
 }
 
-function getSector(sliceMetadata: string | null | undefined): string {
-  if (!sliceMetadata) return "—";
-  try {
-    const m = JSON.parse(sliceMetadata);
-    return m.industry || "—";
-  } catch {
-    return "—";
-  }
-}
-
 function SortIcon({ col, sortBy, sortDir }: { col: SortBy; sortBy: SortBy; sortDir: SortDir }) {
   if (col !== sortBy) return <ChevronsUpDown className="w-3 h-3 ml-1 text-gray-400 inline" />;
   return sortDir === "asc" ? (
@@ -157,6 +148,7 @@ export default function CompanyDatabase() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedSearchId, setSelectedSearchId] = useState<number | undefined>(undefined);
   const [selectedCountry, setSelectedCountry] = useState<string | undefined>(undefined);
+  const [selectedSector, setSelectedSector] = useState<string | undefined>(undefined);
   const [minFitScore, setMinFitScore] = useState<number | undefined>(undefined);
   const [hasFitScoreOnly, setHasFitScoreOnly] = useState(false);
   const [articleFilter, setArticleFilter] = useState<ArticleFilter>("any");
@@ -184,6 +176,7 @@ export default function CompanyDatabase() {
     search: debouncedSearch || undefined,
     searchId: selectedSearchId,
     country: selectedCountry || undefined,
+    sector: selectedSector || undefined,
     minFitScore,
     hasFitScore: hasFitScoreOnly || undefined,
     articleFilter: articleFilter === "any" ? undefined : articleFilter,
@@ -220,6 +213,7 @@ export default function CompanyDatabase() {
     setRawSearch("");
     setSelectedSearchId(undefined);
     setSelectedCountry(undefined);
+    setSelectedSector(undefined);
     setMinFitScore(undefined);
     setHasFitScoreOnly(false);
     setArticleFilter("any");
@@ -230,6 +224,7 @@ export default function CompanyDatabase() {
     rawSearch ||
     selectedSearchId ||
     selectedCountry ||
+    selectedSector ||
     minFitScore !== undefined ||
     hasFitScoreOnly ||
     articleFilter !== "any";
@@ -319,6 +314,28 @@ export default function CompanyDatabase() {
             {(meta?.countries ?? []).map((c) => (
               <SelectItem key={c} value={c}>
                 {c}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        {/* Sector */}
+        <Select
+          value={selectedSector || "all"}
+          onValueChange={(v) => {
+            setSelectedSector(v === "all" ? undefined : v);
+            setPage(0);
+          }}
+        >
+          <SelectTrigger className="h-8 w-52 text-sm">
+            <SelectValue placeholder="All sectors" />
+          </SelectTrigger>
+          <SelectContent className="max-h-72 overflow-y-auto">
+            <SelectItem value="all">All sectors</SelectItem>
+            {(meta?.sectors ?? []).map((s) => (
+              <SelectItem key={s.sector} value={s.sector}>
+                <span className="capitalize">{s.sector}</span>
+                <span className="ml-1 text-gray-400 text-xs">({s.count.toLocaleString()})</span>
               </SelectItem>
             ))}
           </SelectContent>
@@ -490,10 +507,19 @@ export default function CompanyDatabase() {
                     <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">
                       {row.city || "—"}
                     </td>
-                    <td className="px-3 py-2 text-gray-500 text-xs max-w-[150px]">
-                      <span className="truncate block" title={getSector(row.sliceMetadata)}>
-                        {getSector(row.sliceMetadata)}
-                      </span>
+                    <td className="px-3 py-2 text-xs max-w-[150px]">
+                      {row.sector ? (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 text-xs cursor-pointer hover:bg-gray-200 transition-colors"
+                          title={`Filter by ${row.sector}`}
+                          onClick={(e) => { e.stopPropagation(); setSelectedSector(row.sector!); setPage(0); }}
+                        >
+                          <Tag className="w-2.5 h-2.5" />
+                          <span className="truncate capitalize max-w-[120px]">{row.sector}</span>
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-center">{fitBadge(row.fitScore)}</td>
                     <td className="px-3 py-2 text-center">{urgencyBadge(row.urgencyScore)}</td>

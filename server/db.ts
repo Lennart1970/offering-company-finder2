@@ -1107,6 +1107,7 @@ export async function getCompanyDatabase(opts: {
   search?: string;
   searchId?: number;
   country?: string;
+  sector?: string;
   minFitScore?: number;
   hasFitScore?: boolean;
   hasBrief?: boolean;
@@ -1117,12 +1118,13 @@ export async function getCompanyDatabase(opts: {
   const db = await getDb();
   if (!db) return [];
 
-  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, country, minFitScore, hasFitScore, articleFilter } = opts;
+  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, country, sector, minFitScore, hasFitScore, articleFilter } = opts;
 
   const conditions: Parameters<typeof and>[] = [];
   if (search) conditions.push(like(companies.name, `%${search}%`) as any);
   if (searchId) conditions.push(eq(companies.searchId, searchId) as any);
   if (country) conditions.push(eq(companies.country, country) as any);
+  if (sector) conditions.push(eq(companies.sector, sector) as any);
   if (minFitScore !== undefined) conditions.push(gte(companies.fitScore, minFitScore) as any);
   if (hasFitScore) conditions.push(isNotNull(companies.fitScore) as any);
   if (articleFilter === "brief") conditions.push(isNotNull(companies.briefGeneratedAt) as any);
@@ -1170,6 +1172,8 @@ export async function getCompanyDatabase(opts: {
       briefGeneratedAt: companies.briefGeneratedAt,
       salesApproachGeneratedAt: companies.salesApproachGeneratedAt,
       callReadinessSummary: companies.callReadinessSummary,
+      // Sector (dedicated column, backfilled from sliceMetadata.industry)
+      sector: companies.sector,
       // Join search name
       searchName: searches.location,
     })
@@ -1187,6 +1191,7 @@ export async function countCompanyDatabase(opts: {
   search?: string;
   searchId?: number;
   country?: string;
+  sector?: string;
   minFitScore?: number;
   hasFitScore?: boolean;
   articleFilter?: "any" | "brief" | "approach" | "both" | "none";
@@ -1195,12 +1200,13 @@ export async function countCompanyDatabase(opts: {
   const db = await getDb();
   if (!db) return 0;
 
-  const { search, searchId, country, minFitScore, hasFitScore, articleFilter } = opts;
+  const { search, searchId, country, sector, minFitScore, hasFitScore, articleFilter } = opts;
 
   const conditions: Parameters<typeof and>[] = [];
   if (search) conditions.push(like(companies.name, `%${search}%`) as any);
   if (searchId) conditions.push(eq(companies.searchId, searchId) as any);
   if (country) conditions.push(eq(companies.country, country) as any);
+  if (sector) conditions.push(eq(companies.sector, sector) as any);
   if (minFitScore !== undefined) conditions.push(gte(companies.fitScore, minFitScore) as any);
   if (hasFitScore) conditions.push(isNotNull(companies.fitScore) as any);
   if (articleFilter === "brief") conditions.push(isNotNull(companies.briefGeneratedAt) as any);
@@ -1251,4 +1257,21 @@ export async function getCompanyDatabaseCountries() {
     .where(sql`${companies.country} IS NOT NULL AND ${companies.country} != ''`)
     .orderBy(companies.country);
   return rows.map(r => r.country).filter(Boolean) as string[];
+}
+
+export async function getCompanyDatabaseSectors() {
+  const db = await getDb();
+  if (!db) return [];
+  const { count, isNotNull, sql } = await import("drizzle-orm");
+  // Use the dedicated sector column (indexed) for fast grouping
+  const rows = await db
+    .select({ sector: companies.sector, cnt: count() })
+    .from(companies)
+    .where(isNotNull(companies.sector))
+    .groupBy(companies.sector)
+    .orderBy(sql`count(*) desc`)
+    .limit(100);
+  return rows
+    .filter(r => r.sector && r.sector !== 'null')
+    .map(r => ({ sector: r.sector as string, count: Number(r.cnt) }));
 }

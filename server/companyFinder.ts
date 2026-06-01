@@ -46,6 +46,7 @@ import {
   countCompanyDatabase,
   getCompanyDatabaseSearches,
   getCompanyDatabaseCountries,
+  getCompanyDatabaseSectors,
 } from "./db";
 // Brain and contacts-by-company imports are above with brainResearchService
 import { searchApolloContacts, searchApolloContacts as searchApolloContactsSingle, trickleDownSearch, getAllPersonnel, enrichPerson, SENIORITY_TIERS } from "./apolloPeopleSearch";
@@ -227,6 +228,7 @@ export const companyFinderRouter = router({
       search: z.string().optional(),
       searchId: z.number().optional(),
       country: z.string().optional(),
+      sector: z.string().optional(),
       minFitScore: z.number().optional(),
       hasFitScore: z.boolean().optional(),
       articleFilter: z.enum(["any", "brief", "approach", "both", "none"]).optional(),
@@ -242,6 +244,7 @@ export const companyFinderRouter = router({
           search: input.search || undefined,
           searchId: input.searchId,
           country: input.country || undefined,
+          sector: input.sector || undefined,
           minFitScore: input.minFitScore,
           hasFitScore: input.hasFitScore,
           articleFilter: input.articleFilter,
@@ -250,6 +253,7 @@ export const companyFinderRouter = router({
           search: input.search || undefined,
           searchId: input.searchId,
           country: input.country || undefined,
+          sector: input.sector || undefined,
           minFitScore: input.minFitScore,
           hasFitScore: input.hasFitScore,
           articleFilter: input.articleFilter,
@@ -268,11 +272,12 @@ export const companyFinderRouter = router({
 
   getCompanyDbMeta: protectedProcedure
     .query(async () => {
-      const [searches, countries] = await Promise.all([
+      const [searches, countries, sectors] = await Promise.all([
         getCompanyDatabaseSearches(),
         getCompanyDatabaseCountries(),
+        getCompanyDatabaseSectors(),
       ]);
-      return { searches, countries };
+      return { searches, countries, sectors };
     }),
 
   getSearch: protectedProcedure

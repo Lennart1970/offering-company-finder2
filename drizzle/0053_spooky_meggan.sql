@@ -1,0 +1,1 @@
+ALTER TABLE `companies` ADD `sector` varchar(255);

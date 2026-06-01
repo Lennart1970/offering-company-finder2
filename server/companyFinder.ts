@@ -68,10 +68,12 @@ import { normalizeWebsiteUrl } from "../shared/urlUtils";
 import { selectIndustryCodes } from "./codeSelectionService";
 import { naicsMatchesHierarchically, sicMatchesHierarchically } from "../shared/naicsHierarchy";
 
-// Helper: check if user can access a search (owns it OR it's shared)
-async function assertSearchAccess(searchId: number, userId: number) {
+// Helper: check if user can access a search
+// All authenticated users on this system are trusted super-admins — any logged-in user
+// can read any search. Public share pages are controlled separately by share tokens.
+async function assertSearchAccess(searchId: number, _userId: number) {
   const search = await getSearchById(searchId);
-  if (!search || (search.userId !== userId && !search.sharedWithTeam)) {
+  if (!search) {
     throw new TRPCError({ code: "NOT_FOUND", message: "Search not found" });
   }
   return search;

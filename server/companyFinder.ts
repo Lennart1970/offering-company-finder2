@@ -47,6 +47,7 @@ import {
   getCompanyDatabaseSearches,
   getCompanyDatabaseCountries,
   getCompanyDatabaseSectors,
+  getCompanyDatabaseBrains,
 } from "./db";
 // Brain and contacts-by-company imports are above with brainResearchService
 import { searchApolloContacts, searchApolloContacts as searchApolloContactsSingle, trickleDownSearch, getAllPersonnel, enrichPerson, SENIORITY_TIERS } from "./apolloPeopleSearch";
@@ -223,12 +224,13 @@ export const companyFinderRouter = router({
     .input(z.object({
       page: z.number().optional().default(0),
       pageSize: z.number().optional().default(100),
-      sortBy: z.enum(["name", "country", "city", "fitScore", "urgencyScore", "createdAt", "searchId", "briefGeneratedAt", "salesApproachGeneratedAt"]).optional().default("fitScore"),
+      sortBy: z.enum(["name", "country", "city", "fitScore", "urgencyScore", "createdAt", "searchId", "briefGeneratedAt", "salesApproachGeneratedAt", "brainName"]).optional().default("fitScore"),
       sortDir: z.enum(["asc", "desc"]).optional().default("desc"),
       search: z.string().optional(),
       searchId: z.number().optional(),
       country: z.string().optional(),
       sector: z.string().optional(),
+      brainId: z.number().optional(),
       minFitScore: z.number().optional(),
       hasFitScore: z.boolean().optional(),
       articleFilter: z.enum(["any", "brief", "approach", "both", "none"]).optional(),
@@ -245,6 +247,7 @@ export const companyFinderRouter = router({
           searchId: input.searchId,
           country: input.country || undefined,
           sector: input.sector || undefined,
+          brainId: input.brainId,
           minFitScore: input.minFitScore,
           hasFitScore: input.hasFitScore,
           articleFilter: input.articleFilter,
@@ -254,6 +257,7 @@ export const companyFinderRouter = router({
           searchId: input.searchId,
           country: input.country || undefined,
           sector: input.sector || undefined,
+          brainId: input.brainId,
           minFitScore: input.minFitScore,
           hasFitScore: input.hasFitScore,
           articleFilter: input.articleFilter,
@@ -272,12 +276,13 @@ export const companyFinderRouter = router({
 
   getCompanyDbMeta: protectedProcedure
     .query(async () => {
-      const [searches, countries, sectors] = await Promise.all([
+      const [searches, countries, sectors, brains] = await Promise.all([
         getCompanyDatabaseSearches(),
         getCompanyDatabaseCountries(),
         getCompanyDatabaseSectors(),
+        getCompanyDatabaseBrains(),
       ]);
-      return { searches, countries, sectors };
+      return { searches, countries, sectors, brains };
     }),
 
   getSearch: protectedProcedure

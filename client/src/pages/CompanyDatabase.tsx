@@ -20,6 +20,7 @@ import {
   MessageSquare,
   Phone,
   Tag,
+  Brain,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -34,7 +35,8 @@ type SortBy =
   | "createdAt"
   | "searchId"
   | "briefGeneratedAt"
-  | "salesApproachGeneratedAt";
+  | "salesApproachGeneratedAt"
+  | "brainName";
 type SortDir = "asc" | "desc";
 type ArticleFilter = "any" | "brief" | "approach" | "both" | "none";
 
@@ -149,6 +151,7 @@ export default function CompanyDatabase() {
   const [selectedSearchId, setSelectedSearchId] = useState<number | undefined>(undefined);
   const [selectedCountry, setSelectedCountry] = useState<string | undefined>(undefined);
   const [selectedSector, setSelectedSector] = useState<string | undefined>(undefined);
+  const [selectedBrainId, setSelectedBrainId] = useState<number | undefined>(undefined);
   const [minFitScore, setMinFitScore] = useState<number | undefined>(undefined);
   const [hasFitScoreOnly, setHasFitScoreOnly] = useState(false);
   const [articleFilter, setArticleFilter] = useState<ArticleFilter>("any");
@@ -177,6 +180,7 @@ export default function CompanyDatabase() {
     searchId: selectedSearchId,
     country: selectedCountry || undefined,
     sector: selectedSector || undefined,
+    brainId: selectedBrainId,
     minFitScore,
     hasFitScore: hasFitScoreOnly || undefined,
     articleFilter: articleFilter === "any" ? undefined : articleFilter,
@@ -214,6 +218,7 @@ export default function CompanyDatabase() {
     setSelectedSearchId(undefined);
     setSelectedCountry(undefined);
     setSelectedSector(undefined);
+    setSelectedBrainId(undefined);
     setMinFitScore(undefined);
     setHasFitScoreOnly(false);
     setArticleFilter("any");
@@ -225,6 +230,7 @@ export default function CompanyDatabase() {
     selectedSearchId ||
     selectedCountry ||
     selectedSector ||
+    selectedBrainId ||
     minFitScore !== undefined ||
     hasFitScoreOnly ||
     articleFilter !== "any";
@@ -341,6 +347,28 @@ export default function CompanyDatabase() {
           </SelectContent>
         </Select>
 
+        {/* Brain / Business Unit */}
+        <Select
+          value={selectedBrainId !== undefined ? String(selectedBrainId) : "all"}
+          onValueChange={(v) => {
+            setSelectedBrainId(v === "all" ? undefined : Number(v));
+            setPage(0);
+          }}
+        >
+          <SelectTrigger className="h-8 w-56 text-sm">
+            <SelectValue placeholder="All brains" />
+          </SelectTrigger>
+          <SelectContent className="max-h-72 overflow-y-auto">
+            <SelectItem value="all">All brains / BU</SelectItem>
+            {(meta?.brains ?? []).map((b) => (
+              <SelectItem key={b.id} value={String(b.id)}>
+                <span className="truncate max-w-[180px]">{b.brainName}</span>
+                <span className="ml-1 text-gray-400 text-xs">({b.count.toLocaleString()})</span>
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {/* Min FIT */}
         <Select
           value={minFitScore !== undefined ? String(minFitScore) : "any"}
@@ -442,6 +470,7 @@ export default function CompanyDatabase() {
               <Th col="fitScore" label="FIT" className="w-14 text-center" />
               <Th col="urgencyScore" label="URG" className="w-14 text-center" />
               <Th col="briefGeneratedAt" label="Articles" className="min-w-[160px]" />
+              <Th col="brainName" label="Brain / BU" className="min-w-[160px]" />
               <Th col="searchId" label="Campaign" className="min-w-[130px]" />
             </tr>
           </thead>
@@ -531,6 +560,24 @@ export default function CompanyDatabase() {
                         briefDate={row.briefGeneratedAt}
                         approachDate={row.salesApproachGeneratedAt}
                       />
+                    </td>
+                    <td className="px-3 py-2 text-xs max-w-[180px]">
+                      {row.generatedWithBrainName ? (
+                        <span
+                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 text-xs cursor-pointer hover:bg-violet-100 transition-colors"
+                          title={`Filter by ${row.generatedWithBrainName}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setSelectedBrainId(row.generatedWithBrainId ?? undefined);
+                            setPage(0);
+                          }}
+                        >
+                          <Brain className="w-2.5 h-2.5 flex-shrink-0" />
+                          <span className="truncate max-w-[140px]">{row.generatedWithBrainName}</span>
+                        </span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-xs text-gray-500 max-w-[160px]">
                       <span

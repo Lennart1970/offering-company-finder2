@@ -1097,7 +1097,7 @@ export async function getAllBrainOutputsForCompany(
 // Cross-campaign query: all companies with fitScore, joined to search name.
 // Used by the /company-database page.
 
-export type CompanyDbSortBy = "name" | "country" | "city" | "fitScore" | "urgencyScore" | "createdAt" | "searchId" | "briefGeneratedAt" | "salesApproachGeneratedAt";
+export type CompanyDbSortBy = "name" | "country" | "city" | "fitScore" | "urgencyScore" | "createdAt" | "searchId" | "briefGeneratedAt" | "salesApproachGeneratedAt" | "brainName";
 
 export async function getCompanyDatabase(opts: {
   limit: number;
@@ -1108,17 +1108,18 @@ export async function getCompanyDatabase(opts: {
   searchId?: number;
   country?: string;
   sector?: string;
+  brainId?: number;
   minFitScore?: number;
   hasFitScore?: boolean;
   hasBrief?: boolean;
   hasSalesApproach?: boolean;
   articleFilter?: "any" | "brief" | "approach" | "both" | "none";
 }) {
-  const { asc, desc, like, and, gte, isNotNull, isNull } = await import("drizzle-orm");
+  const { asc, desc, like, and, gte, isNotNull, isNull, inArray, sql } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return [];
 
-  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, country, sector, minFitScore, hasFitScore, articleFilter } = opts;
+  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, country, sector, brainId, minFitScore, hasFitScore, articleFilter } = opts;
 
   const conditions: Parameters<typeof and>[] = [];
   if (search) conditions.push(like(companies.name, `%${search}%`) as any);
@@ -1127,6 +1128,14 @@ export async function getCompanyDatabase(opts: {
   if (sector) conditions.push(eq(companies.sector, sector) as any);
   if (minFitScore !== undefined) conditions.push(gte(companies.fitScore, minFitScore) as any);
   if (hasFitScore) conditions.push(isNotNull(companies.fitScore) as any);
+  // Brain filter: restrict to companies that have a company_brain_output for this brain
+  if (brainId) conditions.push(
+    inArray(companies.id,
+      db.select({ id: companyBrainOutputs.companyId })
+        .from(companyBrainOutputs)
+        .where(eq(companyBrainOutputs.brainId, brainId))
+    ) as any
+  );
   if (articleFilter === "brief") conditions.push(isNotNull(companies.briefGeneratedAt) as any);
   if (articleFilter === "approach") conditions.push(isNotNull(companies.salesApproachGeneratedAt) as any);
   if (articleFilter === "both") {
@@ -1150,6 +1159,7 @@ export async function getCompanyDatabase(opts: {
     searchId: companies.searchId,
     briefGeneratedAt: companies.briefGeneratedAt,
     salesApproachGeneratedAt: companies.salesApproachGeneratedAt,
+    brainName: companies.generatedWithBrainName,
   };
   const col = colMap[sortBy] ?? companies.fitScore;
   const orderExpr = sortDir === "desc" ? desc(col) : asc(col);
@@ -1174,6 +1184,9 @@ export async function getCompanyDatabase(opts: {
       callReadinessSummary: companies.callReadinessSummary,
       // Sector (dedicated column, backfilled from sliceMetadata.industry)
       sector: companies.sector,
+      // Brain used for last generation (denormalised for fast display)
+      generatedWithBrainId: companies.generatedWithBrainId,
+      generatedWithBrainName: companies.generatedWithBrainName,
       // Join search name
       searchName: searches.location,
     })
@@ -1192,15 +1205,16 @@ export async function countCompanyDatabase(opts: {
   searchId?: number;
   country?: string;
   sector?: string;
+  brainId?: number;
   minFitScore?: number;
   hasFitScore?: boolean;
   articleFilter?: "any" | "brief" | "approach" | "both" | "none";
 }) {
-  const { count, like, and, gte, isNotNull, isNull } = await import("drizzle-orm");
+  const { count, like, and, gte, isNotNull, isNull, inArray } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return 0;
 
-  const { search, searchId, country, sector, minFitScore, hasFitScore, articleFilter } = opts;
+  const { search, searchId, country, sector, brainId, minFitScore, hasFitScore, articleFilter } = opts;
 
   const conditions: Parameters<typeof and>[] = [];
   if (search) conditions.push(like(companies.name, `%${search}%`) as any);
@@ -1209,6 +1223,13 @@ export async function countCompanyDatabase(opts: {
   if (sector) conditions.push(eq(companies.sector, sector) as any);
   if (minFitScore !== undefined) conditions.push(gte(companies.fitScore, minFitScore) as any);
   if (hasFitScore) conditions.push(isNotNull(companies.fitScore) as any);
+  if (brainId) conditions.push(
+    inArray(companies.id,
+      db.select({ id: companyBrainOutputs.companyId })
+        .from(companyBrainOutputs)
+        .where(eq(companyBrainOutputs.brainId, brainId))
+    ) as any
+  );
   if (articleFilter === "brief") conditions.push(isNotNull(companies.briefGeneratedAt) as any);
   if (articleFilter === "approach") conditions.push(isNotNull(companies.salesApproachGeneratedAt) as any);
   if (articleFilter === "both") {
@@ -1274,4 +1295,26 @@ export async function getCompanyDatabaseSectors() {
   return rows
     .filter(r => r.sector && r.sector !== 'null')
     .map(r => ({ sector: r.sector as string, count: Number(r.cnt) }));
+}
+
+export async function getCompanyDatabaseBrains() {
+  const db = await getDb();
+  if (!db) return [];
+  const { count, sql } = await import("drizzle-orm");
+  // Return brains that have at least one company_brain_output, with company count
+  const rows = await db
+    .select({
+      id: offeringBrain.id,
+      brainName: offeringBrain.brainName,
+      cnt: count(companyBrainOutputs.companyId),
+    })
+    .from(offeringBrain)
+    .innerJoin(companyBrainOutputs, eq(offeringBrain.id, companyBrainOutputs.brainId))
+    .groupBy(offeringBrain.id)
+    .orderBy(sql`count(${companyBrainOutputs.companyId}) desc`);
+  return rows.map(r => ({
+    id: r.id,
+    brainName: r.brainName,
+    count: Number(r.cnt),
+  }));
 }

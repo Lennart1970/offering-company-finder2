@@ -117,6 +117,7 @@ export const nicheRouter = router({
         console.log(`[nicheRouter] [${groupLabel}] Running k-means clustering (targetGroupSize=${input.targetGroupSize ?? 'auto'})...`);
         const groupClusters = await clusterCompanies(groupEmbeddings, groupCompanies, {
           targetGroupSize: input.targetGroupSize,
+          seedSampleSize: groupCompanies.length, // full-corpus: use ALL companies, no stratified sampling
         });
 
         // Persist niches with group label prefix
@@ -166,7 +167,10 @@ export const nicheRouter = router({
         // Both groups too small — cluster everything together (no pre-split)
         console.log(`[nicheRouter] Both groups too small for independent clustering — clustering all together`);
         const embeddings = await generateEmbeddings(allCompanies);
-        const clusters = await clusterCompanies(embeddings, allCompanies, { targetGroupSize: input.targetGroupSize });
+        const clusters = await clusterCompanies(embeddings, allCompanies, {
+          targetGroupSize: input.targetGroupSize,
+          seedSampleSize: allCompanies.length, // full-corpus: use ALL companies, no stratified sampling
+        });
         const nicheIds: number[] = [];
         for (const cluster of clusters) {
           const id = await createNiche({

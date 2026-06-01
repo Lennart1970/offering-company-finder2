@@ -1114,12 +1114,15 @@ export async function getCompanyDatabase(opts: {
   hasBrief?: boolean;
   hasSalesApproach?: boolean;
   articleFilter?: "any" | "brief" | "approach" | "both" | "none";
+  cgBusinessUnit?: string;
+  cgLeadClass?: string;
+  cgLeadOrigin?: string;
 }) {
   const { asc, desc, like, and, gte, isNotNull, isNull, inArray, sql } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return [];
 
-  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, country, sector, brainId, minFitScore, hasFitScore, articleFilter } = opts;
+  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, country, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin } = opts;
 
   const conditions: Parameters<typeof and>[] = [];
   if (search) conditions.push(like(companies.name, `%${search}%`) as any);
@@ -1136,6 +1139,9 @@ export async function getCompanyDatabase(opts: {
         .where(eq(companyBrainOutputs.brainId, brainId))
     ) as any
   );
+  if (cgBusinessUnit) conditions.push(eq(companies.cgBusinessUnit, cgBusinessUnit) as any);
+  if (cgLeadClass) conditions.push(eq(companies.cgLeadClass, cgLeadClass) as any);
+  if (cgLeadOrigin) conditions.push(eq(companies.cgLeadOrigin, cgLeadOrigin) as any);
   if (articleFilter === "brief") conditions.push(isNotNull(companies.briefGeneratedAt) as any);
   if (articleFilter === "approach") conditions.push(isNotNull(companies.salesApproachGeneratedAt) as any);
   if (articleFilter === "both") {
@@ -1187,12 +1193,24 @@ export async function getCompanyDatabase(opts: {
       // Brain used for last generation (denormalised for fast display)
       generatedWithBrainId: companies.generatedWithBrainId,
       generatedWithBrainName: companies.generatedWithBrainName,
+      // All brain names from company_brain_outputs (GROUP_CONCAT for multi-badge display)
+      allBrainNames: sql<string>`GROUP_CONCAT(DISTINCT ${offeringBrain.brainName} ORDER BY ${offeringBrain.brainName} SEPARATOR '||')`,
+      // CG CRM fields
+      cgBusinessUnit: companies.cgBusinessUnit,
+      cgSalesManager: companies.cgSalesManager,
+      cgLeadClass: companies.cgLeadClass,
+      cgLeadOrigin: companies.cgLeadOrigin,
+      cgMarket: companies.cgMarket,
+      cgImportedAt: companies.cgImportedAt,
       // Join search name
       searchName: searches.location,
     })
     .from(companies)
     .leftJoin(searches, eq(companies.searchId, searches.id))
+    .leftJoin(companyBrainOutputs, eq(companies.id, companyBrainOutputs.companyId))
+    .leftJoin(offeringBrain, eq(companyBrainOutputs.brainId, offeringBrain.id))
     .where(whereClause)
+    .groupBy(companies.id)
     .orderBy(orderExpr)
     .limit(limit)
     .offset(offset);
@@ -1209,12 +1227,15 @@ export async function countCompanyDatabase(opts: {
   minFitScore?: number;
   hasFitScore?: boolean;
   articleFilter?: "any" | "brief" | "approach" | "both" | "none";
+  cgBusinessUnit?: string;
+  cgLeadClass?: string;
+  cgLeadOrigin?: string;
 }) {
   const { count, like, and, gte, isNotNull, isNull, inArray } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return 0;
 
-  const { search, searchId, country, sector, brainId, minFitScore, hasFitScore, articleFilter } = opts;
+  const { search, searchId, country, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin } = opts;
 
   const conditions: Parameters<typeof and>[] = [];
   if (search) conditions.push(like(companies.name, `%${search}%`) as any);
@@ -1230,6 +1251,9 @@ export async function countCompanyDatabase(opts: {
         .where(eq(companyBrainOutputs.brainId, brainId))
     ) as any
   );
+  if (cgBusinessUnit) conditions.push(eq(companies.cgBusinessUnit, cgBusinessUnit) as any);
+  if (cgLeadClass) conditions.push(eq(companies.cgLeadClass, cgLeadClass) as any);
+  if (cgLeadOrigin) conditions.push(eq(companies.cgLeadOrigin, cgLeadOrigin) as any);
   if (articleFilter === "brief") conditions.push(isNotNull(companies.briefGeneratedAt) as any);
   if (articleFilter === "approach") conditions.push(isNotNull(companies.salesApproachGeneratedAt) as any);
   if (articleFilter === "both") {
@@ -1317,4 +1341,43 @@ export async function getCompanyDatabaseBrains() {
     brainName: r.brainName,
     count: Number(r.cnt),
   }));
+}
+
+export async function getCompanyDatabaseCgBusinessUnits() {
+  const db = await getDb();
+  if (!db) return [];
+  const { count, isNotNull, sql } = await import("drizzle-orm");
+  const rows = await db
+    .select({ bu: companies.cgBusinessUnit, cnt: count() })
+    .from(companies)
+    .where(isNotNull(companies.cgBusinessUnit))
+    .groupBy(companies.cgBusinessUnit)
+    .orderBy(sql`count() desc`);
+  return rows.map(r => ({ bu: r.bu as string, count: Number(r.cnt) }));
+}
+
+export async function getCompanyDatabaseCgLeadClasses() {
+  const db = await getDb();
+  if (!db) return [];
+  const { count, isNotNull, sql } = await import("drizzle-orm");
+  const rows = await db
+    .select({ cls: companies.cgLeadClass, cnt: count() })
+    .from(companies)
+    .where(isNotNull(companies.cgLeadClass))
+    .groupBy(companies.cgLeadClass)
+    .orderBy(sql`count() desc`);
+  return rows.map(r => ({ cls: r.cls as string, count: Number(r.cnt) }));
+}
+
+export async function getCompanyDatabaseCgLeadOrigins() {
+  const db = await getDb();
+  if (!db) return [];
+  const { count, isNotNull, sql } = await import("drizzle-orm");
+  const rows = await db
+    .select({ origin: companies.cgLeadOrigin, cnt: count() })
+    .from(companies)
+    .where(isNotNull(companies.cgLeadOrigin))
+    .groupBy(companies.cgLeadOrigin)
+    .orderBy(sql`count() desc`);
+  return rows.map(r => ({ origin: r.origin as string, count: Number(r.cnt) }));
 }

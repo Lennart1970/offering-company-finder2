@@ -48,6 +48,9 @@ import {
   getCompanyDatabaseCountries,
   getCompanyDatabaseSectors,
   getCompanyDatabaseBrains,
+  getCompanyDatabaseCgBusinessUnits,
+  getCompanyDatabaseCgLeadClasses,
+  getCompanyDatabaseCgLeadOrigins,
 } from "./db";
 // Brain and contacts-by-company imports are above with brainResearchService
 import { searchApolloContacts, searchApolloContacts as searchApolloContactsSingle, trickleDownSearch, getAllPersonnel, enrichPerson, SENIORITY_TIERS } from "./apolloPeopleSearch";
@@ -234,6 +237,9 @@ export const companyFinderRouter = router({
       minFitScore: z.number().optional(),
       hasFitScore: z.boolean().optional(),
       articleFilter: z.enum(["any", "brief", "approach", "both", "none"]).optional(),
+      cgBusinessUnit: z.string().optional(),
+      cgLeadClass: z.string().optional(),
+      cgLeadOrigin: z.string().optional(),
     }))
     .query(async ({ input }) => {
       const offset = input.page * input.pageSize;
@@ -251,6 +257,9 @@ export const companyFinderRouter = router({
           minFitScore: input.minFitScore,
           hasFitScore: input.hasFitScore,
           articleFilter: input.articleFilter,
+          cgBusinessUnit: input.cgBusinessUnit || undefined,
+          cgLeadClass: input.cgLeadClass || undefined,
+          cgLeadOrigin: input.cgLeadOrigin || undefined,
         }),
         countCompanyDatabase({
           search: input.search || undefined,
@@ -261,6 +270,9 @@ export const companyFinderRouter = router({
           minFitScore: input.minFitScore,
           hasFitScore: input.hasFitScore,
           articleFilter: input.articleFilter,
+          cgBusinessUnit: input.cgBusinessUnit || undefined,
+          cgLeadClass: input.cgLeadClass || undefined,
+          cgLeadOrigin: input.cgLeadOrigin || undefined,
         }),
       ]);
       return {
@@ -276,13 +288,16 @@ export const companyFinderRouter = router({
 
   getCompanyDbMeta: protectedProcedure
     .query(async () => {
-      const [searches, countries, sectors, brains] = await Promise.all([
+      const [searches, countries, sectors, brains, cgBusinessUnits, cgLeadClasses, cgLeadOrigins] = await Promise.all([
         getCompanyDatabaseSearches(),
         getCompanyDatabaseCountries(),
         getCompanyDatabaseSectors(),
         getCompanyDatabaseBrains(),
+        getCompanyDatabaseCgBusinessUnits(),
+        getCompanyDatabaseCgLeadClasses(),
+        getCompanyDatabaseCgLeadOrigins(),
       ]);
-      return { searches, countries, sectors, brains };
+      return { searches, countries, sectors, brains, cgBusinessUnits, cgLeadClasses, cgLeadOrigins };
     }),
 
   getSearch: protectedProcedure

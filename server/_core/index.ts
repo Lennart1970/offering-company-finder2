@@ -13,6 +13,7 @@ import exportExcelRouter from "../routes/exportExcel";
 import shareListExportRouter from "../routes/shareListExport";
 import { serveStatic, setupVite } from "./vite";
 import apolloWebhookRouter from "../routes/apolloWebhook";
+import cgLeadImportRouter from "../routes/cgLeadImport";
 import publicShareListApiRouter from "../routes/publicShareListApi";
 import { startCampaignQueueWorker } from "../campaignQueueWorker";
 import { runBatchContactsAndReps, getBatchProgress } from "../batchContactsAndReps";
@@ -58,6 +59,8 @@ async function startServer() {
   app.use("/api/share-list-export", shareListExportRouter);
   // Apollo async phone enrichment webhook
   app.use("/api/apollo-webhook", apolloWebhookRouter);
+  // Connect Group SharePoint lead list import
+  app.use("/api/cg-lead-import", cgLeadImportRouter);
   // Public REST API — no auth required (listToken in URL acts as access key)
   app.use("/api/public/share-lists", publicShareListApiRouter);
   // Scheduled task: pre-fetch images for share pages

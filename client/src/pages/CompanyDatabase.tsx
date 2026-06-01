@@ -152,6 +152,9 @@ export default function CompanyDatabase() {
   const [selectedCountry, setSelectedCountry] = useState<string | undefined>(undefined);
   const [selectedSector, setSelectedSector] = useState<string | undefined>(undefined);
   const [selectedBrainId, setSelectedBrainId] = useState<number | undefined>(undefined);
+  const [selectedCgBu, setSelectedCgBu] = useState<string | undefined>(undefined);
+  const [selectedCgLeadClass, setSelectedCgLeadClass] = useState<string | undefined>(undefined);
+  const [selectedCgLeadOrigin, setSelectedCgLeadOrigin] = useState<string | undefined>(undefined);
   const [minFitScore, setMinFitScore] = useState<number | undefined>(undefined);
   const [hasFitScoreOnly, setHasFitScoreOnly] = useState(false);
   const [articleFilter, setArticleFilter] = useState<ArticleFilter>("any");
@@ -181,6 +184,9 @@ export default function CompanyDatabase() {
     country: selectedCountry || undefined,
     sector: selectedSector || undefined,
     brainId: selectedBrainId,
+    cgBusinessUnit: selectedCgBu || undefined,
+    cgLeadClass: selectedCgLeadClass || undefined,
+    cgLeadOrigin: selectedCgLeadOrigin || undefined,
     minFitScore,
     hasFitScore: hasFitScoreOnly || undefined,
     articleFilter: articleFilter === "any" ? undefined : articleFilter,
@@ -219,6 +225,9 @@ export default function CompanyDatabase() {
     setSelectedCountry(undefined);
     setSelectedSector(undefined);
     setSelectedBrainId(undefined);
+    setSelectedCgBu(undefined);
+    setSelectedCgLeadClass(undefined);
+    setSelectedCgLeadOrigin(undefined);
     setMinFitScore(undefined);
     setHasFitScoreOnly(false);
     setArticleFilter("any");
@@ -231,6 +240,9 @@ export default function CompanyDatabase() {
     selectedCountry ||
     selectedSector ||
     selectedBrainId ||
+    selectedCgBu ||
+    selectedCgLeadClass ||
+    selectedCgLeadOrigin ||
     minFitScore !== undefined ||
     hasFitScoreOnly ||
     articleFilter !== "any";
@@ -368,6 +380,69 @@ export default function CompanyDatabase() {
             ))}
           </SelectContent>
         </Select>
+
+        {/* CG Business Unit */}
+        {(meta?.cgBusinessUnits ?? []).length > 0 && (
+          <Select
+            value={selectedCgBu || "all"}
+            onValueChange={(v) => { setSelectedCgBu(v === "all" ? undefined : v); setPage(0); }}
+          >
+            <SelectTrigger className="h-8 w-44 text-sm">
+              <SelectValue placeholder="All BUs" />
+            </SelectTrigger>
+            <SelectContent className="max-h-64 overflow-y-auto">
+              <SelectItem value="all">All BUs</SelectItem>
+              {(meta?.cgBusinessUnits ?? []).map((b) => (
+                <SelectItem key={b.bu} value={b.bu}>
+                  {b.bu}
+                  <span className="ml-1 text-gray-400 text-xs">({b.count})</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* CG Lead Class */}
+        {(meta?.cgLeadClasses ?? []).length > 0 && (
+          <Select
+            value={selectedCgLeadClass || "all"}
+            onValueChange={(v) => { setSelectedCgLeadClass(v === "all" ? undefined : v); setPage(0); }}
+          >
+            <SelectTrigger className="h-8 w-40 text-sm">
+              <SelectValue placeholder="All classes" />
+            </SelectTrigger>
+            <SelectContent className="max-h-64 overflow-y-auto">
+              <SelectItem value="all">All classes</SelectItem>
+              {(meta?.cgLeadClasses ?? []).map((c) => (
+                <SelectItem key={c.cls} value={c.cls}>
+                  {c.cls}
+                  <span className="ml-1 text-gray-400 text-xs">({c.count})</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
+
+        {/* CG Lead Origin */}
+        {(meta?.cgLeadOrigins ?? []).length > 0 && (
+          <Select
+            value={selectedCgLeadOrigin || "all"}
+            onValueChange={(v) => { setSelectedCgLeadOrigin(v === "all" ? undefined : v); setPage(0); }}
+          >
+            <SelectTrigger className="h-8 w-44 text-sm">
+              <SelectValue placeholder="All origins" />
+            </SelectTrigger>
+            <SelectContent className="max-h-64 overflow-y-auto">
+              <SelectItem value="all">All origins</SelectItem>
+              {(meta?.cgLeadOrigins ?? []).map((o) => (
+                <SelectItem key={o.origin} value={o.origin}>
+                  {o.origin}
+                  <span className="ml-1 text-gray-400 text-xs">({o.count})</span>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
 
         {/* Min FIT */}
         <Select
@@ -561,20 +636,25 @@ export default function CompanyDatabase() {
                         approachDate={row.salesApproachGeneratedAt}
                       />
                     </td>
-                    <td className="px-3 py-2 text-xs max-w-[180px]">
-                      {row.generatedWithBrainName ? (
-                        <span
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 text-xs cursor-pointer hover:bg-violet-100 transition-colors"
-                          title={`Filter by ${row.generatedWithBrainName}`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setSelectedBrainId(row.generatedWithBrainId ?? undefined);
-                            setPage(0);
-                          }}
-                        >
-                          <Brain className="w-2.5 h-2.5 flex-shrink-0" />
-                          <span className="truncate max-w-[140px]">{row.generatedWithBrainName}</span>
-                        </span>
+                    <td className="px-3 py-2 text-xs max-w-[200px]">
+                      {row.allBrainNames ? (
+                        <div className="flex flex-wrap gap-1">
+                          {(row.allBrainNames as string).split('||').map((name: string) => (
+                            <span
+                              key={name}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-50 text-violet-700 text-xs cursor-pointer hover:bg-violet-100 transition-colors"
+                              title={`Filter by ${name}`}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                const brain = (meta?.brains ?? []).find(b => b.brainName === name);
+                                if (brain) { setSelectedBrainId(brain.id); setPage(0); }
+                              }}
+                            >
+                              <Brain className="w-2.5 h-2.5 flex-shrink-0" />
+                              <span className="truncate max-w-[120px]">{name}</span>
+                            </span>
+                          ))}
+                        </div>
                       ) : (
                         <span className="text-gray-300">—</span>
                       )}

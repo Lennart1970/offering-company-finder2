@@ -113,6 +113,16 @@ export const companies = mysqlTable("companies", {
   // Note: FK constraint added via SQL migration to avoid circular reference in schema definition
   nicheId: int("nicheId"),
   contactsFetchedAt: timestamp("contactsFetchedAt"), // When all personnel were last fetched from Apollo
+  // Connect Group CRM fields — populated from SharePoint lead list import
+  cgBusinessUnit: varchar("cgBusinessUnit", { length: 128 }), // BU: DACH & EE, Benelux & FR, Spain, Mexico, China
+  cgSalesManager: varchar("cgSalesManager", { length: 256 }), // Sales manager email from CG CRM
+  cgLeadClass: varchar("cgLeadClass", { length: 64 }), // Lead / Suspect / Customer
+  cgLeadOrigin: varchar("cgLeadOrigin", { length: 256 }), // Fair / Network / Market Research etc.
+  cgMarket: varchar("cgMarket", { length: 256 }), // Market segment from CG CRM (Industry, Healthcare, Defence etc.)
+  cgComment: text("cgComment"), // Free-text comment from CRM
+  cgRemarks: text("cgRemarks"), // Additional remarks from CRM
+  cgSharepointId: varchar("cgSharepointId", { length: 64 }), // Original SharePoint list item ID for dedup/sync
+  cgImportedAt: timestamp("cgImportedAt"), // When this row was last synced from the CG lead list
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 

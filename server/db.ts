@@ -1193,8 +1193,13 @@ export async function getCompanyDatabase(opts: {
       // Brain used for last generation (denormalised for fast display)
       generatedWithBrainId: companies.generatedWithBrainId,
       generatedWithBrainName: companies.generatedWithBrainName,
-      // All brain names from company_brain_outputs (GROUP_CONCAT for multi-badge display)
-      allBrainNames: sql<string>`GROUP_CONCAT(DISTINCT ${offeringBrain.brainName} ORDER BY ${offeringBrain.brainName} SEPARATOR '||')`,
+      // All brain names from company_brain_outputs (correlated subquery — avoids GROUP BY/ORDER BY conflicts)
+      allBrainNames: sql<string>`(
+        SELECT GROUP_CONCAT(DISTINCT ob2.brainName ORDER BY ob2.brainName SEPARATOR '||')
+        FROM company_brain_outputs cbo2
+        INNER JOIN offering_brain ob2 ON cbo2.brainId = ob2.id
+        WHERE cbo2.companyId = ${companies.id}
+      )`,
       // CG CRM fields
       cgBusinessUnit: companies.cgBusinessUnit,
       cgSalesManager: companies.cgSalesManager,
@@ -1207,10 +1212,7 @@ export async function getCompanyDatabase(opts: {
     })
     .from(companies)
     .leftJoin(searches, eq(companies.searchId, searches.id))
-    .leftJoin(companyBrainOutputs, eq(companies.id, companyBrainOutputs.companyId))
-    .leftJoin(offeringBrain, eq(companyBrainOutputs.brainId, offeringBrain.id))
     .where(whereClause)
-    .groupBy(companies.id)
     .orderBy(orderExpr)
     .limit(limit)
     .offset(offset);

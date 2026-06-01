@@ -1354,7 +1354,7 @@ export async function getCompanyDatabaseCgBusinessUnits() {
     .from(companies)
     .where(isNotNull(companies.cgBusinessUnit))
     .groupBy(companies.cgBusinessUnit)
-    .orderBy(sql`count() desc`);
+    .orderBy(sql`count(*) desc`);
   return rows.map(r => ({ bu: r.bu as string, count: Number(r.cnt) }));
 }
 
@@ -1367,7 +1367,7 @@ export async function getCompanyDatabaseCgLeadClasses() {
     .from(companies)
     .where(isNotNull(companies.cgLeadClass))
     .groupBy(companies.cgLeadClass)
-    .orderBy(sql`count() desc`);
+    .orderBy(sql`count(*) desc`);
   return rows.map(r => ({ cls: r.cls as string, count: Number(r.cnt) }));
 }
 
@@ -1380,6 +1380,6 @@ export async function getCompanyDatabaseCgLeadOrigins() {
     .from(companies)
     .where(isNotNull(companies.cgLeadOrigin))
     .groupBy(companies.cgLeadOrigin)
-    .orderBy(sql`count() desc`);
+    .orderBy(sql`count(*) desc`);
   return rows.map(r => ({ origin: r.origin as string, count: Number(r.cnt) }));
 }

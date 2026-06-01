@@ -579,14 +579,14 @@ export async function syncAllCompaniesToSupabase(): Promise<{
   const db = await getDb();
   if (!db) return { synced: 0, errors: 0, message: "Database not available" };
 
-  // Fetch all researched companies (those with briefData)
+    // Fetch ALL companies (not just those with briefData) so every company
+  // has a row in lt_mns_companies — required for the FK constraint on
+  // lt_mns_company_embeddings and for future campaign creation from the full corpus.
   const allCompanies = await db
     .select({ id: companies.id })
-    .from(companies)
-    .where(isNotNull(companies.briefData));
-
+    .from(companies);
   if (allCompanies.length === 0) {
-    return { synced: 0, errors: 0, message: "No researched companies found" };
+    return { synced: 0, errors: 0, message: "No companies found" };
   }
 
   // Batch in chunks of 200 to avoid memory issues

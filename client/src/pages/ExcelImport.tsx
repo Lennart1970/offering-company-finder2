@@ -329,7 +329,7 @@ export default function ExcelImport() {
                 <div className="flex gap-3">
                   <Button
                     variant="outline"
-                    onClick={() => setLocation(`/search-results/${completedSearchId}?view=raw`)}
+                    onClick={() => setLocation(`/import-preview/${completedSearchId}`)}
                     className="font-black border-2 border-black flex items-center gap-2"
                   >
                     VIEW COMPANIES <ArrowRight className="w-4 h-4" />

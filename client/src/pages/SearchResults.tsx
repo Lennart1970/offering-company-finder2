@@ -58,10 +58,15 @@ export default function SearchResults() {
   const [page, setPage] = useState(0);
   const [allCompanies, setAllCompanies] = useState<any[]>([]);
 
+  // Initialise view mode from ?view= query param before the main query so we can gate it
+  const initialView = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "raw" ? "raw" : "list";
+  const [viewMode, setViewMode] = useState<"list" | "card" | "raw">(initialView as "list" | "card" | "raw");
+
   const { data: searchData, isLoading: searchLoading } = trpc.companyFinder.getSearch.useQuery(
     { searchId: searchId!, page, pageSize: 2000 },
     {
-      enabled: !!searchId,
+      // Skip the heavy full query when in raw mode — raw view uses getSearchRaw instead
+      enabled: !!searchId && viewMode !== "raw",
       refetchInterval: (query) => {
         const data = query.state.data;
         return data?.search.status === "completed" || data?.search.status === "failed" ? false : 5000;
@@ -153,8 +158,6 @@ export default function SearchResults() {
   const [showCallTodayOnly, setShowCallTodayOnly] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
   const [sortBy, setSortBy] = useState<"default" | "urgency" | "fit_urgency">("urgency");
-  const initialView = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "raw" ? "raw" : "list";
-  const [viewMode, setViewMode] = useState<"list" | "card" | "raw">(initialView as "list" | "card" | "raw");
   const [rawPage, setRawPage] = useState(0);
   const RAW_PAGE_SIZE = 100;
 

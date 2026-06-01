@@ -248,10 +248,32 @@ export async function getCompaniesBySearchIdPaged(searchId: number, limit = 100,
     .offset(offset);
 }
 
-export async function getCompaniesBySearchIdRaw(searchId: number, limit: number, offset: number) {
-  const { asc } = await import("drizzle-orm");
+export async function getCompaniesBySearchIdRaw(
+  searchId: number,
+  limit: number,
+  offset: number,
+  sortBy: "name" | "country" | "city" | "id" = "id",
+  sortDir: "asc" | "desc" = "asc",
+  search?: string,
+) {
+  const { asc, desc, like, and } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return [];
+
+  const searchCondition = search ? like(companies.name, `%${search}%`) : undefined;
+  const whereClause = searchCondition
+    ? and(eq(companies.searchId, searchId), searchCondition)
+    : eq(companies.searchId, searchId);
+
+  const colMap = {
+    name: companies.name,
+    country: companies.country,
+    city: companies.city,
+    id: companies.id,
+  } as const;
+  const col = colMap[sortBy] ?? companies.id;
+  const orderExpr = sortDir === "desc" ? desc(col) : asc(col);
+
   return db.select({
     id: companies.id,
     name: companies.name,
@@ -263,17 +285,20 @@ export async function getCompaniesBySearchIdRaw(searchId: number, limit: number,
     sliceMetadata: companies.sliceMetadata,
     createdAt: companies.createdAt,
   }).from(companies)
-    .where(eq(companies.searchId, searchId))
-    .orderBy(asc(companies.id))
+    .where(whereClause)
+    .orderBy(orderExpr)
     .limit(limit)
     .offset(offset);
 }
 
-export async function countCompaniesBySearchId(searchId: number) {
-  const { count } = await import("drizzle-orm");
+export async function countCompaniesBySearchId(searchId: number, search?: string) {
+  const { count, like, and } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return 0;
-  const result = await db.select({ total: count() }).from(companies).where(eq(companies.searchId, searchId));
+  const whereClause = search
+    ? and(eq(companies.searchId, searchId), like(companies.name, `%${search}%`))
+    : eq(companies.searchId, searchId);
+  const result = await db.select({ total: count() }).from(companies).where(whereClause);
   return result[0]?.total ?? 0;
 }
 

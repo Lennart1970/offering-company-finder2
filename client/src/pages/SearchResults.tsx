@@ -153,7 +153,8 @@ export default function SearchResults() {
   const [showCallTodayOnly, setShowCallTodayOnly] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
   const [sortBy, setSortBy] = useState<"default" | "urgency" | "fit_urgency">("urgency");
-  const [viewMode, setViewMode] = useState<"list" | "card" | "raw">("list");
+  const initialView = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("view") === "raw" ? "raw" : "list";
+  const [viewMode, setViewMode] = useState<"list" | "card" | "raw">(initialView as "list" | "card" | "raw");
   const [rawPage, setRawPage] = useState(0);
   const RAW_PAGE_SIZE = 100;
 

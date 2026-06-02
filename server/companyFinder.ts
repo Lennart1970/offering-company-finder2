@@ -231,6 +231,7 @@ export const companyFinderRouter = router({
       sortDir: z.enum(["asc", "desc"]).optional().default("desc"),
       search: z.string().optional(),
       searchId: z.number().optional(),
+      searchIds: z.array(z.number()).optional(), // multi-select campaign filter
       country: z.string().optional(),
       countries: z.array(z.string()).optional(), // region filter
       sector: z.string().optional(),
@@ -252,6 +253,7 @@ export const companyFinderRouter = router({
           sortDir: input.sortDir,
           search: input.search || undefined,
           searchId: input.searchId,
+          searchIds: input.searchIds,
           country: input.country || undefined,
           countries: input.countries,
           sector: input.sector || undefined,
@@ -266,6 +268,7 @@ export const companyFinderRouter = router({
         countCompanyDatabase({
           search: input.search || undefined,
           searchId: input.searchId,
+          searchIds: input.searchIds,
           country: input.country || undefined,
           countries: input.countries,
           sector: input.sector || undefined,

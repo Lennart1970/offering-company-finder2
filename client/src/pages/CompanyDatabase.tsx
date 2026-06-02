@@ -9,6 +9,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   Search,
   ChevronUp,
@@ -21,6 +22,7 @@ import {
   Phone,
   Tag,
   Brain,
+  X,
 } from "lucide-react";
 import { useLocation } from "wouter";
 
@@ -216,6 +218,11 @@ export default function CompanyDatabase() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedSearchId, setSelectedSearchId] = useState<number | undefined>(undefined);
+  // Multi-select campaign filters
+  const [selectedCampaignNames, setSelectedCampaignNames] = useState<string[]>([]); // by offering name
+  const [selectedRunIds, setSelectedRunIds] = useState<number[]>([]); // by run #
+  const [campaignNameOpen, setCampaignNameOpen] = useState(false);
+  const [runIdOpen, setRunIdOpen] = useState(false);
   const [selectedRegion, setSelectedRegion] = useState<string | undefined>(undefined);
   const [selectedCountry, setSelectedCountry] = useState<string | undefined>(undefined);
   const [selectedSector, setSelectedSector] = useState<string | undefined>(undefined);
@@ -249,6 +256,9 @@ export default function CompanyDatabase() {
     sortDir,
     search: debouncedSearch || undefined,
     searchId: selectedSearchId,
+    searchIds: selectedRunIds.length > 0 ? selectedRunIds : selectedCampaignNames.length > 0
+      ? (meta?.searches ?? []).filter(s => selectedCampaignNames.includes((s as any).offeringName || s.location || `Run #${s.id}`)).map(s => s.id)
+      : undefined,
     country: selectedCountry || undefined,
     countries: selectedRegion ? REGION_MAP[selectedRegion] : undefined,
     sector: selectedSector || undefined,
@@ -295,6 +305,8 @@ export default function CompanyDatabase() {
   const resetFilters = () => {
     setRawSearch("");
     setSelectedSearchId(undefined);
+    setSelectedCampaignNames([]);
+    setSelectedRunIds([]);
     setSelectedRegion(undefined);
     setSelectedCountry(undefined);
     setSelectedSector(undefined);
@@ -311,6 +323,8 @@ export default function CompanyDatabase() {
   const hasFilters =
     rawSearch ||
     selectedSearchId ||
+    selectedCampaignNames.length > 0 ||
+    selectedRunIds.length > 0 ||
     selectedRegion ||
     selectedCountry ||
     selectedSector ||
@@ -369,27 +383,140 @@ export default function CompanyDatabase() {
           />
         </div>
 
-        {/* Campaign */}
-        <Select
-          value={selectedSearchId !== undefined ? String(selectedSearchId) : "all"}
-          onValueChange={(v) => {
-            setSelectedSearchId(v === "all" ? undefined : Number(v));
-            setPage(0);
-          }}
-        >
-          <SelectTrigger className="h-8 w-48 text-sm">
-            <SelectValue placeholder="All campaigns" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All campaigns</SelectItem>
-            {(meta?.searches ?? []).map((s) => (
-              <SelectItem key={s.id} value={String(s.id)}>
-                {(s as any).offeringName || s.location || `Run #${s.id}`}
-                <span className="ml-1 text-gray-400 text-xs">({s.companyCount})</span>
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        {/* Campaign Name multi-select */}
+        {(() => {
+          // Deduplicate by offering name
+          const uniqueNames = Array.from(
+            new Map(
+              (meta?.searches ?? []).map(s => [
+                (s as any).offeringName || s.location || `Run #${s.id}`,
+                s,
+              ])
+            ).values()
+          );
+          return (
+            <Popover open={campaignNameOpen} onOpenChange={setCampaignNameOpen}>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="h-8 w-52 justify-between font-normal text-sm bg-white px-3">
+                  <span className="truncate">
+                    {selectedCampaignNames.length === 0
+                      ? "All campaigns"
+                      : selectedCampaignNames.length === 1
+                      ? selectedCampaignNames[0]
+                      : `${selectedCampaignNames.length} campaigns`}
+                  </span>
+                  <div className="flex items-center gap-1 ml-1 shrink-0">
+                    {selectedCampaignNames.length > 0 && (
+                      <X className="w-3 h-3 text-gray-400 hover:text-gray-700" onClick={e => { e.stopPropagation(); setSelectedCampaignNames([]); setPage(0); }} />
+                    )}
+                    <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+                  </div>
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-[300px] p-2" align="start">
+                <div className="max-h-[280px] overflow-y-auto space-y-0.5">
+                  <button
+                    className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 flex items-center gap-2"
+                    onClick={() => { setSelectedCampaignNames([]); setPage(0); }}
+                  >
+                    <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                      selectedCampaignNames.length === 0 ? 'bg-gray-900 border-gray-900' : 'border-gray-300'
+                    }`}>
+                      {selectedCampaignNames.length === 0 && <span className="text-white text-xs">✓</span>}
+                    </span>
+                    <span className="font-medium">All campaigns</span>
+                  </button>
+                  <div className="border-t my-1" />
+                  {uniqueNames.map(s => {
+                    const label = (s as any).offeringName || s.location || `Run #${s.id}`;
+                    const selected = selectedCampaignNames.includes(label);
+                    return (
+                      <button
+                        key={label}
+                        className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 flex items-center gap-2"
+                        onClick={() => {
+                          setSelectedCampaignNames(prev =>
+                            prev.includes(label) ? prev.filter(x => x !== label) : [...prev, label]
+                          );
+                          setPage(0);
+                        }}
+                      >
+                        <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                          selected ? 'bg-gray-900 border-gray-900' : 'border-gray-300'
+                        }`}>
+                          {selected && <span className="text-white text-xs">✓</span>}
+                        </span>
+                        <span className="truncate flex-1 text-xs">{label}</span>
+                        <span className="text-xs text-gray-400 shrink-0">({s.companyCount})</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </PopoverContent>
+            </Popover>
+          );
+        })()}
+
+        {/* Run # multi-select */}
+        <Popover open={runIdOpen} onOpenChange={setRunIdOpen}>
+          <PopoverTrigger asChild>
+            <Button variant="outline" className="h-8 w-36 justify-between font-normal text-sm bg-white px-3">
+              <span className="truncate">
+                {selectedRunIds.length === 0
+                  ? "All runs"
+                  : selectedRunIds.length === 1
+                  ? `Run #${selectedRunIds[0]}`
+                  : `${selectedRunIds.length} runs`}
+              </span>
+              <div className="flex items-center gap-1 ml-1 shrink-0">
+                {selectedRunIds.length > 0 && (
+                  <X className="w-3 h-3 text-gray-400 hover:text-gray-700" onClick={e => { e.stopPropagation(); setSelectedRunIds([]); setPage(0); }} />
+                )}
+                <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
+              </div>
+            </Button>
+          </PopoverTrigger>
+          <PopoverContent className="w-[240px] p-2" align="start">
+            <div className="max-h-[280px] overflow-y-auto space-y-0.5">
+              <button
+                className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 flex items-center gap-2"
+                onClick={() => { setSelectedRunIds([]); setPage(0); }}
+              >
+                <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                  selectedRunIds.length === 0 ? 'bg-gray-900 border-gray-900' : 'border-gray-300'
+                }`}>
+                  {selectedRunIds.length === 0 && <span className="text-white text-xs">✓</span>}
+                </span>
+                <span className="font-medium">All runs</span>
+              </button>
+              <div className="border-t my-1" />
+              {(meta?.searches ?? []).map(s => {
+                const selected = selectedRunIds.includes(s.id);
+                return (
+                  <button
+                    key={s.id}
+                    className="w-full text-left px-2 py-1.5 text-sm rounded hover:bg-gray-100 flex items-center gap-2"
+                    onClick={() => {
+                      setSelectedRunIds(prev =>
+                        prev.includes(s.id) ? prev.filter(x => x !== s.id) : [...prev, s.id]
+                      );
+                      setPage(0);
+                    }}
+                  >
+                    <span className={`w-4 h-4 rounded border flex items-center justify-center shrink-0 ${
+                      selected ? 'bg-gray-900 border-gray-900' : 'border-gray-300'
+                    }`}>
+                      {selected && <span className="text-white text-xs">✓</span>}
+                    </span>
+                    <span className="text-xs font-mono text-gray-600 shrink-0">#{s.id}</span>
+                    <span className="truncate flex-1 text-xs text-gray-500">{(s as any).offeringName || s.location || ""}</span>
+                    <span className="text-xs text-gray-400 shrink-0">({s.companyCount})</span>
+                  </button>
+                );
+              })}
+            </div>
+          </PopoverContent>
+        </Popover>
 
         {/* Region */}
         <Select

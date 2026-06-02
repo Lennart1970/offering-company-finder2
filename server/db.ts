@@ -1106,6 +1106,7 @@ export async function getCompanyDatabase(opts: {
   sortDir?: "asc" | "desc";
   search?: string;
   searchId?: number;
+  searchIds?: number[]; // multi-select campaign filter
   country?: string;
   countries?: string[]; // region filter — array of countries
   sector?: string;
@@ -1123,11 +1124,13 @@ export async function getCompanyDatabase(opts: {
   const db = await getDb();
   if (!db) return [];
 
-  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin } = opts;
+  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, searchIds, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin } = opts;
 
   const conditions: Parameters<typeof and>[] = [];
   if (search) conditions.push(like(companies.name, `%${search}%`) as any);
-  if (searchId) conditions.push(eq(companies.searchId, searchId) as any);
+  // Multi-select campaign filter takes precedence over single searchId
+  if (searchIds && searchIds.length > 0) conditions.push(inArray(companies.searchId, searchIds) as any);
+  else if (searchId) conditions.push(eq(companies.searchId, searchId) as any);
   // Region filter (array) takes precedence over single country filter
   if (countries && countries.length > 0) conditions.push(inArray(companies.country, countries) as any);
   else if (country) conditions.push(eq(companies.country, country) as any);
@@ -1228,6 +1231,7 @@ export async function getCompanyDatabase(opts: {
 export async function countCompanyDatabase(opts: {
   search?: string;
   searchId?: number;
+  searchIds?: number[]; // multi-select campaign filter
   country?: string;
   countries?: string[]; // region filter — array of countries
   sector?: string;
@@ -1243,11 +1247,13 @@ export async function countCompanyDatabase(opts: {
   const db = await getDb();
   if (!db) return 0;
 
-  const { search, searchId, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin } = opts;
+  const { search, searchId, searchIds, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin } = opts;
 
   const conditions: Parameters<typeof and>[] = [];
   if (search) conditions.push(like(companies.name, `%${search}%`) as any);
-  if (searchId) conditions.push(eq(companies.searchId, searchId) as any);
+  // Multi-select campaign filter takes precedence over single searchId
+  if (searchIds && searchIds.length > 0) conditions.push(inArray(companies.searchId, searchIds) as any);
+  else if (searchId) conditions.push(eq(companies.searchId, searchId) as any);
   // Region filter (array) takes precedence over single country filter
   if (countries && countries.length > 0) conditions.push(inArray(companies.country, countries) as any);
   else if (country) conditions.push(eq(companies.country, country) as any);

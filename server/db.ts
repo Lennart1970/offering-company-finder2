@@ -1097,7 +1097,7 @@ export async function getAllBrainOutputsForCompany(
 // Cross-campaign query: all companies with fitScore, joined to search name.
 // Used by the /company-database page.
 
-export type CompanyDbSortBy = "name" | "country" | "city" | "fitScore" | "similarityScore" | "urgencyScore" | "createdAt" | "searchId" | "briefGeneratedAt" | "salesApproachGeneratedAt" | "brainName";
+export type CompanyDbSortBy = "name" | "country" | "city" | "fitScore" | "similarityScore" | "urgencyScore" | "urgencyScoreSynth" | "urgencyScoreLLM" | "createdAt" | "searchId" | "briefGeneratedAt" | "salesApproachGeneratedAt" | "brainName";
 
 export async function getCompanyDatabase(opts: {
   limit: number;
@@ -1168,6 +1168,8 @@ export async function getCompanyDatabase(opts: {
     fitScore: companies.fitScore,
     similarityScore: companies.similarityScore,
     urgencyScore: companies.urgencyScore,
+    urgencyScoreSynth: companies.urgencyScoreSynth,
+    urgencyScoreLLM: companies.urgencyScoreLLM,
     createdAt: companies.createdAt,
     searchId: companies.searchId,
     briefGeneratedAt: companies.briefGeneratedAt,
@@ -1191,6 +1193,11 @@ export async function getCompanyDatabase(opts: {
       similarityScore: companies.similarityScore,
       similarityScoreGeneratedAt: companies.similarityScoreGeneratedAt,
       urgencyScore: companies.urgencyScore,
+      urgencyScoreSynth: companies.urgencyScoreSynth,
+      urgencyScoreSynthGeneratedAt: companies.urgencyScoreSynthGeneratedAt,
+      urgencyScoreLLM: companies.urgencyScoreLLM,
+      urgencyScoreLLMGeneratedAt: companies.urgencyScoreLLMGeneratedAt,
+      urgencyScoreHITL: companies.urgencyScoreHITL,
       enrichmentStatus: companies.enrichmentStatus,
       createdAt: companies.createdAt,
       // Article status from companies table (legacy + current)

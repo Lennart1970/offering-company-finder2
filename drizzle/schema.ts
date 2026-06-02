@@ -90,12 +90,33 @@ export const companies = mysqlTable("companies", {
   sliceMetadata: text("sliceMetadata"), // JSON object: { employeeBand, industry, keywordSet, matchedKeywords }
   sector: varchar("sector", { length: 255 }), // Extracted from sliceMetadata.industry — dedicated column for fast filtering
   sourceCountryCode: varchar("sourceCountryCode", { length: 8 }), // ISO-2 country code from conference scraper (e.g. "NL", "DE")
-  urgencyScore: int("urgencyScore"), // 0-100 urgency score from Grok analysis
-  fitScore: int("fitScore"), // 0-100 fit score from Grok ICP analysis (LLM-based)
-  fitScoreData: text("fitScoreData"), // JSON-stringified FitScoreResult (breakdown + rationale)
-  fitScoreGeneratedAt: timestamp("fitScoreGeneratedAt"), // When the fit score was generated
-  similarityScore: int("similarityScore"), // 0-100 cosine similarity score vs active Brain embedding (fast, no LLM)
-  similarityScoreGeneratedAt: timestamp("similarityScoreGeneratedAt"), // When the similarity score was last computed
+  urgencyScore: int("urgencyScore"), // 0-100 urgency score: ABC scenario match (cosine vs scenario centroid) — high = known trigger pattern applies
+  urgencyScoreGeneratedAt: timestamp("urgencyScoreGeneratedAt"), // legacy — will be migrated to urgencyScoreSynth
+
+  // ── Three-Tier Urgency Scoring ─────────────────────────────────────────────
+  // Tier 1: ABC scenario cosine match (fast, zero LLM cost)
+  urgencyScoreSynth: int("urgencyScoreSynth"),
+  urgencyScoreSynthGeneratedAt: timestamp("urgencyScoreSynthGeneratedAt"),
+  // Tier 2: LLM-based urgency analysis via Grok (on-demand)
+  urgencyScoreLLM: int("urgencyScoreLLM"),
+  urgencyScoreLLMGeneratedAt: timestamp("urgencyScoreLLMGeneratedAt"),
+  // Tier 3: Human-in-the-loop override (ground truth for model calibration)
+  urgencyScoreHITL: int("urgencyScoreHITL"),
+  urgencyScoreHITLUpdatedAt: timestamp("urgencyScoreHITLUpdatedAt"),
+  urgencyScoreHITLNote: text("urgencyScoreHITLNote"),
+
+  // ── Three-Tier Fit Scoring ─────────────────────────────────────────────────
+  // Tier 1: SIM = cosine similarity vs Brain ICP embedding (fast, zero LLM cost)
+  similarityScore: int("similarityScore"),
+  similarityScoreGeneratedAt: timestamp("similarityScoreGeneratedAt"),
+  // Tier 2: LLM deep-analysis fit score via Grok (on-demand)
+  fitScore: int("fitScore"),
+  fitScoreData: text("fitScoreData"),
+  fitScoreGeneratedAt: timestamp("fitScoreGeneratedAt"),
+  // Tier 3: Human-in-the-loop override (ground truth for model calibration)
+  fitScoreHITL: int("fitScoreHITL"),
+  fitScoreHITLUpdatedAt: timestamp("fitScoreHITLUpdatedAt"),
+  fitScoreHITLNote: text("fitScoreHITLNote"),
   briefData: text("briefData"), // JSON-stringified SalesIntelligenceBrief (Deep Research)
   briefGeneratedAt: timestamp("briefGeneratedAt"), // When the brief was generated
   salesApproachData: text("salesApproachData"), // JSON-stringified SalesApproach (email, LinkedIn, call script)

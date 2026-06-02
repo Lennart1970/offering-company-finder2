@@ -38,6 +38,8 @@ type SortBy =
   | "fitScore"
   | "similarityScore"
   | "urgencyScore"
+  | "urgencyScoreSynth"
+  | "urgencyScoreLLM"
   | "createdAt"
   | "searchId"
   | "briefGeneratedAt"
@@ -319,7 +321,7 @@ export default function CompanyDatabase() {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortBy(col);
-      setSortDir(["fitScore", "similarityScore", "urgencyScore", "briefGeneratedAt", "salesApproachGeneratedAt"].includes(col) ? "desc" : "asc");
+      setSortDir(["fitScore", "similarityScore", "urgencyScore", "urgencyScoreSynth", "urgencyScoreLLM", "briefGeneratedAt", "salesApproachGeneratedAt"].includes(col) ? "desc" : "asc");
     }
     setPage(0);
   };
@@ -375,14 +377,17 @@ export default function CompanyDatabase() {
     col,
     label,
     className = "",
+    tooltip,
   }: {
     col: SortBy;
     label: string;
     className?: string;
+    tooltip?: string;
   }) => (
     <th
       className={`px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide cursor-pointer select-none hover:text-gray-800 whitespace-nowrap ${className}`}
       onClick={() => handleSort(col)}
+      title={tooltip}
     >
       {label}
       <SortIcon col={col} sortBy={sortBy} sortDir={sortDir} />
@@ -815,9 +820,10 @@ export default function CompanyDatabase() {
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Sector
               </th>
-              <Th col="fitScore" label="FIT" className="w-14 text-center" />
-              <Th col="similarityScore" label="SIM" className="w-14 text-center" />
-              <Th col="urgencyScore" label="URG" className="w-14 text-center" />
+              <Th col="fitScore" label="FIT" className="w-14 text-center" tooltip="Tier 2: LLM deep-analysis fit score (optional, on-demand). Confirms structural ICP match via Grok research." />
+              <Th col="similarityScore" label="SIM" className="w-14 text-center" tooltip="Tier 1: ICP fit proxy — cosine similarity vs Brain ICP embedding. Fast, zero-cost. High SIM = company profile matches your ideal customer." />
+              <Th col="urgencyScoreSynth" label="URG-S" className="w-16 text-center" tooltip="Tier 1 — ABC Synth: cosine similarity vs 39 synthetic trigger scenarios. High = known trigger pattern applies → use angle_template for cheap outreach (no deep research needed)." />
+              <Th col="urgencyScoreLLM" label="URG-L" className="w-16 text-center" tooltip="Tier 2 — LLM Urgency: Grok-based urgency analysis (on-demand). High = confirmed time-sensitive buying signal. Future: HITL override for model calibration." />
               <Th col="briefGeneratedAt" label="Articles" className="min-w-[160px]" />
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                 Lead Class
@@ -839,7 +845,7 @@ export default function CompanyDatabase() {
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={12} className="px-6 py-12 text-center text-gray-400 text-sm">
+                <td colSpan={13} className="px-6 py-12 text-center text-gray-400 text-sm">
                   No companies found matching your filters.
                 </td>
               </tr>
@@ -904,7 +910,8 @@ export default function CompanyDatabase() {
                     </td>
                     <td className="px-3 py-2 text-center">{fitBadge(row.fitScore)}</td>
                     <td className="px-3 py-2 text-center">{similarityBadge((row as any).similarityScore)}</td>
-                    <td className="px-3 py-2 text-center">{urgencyBadge(row.urgencyScore)}</td>
+                    <td className="px-3 py-2 text-center">{urgencyBadge(row.urgencyScoreSynth ?? row.urgencyScore)}</td>
+                    <td className="px-3 py-2 text-center">{urgencyBadge(row.urgencyScoreLLM)}</td>
                     <td className="px-3 py-2">
                       <ArticleDots
                         hasBrief={hasBrief}

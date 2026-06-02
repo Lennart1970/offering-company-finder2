@@ -227,7 +227,7 @@ export const companyFinderRouter = router({
     .input(z.object({
       page: z.number().optional().default(0),
       pageSize: z.number().optional().default(100),
-      sortBy: z.enum(["name", "country", "city", "fitScore", "similarityScore", "urgencyScore", "createdAt", "searchId", "briefGeneratedAt", "salesApproachGeneratedAt", "brainName"]).optional().default("fitScore"),
+      sortBy: z.enum(["name", "country", "city", "fitScore", "similarityScore", "urgencyScore", "urgencyScoreSynth", "urgencyScoreLLM", "createdAt", "searchId", "briefGeneratedAt", "salesApproachGeneratedAt", "brainName"]).optional().default("fitScore"),
       sortDir: z.enum(["asc", "desc"]).optional().default("desc"),
       search: z.string().optional(),
       searchId: z.number().optional(),

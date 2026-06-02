@@ -198,6 +198,8 @@ async function processJob() {
           const brief = await generateSalesIntelligenceBrief(job.companyId, job.userId);
           await updateCompany(job.companyId, {
             urgencyScore: brief.urgencyScore,
+            urgencyScoreLLM: brief.urgencyScore,
+            urgencyScoreLLMGeneratedAt: new Date(),
             briefData: JSON.stringify(brief),
             briefGeneratedAt: new Date(),
           });

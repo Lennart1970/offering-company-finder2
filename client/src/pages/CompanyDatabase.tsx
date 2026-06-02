@@ -198,7 +198,11 @@ export default function CompanyDatabase() {
 
   const campaignMap = useMemo(() => {
     const m = new Map<number, string>();
-    (meta?.searches ?? []).forEach((s) => m.set(s.id, s.location || `Run #${s.id}`));
+    (meta?.searches ?? []).forEach((s) => {
+      // Prefer offeringName (e.g. "Industrial Sensing & Automation"), fall back to Run #id
+      const label = (s as any).offeringName || s.location || `Run #${s.id}`;
+      m.set(s.id, label);
+    });
     return m;
   }, [meta]);
 
@@ -309,7 +313,7 @@ export default function CompanyDatabase() {
             <SelectItem value="all">All campaigns</SelectItem>
             {(meta?.searches ?? []).map((s) => (
               <SelectItem key={s.id} value={String(s.id)}>
-                {s.location || `Run #${s.id}`}
+                {(s as any).offeringName || s.location || `Run #${s.id}`}
                 <span className="ml-1 text-gray-400 text-xs">({s.companyCount})</span>
               </SelectItem>
             ))}

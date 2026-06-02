@@ -1207,8 +1207,10 @@ export async function getCompanyDatabase(opts: {
       cgLeadOrigin: companies.cgLeadOrigin,
       cgMarket: companies.cgMarket,
       cgImportedAt: companies.cgImportedAt,
-      // Join search name
+      // Join search run identifier
       searchName: searches.location,
+      searchOfferingName: searches.offeringName,
+      searchRunId: companies.searchId,
     })
     .from(companies)
     .leftJoin(searches, eq(companies.searchId, searches.id))
@@ -1285,6 +1287,7 @@ export async function getCompanyDatabaseSearches() {
     .select({
       id: searches.id,
       location: searches.location,
+      offeringName: searches.offeringName,
       companyCount: count(companies.id),
     })
     .from(searches)

@@ -32,13 +32,9 @@ function buildEmbedText(company) {
   const parts = [company.name];
   if (company.primaryDomain) parts.push(company.primaryDomain);
   if (company.sector) parts.push(company.sector);
-  if (company.employeeCount) parts.push(`${company.employeeCount} employees`);
+  if (company.headcountGrowth) parts.push(`headcount growth: ${company.headcountGrowth}`);
   if (company.city) parts.push(company.city);
   if (company.country) parts.push(company.country);
-  if (company.shortDescription) parts.push(company.shortDescription);
-  if (company.keywords) {
-    try { parts.push(JSON.parse(company.keywords).slice(0, 10).join(', ')); } catch {}
-  }
   return parts.filter(Boolean).join(' | ');
 }
 
@@ -62,9 +58,8 @@ console.log('══════════════════════�
 // Step 1: Get all MySQL IDs
 console.log('[1/4] Loading all company IDs from MySQL...');
 const [allCompanies] = await db.execute(
-  `SELECT id, name, primaryDomain, sector, employeeCount, city, country, shortDescription, keywords
-   FROM companies ORDER BY id ASC LIMIT ?`,
-  [LIMIT]
+  `SELECT id, name, primaryDomain, sector, headcountGrowth, city, country
+   FROM companies ORDER BY id ASC LIMIT ${LIMIT}`
 );
 console.log(`   Loaded ${allCompanies.length} companies`);
 

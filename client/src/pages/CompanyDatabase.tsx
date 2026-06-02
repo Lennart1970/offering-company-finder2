@@ -851,7 +851,6 @@ export default function CompanyDatabase() {
               </th>
               <Th col="fitScore" label="FIT-LLM" className="w-16 text-center" tooltip="FIT Tier 2: LLM deep-analysis fit score via Grok (on-demand). Confirms structural ICP match. High cost — only trigger on high-SIM companies." />
               <Th col="similarityScore" label="FIT-SIM" className="w-16 text-center" tooltip="FIT Tier 1: ICP fit proxy — cosine similarity vs Brain ICP embedding. Fast, zero-cost. High = company profile matches your ideal customer." />
-              <Th col="urgencyScoreSynth" label="URG-SYNT" className="w-18 text-center" tooltip="URG Tier 1a — ABC Synth: company profile cosine similarity vs 39 synthetic trigger scenarios. High = known trigger pattern likely applies → cheap outreach via angle_template." />
               <Th col="urgencyScoreNews" label="URG-NEWS" className="w-20 text-center" tooltip="URG Tier 1b — News Similarity: live Serper news snippet embedded and scored vs ABC centroid. High = current news matches a known trigger scenario → outreach is timely." />
               <Th col="urgencyScoreLLM" label="URG-LLM" className="w-18 text-center" tooltip="URG Tier 2 — LLM Urgency: Grok-based urgency analysis (on-demand). Confirmed time-sensitive buying signal. Future: HITL override for model calibration." />
               <Th col="briefGeneratedAt" label="Articles" className="min-w-[160px]" />
@@ -940,7 +939,6 @@ export default function CompanyDatabase() {
                     </td>
                     <td className="px-3 py-2 text-center">{fitBadge(row.fitScore)}</td>
                     <td className="px-3 py-2 text-center">{similarityBadge((row as any).similarityScore)}</td>
-                    <td className="px-3 py-2 text-center">{urgencyBadge(row.urgencyScoreSynth ?? row.urgencyScore)}</td>
                     <td className="px-3 py-2 text-center">{urgencyBadge((row as any).urgencyScoreNews)}</td>
                     <td className="px-3 py-2 text-center">{urgencyBadge(row.urgencyScoreLLM)}</td>
                     <td className="px-3 py-2">

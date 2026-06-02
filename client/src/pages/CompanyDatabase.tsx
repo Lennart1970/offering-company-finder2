@@ -25,6 +25,7 @@ import {
   X,
   Zap,
   Loader2,
+  Newspaper,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
@@ -39,6 +40,7 @@ type SortBy =
   | "similarityScore"
   | "urgencyScore"
   | "urgencyScoreSynth"
+  | "urgencyScoreNews"
   | "urgencyScoreLLM"
   | "createdAt"
   | "searchId"
@@ -336,6 +338,18 @@ export default function CompanyDatabase() {
     },
     onError: (err) => {
       toast.error(`Similarity scoring failed: ${err.message}`);
+    },
+  });
+
+  const scoreNewsUrgency = trpc.companyFinder.runNewsUrgencyScoring.useMutation({
+    onSuccess: (result) => {
+      toast.success(
+        `News urgency scored: ${result.scored} companies updated (avg ${result.avgScore}, no-news: ${result.noNews})`
+      );
+      utils.companyFinder.getCompanyDb.invalidate();
+    },
+    onError: (err) => {
+      toast.error(`News urgency scoring failed: ${err.message}`);
     },
   });
 
@@ -777,14 +791,29 @@ export default function CompanyDatabase() {
           onClick={() => scoreSimilarity.mutate({ mode: "ungraded" })}
           disabled={scoreSimilarity.isPending}
           className="ml-auto h-8 px-3 rounded text-xs font-medium border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
-          title="Compute cosine similarity for all companies not yet scored (fast, no LLM)"
+          title="Compute ICP cosine similarity for all companies not yet scored (fast, no LLM)"
         >
           {scoreSimilarity.isPending ? (
             <Loader2 className="w-3 h-3 animate-spin" />
           ) : (
             <Zap className="w-3 h-3" />
           )}
-          Score Similarity
+          FIT-SIM
+        </button>
+
+        {/* Score News Urgency button */}
+        <button
+          onClick={() => scoreNewsUrgency.mutate({ mode: "unscored", limit: 500 })}
+          disabled={scoreNewsUrgency.isPending}
+          className="h-8 px-3 rounded text-xs font-medium border border-amber-300 text-amber-700 bg-amber-50 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+          title="Fetch Google News, embed snippets, score vs ABC centroid → URG-NEWS (500 companies per run)"
+        >
+          {scoreNewsUrgency.isPending ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            <Newspaper className="w-3 h-3" />
+          )}
+          URG-NEWS
         </button>
 
         {/* Article stats pill */}
@@ -820,10 +849,11 @@ export default function CompanyDatabase() {
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Sector
               </th>
-              <Th col="fitScore" label="FIT" className="w-14 text-center" tooltip="Tier 2: LLM deep-analysis fit score (optional, on-demand). Confirms structural ICP match via Grok research." />
-              <Th col="similarityScore" label="SIM" className="w-14 text-center" tooltip="Tier 1: ICP fit proxy — cosine similarity vs Brain ICP embedding. Fast, zero-cost. High SIM = company profile matches your ideal customer." />
-              <Th col="urgencyScoreSynth" label="URG-S" className="w-16 text-center" tooltip="Tier 1 — ABC Synth: cosine similarity vs 39 synthetic trigger scenarios. High = known trigger pattern applies → use angle_template for cheap outreach (no deep research needed)." />
-              <Th col="urgencyScoreLLM" label="URG-L" className="w-16 text-center" tooltip="Tier 2 — LLM Urgency: Grok-based urgency analysis (on-demand). High = confirmed time-sensitive buying signal. Future: HITL override for model calibration." />
+              <Th col="fitScore" label="FIT-LLM" className="w-16 text-center" tooltip="FIT Tier 2: LLM deep-analysis fit score via Grok (on-demand). Confirms structural ICP match. High cost — only trigger on high-SIM companies." />
+              <Th col="similarityScore" label="FIT-SIM" className="w-16 text-center" tooltip="FIT Tier 1: ICP fit proxy — cosine similarity vs Brain ICP embedding. Fast, zero-cost. High = company profile matches your ideal customer." />
+              <Th col="urgencyScoreSynth" label="URG-SYNT" className="w-18 text-center" tooltip="URG Tier 1a — ABC Synth: company profile cosine similarity vs 39 synthetic trigger scenarios. High = known trigger pattern likely applies → cheap outreach via angle_template." />
+              <Th col="urgencyScoreNews" label="URG-NEWS" className="w-20 text-center" tooltip="URG Tier 1b — News Similarity: live Serper news snippet embedded and scored vs ABC centroid. High = current news matches a known trigger scenario → outreach is timely." />
+              <Th col="urgencyScoreLLM" label="URG-LLM" className="w-18 text-center" tooltip="URG Tier 2 — LLM Urgency: Grok-based urgency analysis (on-demand). Confirmed time-sensitive buying signal. Future: HITL override for model calibration." />
               <Th col="briefGeneratedAt" label="Articles" className="min-w-[160px]" />
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                 Lead Class
@@ -911,6 +941,7 @@ export default function CompanyDatabase() {
                     <td className="px-3 py-2 text-center">{fitBadge(row.fitScore)}</td>
                     <td className="px-3 py-2 text-center">{similarityBadge((row as any).similarityScore)}</td>
                     <td className="px-3 py-2 text-center">{urgencyBadge(row.urgencyScoreSynth ?? row.urgencyScore)}</td>
+                    <td className="px-3 py-2 text-center">{urgencyBadge((row as any).urgencyScoreNews)}</td>
                     <td className="px-3 py-2 text-center">{urgencyBadge(row.urgencyScoreLLM)}</td>
                     <td className="px-3 py-2">
                       <ArticleDots

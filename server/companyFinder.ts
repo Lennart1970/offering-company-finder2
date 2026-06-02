@@ -227,7 +227,7 @@ export const companyFinderRouter = router({
     .input(z.object({
       page: z.number().optional().default(0),
       pageSize: z.number().optional().default(100),
-      sortBy: z.enum(["name", "country", "city", "fitScore", "similarityScore", "urgencyScore", "urgencyScoreSynth", "urgencyScoreLLM", "createdAt", "searchId", "briefGeneratedAt", "salesApproachGeneratedAt", "brainName"]).optional().default("fitScore"),
+      sortBy: z.enum(["name", "country", "city", "fitScore", "similarityScore", "urgencyScore", "urgencyScoreSynth", "urgencyScoreNews", "urgencyScoreLLM", "createdAt", "searchId", "briefGeneratedAt", "salesApproachGeneratedAt", "brainName"]).optional().default("fitScore"),
       sortDir: z.enum(["asc", "desc"]).optional().default("desc"),
       search: z.string().optional(),
       searchId: z.number().optional(),
@@ -4269,6 +4269,27 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       const result = await runBulkSimilarityScoring({
         mode: input.mode,
         searchId: input.searchId,
+      });
+      return result;
+    }),
+
+  /**
+   * Path D: Bulk News Urgency Scoring
+   * Fetches Google News snippets via Serper, embeds them, and scores cosine
+   * similarity against the ABC scenario centroid → writes to urgencyScoreNews
+   */
+  runNewsUrgencyScoring: protectedProcedure
+    .input(
+      z.object({
+        mode: z.enum(["unscored", "all"]).default("unscored"),
+        limit: z.number().min(1).max(2000).default(500),
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { runBulkNewsUrgencyScoring } = await import("./bulkNewsUrgencyService");
+      const result = await runBulkNewsUrgencyScoring({
+        mode: input.mode,
+        limit: input.limit,
       });
       return result;
     }),

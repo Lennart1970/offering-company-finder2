@@ -97,6 +97,9 @@ export const companies = mysqlTable("companies", {
   // Tier 1: ABC scenario cosine match (fast, zero LLM cost)
   urgencyScoreSynth: int("urgencyScoreSynth"),
   urgencyScoreSynthGeneratedAt: timestamp("urgencyScoreSynthGeneratedAt"),
+  // Tier 1b: News embedding similarity — Serper news snippet → embed → cosine vs ABC centroid
+  urgencyScoreNews: int("urgencyScoreNews"),
+  urgencyScoreNewsGeneratedAt: timestamp("urgencyScoreNewsGeneratedAt"),
   // Tier 2: LLM-based urgency analysis via Grok (on-demand)
   urgencyScoreLLM: int("urgencyScoreLLM"),
   urgencyScoreLLMGeneratedAt: timestamp("urgencyScoreLLMGeneratedAt"),

@@ -845,7 +845,6 @@ export default function CompanyDatabase() {
                 Website
               </th>
               <Th col="country" label="Country" />
-              <Th col="city" label="City" />
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Sector
               </th>
@@ -874,7 +873,7 @@ export default function CompanyDatabase() {
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={13} className="px-6 py-12 text-center text-gray-400 text-sm">
+                <td colSpan={12} className="px-6 py-12 text-center text-gray-400 text-sm">
                   No companies found matching your filters.
                 </td>
               </tr>
@@ -919,9 +918,6 @@ export default function CompanyDatabase() {
                     </td>
                     <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">
                       {row.country || "—"}
-                    </td>
-                    <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">
-                      {row.city || "—"}
                     </td>
                     <td className="px-3 py-2 text-xs max-w-[150px]">
                       {row.sector ? (

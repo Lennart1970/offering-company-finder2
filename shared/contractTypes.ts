@@ -140,7 +140,8 @@ export interface SalesApproach {
 // ---------------------------------------------------------------------------
 
 export interface FitScoreResult {
-  fitScore: number;
+  fitScore: number;        // Final score after geography multiplier applied
+  rawLlmScore: number;     // LLM-assigned score before geography multiplier
   scoredAt: string;
   companyName: string;
   brainName: string;
@@ -150,6 +151,12 @@ export interface FitScoreResult {
     mustHavesFit: { score: number; max: number; rationale: string; matched: string[]; missing: string[] };
     disqualifiers: { triggered: boolean; reasons: string[] };
     buyingSignalsFit: { score: number; max: number; rationale: string };
+    geographyMultiplier: {
+      multiplier: number;  // e.g. 0.40 for China
+      region: string;      // "EU" | "US" | "APAC" | "China" | "Other"
+      countryCode: string; // ISO-2 code used for lookup (e.g. "CN", "DE")
+      rationale: string;   // Human-readable explanation
+    };
   };
   overallRationale: string;
   rawGrokFit?: string;

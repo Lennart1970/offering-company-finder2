@@ -123,6 +123,15 @@ export const companies = mysqlTable("companies", {
   cgRemarks: text("cgRemarks"), // Additional remarks from CRM
   cgSharepointId: varchar("cgSharepointId", { length: 64 }), // Original SharePoint list item ID for dedup/sync
   cgImportedAt: timestamp("cgImportedAt"), // When this row was last synced from the CG lead list
+  // CG contact-level fields (from SharePoint lead list — one primary contact per company row)
+  cgParentCompany: varchar("cgParentCompany", { length: 512 }), // Parent company name from CRM
+  cgContactGender: varchar("cgContactGender", { length: 16 }), // M / F / blank
+  cgContactFirstName: varchar("cgContactFirstName", { length: 128 }), // Contact first name
+  cgContactLastName: varchar("cgContactLastName", { length: 128 }), // Contact last name
+  cgContactPosition: varchar("cgContactPosition", { length: 256 }), // Job title
+  cgContactPhone: varchar("cgContactPhone", { length: 64 }), // Direct phone
+  cgContactEmail: varchar("cgContactEmail", { length: 256 }), // Direct email
+  cgHqAddress: varchar("cgHqAddress", { length: 512 }), // Full HQ address string from CRM
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -234,6 +243,7 @@ export const offeringBrain = mysqlTable("offering_brain", {
   icpIndustries: text("icpIndustries"), // JSON array of ideal industries
   icpCompanySize: text("icpCompanySize"), // Ideal company size range
   icpGeography: text("icpGeography"), // Target geographies
+  geographyWeights: text("geographyWeights"), // JSON: { eu: 1.0, us: 0.95, apac: 0.75, china: 0.40, other: 0.65 } — multipliers applied after LLM fit score
   icpPainPoints: text("icpPainPoints"), // JSON array of pain points the offering solves
   icpBuyingSignals: text("icpBuyingSignals"), // JSON array of signals indicating readiness to buy
   // Fit & Urgency Scoring Criteria
@@ -443,7 +453,7 @@ export const campaignQueue = mysqlTable("campaign_queue", {
   companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
   userId: int("userId").notNull().references(() => users.id),
   companyName: varchar("companyName", { length: 512 }).notNull(),
-  jobType: mysqlEnum("jobType", ["full", "brief_only"]).default("full").notNull(),
+  jobType: mysqlEnum("jobType", ["full", "brief_only", "score_only"]).default("full").notNull(),
   status: mysqlEnum("status", ["pending", "running", "completed", "failed"]).default("pending").notNull(),
   errorMessage: text("errorMessage"),
   startedAt: timestamp("startedAt"),

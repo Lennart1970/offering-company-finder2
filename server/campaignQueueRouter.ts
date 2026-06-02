@@ -19,9 +19,11 @@ export const campaignQueueRouter = router({
   enqueueSearch: protectedProcedure
     .input(z.object({
       searchId: z.number(),
-      jobType: z.enum(["full", "brief_only"]).default("full"),
+      jobType: z.enum(["full", "brief_only", "score_only"]).default("full"),
       // If true, re-enqueue companies that already have a brief (force refresh)
       forceRefresh: z.boolean().default(false),
+      // If true, re-enqueue companies that already have a fit score (force rescore)
+      forceRescore: z.boolean().default(false),
     }))
     .mutation(async ({ ctx, input }) => {
       const db = await getDb();
@@ -36,6 +38,7 @@ export const campaignQueueRouter = router({
           briefData: companies.briefData,
           salesApproachData: companies.salesApproachData,
           enrichmentStatus: companies.enrichmentStatus,
+          fitScore: companies.fitScore,
         })
         .from(companies)
         .where(and(
@@ -61,9 +64,14 @@ export const campaignQueueRouter = router({
         ));
       const alreadyQueued = new Set(existingJobs.map((j) => j.companyId));
 
-      // Filter: skip if already queued, and skip if already processed (unless forceRefresh)
+      // Filter: skip if already queued, and skip if already processed (unless forceRefresh/forceRescore)
       const toEnqueue = processable.filter((c) => {
         if (alreadyQueued.has(c.id)) return false;
+        // score_only: only skip if forceRescore is false AND company already has a fit score
+        if (input.jobType === "score_only") {
+          if (!input.forceRescore && (c as any).fitScore) return false;
+          return true;
+        }
         if (!input.forceRefresh && c.briefData && c.salesApproachData) return false;
         return true;
       });

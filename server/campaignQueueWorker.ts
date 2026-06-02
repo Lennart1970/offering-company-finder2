@@ -31,36 +31,42 @@ let activeWorkers = 0;
 let workerInterval: ReturnType<typeof setInterval> | null = null;
 
 // ── Atomic job claim ────────────────────────────────────────────────────────
-// Uses MySQL LAST_INSERT_ID() trick for bulletproof concurrent claiming:
-// UPDATE sets LAST_INSERT_ID(id) on the claimed row, so we can SELECT it
-// back without any race condition between concurrent workers.
+// TiDB-compatible two-step claim:
+// 1. SELECT the oldest pending job id
+// 2. UPDATE it to 'running' with a WHERE status = 'pending' guard
+// If another worker claimed it between steps, affectedRows = 0 and we retry.
 
 async function claimNextJob() {
   const { getDb } = await import("./db");
   const db = await getDb();
   if (!db) return null;
 
-  // Atomic claim: update the oldest pending job to 'running'
-  // LAST_INSERT_ID(id) stores the claimed row's id in the session variable
+  // Step 1: Find the oldest pending job
+  const [candidate] = await db
+    .select({ id: campaignQueue.id })
+    .from(campaignQueue)
+    .where(eq(campaignQueue.status, "pending"))
+    .orderBy(asc(campaignQueue.createdAt))
+    .limit(1);
+
+  if (!candidate) return null;
+
+  // Step 2: Atomically claim it — only succeeds if still 'pending'
   const result: any = await db.execute(
     sql`UPDATE campaign_queue
-        SET status = 'running',
-            startedAt = NOW(),
-            id = LAST_INSERT_ID(id)
-        WHERE status = 'pending'
-        ORDER BY createdAt ASC
+        SET status = 'running', startedAt = NOW()
+        WHERE id = ${candidate.id} AND status = 'pending'
         LIMIT 1`
   );
 
-  // Check if any row was actually updated
   const affectedRows = result?.[0]?.affectedRows ?? result?.rowsAffected ?? 0;
-  if (affectedRows === 0) return null;
+  if (affectedRows === 0) return null; // Another worker claimed it first
 
-  // Fetch the exact job we claimed using LAST_INSERT_ID()
+  // Fetch the full job row we just claimed
   const [job] = await db
     .select()
     .from(campaignQueue)
-    .where(sql`${campaignQueue.id} = LAST_INSERT_ID()`)
+    .where(eq(campaignQueue.id, candidate.id))
     .limit(1);
 
   return job ?? null;
@@ -134,20 +140,39 @@ async function processJob() {
     }
 
     // ── Step 1: Fit Score ──────────────────────────────────────────────────
-    if (job.jobType === "full" && !company.fitScore) {
+    // Runs for: "full" (if not yet scored), "score_only" (always — rescore forces it)
+    const needsFitScore =
+      (job.jobType === "full" && !company.fitScore) ||
+      job.jobType === "score_only";  // score_only always rescores
+
+    if (needsFitScore) {
       try {
         const { scoreCompanyFit } = await import("./briefGenerator");
         const result = await scoreCompanyFit(job.companyId, job.userId);
         await updateCompany(job.companyId, {
           fitScore: result.fitScore,
           fitScoreData: JSON.stringify(result),
+          fitScoreGeneratedAt: new Date(),
         });
-        console.log(`[CampaignQueue] ✓ Fit score: ${company.name} → ${result.fitScore}`);
+        console.log(
+          `[CampaignQueue] ✓ Fit score: ${company.name} → LLM:${result.rawLlmScore} × geo(${result.breakdown.geographyMultiplier?.region}) = ${result.fitScore}`
+        );
       } catch (err: any) {
         console.warn(`[CampaignQueue] ⚠ Fit score failed for ${company.name}: ${err.message}`);
       }
     } else if (company.fitScore) {
       console.log(`[CampaignQueue] ↩ Fit score cached: ${company.name} (${company.fitScore})`);
+    }
+
+    // ── score_only: stop here, skip brief + approach ───────────────────────
+    if (job.jobType === "score_only") {
+      await stampBrain();
+      await db!.update(campaignQueue).set({
+        status: "completed",
+        completedAt: new Date(),
+      }).where(eq(campaignQueue.id, job.id));
+      console.log(`[CampaignQueue] ✅ Score-only job ${job.id} complete — ${company.name}`);
+      return true;
     }
 
     // ── Step 2 + 3: Brief + Sales Approach IN PARALLEL ─────────────────────

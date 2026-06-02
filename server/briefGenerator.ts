@@ -779,20 +779,76 @@ Return ONLY the JSON object, no markdown, no explanation outside the JSON.`;
   const parsed = JSON.parse(rawGrokFit.slice(firstBrace, lastBrace + 1));
 
   // Apply disqualifier cap
-  let finalScore = parsed.fitScore ?? 0;
+  let rawLlmScore = parsed.fitScore ?? 0;
   if (parsed.breakdown?.disqualifiers?.triggered) {
-    finalScore = Math.min(finalScore, 25);
+    rawLlmScore = Math.min(rawLlmScore, 25);
   }
-  finalScore = Math.max(0, Math.min(100, finalScore));
+  rawLlmScore = Math.max(0, Math.min(100, rawLlmScore));
 
-  console.log(`[Fit Scorer] ${company.name} → fitScore: ${finalScore}`);
+  // ── Geography multiplier ──────────────────────────────────────────────────
+  // Reads per-brain geographyWeights (JSON) or falls back to CG defaults.
+  // Multiplier is applied AFTER disqualifier cap so the penalty is always visible.
+  const DEFAULT_GEO_WEIGHTS = { eu: 1.0, us: 0.95, apac: 0.75, china: 0.40, other: 0.65 };
+  const geoWeights = (() => {
+    try { return brain.geographyWeights ? { ...DEFAULT_GEO_WEIGHTS, ...JSON.parse(brain.geographyWeights) } : DEFAULT_GEO_WEIGHTS; }
+    catch { return DEFAULT_GEO_WEIGHTS; }
+  })();
+
+  // EU ISO-2 codes (EU27 + UK + CH + NO + IS + LI)
+  const EU_CODES = new Set([
+    "AT","BE","BG","CY","CZ","DE","DK","EE","ES","FI","FR","GR","HR","HU",
+    "IE","IT","LT","LU","LV","MT","NL","PL","PT","RO","SE","SI","SK",
+    "GB","CH","NO","IS","LI",
+  ]);
+  const US_CODES = new Set(["US","CA"]);
+  const APAC_CODES = new Set(["JP","KR","SG","AU","NZ","TW","HK","IN","TH","MY","ID","PH","VN"]);
+  const CHINA_CODES = new Set(["CN","MO"]);
+
+  const rawCode = (company.country ?? company.sourceCountryCode ?? "").toUpperCase().trim();
+  let geoRegion: string;
+  let geoMultiplier: number;
+  let geoRationale: string;
+
+  if (CHINA_CODES.has(rawCode)) {
+    geoRegion = "China"; geoMultiplier = geoWeights.china;
+    geoRationale = "China: significant commercial friction (language, legal, delivery). Score degraded.";
+  } else if (EU_CODES.has(rawCode)) {
+    geoRegion = "EU"; geoMultiplier = geoWeights.eu;
+    geoRationale = "EU/EEA/UK: primary market — full score.";
+  } else if (US_CODES.has(rawCode)) {
+    geoRegion = "US"; geoMultiplier = geoWeights.us;
+    geoRationale = "US/Canada: strong market — minor preference for EU.";
+  } else if (APAC_CODES.has(rawCode)) {
+    geoRegion = "APAC"; geoMultiplier = geoWeights.apac;
+    geoRationale = "APAC (ex-China): possible but lower priority. Score moderated.";
+  } else {
+    geoRegion = "Other"; geoMultiplier = geoWeights.other;
+    geoRationale = rawCode
+      ? `${rawCode}: outside primary markets — default score moderation applied.`
+      : "Unknown country — default score moderation applied.";
+  }
+
+  const finalScore = Math.round(rawLlmScore * geoMultiplier);
+
+  console.log(
+    `[Fit Scorer] ${company.name} → LLM: ${rawLlmScore} × geo(${geoRegion} ${geoMultiplier}) = ${finalScore}`
+  );
 
   return {
     fitScore: finalScore,
+    rawLlmScore,
     scoredAt: new Date().toISOString(),
     companyName: company.name,
     brainName: brain.brainName,
-    breakdown: parsed.breakdown,
+    breakdown: {
+      ...parsed.breakdown,
+      geographyMultiplier: {
+        multiplier: geoMultiplier,
+        region: geoRegion,
+        countryCode: rawCode || "??",
+        rationale: geoRationale,
+      },
+    },
     overallRationale: parsed.overallRationale,
     rawGrokFit,
   };

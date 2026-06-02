@@ -691,6 +691,49 @@ export default function Brain() {
               <div className="text-sm font-bold">{brain.icpGeography}</div>
             </EditableSection>
 
+            {/* ── Geography Fit Weights ─────────────────────────────────────────── */}
+            <div className="border-b border-gray-100 pb-4 mb-4">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-xs font-black text-gray-500 uppercase tracking-widest">GEOGRAPHY FIT WEIGHTS</div>
+                <div className="text-xs text-gray-400">Multiplier applied after LLM score</div>
+              </div>
+              {(() => {
+                const DEFAULT_GEO = { eu: 1.0, us: 0.95, apac: 0.75, china: 0.40, other: 0.65 };
+                let weights = DEFAULT_GEO;
+                try { if ((brain as any).geographyWeights) weights = { ...DEFAULT_GEO, ...JSON.parse((brain as any).geographyWeights) }; } catch {}
+                const regions = [
+                  { key: "eu" as const, label: "EU / UK / CH", color: "text-emerald-700", bg: "bg-emerald-500" },
+                  { key: "us" as const, label: "US / Canada", color: "text-blue-700", bg: "bg-blue-500" },
+                  { key: "apac" as const, label: "APAC (ex-CN)", color: "text-amber-700", bg: "bg-amber-500" },
+                  { key: "china" as const, label: "China / MO", color: "text-red-700", bg: "bg-red-500" },
+                  { key: "other" as const, label: "Rest of World", color: "text-gray-600", bg: "bg-gray-400" },
+                ];
+                return (
+                  <div className="grid grid-cols-5 gap-3">
+                    {regions.map(({ key, label, color, bg }) => (
+                      <div key={key} className="flex flex-col gap-1.5">
+                        <div className={`text-xs font-black ${color}`}>{label}</div>
+                        <input
+                          type="number"
+                          min={0} max={1} step={0.05}
+                          defaultValue={weights[key]}
+                          className="w-full text-sm border-2 border-gray-200 px-2 py-1 font-mono text-center focus:border-black outline-none"
+                          onBlur={(e) => {
+                            const val = Math.max(0, Math.min(1, parseFloat(e.target.value) || 0));
+                            const newWeights = { ...weights, [key]: val };
+                            updateMutation.mutate({ brainId: brain.id, updates: { geographyWeights: JSON.stringify(newWeights) } });
+                          }}
+                        />
+                        <div className="h-1.5 bg-gray-100 rounded overflow-hidden">
+                          <div className={`h-full ${bg} opacity-60 transition-all`} style={{ width: `${weights[key] * 100}%` }} />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
             <EditableSection
               title="PAIN POINTS WE SOLVE"
               field="icpPainPoints"

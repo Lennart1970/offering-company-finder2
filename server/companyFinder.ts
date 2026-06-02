@@ -1924,6 +1924,7 @@ export const companyFinderRouter = router({
         icpBuyingSignals: z.string().optional(), // JSON string
         fitCriteria: z.string().optional(), // JSON string
         urgencyTriggers: z.string().optional(), // JSON string
+        geographyWeights: z.string().optional(), // JSON string {eu, us, apac, china, other}
       }),
     }))
     .mutation(async ({ ctx, input }) => {

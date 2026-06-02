@@ -1,0 +1,1 @@
+ALTER TABLE `offering_brain` ADD `geographyWeights` text;

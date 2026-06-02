@@ -671,18 +671,47 @@ export default function SearchResults() {
                         const qStatus = (globalQueueStatus as any)?.[search.id];
                         const isPending = queueingSearchId === search.id;
                         return (
-                          <button
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              setQueueingSearchId(search.id);
-                              enqueueSearch.mutate({ searchId: search.id, jobType: "full" });
-                            }}
-                            disabled={isPending || enqueueSearch.isPending}
-                            className="text-xs font-black border-2 px-3 py-1 transition-colors border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white disabled:opacity-40"
-                            title="Queue all companies for automated full pipeline: Enrich → Fit Score → Deep Research Brief → Sales Approach (1 per 5 min)"
-                          >
-                            {isPending ? "QUEUING..." : "⚡ FULL PIPELINE"}
-                          </button>
+                          <div className="flex items-center gap-2">
+                            {/* Score All — enqueue only unscored companies for fit scoring (cheap, fast) */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setQueueingSearchId(search.id);
+                                enqueueSearch.mutate({ searchId: search.id, jobType: "score_only", forceRescore: false });
+                              }}
+                              disabled={isPending || enqueueSearch.isPending}
+                              className="text-xs font-black border-2 px-3 py-1 transition-colors border-emerald-600 text-emerald-600 hover:bg-emerald-600 hover:text-white disabled:opacity-40"
+                              title="Score All: queue all unscored companies for fit scoring only (no brief/approach). Applies geography multiplier."
+                            >
+                              {isPending ? "QUEUING..." : "🎯 SCORE ALL"}
+                            </button>
+                            {/* Rescore — force-rescore ALL companies (overwrites existing scores) */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setQueueingSearchId(search.id);
+                                enqueueSearch.mutate({ searchId: search.id, jobType: "score_only", forceRescore: true });
+                              }}
+                              disabled={isPending || enqueueSearch.isPending}
+                              className="text-xs font-black border-2 px-3 py-1 transition-colors border-amber-500 text-amber-600 hover:bg-amber-500 hover:text-white disabled:opacity-40"
+                              title="Rescore: force-rescore ALL companies in this campaign (overwrites existing fit scores). Use after updating Brain geography weights."
+                            >
+                              {isPending ? "QUEUING..." : "🔄 RESCORE"}
+                            </button>
+                            {/* Full Pipeline — enqueue all for full Enrich → Score → Brief → Approach */}
+                            <button
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setQueueingSearchId(search.id);
+                                enqueueSearch.mutate({ searchId: search.id, jobType: "full" });
+                              }}
+                              disabled={isPending || enqueueSearch.isPending}
+                              className="text-xs font-black border-2 px-3 py-1 transition-colors border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white disabled:opacity-40"
+                              title="Full Pipeline: Enrich → Fit Score → Deep Research Brief → Sales Approach"
+                            >
+                              {isPending ? "QUEUING..." : "⚡ FULL PIPELINE"}
+                            </button>
+                          </div>
                         );
                       })()}
                       {/* Archive button — owner or admin can archive/restore */}

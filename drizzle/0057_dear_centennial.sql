@@ -1,0 +1,1 @@
+ALTER TABLE `campaign_queue` MODIFY COLUMN `jobType` enum('full','brief_only','score_only') NOT NULL DEFAULT 'full';

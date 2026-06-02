@@ -1201,6 +1201,32 @@ export default function SearchResults() {
             >
               {deduplicateMutation.isPending ? '⏳ DEDUPLICATING...' : '🔁 DEDUPLICATE'}
             </Button>
+            {/* Score All — enqueue unscored companies for fit scoring only */}
+            <Button
+              onClick={() => {
+                enqueueSearch.mutate({ searchId: searchId!, jobType: "score_only", forceRescore: false });
+              }}
+              disabled={enqueueSearch.isPending}
+              variant="outline"
+              className="text-sm px-4 py-2 font-black border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors disabled:opacity-50"
+              title="Score All: queue all unscored companies for fit scoring only (no brief/approach). Applies geography multiplier."
+            >
+              {enqueueSearch.isPending ? '⏳ QUEUING...' : '🎯 SCORE ALL'}
+            </Button>
+            {/* Rescore — force-rescore ALL companies (overwrites existing scores) */}
+            <Button
+              onClick={() => {
+                if (confirm('Force-rescore ALL companies in this campaign? This overwrites existing fit scores. Use after updating Brain geography weights.')) {
+                  enqueueSearch.mutate({ searchId: searchId!, jobType: "score_only", forceRescore: true });
+                }
+              }}
+              disabled={enqueueSearch.isPending}
+              variant="outline"
+              className="text-sm px-4 py-2 font-black border-2 border-amber-500 text-amber-600 hover:bg-amber-500 hover:text-white transition-colors disabled:opacity-50"
+              title="Rescore: force-rescore ALL companies in this campaign (overwrites existing fit scores). Use after updating Brain geography weights."
+            >
+              {enqueueSearch.isPending ? '⏳ QUEUING...' : '🔄 RESCORE'}
+            </Button>
           </div>
 
           {/* Background Job Progress Bar */}

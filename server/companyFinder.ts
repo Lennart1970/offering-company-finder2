@@ -232,6 +232,7 @@ export const companyFinderRouter = router({
       search: z.string().optional(),
       searchId: z.number().optional(),
       country: z.string().optional(),
+      countries: z.array(z.string()).optional(), // region filter
       sector: z.string().optional(),
       brainId: z.number().optional(),
       minFitScore: z.number().optional(),
@@ -252,6 +253,7 @@ export const companyFinderRouter = router({
           search: input.search || undefined,
           searchId: input.searchId,
           country: input.country || undefined,
+          countries: input.countries,
           sector: input.sector || undefined,
           brainId: input.brainId,
           minFitScore: input.minFitScore,
@@ -265,6 +267,7 @@ export const companyFinderRouter = router({
           search: input.search || undefined,
           searchId: input.searchId,
           country: input.country || undefined,
+          countries: input.countries,
           sector: input.sector || undefined,
           brainId: input.brainId,
           minFitScore: input.minFitScore,

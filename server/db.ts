@@ -1107,6 +1107,7 @@ export async function getCompanyDatabase(opts: {
   search?: string;
   searchId?: number;
   country?: string;
+  countries?: string[]; // region filter — array of countries
   sector?: string;
   brainId?: number;
   minFitScore?: number;
@@ -1122,12 +1123,14 @@ export async function getCompanyDatabase(opts: {
   const db = await getDb();
   if (!db) return [];
 
-  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, country, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin } = opts;
+  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin } = opts;
 
   const conditions: Parameters<typeof and>[] = [];
   if (search) conditions.push(like(companies.name, `%${search}%`) as any);
   if (searchId) conditions.push(eq(companies.searchId, searchId) as any);
-  if (country) conditions.push(eq(companies.country, country) as any);
+  // Region filter (array) takes precedence over single country filter
+  if (countries && countries.length > 0) conditions.push(inArray(companies.country, countries) as any);
+  else if (country) conditions.push(eq(companies.country, country) as any);
   if (sector) conditions.push(eq(companies.sector, sector) as any);
   if (minFitScore !== undefined) conditions.push(gte(companies.fitScore, minFitScore) as any);
   if (hasFitScore) conditions.push(isNotNull(companies.fitScore) as any);
@@ -1226,6 +1229,7 @@ export async function countCompanyDatabase(opts: {
   search?: string;
   searchId?: number;
   country?: string;
+  countries?: string[]; // region filter — array of countries
   sector?: string;
   brainId?: number;
   minFitScore?: number;
@@ -1239,12 +1243,14 @@ export async function countCompanyDatabase(opts: {
   const db = await getDb();
   if (!db) return 0;
 
-  const { search, searchId, country, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin } = opts;
+  const { search, searchId, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin } = opts;
 
   const conditions: Parameters<typeof and>[] = [];
   if (search) conditions.push(like(companies.name, `%${search}%`) as any);
   if (searchId) conditions.push(eq(companies.searchId, searchId) as any);
-  if (country) conditions.push(eq(companies.country, country) as any);
+  // Region filter (array) takes precedence over single country filter
+  if (countries && countries.length > 0) conditions.push(inArray(companies.country, countries) as any);
+  else if (country) conditions.push(eq(companies.country, country) as any);
   if (sector) conditions.push(eq(companies.sector, sector) as any);
   if (minFitScore !== undefined) conditions.push(gte(companies.fitScore, minFitScore) as any);
   if (hasFitScore) conditions.push(isNotNull(companies.fitScore) as any);

@@ -40,6 +40,54 @@ type SortBy =
 type SortDir = "asc" | "desc";
 type ArticleFilter = "any" | "brief" | "approach" | "both" | "none";
 
+// ── Region Map ───────────────────────────────────────────────────────────────
+// Maps macro-region labels to the list of country strings stored in the DB.
+// Aligns with the geography multipliers used in fit scoring.
+
+const REGION_MAP: Record<string, string[]> = {
+  "Europe": [
+    "Albania", "Andorra", "Austria", "Belarus", "Belgium", "Bosnia and Herzegovina",
+    "Bulgaria", "Croatia", "Cyprus", "Czech Republic", "Czechia", "Denmark", "Estonia",
+    "Finland", "France", "Germany", "Greece", "Hungary", "Iceland", "Ireland", "Italy",
+    "Kosovo", "Latvia", "Liechtenstein", "Lithuania", "Luxembourg", "Malta", "Moldova",
+    "Monaco", "Montenegro", "Netherlands", "North Macedonia", "Norway", "Poland",
+    "Portugal", "Romania", "San Marino", "Serbia", "Slovakia", "Slovenia", "Spain",
+    "Sweden", "Switzerland", "Ukraine", "United Kingdom", "Vatican City",
+  ],
+  "USA / Canada": [
+    "United States", "Canada",
+  ],
+  "China": [
+    "China",
+  ],
+  "APAC": [
+    "Australia", "Bangladesh", "Brunei", "Cambodia", "Fiji", "Hong Kong", "India",
+    "Indonesia", "Japan", "Laos", "Macau", "Malaysia", "Maldives", "Mongolia",
+    "Myanmar", "Nepal", "New Zealand", "North Korea", "Pakistan", "Papua New Guinea",
+    "Philippines", "Singapore", "South Korea", "Sri Lanka", "Taiwan", "Thailand",
+    "Timor-Leste", "Vietnam",
+  ],
+  "LATAM": [
+    "Argentina", "Bolivia", "Brazil", "Chile", "Colombia", "Costa Rica", "Cuba",
+    "Dominican Republic", "Ecuador", "El Salvador", "Guatemala", "Haiti", "Honduras",
+    "Jamaica", "Mexico", "Nicaragua", "Panama", "Paraguay", "Peru", "Puerto Rico",
+    "Trinidad and Tobago", "Uruguay", "Venezuela",
+  ],
+  "MEA": [
+    "Algeria", "Angola", "Bahrain", "Benin", "Botswana", "Burkina Faso", "Burundi",
+    "Cameroon", "Cape Verde", "Central African Republic", "Chad", "Comoros",
+    "Congo", "Democratic Republic of the Congo", "Djibouti", "Egypt", "Equatorial Guinea",
+    "Eritrea", "Eswatini", "Ethiopia", "Gabon", "Gambia", "Ghana", "Guinea",
+    "Guinea-Bissau", "Iran", "Iraq", "Israel", "Ivory Coast", "Jordan", "Kenya",
+    "Kuwait", "Lebanon", "Lesotho", "Liberia", "Libya", "Madagascar", "Malawi",
+    "Mali", "Mauritania", "Mauritius", "Morocco", "Mozambique", "Namibia", "Niger",
+    "Nigeria", "Oman", "Palestine", "Qatar", "Rwanda", "Saudi Arabia", "Senegal",
+    "Sierra Leone", "Somalia", "South Africa", "South Sudan", "Sudan", "Syria",
+    "Tanzania", "Togo", "Tunisia", "Turkey", "Türkiye", "Uganda", "United Arab Emirates",
+    "Yemen", "Zambia", "Zimbabwe",
+  ],
+};
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fitBadge(score: number | null | undefined) {
@@ -149,6 +197,7 @@ export default function CompanyDatabase() {
   const [debouncedSearch, setDebouncedSearch] = useState("");
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [selectedSearchId, setSelectedSearchId] = useState<number | undefined>(undefined);
+  const [selectedRegion, setSelectedRegion] = useState<string | undefined>(undefined);
   const [selectedCountry, setSelectedCountry] = useState<string | undefined>(undefined);
   const [selectedSector, setSelectedSector] = useState<string | undefined>(undefined);
   const [selectedBrainId, setSelectedBrainId] = useState<number | undefined>(undefined);
@@ -182,6 +231,7 @@ export default function CompanyDatabase() {
     search: debouncedSearch || undefined,
     searchId: selectedSearchId,
     country: selectedCountry || undefined,
+    countries: selectedRegion ? REGION_MAP[selectedRegion] : undefined,
     sector: selectedSector || undefined,
     brainId: selectedBrainId,
     cgBusinessUnit: selectedCgBu || undefined,
@@ -226,6 +276,7 @@ export default function CompanyDatabase() {
   const resetFilters = () => {
     setRawSearch("");
     setSelectedSearchId(undefined);
+    setSelectedRegion(undefined);
     setSelectedCountry(undefined);
     setSelectedSector(undefined);
     setSelectedBrainId(undefined);
@@ -241,6 +292,7 @@ export default function CompanyDatabase() {
   const hasFilters =
     rawSearch ||
     selectedSearchId ||
+    selectedRegion ||
     selectedCountry ||
     selectedSector ||
     selectedBrainId ||
@@ -320,11 +372,32 @@ export default function CompanyDatabase() {
           </SelectContent>
         </Select>
 
+        {/* Region */}
+        <Select
+          value={selectedRegion || "all"}
+          onValueChange={(v) => {
+            setSelectedRegion(v === "all" ? undefined : v);
+            setSelectedCountry(undefined); // clear country when region changes
+            setPage(0);
+          }}
+        >
+          <SelectTrigger className="h-8 w-36 text-sm">
+            <SelectValue placeholder="All regions" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All regions</SelectItem>
+            {Object.keys(REGION_MAP).map((r) => (
+              <SelectItem key={r} value={r}>{r}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
         {/* Country */}
         <Select
           value={selectedCountry || "all"}
           onValueChange={(v) => {
             setSelectedCountry(v === "all" ? undefined : v);
+            setSelectedRegion(undefined); // clear region when country is chosen
             setPage(0);
           }}
         >

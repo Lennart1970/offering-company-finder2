@@ -91,9 +91,11 @@ export const companies = mysqlTable("companies", {
   sector: varchar("sector", { length: 255 }), // Extracted from sliceMetadata.industry — dedicated column for fast filtering
   sourceCountryCode: varchar("sourceCountryCode", { length: 8 }), // ISO-2 country code from conference scraper (e.g. "NL", "DE")
   urgencyScore: int("urgencyScore"), // 0-100 urgency score from Grok analysis
-  fitScore: int("fitScore"), // 0-100 fit score from Grok ICP analysis
+  fitScore: int("fitScore"), // 0-100 fit score from Grok ICP analysis (LLM-based)
   fitScoreData: text("fitScoreData"), // JSON-stringified FitScoreResult (breakdown + rationale)
   fitScoreGeneratedAt: timestamp("fitScoreGeneratedAt"), // When the fit score was generated
+  similarityScore: int("similarityScore"), // 0-100 cosine similarity score vs active Brain embedding (fast, no LLM)
+  similarityScoreGeneratedAt: timestamp("similarityScoreGeneratedAt"), // When the similarity score was last computed
   briefData: text("briefData"), // JSON-stringified SalesIntelligenceBrief (Deep Research)
   briefGeneratedAt: timestamp("briefGeneratedAt"), // When the brief was generated
   salesApproachData: text("salesApproachData"), // JSON-stringified SalesApproach (email, LinkedIn, call script)

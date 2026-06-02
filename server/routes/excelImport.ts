@@ -331,21 +331,23 @@ router.post("/", upload.single("file"), async (req: any, res: any) => {
 
         const scoreMap = aggregateBrainScores(brainScores);
 
-        // 6. Write score back to companies.fitScore in MySQL (for display in existing UI)
+        // 6. Write cosine similarity score to companies.similarityScore in MySQL
+        //    (fitScore is reserved for LLM-based deep analysis)
         const dbConn = await getDb();
         if (dbConn && scoreMap.size > 0) {
           const { companies: companiesTable } = await import("../../drizzle/schema");
           const { eq } = await import("drizzle-orm");
-          for (const [companyId, { bestScore, bestBrainId, allScores }] of Array.from(scoreMap.entries())) {
+          const now = new Date();
+          for (const [companyId, { bestScore }] of Array.from(scoreMap.entries())) {
             await dbConn
               .update(companiesTable)
               .set({
-                fitScore: bestScore,
-                fitScoreData: JSON.stringify({ brainScores: allScores, bestBrainId, method: "cosine-similarity-v1" }),
+                similarityScore: bestScore,
+                similarityScoreGeneratedAt: now,
               })
               .where(eq(companiesTable.id, companyId));
           }
-          console.log(`[ExcelImport] Scores written for ${scoreMap.size} companies against Brain ${activeBrainId} (search ${searchId})`);
+          console.log(`[ExcelImport] Similarity scores written for ${scoreMap.size} companies against Brain ${activeBrainId} (search ${searchId})`);
         }
       } catch (bgErr: any) {
         console.error(`[ExcelImport] Background embedding/scoring error for search ${searchId}:`, bgErr.message);

@@ -1097,7 +1097,7 @@ export async function getAllBrainOutputsForCompany(
 // Cross-campaign query: all companies with fitScore, joined to search name.
 // Used by the /company-database page.
 
-export type CompanyDbSortBy = "name" | "country" | "city" | "fitScore" | "urgencyScore" | "createdAt" | "searchId" | "briefGeneratedAt" | "salesApproachGeneratedAt" | "brainName";
+export type CompanyDbSortBy = "name" | "country" | "city" | "fitScore" | "similarityScore" | "urgencyScore" | "createdAt" | "searchId" | "briefGeneratedAt" | "salesApproachGeneratedAt" | "brainName";
 
 export async function getCompanyDatabase(opts: {
   limit: number;
@@ -1166,6 +1166,7 @@ export async function getCompanyDatabase(opts: {
     country: companies.country,
     city: companies.city,
     fitScore: companies.fitScore,
+    similarityScore: companies.similarityScore,
     urgencyScore: companies.urgencyScore,
     createdAt: companies.createdAt,
     searchId: companies.searchId,
@@ -1187,6 +1188,8 @@ export async function getCompanyDatabase(opts: {
       sliceMetadata: companies.sliceMetadata,
       fitScore: companies.fitScore,
       fitScoreData: companies.fitScoreData,
+      similarityScore: companies.similarityScore,
+      similarityScoreGeneratedAt: companies.similarityScoreGeneratedAt,
       urgencyScore: companies.urgencyScore,
       enrichmentStatus: companies.enrichmentStatus,
       createdAt: companies.createdAt,

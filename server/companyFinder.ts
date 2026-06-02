@@ -227,7 +227,7 @@ export const companyFinderRouter = router({
     .input(z.object({
       page: z.number().optional().default(0),
       pageSize: z.number().optional().default(100),
-      sortBy: z.enum(["name", "country", "city", "fitScore", "urgencyScore", "createdAt", "searchId", "briefGeneratedAt", "salesApproachGeneratedAt", "brainName"]).optional().default("fitScore"),
+      sortBy: z.enum(["name", "country", "city", "fitScore", "similarityScore", "urgencyScore", "createdAt", "searchId", "briefGeneratedAt", "salesApproachGeneratedAt", "brainName"]).optional().default("fitScore"),
       sortDir: z.enum(["asc", "desc"]).optional().default("desc"),
       search: z.string().optional(),
       searchId: z.number().optional(),
@@ -4250,6 +4250,27 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
           { id: "distributor", name: "Distributor", description: "Channel partner who resells to end customers" },
         ],
       };
+    }),
+
+  /**
+   * Bulk similarity scoring — computes cosine similarity for companies
+   * that don't yet have a similarityScore (or all companies in a campaign).
+   * No LLM calls — uses stored Supabase embeddings.
+   */
+  runSimilarityScoring: protectedProcedure
+    .input(
+      z.object({
+        mode: z.enum(["ungraded", "all", "campaign"]).default("ungraded"),
+        searchId: z.number().optional(), // required when mode === "campaign"
+      })
+    )
+    .mutation(async ({ input }) => {
+      const { runBulkSimilarityScoring } = await import("./bulkSimilarityService");
+      const result = await runBulkSimilarityScoring({
+        mode: input.mode,
+        searchId: input.searchId,
+      });
+      return result;
     }),
 });
 

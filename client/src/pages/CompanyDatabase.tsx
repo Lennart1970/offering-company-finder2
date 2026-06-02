@@ -23,7 +23,10 @@ import {
   Tag,
   Brain,
   X,
+  Zap,
+  Loader2,
 } from "lucide-react";
+import { toast } from "sonner";
 import { useLocation } from "wouter";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -33,6 +36,7 @@ type SortBy =
   | "country"
   | "city"
   | "fitScore"
+  | "similarityScore"
   | "urgencyScore"
   | "createdAt"
   | "searchId"
@@ -117,6 +121,24 @@ function urgencyBadge(score: number | null | undefined) {
       : "bg-gray-100 text-gray-600 border-gray-200";
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${cls}`}>
+      {score}
+    </span>
+  );
+}
+
+function similarityBadge(score: number | null | undefined) {
+  if (score == null) return <span className="text-xs text-gray-300">—</span>;
+  const cls =
+    score >= 70
+      ? "bg-indigo-100 text-indigo-800 border-indigo-200"
+      : score >= 50
+      ? "bg-blue-100 text-blue-800 border-blue-200"
+      : "bg-gray-100 text-gray-600 border-gray-200";
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${cls}`}
+      title="Cosine similarity vs active Brain ICP (no LLM)"
+    >
       {score}
     </span>
   );
@@ -297,10 +319,23 @@ export default function CompanyDatabase() {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortBy(col);
-      setSortDir(["fitScore", "urgencyScore", "briefGeneratedAt", "salesApproachGeneratedAt"].includes(col) ? "desc" : "asc");
+      setSortDir(["fitScore", "similarityScore", "urgencyScore", "briefGeneratedAt", "salesApproachGeneratedAt"].includes(col) ? "desc" : "asc");
     }
     setPage(0);
   };
+
+  const utils = trpc.useUtils();
+  const scoreSimilarity = trpc.companyFinder.runSimilarityScoring.useMutation({
+    onSuccess: (result) => {
+      toast.success(
+        `Similarity scored: ${result.scored} companies updated (avg ${result.scoreRange.avg}, Brain: ${result.activeBrainName})`
+      );
+      utils.companyFinder.getCompanyDb.invalidate();
+    },
+    onError: (err) => {
+      toast.error(`Similarity scoring failed: ${err.message}`);
+    },
+  });
 
   const resetFilters = () => {
     setRawSearch("");
@@ -732,9 +767,24 @@ export default function CompanyDatabase() {
           </button>
         )}
 
+        {/* Score Similarity button */}
+        <button
+          onClick={() => scoreSimilarity.mutate({ mode: "ungraded" })}
+          disabled={scoreSimilarity.isPending}
+          className="ml-auto h-8 px-3 rounded text-xs font-medium border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+          title="Compute cosine similarity for all companies not yet scored (fast, no LLM)"
+        >
+          {scoreSimilarity.isPending ? (
+            <Loader2 className="w-3 h-3 animate-spin" />
+          ) : (
+            <Zap className="w-3 h-3" />
+          )}
+          Score Similarity
+        </button>
+
         {/* Article stats pill */}
         {rows.length > 0 && (
-          <div className="ml-auto flex items-center gap-3 text-xs text-gray-500">
+          <div className="flex items-center gap-3 text-xs text-gray-500">
             <span className="flex items-center gap-1">
               <FileText className="w-3 h-3 text-blue-500" />
               {articleStats.withBrief} briefs
@@ -766,6 +816,7 @@ export default function CompanyDatabase() {
                 Sector
               </th>
               <Th col="fitScore" label="FIT" className="w-14 text-center" />
+              <Th col="similarityScore" label="SIM" className="w-14 text-center" />
               <Th col="urgencyScore" label="URG" className="w-14 text-center" />
               <Th col="briefGeneratedAt" label="Articles" className="min-w-[160px]" />
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
@@ -788,7 +839,7 @@ export default function CompanyDatabase() {
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={11} className="px-6 py-12 text-center text-gray-400 text-sm">
+                <td colSpan={12} className="px-6 py-12 text-center text-gray-400 text-sm">
                   No companies found matching your filters.
                 </td>
               </tr>
@@ -852,6 +903,7 @@ export default function CompanyDatabase() {
                       )}
                     </td>
                     <td className="px-3 py-2 text-center">{fitBadge(row.fitScore)}</td>
+                    <td className="px-3 py-2 text-center">{similarityBadge((row as any).similarityScore)}</td>
                     <td className="px-3 py-2 text-center">{urgencyBadge(row.urgencyScore)}</td>
                     <td className="px-3 py-2">
                       <ArticleDots

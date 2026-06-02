@@ -186,6 +186,25 @@ function SortIcon({ col, sortBy, sortDir }: { col: SortBy; sortBy: SortBy; sortD
   );
 }
 
+// ── Lead Class Badge ─────────────────────────────────────────────────────────
+
+function LeadClassBadge({ value }: { value: string }) {
+  const v = value.toLowerCase();
+  const cls =
+    v === "hot"
+      ? "bg-red-100 text-red-700 border-red-200"
+      : v === "warm"
+      ? "bg-orange-100 text-orange-700 border-orange-200"
+      : v === "cold"
+      ? "bg-blue-100 text-blue-700 border-blue-200"
+      : "bg-gray-100 text-gray-600 border-gray-200";
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border ${cls}`}>
+      {value}
+    </span>
+  );
+}
+
 // ── Component ─────────────────────────────────────────────────────────────────
 
 export default function CompanyDatabase() {
@@ -622,6 +641,9 @@ export default function CompanyDatabase() {
               <Th col="fitScore" label="FIT" className="w-14 text-center" />
               <Th col="urgencyScore" label="URG" className="w-14 text-center" />
               <Th col="briefGeneratedAt" label="Articles" className="min-w-[160px]" />
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                Lead Class
+              </th>
               <Th col="brainName" label="Brain / BU" className="min-w-[160px]" />
               <Th col="searchId" label="Campaign" className="min-w-[130px]" />
             </tr>
@@ -639,7 +661,7 @@ export default function CompanyDatabase() {
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={10} className="px-6 py-12 text-center text-gray-400 text-sm">
+                <td colSpan={11} className="px-6 py-12 text-center text-gray-400 text-sm">
                   No companies found matching your filters.
                 </td>
               </tr>
@@ -712,6 +734,13 @@ export default function CompanyDatabase() {
                         briefDate={row.briefGeneratedAt}
                         approachDate={row.salesApproachGeneratedAt}
                       />
+                    </td>
+                    <td className="px-3 py-2 text-xs whitespace-nowrap">
+                      {row.cgLeadClass ? (
+                        <LeadClassBadge value={row.cgLeadClass} />
+                      ) : (
+                        <span className="text-gray-300 italic">No lead yet</span>
+                      )}
                     </td>
                     <td className="px-3 py-2 text-xs max-w-[200px]">
                       {row.allBrainNames ? (

@@ -4302,10 +4302,170 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         mode: input.mode,
         limit: input.limit,
       });
-      return result;
+            return result;
     }),
-});
 
+  /**
+   * Database Health Check — aggregates KPI completeness and sync status
+   * across all pipeline stages for the admin dashboard.
+   */
+  getDatabaseHealth: protectedProcedure.query(async () => {
+    const { getDb } = await import("./db");
+    const { count, isNotNull, sql, inArray } = await import("drizzle-orm");
+    const { companies, searches, offeringBrain } = await import("../drizzle/schema");
+
+    const db = await getDb();
+    if (!db) return null;
+
+    // ── Global totals ──────────────────────────────────────────────────────────
+    const [totalCompaniesRow] = await db.select({ total: count() }).from(companies);
+    const total = totalCompaniesRow?.total ?? 0;
+
+    // ── Enrichment status ──────────────────────────────────────────────────────
+    const [enrichedRow] = await db.select({ n: count() }).from(companies).where(sql`enrichmentStatus = 'enriched'`);
+    const [failedRow] = await db.select({ n: count() }).from(companies).where(sql`enrichmentStatus = 'failed'`);
+    const [pendingRow] = await db.select({ n: count() }).from(companies).where(sql`enrichmentStatus = 'pending'`);
+
+    // ── Scoring KPIs ───────────────────────────────────────────────────────────
+    const [simRow] = await db.select({ n: count() }).from(companies).where(isNotNull(companies.similarityScore));
+    const [fitRow] = await db.select({ n: count() }).from(companies).where(isNotNull(companies.fitScore));
+    const [urgSynthRow] = await db.select({ n: count() }).from(companies).where(isNotNull(companies.urgencyScoreSynth));
+    const [urgNewsRow] = await db.select({ n: count() }).from(companies).where(isNotNull(companies.urgencyScoreNews));
+    const [urgLLMRow] = await db.select({ n: count() }).from(companies).where(isNotNull(companies.urgencyScoreLLM));
+    const [urgHITLRow] = await db.select({ n: count() }).from(companies).where(isNotNull(companies.urgencyScoreHITL));
+    const [fitHITLRow] = await db.select({ n: count() }).from(companies).where(isNotNull(companies.fitScoreHITL));
+
+    // ── Content generation KPIs ────────────────────────────────────────────────
+    const [briefRow] = await db.select({ n: count() }).from(companies).where(isNotNull(companies.briefGeneratedAt));
+    const [salesRow] = await db.select({ n: count() }).from(companies).where(isNotNull(companies.salesApproachGeneratedAt));
+    const [contactsRow] = await db.select({ n: count() }).from(companies).where(isNotNull(companies.contactsFetchedAt));
+    const [cgRow] = await db.select({ n: count() }).from(companies).where(isNotNull(companies.cgImportedAt));
+
+    // ── Last activity timestamps ───────────────────────────────────────────────
+    const [lastEnrichedRow] = await db.select({ ts: sql<Date | null>`MAX(createdAt)` }).from(companies).where(sql`enrichmentStatus = 'enriched'`);
+    const [lastFitRow] = await db.select({ ts: sql<Date | null>`MAX(fitScoreGeneratedAt)` }).from(companies);
+    const [lastUrgSynthRow] = await db.select({ ts: sql<Date | null>`MAX(urgencyScoreSynthGeneratedAt)` }).from(companies);
+    const [lastUrgNewsRow] = await db.select({ ts: sql<Date | null>`MAX(urgencyScoreNewsGeneratedAt)` }).from(companies);
+    const [lastUrgLLMRow] = await db.select({ ts: sql<Date | null>`MAX(urgencyScoreLLMGeneratedAt)` }).from(companies);
+    const [lastBriefRow] = await db.select({ ts: sql<Date | null>`MAX(briefGeneratedAt)` }).from(companies);
+    const [lastSalesRow] = await db.select({ ts: sql<Date | null>`MAX(salesApproachGeneratedAt)` }).from(companies);
+
+    // ── Campaign / search stats ────────────────────────────────────────────────
+    const [totalSearchesRow] = await db.select({ total: count() }).from(searches);
+    const [completedSearchesRow] = await db.select({ n: count() }).from(searches).where(sql`status = 'completed'`);
+    const [failedSearchesRow] = await db.select({ n: count() }).from(searches).where(sql`status = 'failed'`);
+    const [lastSearchRow] = await db.select({ ts: sql<Date | null>`MAX(updatedAt)` }).from(searches);
+
+    // ── Brain stats ────────────────────────────────────────────────────────────
+    const [totalBrainsRow] = await db.select({ total: count() }).from(offeringBrain);
+    const [activeBrainsRow] = await db.select({ n: count() }).from(offeringBrain).where(sql`isActive = 1`);
+
+    // ── Per-campaign breakdown (top 20 most recent) ────────────────────────────
+    const campaignRows = await db
+      .select({
+        searchId: companies.searchId,
+        total: count(),
+        enriched: sql<number>`SUM(CASE WHEN enrichmentStatus = 'enriched' THEN 1 ELSE 0 END)`,
+        withSimilarity: sql<number>`SUM(CASE WHEN similarityScore IS NOT NULL THEN 1 ELSE 0 END)`,
+        withFit: sql<number>`SUM(CASE WHEN fitScore IS NOT NULL THEN 1 ELSE 0 END)`,
+        withUrgSynth: sql<number>`SUM(CASE WHEN urgencyScoreSynth IS NOT NULL THEN 1 ELSE 0 END)`,
+        withUrgNews: sql<number>`SUM(CASE WHEN urgencyScoreNews IS NOT NULL THEN 1 ELSE 0 END)`,
+        withUrgLLM: sql<number>`SUM(CASE WHEN urgencyScoreLLM IS NOT NULL THEN 1 ELSE 0 END)`,
+        withBrief: sql<number>`SUM(CASE WHEN briefGeneratedAt IS NOT NULL THEN 1 ELSE 0 END)`,
+        withSales: sql<number>`SUM(CASE WHEN salesApproachGeneratedAt IS NOT NULL THEN 1 ELSE 0 END)`,
+        withContacts: sql<number>`SUM(CASE WHEN contactsFetchedAt IS NOT NULL THEN 1 ELSE 0 END)`,
+        lastActivity: sql<Date | null>`MAX(createdAt)`,
+      })
+      .from(companies)
+      .groupBy(companies.searchId)
+      .orderBy(sql`MAX(createdAt) DESC`)
+      .limit(20);
+
+    // Enrich with search names
+    const searchIds = campaignRows.map((r) => r.searchId).filter(Boolean) as number[];
+    let searchNames: Record<number, string> = {};
+    if (searchIds.length > 0) {
+      const searchRows = await db
+        .select({ id: searches.id, offeringName: searches.offeringName, companyWebsite: searches.companyWebsite })
+        .from(searches)
+        .where(inArray(searches.id, searchIds));
+      searchNames = Object.fromEntries(
+        searchRows.map((s) => [s.id, s.offeringName || s.companyWebsite || `Campaign ${s.id}`])
+      );
+    }
+
+    // ── Supabase sync stats ────────────────────────────────────────────────────
+    let supabaseSyncStats = { companiesCount: 0, lastSyncedAt: null as string | null, pagesCount: 0, pagesLastSyncedAt: null as string | null };
+    try {
+      const { getCompaniesTableSyncStats } = await import("./supabaseSync");
+      const companiesStats = await getCompaniesTableSyncStats();
+      supabaseSyncStats.companiesCount = companiesStats.count;
+      supabaseSyncStats.lastSyncedAt = companiesStats.lastSyncedAt;
+      const { createClient } = await import("@supabase/supabase-js");
+      const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+      const { count: pagesCount } = await (supabase.from("lt_mns_company_pages") as any).select("*", { count: "exact", head: true });
+      const { data: latestPage } = await (supabase.from("lt_mns_company_pages") as any).select("synced_at").order("synced_at", { ascending: false }).limit(1).single();
+      supabaseSyncStats.pagesCount = pagesCount ?? 0;
+      supabaseSyncStats.pagesLastSyncedAt = latestPage?.synced_at ?? null;
+    } catch (e) {
+      console.warn("[DatabaseHealth] Supabase stats unavailable:", e);
+    }
+
+    const pct = (n: number) => (total > 0 ? Math.round((n / total) * 100) : 0);
+
+    return {
+      generatedAt: new Date(),
+      totals: {
+        companies: total,
+        searches: totalSearchesRow?.total ?? 0,
+        completedSearches: completedSearchesRow?.n ?? 0,
+        failedSearches: failedSearchesRow?.n ?? 0,
+        brains: totalBrainsRow?.total ?? 0,
+        activeBrains: activeBrainsRow?.n ?? 0,
+        lastSearchActivity: lastSearchRow?.ts ?? null,
+      },
+      enrichment: {
+        enriched: enrichedRow?.n ?? 0,
+        pending: pendingRow?.n ?? 0,
+        failed: failedRow?.n ?? 0,
+        enrichedPct: pct(enrichedRow?.n ?? 0),
+        lastEnrichedAt: lastEnrichedRow?.ts ?? null,
+      },
+      scoring: {
+        similarityScore: { count: simRow?.n ?? 0, pct: pct(simRow?.n ?? 0) },
+        fitScore: { count: fitRow?.n ?? 0, pct: pct(fitRow?.n ?? 0), lastAt: lastFitRow?.ts ?? null },
+        urgencyScoreSynth: { count: urgSynthRow?.n ?? 0, pct: pct(urgSynthRow?.n ?? 0), lastAt: lastUrgSynthRow?.ts ?? null },
+        urgencyScoreNews: { count: urgNewsRow?.n ?? 0, pct: pct(urgNewsRow?.n ?? 0), lastAt: lastUrgNewsRow?.ts ?? null },
+        urgencyScoreLLM: { count: urgLLMRow?.n ?? 0, pct: pct(urgLLMRow?.n ?? 0), lastAt: lastUrgLLMRow?.ts ?? null },
+        urgencyScoreHITL: { count: urgHITLRow?.n ?? 0, pct: pct(urgHITLRow?.n ?? 0) },
+        fitScoreHITL: { count: fitHITLRow?.n ?? 0, pct: pct(fitHITLRow?.n ?? 0) },
+      },
+      content: {
+        brief: { count: briefRow?.n ?? 0, pct: pct(briefRow?.n ?? 0), lastAt: lastBriefRow?.ts ?? null },
+        salesApproach: { count: salesRow?.n ?? 0, pct: pct(salesRow?.n ?? 0), lastAt: lastSalesRow?.ts ?? null },
+        contactsFetched: { count: contactsRow?.n ?? 0, pct: pct(contactsRow?.n ?? 0) },
+        cgImported: { count: cgRow?.n ?? 0, pct: pct(cgRow?.n ?? 0) },
+      },
+      supabaseSync: supabaseSyncStats,
+      campaigns: campaignRows.map((r) => ({
+        searchId: r.searchId,
+        name: r.searchId ? (searchNames[r.searchId] ?? `Campaign ${r.searchId}`) : "Unknown",
+        total: r.total,
+        enriched: Number(r.enriched),
+        enrichedPct: r.total > 0 ? Math.round((Number(r.enriched) / r.total) * 100) : 0,
+        withSimilarity: Number(r.withSimilarity),
+        withFit: Number(r.withFit),
+        withUrgSynth: Number(r.withUrgSynth),
+        withUrgNews: Number(r.withUrgNews),
+        withUrgLLM: Number(r.withUrgLLM),
+        withBrief: Number(r.withBrief),
+        withSales: Number(r.withSales),
+        withContacts: Number(r.withContacts),
+        lastActivity: r.lastActivity,
+      })),
+    };
+  }),
+});
 // Background search function using brain offering data
 async function searchWithBrainOffering(
   searchId: number,

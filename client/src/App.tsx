@@ -44,6 +44,7 @@ import TriggerReview from "./pages/TriggerReview";
 import ImportPreview from "./pages/ImportPreview";
 import RawDataPage from "./pages/RawDataPage";
 import CompanyDatabase from "./pages/CompanyDatabase";
+import DatabaseHealth from "./pages/DatabaseHealth";
 
 
 function Router() {
@@ -59,6 +60,7 @@ function Router() {
         <Route path={"/import-preview/:searchId"} component={ImportPreview} />
         <Route path={"/raw-data"} component={RawDataPage} />
         <Route path={"/company-database"} component={CompanyDatabase} />
+        <Route path={"/db-health"} component={DatabaseHealth} />
         <Route path={"/deep-research"} component={DeepResearchDashboard} />
         <Route path={"/exclusions"} component={Exclusions} />
         <Route path={"/import-campaign"} component={ImportCampaign} />

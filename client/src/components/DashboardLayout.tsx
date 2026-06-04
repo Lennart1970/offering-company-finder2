@@ -62,6 +62,7 @@ const navGroups: NavGroup[] = [
       { icon: Table2, label: "Raw Data", path: "/raw-data" },
       { icon: Database, label: "Company Database", path: "/company-database" },
       { icon: RefreshCw, label: "Sync", path: "/sync" },
+      { icon: Activity, label: "DB Health", path: "/db-health" },
     ],
   },
   {

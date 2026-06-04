@@ -319,18 +319,17 @@ function FeedbackBox({ shareToken, companyId, companyName }: {
     }
   };
 
-  if (status === "success") {
-    return (
-      <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
-        <div className="text-2xl mb-2">✅</div>
-        <p className="text-sm font-black text-green-800">Thank you for your feedback!</p>
-        <p className="text-xs text-green-600 mt-1">Your input helps us improve our intelligence.</p>
-      </div>
-    );
-  }
-
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-5">
+      {status === "success" && (
+        <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+          <span className="text-lg">✅</span>
+          <div>
+            <p className="text-xs font-black text-green-800">Feedback submitted — thank you!</p>
+            <p className="text-xs text-green-600">Your input helps us improve our intelligence.</p>
+          </div>
+        </div>
+      )}
       <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">💬 Share Your Feedback</h3>
       {/* Rating buttons */}
       <div className="flex gap-2 mb-4">

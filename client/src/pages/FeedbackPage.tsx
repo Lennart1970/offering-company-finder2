@@ -45,7 +45,7 @@ export default function FeedbackPage() {
   const [search, setSearch] = useState("");
   const [ratingFilter, setRatingFilter] = useState<"all" | "thumbs_up" | "thumbs_down" | "neutral">("all");
 
-  const { data, isLoading, error, refetch, isFetching } = (trpc as any).share.getFeedback.useQuery(undefined, {
+  const { data, isLoading, error, refetch, isFetching } = (trpc as any).shareExt.getFeedback.useQuery(undefined, {
     staleTime: 60_000,
     refetchOnWindowFocus: false,
   });

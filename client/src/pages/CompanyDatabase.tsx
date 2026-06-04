@@ -113,6 +113,75 @@ const REGION_MAP: Record<string, string[]> = {
   ],
 };
 
+// ── ISO-2 ↔ Country Name Lookup ─────────────────────────────────────────────
+// Covers all countries that appear in the DB (both full-name and ISO-2 stored values)
+const ISO2_TO_NAME: Record<string, string> = {
+  AF: "Afghanistan", AL: "Albania", DZ: "Algeria", AD: "Andorra", AO: "Angola",
+  AR: "Argentina", AM: "Armenia", AU: "Australia", AT: "Austria", AZ: "Azerbaijan",
+  BH: "Bahrain", BD: "Bangladesh", BY: "Belarus", BE: "Belgium", BJ: "Benin",
+  BO: "Bolivia", BA: "Bosnia and Herzegovina", BW: "Botswana", BR: "Brazil",
+  BN: "Brunei", BG: "Bulgaria", BF: "Burkina Faso", BI: "Burundi",
+  KH: "Cambodia", CM: "Cameroon", CA: "Canada", CV: "Cape Verde",
+  CF: "Central African Republic", TD: "Chad", CL: "Chile", CN: "China",
+  CO: "Colombia", KM: "Comoros", CG: "Congo", CR: "Costa Rica", HR: "Croatia",
+  CU: "Cuba", CY: "Cyprus", CZ: "Czech Republic", DK: "Denmark", DJ: "Djibouti",
+  DO: "Dominican Republic", CD: "Democratic Republic of the Congo",
+  EC: "Ecuador", EG: "Egypt", SV: "El Salvador", GQ: "Equatorial Guinea",
+  ER: "Eritrea", EE: "Estonia", SZ: "Eswatini", ET: "Ethiopia",
+  FJ: "Fiji", FI: "Finland", FR: "France", GA: "Gabon", GM: "Gambia",
+  GE: "Georgia", DE: "Germany", GH: "Ghana", GR: "Greece", GT: "Guatemala",
+  GN: "Guinea", GW: "Guinea-Bissau", HT: "Haiti", HN: "Honduras",
+  HK: "Hong Kong", HU: "Hungary", IS: "Iceland", IN: "India", ID: "Indonesia",
+  IR: "Iran", IQ: "Iraq", IE: "Ireland", IL: "Israel", IT: "Italy",
+  JM: "Jamaica", JP: "Japan", JO: "Jordan", KZ: "Kazakhstan", KE: "Kenya",
+  KP: "North Korea", KR: "South Korea", KW: "Kuwait", KG: "Kyrgyzstan",
+  LA: "Laos", LV: "Latvia", LB: "Lebanon", LS: "Lesotho", LR: "Liberia",
+  LY: "Libya", LI: "Liechtenstein", LT: "Lithuania", LU: "Luxembourg",
+  MO: "Macau", MG: "Madagascar", MW: "Malawi", MY: "Malaysia", MV: "Maldives",
+  ML: "Mali", MT: "Malta", MR: "Mauritania", MU: "Mauritius", MX: "Mexico",
+  MD: "Moldova", MC: "Monaco", MN: "Mongolia", ME: "Montenegro", MA: "Morocco",
+  MZ: "Mozambique", MM: "Myanmar", NA: "Namibia", NP: "Nepal",
+  NL: "Netherlands", NZ: "New Zealand", NI: "Nicaragua", NE: "Niger",
+  NG: "Nigeria", MK: "North Macedonia", NO: "Norway", OM: "Oman",
+  PK: "Pakistan", PS: "Palestine", PA: "Panama", PG: "Papua New Guinea",
+  PY: "Paraguay", PE: "Peru", PH: "Philippines", PL: "Poland", PT: "Portugal",
+  PR: "Puerto Rico", QA: "Qatar", RO: "Romania", RU: "Russia", RW: "Rwanda",
+  SM: "San Marino", SA: "Saudi Arabia", SN: "Senegal", RS: "Serbia",
+  SL: "Sierra Leone", SG: "Singapore", SK: "Slovakia", SI: "Slovenia",
+  SO: "Somalia", ZA: "South Africa", SS: "South Sudan", ES: "Spain",
+  LK: "Sri Lanka", SD: "Sudan", SE: "Sweden", CH: "Switzerland", SY: "Syria",
+  TW: "Taiwan", TZ: "Tanzania", TH: "Thailand", TL: "Timor-Leste",
+  TG: "Togo", TT: "Trinidad and Tobago", TN: "Tunisia", TR: "Turkey",
+  UG: "Uganda", UA: "Ukraine", AE: "United Arab Emirates", GB: "United Kingdom",
+  US: "United States", UY: "Uruguay", UZ: "Uzbekistan", VE: "Venezuela",
+  VN: "Vietnam", YE: "Yemen", ZM: "Zambia", ZW: "Zimbabwe",
+};
+
+// Reverse map: full name → ISO-2 (for DB values stored as full names)
+const NAME_TO_ISO2: Record<string, string> = Object.fromEntries(
+  Object.entries(ISO2_TO_NAME).map(([k, v]) => [v.toLowerCase(), k])
+);
+// Aliases for variant spellings in DB
+NAME_TO_ISO2["czechia"] = "CZ";
+NAME_TO_ISO2["türkiye"] = "TR";
+NAME_TO_ISO2["south korea"] = "KR";
+NAME_TO_ISO2["north korea"] = "KP";
+NAME_TO_ISO2["hong kong"] = "HK";
+NAME_TO_ISO2["macau"] = "MO";
+
+/** Given a DB country value (ISO-2 or full name), returns "ISO — Full Name" label */
+function countryLabel(val: string): string {
+  if (!val) return val;
+  // Already ISO-2
+  if (val.length === 2 && ISO2_TO_NAME[val.toUpperCase()]) {
+    return `${val.toUpperCase()} — ${ISO2_TO_NAME[val.toUpperCase()]}`;
+  }
+  // Full name — look up ISO-2
+  const iso = NAME_TO_ISO2[val.toLowerCase()];
+  if (iso) return `${iso} — ${val}`;
+  return val; // fallback: unknown format
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fitBadge(score: number | null | undefined) {
@@ -639,12 +708,9 @@ export default function CompanyDatabase() {
           </SelectTrigger>
           <SelectContent className="max-h-64 overflow-y-auto">
             <SelectItem value="all">All countries</SelectItem>
-            {/* Pinned quick-selects */}
-            <SelectItem value="CN">🇨🇳 China (CN)</SelectItem>
-            <SelectItem value="US">🇺🇸 United States (US)</SelectItem>
-            {(meta?.countries ?? []).filter((c) => c !== "CN" && c !== "US").map((c) => (
+            {(meta?.countries ?? []).map((c) => (
               <SelectItem key={c} value={c}>
-                {c}
+                {countryLabel(c)}
               </SelectItem>
             ))}
           </SelectContent>

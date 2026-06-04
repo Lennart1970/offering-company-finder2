@@ -2608,3 +2608,10 @@
 - [ ] Derive must-have criteria, nice-to-have criteria, and disqualifiers based on the offering (EMS/PCB, Western European OEMs, 100-5000 employees, regulated sectors)
 - [ ] Populate mustHaveCriteria, niceToHaveCriteria, disqualifiers fields in the brains table via SQL update
 - [ ] Trigger brain re-embedding (embedBrain procedure) so new criteria are reflected in vector search
+
+## Country Inference Hardening
+- [x] Add deterministic pre-LLM country resolution: legal entity suffix map (Inc./LLC/Corp. → US, GmbH/AG → DE, BV/NV → NL, SAS/SARL → FR, SRL → IT, AB → SE, AS → NO, Pte.Ltd. → SG, Oy → FI, Sp.z.o.o → PL, etc.)
+- [x] Add ccTLD map: .de → DE, .nl → NL, .fr → FR, .co.uk → GB, .se → SE, .no → NO, .fi → FI, .pl → PL, .it → IT, .es → ES, .be → BE, .ch → CH, .at → AT, .dk → DK, .sg → SG, .cn → CN, .jp → JP, .au → AU
+- [x] Add Apollo address fallback: read city/state/rawAddress/sourceCountryCode fields before calling LLM
+- [ ] Add live website fallback: fetch homepage when all deterministic checks fail, extract country from contact/about text
+- [x] Fix SharePage.tsx: add fit score narrative (overallRationale) + dimension bars (industryFit/sizeFit/mustHavesFit/buyingSignalsFit) to Fit Analysis section

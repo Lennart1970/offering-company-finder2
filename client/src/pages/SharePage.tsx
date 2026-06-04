@@ -450,28 +450,49 @@ export default function SharePage() {
 
 {/* Website Visitors moved to main content column */}
 
-            {/* Fit score breakdown panel */}
-            {fitScoreData?.breakdown?.length > 0 && (
-              <div className="bg-white border border-gray-200 rounded-xl p-5">
-                <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Fit Breakdown</h3>
-                <div className="space-y-3">
-                  {fitScoreData.breakdown.map((dim: any, i: number) => (
-                    <div key={i}>
-                      <div className="flex justify-between text-xs mb-1">
-                        <span className="font-bold text-gray-700 truncate max-w-[130px]">{dim.dimension ?? dim.criterion}</span>
-                        <span className="text-gray-400 shrink-0">{dim.score}/{dim.maxScore ?? 10}</span>
-                      </div>
-                      <div className="w-full bg-gray-100 h-1.5">
-                        <div className={`h-1.5 ${fitColor}`} style={{ width: `${Math.min(100, Math.round((dim.score / (dim.maxScore ?? 10)) * 100))}%` }} />
-                      </div>
-                    </div>
-                  ))}
+            {/* Fit score breakdown panel — supports both new object format and legacy array format */}
+            {fitScoreData && (() => {
+              const bd = fitScoreData.breakdown;
+              // New format: breakdown is an object with industryFit/sizeFit/mustHavesFit/buyingSignalsFit keys
+              const newDims = bd && !Array.isArray(bd) ? [
+                bd.industryFit && { label: 'Industry Fit', score: bd.industryFit.score, max: bd.industryFit.max ?? 30, rationale: bd.industryFit.rationale },
+                bd.sizeFit && { label: 'Size / Revenue', score: bd.sizeFit.score, max: bd.sizeFit.max ?? 20, rationale: bd.sizeFit.rationale },
+                bd.mustHavesFit && { label: 'Must-Haves', score: bd.mustHavesFit.score, max: bd.mustHavesFit.max ?? 30, rationale: bd.mustHavesFit.rationale },
+                bd.buyingSignalsFit && { label: 'Buying Signals', score: bd.buyingSignalsFit.score, max: bd.buyingSignalsFit.max ?? 15, rationale: bd.buyingSignalsFit.rationale },
+              ].filter(Boolean) : [];
+              // Legacy format: breakdown is an array
+              const legacyDims = Array.isArray(bd) ? bd : [];
+              const dims = newDims.length > 0 ? newDims : legacyDims;
+              const narrative = fitScoreData.overallRationale || fitScoreData.rationale || fitScoreData.summary || fitScoreData.narrative || null;
+              if (dims.length === 0 && !narrative) return null;
+              return (
+                <div className="bg-white border border-gray-200 rounded-xl p-5">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Fit Breakdown</h3>
+                  {narrative && (
+                    <p className="text-xs text-gray-700 leading-relaxed mb-3 border-l-2 border-blue-300 pl-2">{narrative}</p>
+                  )}
+                  <div className="space-y-3">
+                    {dims.map((dim: any, i: number) => {
+                      const max = dim.max ?? dim.maxScore ?? 10;
+                      const pct = Math.min(100, Math.round((dim.score / max) * 100));
+                      const barColor = pct >= 75 ? 'bg-blue-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-400';
+                      return (
+                        <div key={i}>
+                          <div className="flex justify-between text-xs mb-1">
+                            <span className="font-bold text-gray-700 truncate max-w-[130px]">{dim.label ?? dim.dimension ?? dim.criterion}</span>
+                            <span className="text-gray-400 shrink-0">{dim.score}/{max}</span>
+                          </div>
+                          <div className="w-full bg-gray-100 h-1.5">
+                            <div className={`h-1.5 ${barColor}`} style={{ width: `${pct}%` }} />
+                          </div>
+                          {dim.rationale && <p className="text-[10px] text-gray-400 mt-0.5 leading-snug line-clamp-2">{dim.rationale}</p>}
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
-                {fitScoreData.rationale && (
-                  <p className="text-xs text-gray-500 mt-4 pt-3 border-t border-gray-100">{fitScoreData.rationale}</p>
-                )}
-              </div>
-            )}
+              );
+            })()}
 
             {/* Quick company meta */}
             <div className="bg-white border border-gray-200 rounded-xl p-5">

@@ -4726,7 +4726,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         input.searchId !== undefined ? eq(companies.searchId, input.searchId) : undefined,
       );
       const batch = await db
-        .select({ id: companies.id, name: companies.name, websiteUrl: companies.websiteUrl, briefData: companies.briefData, fitScoreData: companies.fitScoreData })
+        .select({ id: companies.id, name: companies.name, websiteUrl: companies.websiteUrl, briefData: companies.briefData, fitScoreData: companies.fitScoreData, city: companies.city, state: companies.state, rawAddress: companies.rawAddress, sourceCountryCode: companies.sourceCountryCode })
         .from(companies)
         .where(whereClause)
         .limit(input.limit);
@@ -4736,6 +4736,61 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       let skipped = 0;
       let errors = 0;
       const results: Array<{ id: number; name: string; websiteUrl: string | null; country: string | null; confidence: string; written: boolean; domainSignal: string | null }> = [];
+
+      // ─── Deterministic pre-LLM country resolver ─────────────────────────────
+      // Returns ISO-2 + 'high' confidence for unambiguous legal entity suffixes or
+      // Apollo address fields — no LLM call needed for these cases.
+      function resolveCountryDeterministically(
+        name: string,
+        apolloCity: string | null,
+        apolloState: string | null,
+        apolloRawAddress: string | null,
+        apolloSourceCountryCode: string | null,
+      ): { country: string; confidence: 'high' } | null {
+        // 1. Apollo sourceCountryCode (most reliable)
+        if (apolloSourceCountryCode && /^[A-Z]{2}$/.test(apolloSourceCountryCode.trim())) {
+          return { country: apolloSourceCountryCode.trim().toUpperCase(), confidence: 'high' };
+        }
+        // 2. Legal entity suffix in company name (unambiguous suffixes only)
+        const suffixMap: [RegExp, string][] = [
+          [/\b(Inc\.?|Incorporated|Corp\.?|Corporation|LLC|L\.L\.C\.?|LLP|L\.L\.P\.?|PLLC|LLLP)\b/i, 'US'],
+          [/\bGmbH\b/i, 'DE'],
+          [/\bAG\b(?!\s*&)/i, 'DE'],  // AG alone (not AG & Co)
+          [/\bGmbH\s*&\s*Co\.?\s*KG\b/i, 'DE'],
+          [/\bKG\b/i, 'DE'],
+          [/\bOHG\b/i, 'DE'],
+          [/\bB\.?V\.?\b/i, 'NL'],
+          [/\bN\.?V\.?\b/i, 'NL'],
+          [/\bS\.?A\.?S\.?\b/i, 'FR'],
+          [/\bS\.?A\.?R\.?L\.?\b/i, 'FR'],
+          [/\bS\.?A\.?\b(?!\s*S)/i, 'FR'],
+          [/\bPte\.?\s*Ltd\.?\b/i, 'SG'],
+          [/\bS\.?R\.?L\.?\b/i, 'IT'],
+          [/\bS\.?p\.?A\.?\b/i, 'IT'],
+          [/\bAB\b/i, 'SE'],
+          [/\bAS\b/i, 'NO'],
+          [/\bA\/S\b/i, 'DK'],
+          [/\bOy\b/i, 'FI'],
+          [/\bSp\.?\s*z\.?\s*o\.?\s*o\.?\b/i, 'PL'],
+          [/\bS\.?A\.?\s*de\s*C\.?V\.?\b/i, 'MX'],
+          [/\bLtda?\.?\b/i, 'BR'],
+          [/\bPty\.?\s*Ltd\.?\b/i, 'AU'],
+        ];
+        for (const [re, code] of suffixMap) {
+          if (re.test(name)) return { country: code, confidence: 'high' };
+        }
+        // 3. Apollo city/state/rawAddress — look for explicit US state abbreviations
+        const addressText = [apolloCity, apolloState, apolloRawAddress].filter(Boolean).join(' ');
+        if (addressText) {
+          const usStates = /\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b/;
+          if (usStates.test(addressText)) return { country: 'US', confidence: 'high' };
+          const deKeywords = /\b(Bayern|Berlin|Hamburg|München|Frankfurt|Stuttgart|Düsseldorf|Köln|Dresden|Leipzig|Hannover|Bremen|Nürnberg)\b/i;
+          if (deKeywords.test(addressText)) return { country: 'DE', confidence: 'high' };
+          const nlKeywords = /\b(Amsterdam|Rotterdam|Den Haag|Utrecht|Eindhoven|Noord|Zuid|Noord-Holland|Zuid-Holland)\b/i;
+          if (nlKeywords.test(addressText)) return { country: 'NL', confidence: 'high' };
+        }
+        return null;
+      }
 
       // Shared helper: extract domain geography signals (same logic as single-company procedure)
       function extractDomainSignals(websiteUrl: string | null): { hints: string[]; isDefinitive: boolean } {
@@ -4844,6 +4899,36 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
               }
             }
           } catch { /* ignore */ }
+
+          // ── Deterministic pre-check: skip LLM for unambiguous cases ──────────
+          const deterministicResult = resolveCountryDeterministically(
+            co.name,
+            (co as any).city ?? null,
+            (co as any).state ?? null,
+            (co as any).rawAddress ?? null,
+            (co as any).sourceCountryCode ?? null,
+          );
+          if (deterministicResult) {
+            const shouldWrite = !input.dryRun;
+            if (shouldWrite) {
+              const { eq: eqUpd } = await import('drizzle-orm');
+              const { companies: coUpd } = await import('../drizzle/schema');
+              await db.update(coUpd).set({ country: deterministicResult.country }).where(eqUpd(coUpd.id, co.id));
+              written++;
+            } else {
+              written++; // dry-run count
+            }
+            results.push({
+              id: co.id,
+              name: co.name,
+              websiteUrl: co.websiteUrl ?? null,
+              country: deterministicResult.country,
+              confidence: deterministicResult.confidence,
+              written: true,
+              domainSignal: 'deterministic (suffix/address)',
+            });
+            continue; // skip LLM call entirely
+          }
 
           const { hints: domainHints } = extractDomainSignals(co.websiteUrl ?? null);
           const context = [

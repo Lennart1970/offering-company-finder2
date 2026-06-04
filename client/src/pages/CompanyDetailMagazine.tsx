@@ -965,18 +965,117 @@ export default function CompanyDetailMagazine() {
               </div>
             )}
 
-            {/* Fit score */}
-            {(company.fitScore != null || briefData.fitScore != null) && (
-              <div className="flex items-center gap-4 p-4 border-2 border-blue-200 bg-white">
-                <div>
-                  <div className="text-[10px] font-black text-muted-foreground">FIT SCORE</div>
-                  <div className="text-4xl font-black text-blue-600">{company.fitScore ?? briefData.fitScore}<span className="text-lg text-gray-400">/100</span></div>
+            {/* Fit score + full breakdown */}
+            {(company.fitScore != null || briefData.fitScore != null) && (() => {
+              const displayScore = company.fitScore ?? briefData.fitScore;
+              const fitData = (() => {
+                try { return company.fitScoreData ? JSON.parse(company.fitScoreData as string) : null; } catch { return null; }
+              })();
+              const bd = fitData?.breakdown;
+              const dims = bd ? [
+                bd.industryFit && { label: 'INDUSTRY FIT', score: bd.industryFit.score, max: bd.industryFit.max ?? 30, rationale: bd.industryFit.rationale },
+                bd.sizeFit && { label: 'SIZE / REVENUE FIT', score: bd.sizeFit.score, max: bd.sizeFit.max ?? 20, rationale: bd.sizeFit.rationale },
+                bd.mustHavesFit && { label: 'MUST-HAVES FIT', score: bd.mustHavesFit.score, max: bd.mustHavesFit.max ?? 30, rationale: bd.mustHavesFit.rationale, matched: bd.mustHavesFit.matched, missing: bd.mustHavesFit.missing },
+                bd.buyingSignalsFit && { label: 'BUYING SIGNALS', score: bd.buyingSignalsFit.score, max: bd.buyingSignalsFit.max ?? 20, rationale: bd.buyingSignalsFit.rationale },
+              ].filter(Boolean) : [];
+              const geo = bd?.geographyMultiplier;
+              const rawScore = fitData?.rawLlmScore;
+              const nicheScore = niche?.fitScore;
+              const gap = nicheScore != null && displayScore != null ? nicheScore - displayScore : null;
+              return (
+                <div className="border-2 border-blue-200 bg-white p-5 space-y-4">
+                  {/* Header row */}
+                  <div className="flex items-start gap-6">
+                    <div className="shrink-0">
+                      <div className="text-[10px] font-black text-muted-foreground tracking-widest">FIT SCORE</div>
+                      <div className={`text-4xl font-black ${
+                        displayScore >= 75 ? 'text-green-600' : displayScore >= 50 ? 'text-yellow-600' : 'text-red-500'
+                      }`}>{displayScore}<span className="text-lg text-gray-400">/100</span></div>
+                      {rawScore != null && rawScore !== displayScore && geo && (
+                        <div className="text-[10px] text-gray-400 mt-0.5">LLM: {rawScore} × geo {geo.multiplier} ({geo.region})</div>
+                      )}
+                    </div>
+                    {briefData.fitLabel && (
+                      <div className="flex-1">
+                        <div className="text-[10px] font-black text-muted-foreground tracking-widest mb-1">VERDICT</div>
+                        <div className="text-sm font-bold text-blue-800">{briefData.fitLabel}</div>
+                      </div>
+                    )}
+                    {gap != null && Math.abs(gap) >= 5 && (
+                      <div className="shrink-0 text-right">
+                        <div className="text-[10px] font-black text-muted-foreground tracking-widest">VS NICHE</div>
+                        <div className={`text-lg font-black ${gap > 0 ? 'text-orange-500' : 'text-green-600'}`}>
+                          {gap > 0 ? `−${gap}` : `+${Math.abs(gap)}`}
+                        </div>
+                        <div className="text-[9px] text-gray-400">{gap > 0 ? 'below niche avg' : 'above niche avg'}</div>
+                      </div>
+                    )}
+                  </div>
+                  {/* Overall rationale */}
+                  {fitData?.overallRationale && (
+                    <p className="text-xs text-gray-700 leading-relaxed border-l-2 border-blue-300 pl-3">{fitData.overallRationale}</p>
+                  )}
+                  {/* Dimension breakdown */}
+                  {dims.length > 0 && (
+                    <div className="space-y-3 pt-1">
+                      {dims.map((dim: any, i: number) => {
+                        const pct = Math.round((dim.score / dim.max) * 100);
+                        return (
+                          <div key={i}>
+                            <div className="flex justify-between items-center mb-0.5">
+                              <span className="text-[10px] font-black uppercase tracking-wide text-gray-600">{dim.label}</span>
+                              <span className="text-[10px] font-black text-gray-700">{dim.score}/{dim.max}</span>
+                            </div>
+                            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                              <div className={`h-full rounded-full ${
+                                pct >= 75 ? 'bg-blue-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-400'
+                              }`} style={{ width: `${pct}%` }} />
+                            </div>
+                            {dim.rationale && <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">{dim.rationale}</p>}
+                            {dim.missing?.length > 0 && (
+                              <p className="text-[10px] text-red-500 mt-0.5">Missing: {dim.missing.join(', ')}</p>
+                            )}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                  {/* Disqualifiers */}
+                  {bd?.disqualifiers?.triggered && bd.disqualifiers.reasons?.length > 0 && (
+                    <div className="bg-red-50 border border-red-200 p-3">
+                      <div className="text-[10px] font-black text-red-600 tracking-widest mb-1">DISQUALIFIERS TRIGGERED — SCORE CAPPED AT 25</div>
+                      {bd.disqualifiers.reasons.map((r: string, i: number) => (
+                        <p key={i} className="text-xs text-red-700">• {r}</p>
+                      ))}
+                    </div>
+                  )}
+                  {/* Gap analysis */}
+                  {gap != null && Math.abs(gap) >= 5 && (
+                    <div className="bg-orange-50 border border-orange-200 p-3">
+                      <div className="text-[10px] font-black text-orange-600 tracking-widest mb-1">GAP ANALYSIS — WHY {gap > 0 ? `${gap} POINTS BELOW` : `${Math.abs(gap)} POINTS ABOVE`} NICHE AVERAGE</div>
+                      <p className="text-xs text-orange-800 leading-relaxed">
+                        {gap > 0
+                          ? `The niche "${niche?.name}" scores ${nicheScore}/100 as a cluster, but this specific company scores ${displayScore}/100. The gap is likely driven by ${
+                              bd?.disqualifiers?.triggered ? 'a triggered disqualifier' :
+                              bd?.sizeFit?.score < (bd?.sizeFit?.max ?? 20) * 0.5 ? 'a size/revenue mismatch' :
+                              bd?.mustHavesFit?.missing?.length > 0 ? `missing must-haves: ${bd.mustHavesFit.missing.slice(0,2).join(', ')}` :
+                              geo && geo.multiplier < 1.0 ? `geography penalty (${geo.region}, ×${geo.multiplier})` :
+                              'lower scores on individual dimensions compared to the niche archetype'
+                            }.`
+                          : `This company outperforms its niche average by ${Math.abs(gap)} points — it is an above-average representative of the "${niche?.name}" cluster.`
+                        }
+                      </p>
+                    </div>
+                  )}
+                  {/* Geo note */}
+                  {geo && geo.multiplier < 1.0 && (
+                    <div className="text-[10px] text-gray-400 border-t border-gray-100 pt-2">
+                      GEO: {geo.region} ({geo.countryCode}) · multiplier ×{geo.multiplier} · {geo.rationale}
+                    </div>
+                  )}
                 </div>
-                {briefData.fitLabel && (
-                  <div className="text-sm font-bold text-blue-800">{briefData.fitLabel}</div>
-                )}
-              </div>
-            )}
+              );
+            })()}
 
             {/* Niche Context Panel */}
             {niche && niche.fitScore != null && (() => {

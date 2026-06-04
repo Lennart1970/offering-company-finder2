@@ -2061,6 +2061,9 @@ export const companyFinderRouter = router({
             urgencyScore: brainOutput.urgencyScore ?? company.urgencyScore,
             briefGeneratedAt: brainOutput.briefGeneratedAt ?? company.briefGeneratedAt,
             salesApproachGeneratedAt: brainOutput.salesApproachGeneratedAt ?? company.salesApproachGeneratedAt,
+            // Use brain-scoped fit score and full breakdown if available
+            fitScore: brainOutput.fitScore ?? company.fitScore,
+            fitScoreData: brainOutput.fitScoreData ?? company.fitScoreData,
             activeBrainId: input.brainId,
           };
         }

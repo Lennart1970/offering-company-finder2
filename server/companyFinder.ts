@@ -4726,7 +4726,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         input.searchId !== undefined ? eq(companies.searchId, input.searchId) : undefined,
       );
       const batch = await db
-        .select({ id: companies.id, name: companies.name, websiteUrl: companies.websiteUrl, briefData: companies.briefData })
+        .select({ id: companies.id, name: companies.name, websiteUrl: companies.websiteUrl, briefData: companies.briefData, fitScoreData: companies.fitScoreData })
         .from(companies)
         .where(whereClause)
         .limit(input.limit);
@@ -4814,11 +4814,43 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
           // NOTE: urgencySignals intentionally excluded — they contain trade show/event city names
           // (e.g. "AUTOMATE 2026 Chicago") which mislead the model into inferring US/Mexico/Brazil.
 
+          // Read fitScoreData narrative — this is the richest source of "X-based" language
+          // (e.g. "Independence Automation Services LLC is a small US-based industrial automation...")
+          let fitNarrative = "";
+          try {
+            const fsd = JSON.parse((co as any).fitScoreData || "{}");
+            // Try common narrative field names used by the fit score LLM
+            const narrative =
+              fsd.narrative ||
+              fsd.summary ||
+              fsd.overallAssessment ||
+              fsd.executiveSummary ||
+              fsd.reasoning ||
+              fsd.assessment ||
+              fsd.companyProfile ||
+              "";
+            if (typeof narrative === "string") {
+              fitNarrative = narrative.substring(0, 600);
+            } else if (typeof narrative === "object" && narrative !== null) {
+              fitNarrative = JSON.stringify(narrative).substring(0, 600);
+            }
+            // Also check for a top-level string field that looks like a paragraph
+            if (!fitNarrative) {
+              for (const v of Object.values(fsd)) {
+                if (typeof v === "string" && v.length > 80 && /based|headquarter|located|founded/i.test(v)) {
+                  fitNarrative = v.substring(0, 600);
+                  break;
+                }
+              }
+            }
+          } catch { /* ignore */ }
+
           const { hints: domainHints } = extractDomainSignals(co.websiteUrl ?? null);
           const context = [
             `Company name: ${co.name}`,
             co.websiteUrl ? `Website: ${co.websiteUrl}` : "",
             domainHints.length > 0 ? `Domain signals: ${domainHints.join("; ")}` : "",
+            fitNarrative ? `Company profile (fit assessment): ${fitNarrative}` : "",
             execSummaryText ? `Company metadata: ${execSummaryText}` : "",
             prodDesc ? `Products/services: ${prodDesc}` : "",
             devText ? `Recent developments: ${devText}` : "",

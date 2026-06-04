@@ -287,6 +287,20 @@ export default function CompanyDetailMagazine() {
     ? [company.city, company.state, company.country].filter(Boolean).join(", ")
     : company?.searchLocation || "—";
 
+  // LLM country backfill — shown when country is missing but briefData exists
+  const inferCountryMutation = trpc.companyFinder.inferCountryFromBrief.useMutation({
+    onSuccess: (result) => {
+      if (result.written) {
+        toast.success(`Country set to ${result.inferredCountry} (${result.confidence} confidence)`);
+        refetch();
+      } else {
+        toast.info(`Could not infer country with sufficient confidence (${result.confidence})`);
+      }
+    },
+    onError: () => toast.error("Country inference failed"),
+  });
+  const canInferCountry = !!(company && !company.country && company.briefData);
+
   const industryLabel = useMemo(() => {
     if (!company) return null;
     const naics = company.naicsCodes ? (() => { try { return JSON.parse(company.naicsCodes as string); } catch { return []; } })() : [];
@@ -622,7 +636,28 @@ export default function CompanyDetailMagazine() {
 
             {/* Quick stats */}
             <div className="grid grid-cols-2 gap-x-8 gap-y-3 text-sm shrink-0">
-              <div><div className="text-[10px] font-black text-muted-foreground">LOCATION</div><div className="font-bold">{location}</div></div>
+              <div>
+                <div className="text-[10px] font-black text-muted-foreground flex items-center gap-1.5">
+                  LOCATION
+                  {canInferCountry && (
+                    <button
+                      onClick={() => inferCountryMutation.mutate({ companyId: companyId! })}
+                      disabled={inferCountryMutation.isPending}
+                      className="text-[9px] font-black bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded hover:bg-blue-200 disabled:opacity-50 transition-colors leading-tight"
+                      title="Infer country from research brief using AI"
+                    >
+                      {inferCountryMutation.isPending
+                        ? "…"
+                        : inferCountryMutation.data?.written
+                          ? `✓ ${inferCountryMutation.data.inferredCountry}`
+                          : inferCountryMutation.data && !inferCountryMutation.data.written
+                            ? `? ${inferCountryMutation.data.confidence}`
+                            : "AI INFER"}
+                    </button>
+                  )}
+                </div>
+                <div className="font-bold">{location}</div>
+              </div>
               {company.revenue && <div><div className="text-[10px] font-black text-muted-foreground">REVENUE</div><div className="font-bold">{formatRevenue(company.revenue)}</div></div>}
               {company.sliceMetadata && (() => { try { const m = JSON.parse(company.sliceMetadata as string); return m.employeeBand ? <div><div className="text-[10px] font-black text-muted-foreground">EMPLOYEES</div><div className="font-bold">{m.employeeBand}</div></div> : null; } catch { return null; } })()}
               {company.linkedinUrl && (

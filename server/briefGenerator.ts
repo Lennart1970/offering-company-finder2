@@ -736,20 +736,20 @@ NOTE: Use your web-search capability to find recent news about this company — 
 
   const distributorScoringRules = angleInfo.isDistributor
     ? `DISTRIBUTOR SCORING RULES (override standard ICP scoring):
-- industryFit (0-30): Does this company operate in DISTRIBUTION, RETAIL, or RESELLER space for the relevant end-market? Are they a dealer, importer, wholesaler, or specialty retailer?
+- industryFit (0-35): Does this company operate in DISTRIBUTION, RETAIL, or RESELLER space for the relevant end-market? Are they a dealer, importer, wholesaler, or specialty retailer?
 - sizeFit (0-20): Does the company have sufficient commercial scale to be a meaningful channel partner? (revenue, team size, geographic reach). Search the web for recent capital raises, acquisitions, or headcount announcements if Apollo data is missing.
 - mustHavesFit (0-30): Does the company have: (1) existing product portfolio in adjacent/complementary categories, (2) access to the target end-customer segment, (3) commercial infrastructure (sales team, logistics, showroom/online store)?
-- geoFit (0-20): Is the company located in the Brain's priority geography? Score based on country/region fit against ICP geography requirements.
 - disqualifiers: Disqualify if the company IS the end-user (uses products internally only), is a pure manufacturer with no distribution arm, or is a direct competitor.
-- buyingSignalsFit (0-20): Evidence of channel expansion, new brand partnerships, trade show presence, or distributor agreements?
-- overallRationale: Frame as channel partnership potential, not direct sales fit.`
+- buyingSignalsFit (0-15): Evidence of channel expansion, new brand partnerships, trade show presence, or distributor agreements?
+- overallRationale: Frame as channel partnership potential, not direct sales fit.
+IMPORTANT: Location/geography is NOT a scoring dimension. Do not penalise or reward companies for their location. Geography is applied as a separate filter outside of fit scoring.`
     : `Scoring rules:
-- industryFit (0-30): Does the company operate in the Brain's ICP industries? Full score = perfect match, 0 = complete mismatch
+- industryFit (0-35): Does the company operate in the Brain's ICP industries? Full score = perfect match, 0 = complete mismatch
 - sizeFit (0-20): Does the company's revenue/headcount match the Brain's ICP company size? IMPORTANT: use your web-search to find recent capital raises, acquisitions, or headcount announcements if Apollo data is missing or the company is new.
 - mustHavesFit (0-30): How many of the Brain's must-have criteria does this company appear to meet? Score proportionally: full 30 if all met, 0 if none met.
-- geoFit (0-20): Is the company located in the Brain's priority geography? Score based on country/region fit. EU/primary market = 18-20, secondary market = 10-15, low-priority = 0-9.
 - disqualifiers: If ANY disqualifier is triggered, cap fitScore at 25 regardless of other scores
-- buyingSignalsFit (0-20): Does the company profile suggest any of the Brain's buying signals are present?`;
+- buyingSignalsFit (0-15): Does the company profile suggest any of the Brain's buying signals are present?
+IMPORTANT: Location/geography is NOT a scoring dimension. Do not penalise or reward companies for their location. Geography is applied as a separate filter outside of fit scoring.`;
 
   const prompt = `You are a B2B sales qualification analyst. Score the prospect company's fit against the seller's Ideal Customer Profile (ICP).${angleInfo.context}
 
@@ -765,8 +765,8 @@ Evaluate the prospect and return a JSON object with this exact structure:
   "fitScore": <integer 0-100>,
   "breakdown": {
     "industryFit": {
-      "score": <0-30>,
-      "max": 30,
+      "score": <0-35>,
+      "max": 35,
       "rationale": "<1-2 sentences explaining the industry match>"
     },
     "sizeFit": {
@@ -781,20 +781,13 @@ Evaluate the prospect and return a JSON object with this exact structure:
       "matched": ["<must-have criteria that appear to be met>"],
       "missing": ["<must-have criteria that appear to be missing>"]
     },
-    "geoFit": {
-      "score": <0-20>,
-      "max": 20,
-      "rationale": "<1-2 sentences on geographic fit against ICP geography>",
-      "region": "<EU|US|APAC|China|Other>",
-      "countryCode": "<ISO-2 code>"
-    },
     "disqualifiers": {
       "triggered": <true|false>,
       "reasons": ["<any disqualifier criteria that appear to apply>"]
     },
     "buyingSignalsFit": {
-      "score": <0-20>,
-      "max": 20,
+      "score": <0-15>,
+      "max": 15,
       "rationale": "<1-2 sentences on buying signal alignment>"
     }
   },
@@ -802,7 +795,8 @@ Evaluate the prospect and return a JSON object with this exact structure:
 }
 
 ${distributorScoringRules}
-fitScore = industryFit.score + sizeFit.score + mustHavesFit.score + geoFit.score + buyingSignalsFit.score (capped at 25 if disqualifier triggered)
+fitScore = industryFit.score + sizeFit.score + mustHavesFit.score + buyingSignalsFit.score (max 100, capped at 25 if disqualifier triggered)
+Formula: 35 + 20 + 30 + 15 = 100 points total. Location is NOT scored here — it is a filter applied separately.
 
 ICP Industries to match against: ${icpIndustries.join(", ")}
 Must-have criteria (score 0 if none met, 30 if all met): ${mustHaveCriteria.length > 0 ? mustHaveCriteria.join("; ") : "none specified — use best judgment from ICP description"}
@@ -830,23 +824,16 @@ Return ONLY the JSON object, no markdown, no explanation outside the JSON.`;
   }
   rawLlmScore = Math.max(0, Math.min(100, rawLlmScore));
 
-  // ── Extract geoFit from LLM output (replaces old multiplier) ───────────────────────────
-  // The LLM now scores geoFit as a transparent dimension (0–20) inside the JSON.
-  // We keep a legacy geographyMultiplier block for backward-compat with the UI.
+  // ── Location is now a filter, not a score dimension ──────────────────────────────────────
+  // geoFit has been removed from the scoring formula (Industry 35 + Size 20 + MustHaves 30 + Signals 15 = 100).
+  // Country/region is stored on the company record and applied as a filter on share lists / campaigns.
   const rawCode = (company.country ?? company.sourceCountryCode ?? "").toUpperCase().trim();
-  const geoFitFromLLM = parsed.breakdown?.geoFit;
-  const geoRegion: string = geoFitFromLLM?.region ?? "Other";
-  const geoRationale: string = geoFitFromLLM?.rationale ?? "Geography scored by LLM";
 
-  // Derive a legacy multiplier from the geoFit score for display-only purposes
-  const geoScore = Math.max(0, Math.min(20, geoFitFromLLM?.score ?? 10));
-  const geoMultiplier = parseFloat((geoScore / 20).toFixed(2)); // 0.0–1.0 for display
-
-  // fitScore is now the direct LLM sum (industryFit + sizeFit + mustHavesFit + geoFit + buyingSignalsFit)
+  // fitScore is the direct LLM sum (no geo adjustment)
   const finalScore = rawLlmScore;
 
   console.log(
-    `[Fit Scorer] ${company.name} → LLM: ${rawLlmScore} (geo: ${geoScore}/20, ${geoRegion}) = ${finalScore}`
+    `[Fit Scorer] ${company.name} → LLM: ${rawLlmScore} (location: ${rawCode || "unknown"}, not scored) = ${finalScore}`
   );
 
   return {
@@ -857,12 +844,10 @@ Return ONLY the JSON object, no markdown, no explanation outside the JSON.`;
     brainName: brain.brainName,
     breakdown: {
       ...parsed.breakdown,
-      // Keep geographyMultiplier for UI backward-compat (shown as footnote)
-      geographyMultiplier: {
-        multiplier: geoMultiplier,
-        region: geoRegion,
-        countryCode: rawCode || "??",
-        rationale: geoRationale,
+      // Location info preserved for display only — not part of score
+      locationInfo: {
+        countryCode: rawCode || null,
+        note: "Location is a filter, not a scoring dimension (v2 formula)",
       },
     },
     overallRationale: parsed.overallRationale,

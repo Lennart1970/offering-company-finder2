@@ -4567,9 +4567,55 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
             .join(" | ")
         : "";
 
+      // ── Pre-compute domain geography signals before calling the LLM ──────────
+      const domainHints: string[] = [];
+      let hasCcTld = false;
+      if (company.websiteUrl) {
+        try {
+          const rawUrl = company.websiteUrl.startsWith("http") ? company.websiteUrl : `https://${company.websiteUrl}`;
+          const url = new URL(rawUrl);
+          const host = url.hostname.toLowerCase().replace(/^www\./, "");
+          // Country-code TLD map (checked longest-first to catch .co.uk / .com.vn before .uk / .vn)
+          const ccTlds: [string, string][] = [
+            [".co.uk", "GB"], [".com.vn", "VN"], [".com.br", "BR"], [".com.au", "AU"],
+            [".de", "DE"], [".nl", "NL"], [".fr", "FR"], [".it", "IT"], [".es", "ES"],
+            [".pl", "PL"], [".se", "SE"], [".no", "NO"], [".dk", "DK"], [".fi", "FI"],
+            [".be", "BE"], [".ch", "CH"], [".at", "AT"], [".pt", "PT"], [".cz", "CZ"],
+            [".hu", "HU"], [".ro", "RO"], [".sk", "SK"], [".uk", "GB"],
+            [".cn", "CN"], [".jp", "JP"], [".kr", "KR"], [".tw", "TW"], [".hk", "HK"],
+            [".sg", "SG"], [".in", "IN"], [".vn", "VN"], [".br", "BR"],
+            [".mx", "MX"], [".ca", "CA"], [".za", "ZA"], [".nz", "NZ"],
+          ];
+          for (const [tld, code] of ccTlds) {
+            if (host.endsWith(tld)) {
+              domainHints.push(`STRONG SIGNAL: Domain TLD '${tld}' → headquarters country is ${code}`);
+              hasCcTld = true;
+              break;
+            }
+          }
+          if (!hasCcTld) {
+            // Subdomain geography signals (usa.siemens.com → US, uk.company.com → GB)
+            const subMap: [string, string][] = [
+              ["usa.", "US"], ["us.", "US"], ["uk.", "GB"], ["de.", "DE"],
+              ["fr.", "FR"], ["nl.", "NL"], ["it.", "IT"], ["es.", "ES"],
+              ["cn.", "CN"], ["jp.", "JP"], ["au.", "AU"], ["ca.", "CA"],
+              ["in.", "IN"], ["sg.", "SG"], ["br.", "BR"],
+            ];
+            for (const [sub, code] of subMap) {
+              if (host.startsWith(sub)) {
+                domainHints.push(`STRONG SIGNAL: Subdomain '${sub}' → headquarters country is ${code}`);
+                hasCcTld = true; // treat as definitive
+                break;
+              }
+            }
+          }
+        } catch { /* ignore URL parse errors */ }
+      }
+
       const context = [
         `Company name: ${company.name}`,
         company.websiteUrl ? `Website: ${company.websiteUrl}` : "",
+        domainHints.length > 0 ? `Domain signals: ${domainHints.join("; ")}` : "",
         execSummary ? `Executive summary: ${execSummary}` : "",
         signals ? `News signals: ${signals.substring(0, 400)}` : "",
       ]
@@ -4582,12 +4628,13 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
           {
             role: "system",
             content:
-              "You are a company location expert. Given company information, identify the country of headquarters. " +
-              "Return ONLY a valid JSON object with two fields: \"country\" (ISO 3166-1 alpha-2 code, e.g. \"DE\", \"US\", \"NL\") " +
-              "and \"confidence\" (\"high\", \"medium\", or \"low\"). " +
-              "Use the website domain TLD as a strong signal (.de → DE, .nl → NL, .com.vn → VN, .co.uk → GB). " +
-              "If the domain is .com or .org and you cannot determine country from the text, set confidence to \"low\". " +
-              "Never guess — if truly unknown return {\"country\": null, \"confidence\": \"low\"}.",
+              "You are a company HEADQUARTERS location expert. Identify the country of the company's HEADQUARTERS only — not where it sells, operates, or has customers.\n" +
+              "Priority rules (apply in strict order):\n" +
+              "1. If 'Domain signals: STRONG SIGNAL' is present, that IS the answer. Return it with confidence 'high'. Do not override it with text content.\n" +
+              "2. Country-code TLDs (.de, .nl, .co.uk, .com.vn, etc.) are definitive.\n" +
+              "3. For .com / .org / .net / .io domains with NO domain signals: only infer from text if the company name or executive summary EXPLICITLY names the headquarters city/country. Do NOT infer from: the language of the brief, countries mentioned as customers or markets, or Chinese/Japanese/Korean text in the brief.\n" +
+              "4. If unsure, return null with confidence 'low'. Never guess.\n" +
+              "Return ONLY: {\"country\": \"XX\" or null, \"confidence\": \"high\" | \"medium\" | \"low\"}",
           },
           { role: "user", content: context },
         ],

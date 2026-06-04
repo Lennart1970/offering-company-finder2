@@ -4949,6 +4949,128 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         eligible: Number(stats.eligible),
       };
     }),
+
+  // ── Ghost Duplicate Deduplication ──────────────────────────────────────────
+  // A "ghost duplicate" is a company row that shares a domain with another row
+  // that has actual data (briefData / fitScoreData), but is itself empty.
+  // These accumulate when Apollo returns the same company across multiple searches.
+
+  getDuplicateStats: protectedProcedure.query(async () => {
+    const { getDb } = await import("./db");
+    const db = await getDb();
+    if (!db) return { totalGhosts: 0, affectedDomains: 0 };
+    // Count ghost rows: same primaryDomain as another row, but no briefData AND no fitScoreData
+    const rawResult = await db.execute<any>(`
+      SELECT
+        COUNT(*) AS totalGhosts,
+        COUNT(DISTINCT c.primaryDomain) AS affectedDomains
+      FROM companies c
+      WHERE
+        c.primaryDomain IS NOT NULL
+        AND c.primaryDomain != ''
+        AND (c.briefData IS NULL OR c.briefData = '{}' OR c.briefData = '')
+        AND (c.fitScoreData IS NULL OR c.fitScoreData = '{}' OR c.fitScoreData = '')
+        AND EXISTS (
+          SELECT 1 FROM companies c2
+          WHERE c2.primaryDomain = c.primaryDomain
+            AND c2.id != c.id
+            AND c2.briefData IS NOT NULL
+            AND c2.briefData != '{}'
+            AND c2.briefData != ''
+        )
+    `);
+    const resultRows = Array.isArray(rawResult) ? (Array.isArray(rawResult[0]) ? rawResult[0] : rawResult) : [];
+    const firstRow = (resultRows as any[])[0] ?? {};
+    return {
+      totalGhosts: Number(firstRow?.totalGhosts ?? 0),
+      affectedDomains: Number(firstRow?.affectedDomains ?? 0),
+    };
+  }),
+
+  previewDuplicates: protectedProcedure
+    .input(z.object({ limit: z.number().min(1).max(200).default(50) }))
+    .query(async ({ input }) => {
+      const { getDb } = await import("./db");
+      const db = await getDb();
+      if (!db) return { rows: [] };
+      const rawRows = await db.execute<any>(`
+        SELECT
+          c.id,
+          c.name,
+          c.primaryDomain,
+          c.websiteUrl,
+          c.searchId,
+          c.country,
+          c.createdAt,
+          keeper.id AS keeperId,
+          keeper.name AS keeperName,
+          keeper.country AS keeperCountry
+        FROM companies c
+        JOIN (
+          SELECT primaryDomain, MIN(id) AS id
+          FROM companies
+          WHERE briefData IS NOT NULL AND briefData != '{}' AND briefData != ''
+          GROUP BY primaryDomain
+        ) best ON best.primaryDomain = c.primaryDomain
+        JOIN companies keeper ON keeper.id = best.id
+        WHERE
+          c.primaryDomain IS NOT NULL
+          AND c.primaryDomain != ''
+          AND (c.briefData IS NULL OR c.briefData = '{}' OR c.briefData = '')
+          AND (c.fitScoreData IS NULL OR c.fitScoreData = '{}' OR c.fitScoreData = '')
+          AND c.id != best.id
+        ORDER BY c.primaryDomain, c.id
+        LIMIT ${input.limit}
+      `);
+      const previewRows = Array.isArray(rawRows) ? (Array.isArray(rawRows[0]) ? rawRows[0] : rawRows) : [];
+      return { rows: previewRows as Array<{ id: number; name: string; primaryDomain: string; websiteUrl: string | null; searchId: number | null; country: string | null; createdAt: string | null; keeperId: number; keeperName: string; keeperCountry: string | null }> };
+    }),
+
+  purgeDuplicates: protectedProcedure
+    .input(z.object({ dryRun: z.boolean().default(true) }))
+    .mutation(async ({ input }) => {
+      const { getDb } = await import("./db");
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      // Identify ghost IDs
+      const rawGhostRows = await db.execute<any>(`
+        SELECT c.id
+        FROM companies c
+        WHERE
+          c.primaryDomain IS NOT NULL
+          AND c.primaryDomain != ''
+          AND (c.briefData IS NULL OR c.briefData = '{}' OR c.briefData = '')
+          AND (c.fitScoreData IS NULL OR c.fitScoreData = '{}' OR c.fitScoreData = '')
+          AND EXISTS (
+            SELECT 1 FROM companies c2
+            WHERE c2.primaryDomain = c.primaryDomain
+              AND c2.id != c.id
+              AND c2.briefData IS NOT NULL
+              AND c2.briefData != '{}'
+              AND c2.briefData != ''
+          )
+      `);
+      const ghostRowsArr = Array.isArray(rawGhostRows) ? (Array.isArray(rawGhostRows[0]) ? rawGhostRows[0] : rawGhostRows) : [];
+      const ghostIds = (ghostRowsArr as Array<{ id: number }>).map((r) => r.id);
+      if (ghostIds.length === 0) return { deleted: 0, dryRun: input.dryRun };
+      if (!input.dryRun) {
+        // Delete in batches of 500 to avoid huge IN clauses
+        const batchSize = 500;
+        let deleted = 0;
+        for (let i = 0; i < ghostIds.length; i += batchSize) {
+          const batch = ghostIds.slice(i, i + batchSize);
+          const placeholders = batch.map(() => "?").join(",");
+          // Use raw mysql2 for parameterized batch delete
+          const mysql2 = await import("mysql2/promise");
+          const conn = await mysql2.createConnection(process.env.DATABASE_URL!);
+          await conn.execute(`DELETE FROM companies WHERE id IN (${placeholders})`, batch);
+          await conn.end();
+          deleted += batch.length;
+        }
+        return { deleted, dryRun: false };
+      }
+      return { deleted: ghostIds.length, dryRun: true };
+    }),
 });
 // Background search function using brain offering data
 async function searchWithBrainOffering(

@@ -1,7 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Database, Activity, CheckCircle2, AlertCircle, Clock, Zap, FileText, Users, Globe, BrainCircuit, MapPin } from "lucide-react";
+import { RefreshCw, Database, Activity, CheckCircle2, AlertCircle, Clock, Zap, FileText, Users, Globe, BrainCircuit, MapPin, Trash2, Eye } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -187,6 +187,153 @@ function CampaignTable({ campaigns, total }: { campaigns: CampaignRow[]; total: 
 type BackfillRow = { id: number; name: string; websiteUrl: string | null; country: string | null; confidence: string; written: boolean; domainSignal: string | null };
 type BackfillResult = { processed: number; written: number; skipped: number; errors: number; dryRun: boolean; results: BackfillRow[] };
 
+// ─── Ghost Duplicate Deduplication Panel ─────────────────────────────────────
+function GhostDuplicatePanel() {
+  const [showPreview, setShowPreview] = useState(false);
+  const [purgeResult, setPurgeResult] = useState<{ deleted: number; dryRun: boolean } | null>(null);
+
+  const statsQ = trpc.companyFinder.getDuplicateStats.useQuery(undefined, { refetchOnWindowFocus: false });
+  const previewQ = trpc.companyFinder.previewDuplicates.useQuery(
+    { limit: 100 },
+    { enabled: showPreview, refetchOnWindowFocus: false }
+  );
+  const purgeMut = trpc.companyFinder.purgeDuplicates.useMutation({
+    onSuccess: (data) => {
+      setPurgeResult(data);
+      statsQ.refetch();
+      if (!data.dryRun) {
+        toast.success(`Purged ${data.deleted.toLocaleString()} ghost duplicates`);
+        setShowPreview(false);
+      }
+    },
+    onError: (e) => toast.error(e.message),
+  });
+
+  const stats = statsQ.data;
+  const ghosts = stats?.totalGhosts ?? 0;
+  const domains = stats?.affectedDomains ?? 0;
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-4 space-y-4">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Trash2 className="w-4 h-4 text-red-500" />
+          <span className="font-semibold text-sm text-gray-800">Ghost Duplicate Cleanup</span>
+          <Badge className="bg-gray-100 text-gray-600 border-gray-200 text-xs">Deduplication</Badge>
+        </div>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => statsQ.refetch()}
+          disabled={statsQ.isFetching}
+          className="text-xs text-gray-400 h-7"
+        >
+          <RefreshCw className={`w-3 h-3 mr-1 ${statsQ.isFetching ? "animate-spin" : ""}`} />
+          Refresh Stats
+        </Button>
+      </div>
+
+      <p className="text-xs text-gray-500">
+        Ghost duplicates are company rows that share a domain with a fully-enriched record but have no brief or fit data.
+        They accumulate when Apollo returns the same company across multiple search runs and skew backfill previews.
+      </p>
+
+      {/* Stats row */}
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <div className="text-2xl font-bold text-red-600">{statsQ.isFetching ? "…" : fmt(ghosts)}</div>
+          <div className="text-xs text-gray-500 mt-0.5">Ghost rows to remove</div>
+        </div>
+        <div>
+          <div className="text-2xl font-bold text-orange-500">{statsQ.isFetching ? "…" : fmt(domains)}</div>
+          <div className="text-xs text-gray-500 mt-0.5">Affected domains</div>
+        </div>
+      </div>
+
+      {/* Dry-run result */}
+      {purgeResult?.dryRun && (
+        <div className="bg-amber-50 border border-amber-200 rounded p-3 text-xs text-amber-800">
+          <strong>Dry-run result:</strong> {purgeResult.deleted.toLocaleString()} rows would be deleted.
+          Click <strong>Purge Now</strong> to commit.
+        </div>
+      )}
+      {purgeResult && !purgeResult.dryRun && (
+        <div className="bg-emerald-50 border border-emerald-200 rounded p-3 text-xs text-emerald-800">
+          <CheckCircle2 className="inline w-3.5 h-3.5 mr-1" />
+          <strong>{purgeResult.deleted.toLocaleString()} ghost rows deleted.</strong> Database is clean.
+        </div>
+      )}
+
+      {/* Action buttons */}
+      <div className="flex flex-wrap gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs h-8"
+          onClick={() => setShowPreview((v) => !v)}
+          disabled={ghosts === 0}
+        >
+          <Eye className="w-3.5 h-3.5 mr-1.5" />
+          {showPreview ? "Hide Preview" : `Preview (${fmt(Math.min(ghosts, 100))} rows)`}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="text-xs h-8 border-amber-300 text-amber-700 hover:bg-amber-50"
+          onClick={() => purgeMut.mutate({ dryRun: true })}
+          disabled={purgeMut.isPending || ghosts === 0}
+        >
+          Dry Run
+        </Button>
+        <Button
+          size="sm"
+          className="text-xs h-8 bg-red-600 hover:bg-red-700 text-white"
+          onClick={() => {
+            if (!confirm(`Delete ${ghosts.toLocaleString()} ghost rows permanently?`)) return;
+            purgeMut.mutate({ dryRun: false });
+          }}
+          disabled={purgeMut.isPending || ghosts === 0}
+        >
+          <Trash2 className="w-3.5 h-3.5 mr-1.5" />
+          Purge Now
+        </Button>
+      </div>
+
+      {/* Preview table */}
+      {showPreview && previewQ.data && (
+        <div className="overflow-x-auto border border-gray-200 rounded">
+          <table className="w-full text-xs">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                <th className="text-left px-3 py-2 font-medium text-gray-600">Ghost (to delete)</th>
+                <th className="text-left px-3 py-2 font-medium text-gray-600">Domain</th>
+                <th className="text-left px-3 py-2 font-medium text-gray-600">Run</th>
+                <th className="text-left px-3 py-2 font-medium text-gray-600">Keeper record</th>
+                <th className="text-left px-3 py-2 font-medium text-gray-600">Keeper country</th>
+              </tr>
+            </thead>
+            <tbody>
+              {previewQ.data.rows.map((row) => (
+                <tr key={row.id} className="border-b border-gray-100 hover:bg-red-50">
+                  <td className="px-3 py-1.5 text-gray-700">{row.name} <span className="text-gray-400">#{row.id}</span></td>
+                  <td className="px-3 py-1.5 text-gray-500">{row.primaryDomain}</td>
+                  <td className="px-3 py-1.5 text-gray-400">{row.searchId ?? "—"}</td>
+                  <td className="px-3 py-1.5 text-emerald-700">{row.keeperName} <span className="text-gray-400">#{row.keeperId}</span></td>
+                  <td className="px-3 py-1.5 text-gray-500">{row.keeperCountry ?? "—"}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+          {previewQ.data.rows.length === 100 && (
+            <div className="px-3 py-2 text-xs text-gray-400">Showing first 100 rows — run Purge to remove all {fmt(ghosts)}.</div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ─── Country Backfill Panel ────────────────────────────────────────────────────
 function CountryBackfillPanel() {
   const [batchSize, setBatchSize] = useState(25);
   const [selectedRunId, setSelectedRunId] = useState<number | undefined>(undefined);
@@ -660,6 +807,9 @@ export default function DatabaseHealth() {
       {/* Country Backfill */}
       <SectionCard title="Data Enrichment Tools" icon={MapPin}>
         <CountryBackfillPanel />
+        <div className="mt-4">
+          <GhostDuplicatePanel />
+        </div>
       </SectionCard>
 
       {/* Per-campaign breakdown */}

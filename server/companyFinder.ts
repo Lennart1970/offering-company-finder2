@@ -4271,6 +4271,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       z.object({
         mode: z.enum(["ungraded", "all", "campaign"]).default("ungraded"),
         searchId: z.number().optional(), // required when mode === "campaign"
+        brainId: z.number().optional(),  // optional: use a specific Brain instead of globally-active
       })
     )
     .mutation(async ({ input }) => {
@@ -4278,6 +4279,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       const result = await runBulkSimilarityScoring({
         mode: input.mode,
         searchId: input.searchId,
+        brainId: input.brainId,
       });
       return result;
     }),

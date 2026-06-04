@@ -1313,6 +1313,7 @@ export async function getCompanyDatabaseSearches() {
       id: searches.id,
       location: searches.location,
       offeringName: searches.offeringName,
+      brainId: searches.brainId,
       companyCount: count(companies.id),
     })
     .from(searches)

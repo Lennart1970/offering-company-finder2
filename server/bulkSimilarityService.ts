@@ -56,6 +56,7 @@ function getSupabase() {
 export interface SimilarityJobOptions {
   mode: "ungraded" | "all" | "campaign";
   searchId?: number; // required when mode === "campaign"
+  brainId?: number;  // optional: use a specific Brain instead of the globally-active one
 }
 
 export interface SimilarityJobResult {
@@ -77,21 +78,22 @@ export async function runBulkSimilarityScoring(
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
-  // ── Step 1: Fetch active Brain from MySQL ─────────────────────────────────
+  // ── Step 1: Fetch Brain from MySQL (specific brainId or globally-active) ────
   const { sql } = await import("drizzle-orm");
-  const brainRows = await db.execute(sql`
-    SELECT id, brainName FROM offering_brain
-    WHERE isActive = 1 AND show_on_leadtrigger = 1
-    ORDER BY updatedAt DESC LIMIT 1
-  `);
+  const brainRows = opts.brainId
+    ? await db.execute(sql`SELECT id, brainName FROM offering_brain WHERE id = ${opts.brainId} LIMIT 1`)
+    : await db.execute(sql`SELECT id, brainName FROM offering_brain WHERE isActive = 1 AND show_on_leadtrigger = 1 ORDER BY updatedAt DESC LIMIT 1`);
 
   const brainArr = brainRows as unknown as { id: number; brainName: string }[];
   if (!brainArr || brainArr.length === 0) {
-    throw new Error("No active Brain found — cannot compute similarity scores");
+    throw new Error(opts.brainId
+      ? `Brain id=${opts.brainId} not found`
+      : "No active Brain found — cannot compute similarity scores");
   }
   const brain = brainArr[0];
   const activeBrainId = String(brain.id);
-  console.log(`[BulkSimilarity] Active Brain: "${brain.brainName}" (id=${activeBrainId})`);
+  console.log(`[BulkSimilarity] Brain: "${brain.brainName}" (id=${activeBrainId})${opts.brainId ? " [campaign-specific]" : " [globally-active]"}`);
+
 
   // ── Step 2: Fetch Brain embedding from Supabase ───────────────────────────
   const { data: brainEmbRow, error: brainEmbErr } = await sb

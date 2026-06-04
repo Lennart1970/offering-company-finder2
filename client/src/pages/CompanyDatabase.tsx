@@ -786,20 +786,34 @@ export default function CompanyDatabase() {
           </button>
         )}
 
-        {/* Score Similarity button */}
-        <button
-          onClick={() => scoreSimilarity.mutate({ mode: "ungraded" })}
-          disabled={scoreSimilarity.isPending}
-          className="ml-auto h-8 px-3 rounded text-xs font-medium border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
-          title="Compute ICP cosine similarity for all companies not yet scored (fast, no LLM)"
-        >
-          {scoreSimilarity.isPending ? (
-            <Loader2 className="w-3 h-3 animate-spin" />
-          ) : (
-            <Zap className="w-3 h-3" />
-          )}
-          FIT-SIM
-        </button>
+        {/* Score Similarity button — campaign-scoped when a single run is selected */}
+        {(() => {
+          const singleRun = selectedRunIds.length === 1
+            ? (meta?.searches ?? []).find(s => s.id === selectedRunIds[0])
+            : null;
+          const simMode = singleRun ? 'campaign' : 'ungraded';
+          const simSearchId = singleRun?.id;
+          const simBrainId = (singleRun as any)?.brainId ?? undefined;
+          const simLabel = singleRun ? `FIT-SIM · Run #${singleRun.id}` : 'FIT-SIM';
+          const simTitle = singleRun
+            ? `Score all companies in Run #${singleRun.id} against its Brain${simBrainId ? ` (id=${simBrainId})` : ''}`
+            : 'Compute ICP cosine similarity for all unscored companies (fast, no LLM)';
+          return (
+            <button
+              onClick={() => scoreSimilarity.mutate({ mode: simMode, searchId: simSearchId, brainId: simBrainId })}
+              disabled={scoreSimilarity.isPending}
+              className="ml-auto h-8 px-3 rounded text-xs font-medium border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+              title={simTitle}
+            >
+              {scoreSimilarity.isPending ? (
+                <Loader2 className="w-3 h-3 animate-spin" />
+              ) : (
+                <Zap className="w-3 h-3" />
+              )}
+              {simLabel}
+            </button>
+          );
+        })()}
 
         {/* Score News Urgency button */}
         <button

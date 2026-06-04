@@ -3740,28 +3740,47 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       });
     }),
 
-  // Sync ALL researched companies to Supabase lt_mns_companies table
-  // Runs as a background job to avoid HTTP timeout (4000+ companies takes >3 min)
+    // DEPRECATED: syncAllCompanies previously wrote to lt_mns_companies which no longer exists.
+  // The live Supabase schema uses lt_companies (master registry) + lt_campaign_companies (enrichment).
+  // This procedure now returns a deprecation notice instead of running the broken sync.
+  // TODO: Replace with a procedure that syncs to lt_companies when needed.
   syncAllCompanies: protectedProcedure
     .mutation(async () => {
-      // Fire-and-forget: kick off sync in background, return immediately
-      (async () => {
-        try {
-          const { syncAllCompaniesToSupabase } = await import("./supabaseSync");
-          const result = await syncAllCompaniesToSupabase();
-          console.log(`[SupabaseSync] syncAllCompanies complete: ${result.message}`);
-        } catch (e) {
-          console.error("[SupabaseSync] syncAllCompanies background error:", e instanceof Error ? e.message : String(e));
-        }
-      })();
-      return { synced: 0, errors: 0, message: "Sync started in background — check server logs or refresh stats in ~3 minutes" };
+      return {
+        synced: 0,
+        errors: 0,
+        message: "⚠️ DEPRECATED: lt_mns_companies no longer exists. The live schema uses lt_companies + lt_campaign_companies. This sync has been disabled to prevent silent failures. See references/db-architecture.md.",
+      };
     }),
-
-  // Get sync stats for lt_mns_companies table
+  // Get sync stats — now reads from lt_companies (the live Supabase master registry)
+  // instead of the deprecated lt_mns_companies table.
   getCompaniesTableSyncStats: protectedProcedure
     .query(async () => {
-      const { getCompaniesTableSyncStats } = await import("./supabaseSync");
-      return await getCompaniesTableSyncStats();
+      try {
+        const { createClient } = await import("@supabase/supabase-js");
+        const supabase = createClient(
+          process.env.SUPABASE_URL!,
+          process.env.SUPABASE_SERVICE_ROLE_KEY!,
+          { auth: { persistSession: false } }
+        );
+        const { count, error } = await (supabase.from("lt_companies") as any)
+          .select("*", { count: "exact", head: true });
+        if (error) throw error;
+        const { data: lastRow } = await (supabase.from("lt_companies") as any)
+          .select("updated_at")
+          .order("updated_at", { ascending: false })
+          .limit(1)
+          .single();
+        return {
+          count: count ?? 0,
+          lastSyncedAt: lastRow?.updated_at ?? null,
+          table: "lt_companies",
+          note: "Master registry — one row per company, mysql_id FK to MySQL companies table",
+        };
+      } catch (e) {
+        console.warn("[getCompaniesTableSyncStats] Supabase unavailable:", e);
+        return { count: 0, lastSyncedAt: null, table: "lt_companies", note: "Supabase unavailable" };
+      }
     }),
 
   // Sync all researched company pages to Supabase lt_mns_company_pages table
@@ -4394,15 +4413,50 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       );
     }
 
-    // ── Supabase sync stats ────────────────────────────────────────────────────
-    let supabaseSyncStats = { companiesCount: 0, lastSyncedAt: null as string | null, pagesCount: 0, pagesLastSyncedAt: null as string | null };
+    // ── Supabase sync stats (lt_companies / lt_campaign_companies schema) ────────
+    // NOTE: lt_mns_companies no longer exists — the live schema uses lt_companies
+    // (master registry, one row per company, mysql_id FK) and lt_campaign_companies
+    // (campaign-level enrichment, many-to-many). See references/db-architecture.md.
+    let supabaseSyncStats = {
+      companiesCount: 0,
+      lastSyncedAt: null as string | null,
+      campaignCompaniesCount: 0,
+      campaignCompaniesLastAt: null as string | null,
+      campaignsCount: 0,
+      distinctCompaniesInCampaigns: 0,
+      orphanCount: 0,
+      apolloDupCount: 0,
+      // Legacy fields kept for UI compatibility
+      pagesCount: 0,
+      pagesLastSyncedAt: null as string | null,
+    };
     try {
-      const { getCompaniesTableSyncStats } = await import("./supabaseSync");
-      const companiesStats = await getCompaniesTableSyncStats();
-      supabaseSyncStats.companiesCount = companiesStats.count;
-      supabaseSyncStats.lastSyncedAt = companiesStats.lastSyncedAt;
       const { createClient } = await import("@supabase/supabase-js");
       const supabase = createClient(process.env.SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!, { auth: { persistSession: false } });
+
+      // lt_companies — master registry
+      const { count: ltCoCount } = await (supabase.from("lt_companies") as any)
+        .select("*", { count: "exact", head: true });
+      const { data: ltCoLast } = await (supabase.from("lt_companies") as any)
+        .select("updated_at").order("updated_at", { ascending: false }).limit(1).single();
+
+      // lt_campaign_companies — enrichment layer
+      const { count: ltCcCount } = await (supabase.from("lt_campaign_companies") as any)
+        .select("*", { count: "exact", head: true });
+      const { data: ltCcLast } = await (supabase.from("lt_campaign_companies") as any)
+        .select("updated_at").order("updated_at", { ascending: false }).limit(1).single();
+
+      // lt_campaigns count
+      const { count: ltCampaignsCount } = await (supabase.from("lt_campaigns") as any)
+        .select("*", { count: "exact", head: true });
+
+      supabaseSyncStats.companiesCount = ltCoCount ?? 0;
+      supabaseSyncStats.lastSyncedAt = ltCoLast?.updated_at ?? null;
+      supabaseSyncStats.campaignCompaniesCount = ltCcCount ?? 0;
+      supabaseSyncStats.campaignCompaniesLastAt = ltCcLast?.updated_at ?? null;
+      supabaseSyncStats.campaignsCount = ltCampaignsCount ?? 0;
+
+      // lt_mns_company_pages still exists — keep for legacy display
       const { count: pagesCount } = await (supabase.from("lt_mns_company_pages") as any).select("*", { count: "exact", head: true });
       const { data: latestPage } = await (supabase.from("lt_mns_company_pages") as any).select("synced_at").order("synced_at", { ascending: false }).limit(1).single();
       supabaseSyncStats.pagesCount = pagesCount ?? 0;

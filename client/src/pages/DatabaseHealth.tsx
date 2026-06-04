@@ -184,9 +184,15 @@ function CampaignTable({ campaigns, total }: { campaigns: CampaignRow[]; total: 
 
 // ─── Country Backfill Panel ──────────────────────────────────────────────────
 
+type BackfillRow = { id: number; name: string; websiteUrl: string | null; country: string | null; confidence: string; written: boolean; domainSignal: string | null };
+type BackfillResult = { processed: number; written: number; skipped: number; errors: number; dryRun: boolean; results: BackfillRow[] };
+
 function CountryBackfillPanel() {
-  const [batchSize, setBatchSize] = useState(50);
-  const [lastResult, setLastResult] = useState<{ processed: number; written: number; skipped: number; errors: number } | null>(null);
+  const [batchSize, setBatchSize] = useState(25);
+  // "idle" → "preview" (dry-run done, showing table) → "committed" (real write done)
+  const [stage, setStage] = useState<"idle" | "preview" | "committed">("idle");
+  const [previewData, setPreviewData] = useState<BackfillResult | null>(null);
+  const [commitData, setCommitData] = useState<BackfillResult | null>(null);
 
   const { data: stats, refetch: refetchStats } = trpc.companyFinder.getCountryBackfillStats.useQuery(undefined, {
     staleTime: 30_000,
@@ -194,9 +200,16 @@ function CountryBackfillPanel() {
 
   const bulkMutation = trpc.companyFinder.bulkInferCountry.useMutation({
     onSuccess: (result) => {
-      setLastResult(result);
-      refetchStats();
-      toast.success(`Country backfill: ${result.written} written, ${result.skipped} skipped (low confidence), ${result.errors} errors`);
+      if (result.dryRun) {
+        setPreviewData(result);
+        setStage("preview");
+        toast.info(`Preview ready: ${result.written} would be written, ${result.skipped} would be skipped`);
+      } else {
+        setCommitData(result);
+        setStage("committed");
+        refetchStats();
+        toast.success(`Done: ${result.written} countries written, ${result.skipped} skipped, ${result.errors} errors`);
+      }
     },
     onError: (err) => toast.error(`Backfill failed: ${err.message}`),
   });
@@ -207,17 +220,31 @@ function CountryBackfillPanel() {
   const filled = total - missing;
   const filledPct = total > 0 ? Math.round((filled / total) * 100) : 0;
 
+  const confidenceColor = (c: string) => {
+    if (c === "high") return "text-emerald-600 font-semibold";
+    if (c === "medium") return "text-amber-600 font-semibold";
+    if (c === "low") return "text-gray-400";
+    return "text-red-500";
+  };
+
+  const activeData = stage === "committed" ? commitData : previewData;
+
   return (
     <div className="border border-gray-100 rounded-lg p-5 bg-white space-y-4">
       <div className="flex items-center gap-2">
         <MapPin className="w-4 h-4 text-blue-500" />
         <h3 className="font-semibold text-gray-800 text-sm">Country Backfill (LLM)</h3>
         <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs">AI-powered</Badge>
+        {stage === "preview" && <Badge className="bg-amber-50 text-amber-700 border-amber-200 text-xs">Preview — not written yet</Badge>}
+        {stage === "committed" && <Badge className="bg-emerald-50 text-emerald-700 border-emerald-200 text-xs">Committed</Badge>}
       </div>
       <p className="text-xs text-gray-500">
-        Infers country (ISO-2) from research brief text for companies where Apollo returned no location.
-        Only writes when confidence is <strong>high</strong> or <strong>medium</strong>.
+        Infers country (ISO-2) from research brief for companies where Apollo returned no location.
+        <strong> Step 1: Preview</strong> runs the LLM without writing.
+        <strong> Step 2: Commit</strong> writes only high/medium confidence results.
       </p>
+
+      {/* Stats row */}
       <div className="grid grid-cols-3 gap-4 text-center">
         <div>
           <div className="text-xl font-bold text-gray-900">{fmt(filled)}</div>
@@ -232,6 +259,8 @@ function CountryBackfillPanel() {
           <div className="text-xs text-gray-400">Eligible (has brief)</div>
         </div>
       </div>
+
+      {/* Coverage bar */}
       <div>
         <div className="flex justify-between text-xs text-gray-500 mb-1">
           <span>Country coverage</span>
@@ -246,12 +275,14 @@ function CountryBackfillPanel() {
           />
         </div>
       </div>
-      <div className="flex items-center gap-3">
+
+      {/* Controls */}
+      <div className="flex items-center gap-3 flex-wrap">
         <div className="flex items-center gap-2">
           <label className="text-xs text-gray-500">Batch size:</label>
           <select
             value={batchSize}
-            onChange={(e) => setBatchSize(Number(e.target.value))}
+            onChange={(e) => { setBatchSize(Number(e.target.value)); setStage("idle"); setPreviewData(null); }}
             className="text-xs border border-gray-200 rounded px-2 py-1 bg-white"
             disabled={bulkMutation.isPending}
           >
@@ -260,25 +291,119 @@ function CountryBackfillPanel() {
             ))}
           </select>
         </div>
-        <Button
-          size="sm"
-          onClick={() => bulkMutation.mutate({ limit: batchSize })}
-          disabled={bulkMutation.isPending || eligible === 0}
-          className="gap-2 text-xs"
-        >
-          {bulkMutation.isPending ? (
-            <><RefreshCw className="w-3 h-3 animate-spin" /> Running…</>
-          ) : (
-            <><MapPin className="w-3 h-3" /> Run Backfill ({fmt(Math.min(batchSize, eligible))} companies)</>
-          )}
-        </Button>
+
+        {/* Step 1: Preview */}
+        {stage !== "preview" && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => { setStage("idle"); bulkMutation.mutate({ limit: batchSize, dryRun: true }); }}
+            disabled={bulkMutation.isPending || eligible === 0}
+            className="gap-2 text-xs"
+          >
+            {bulkMutation.isPending && !previewData ? (
+              <><RefreshCw className="w-3 h-3 animate-spin" /> Previewing…</>
+            ) : (
+              <><Activity className="w-3 h-3" /> Preview ({fmt(Math.min(batchSize, eligible))} companies)</>
+            )}
+          </Button>
+        )}
+
+        {/* Step 2: Commit (only shown after preview) */}
+        {stage === "preview" && (
+          <>
+            <Button
+              size="sm"
+              onClick={() => bulkMutation.mutate({ limit: batchSize, dryRun: false })}
+              disabled={bulkMutation.isPending}
+              className="gap-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {bulkMutation.isPending ? (
+                <><RefreshCw className="w-3 h-3 animate-spin" /> Writing…</>
+              ) : (
+                <><CheckCircle2 className="w-3 h-3" /> Commit {previewData?.written ?? 0} countries</>
+              )}
+            </Button>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => { setStage("idle"); setPreviewData(null); }}
+              disabled={bulkMutation.isPending}
+              className="gap-2 text-xs text-gray-500"
+            >
+              Cancel
+            </Button>
+          </>
+        )}
+
+        {stage === "committed" && (
+          <Button
+            size="sm"
+            variant="outline"
+            onClick={() => { setStage("idle"); setPreviewData(null); setCommitData(null); }}
+            className="gap-2 text-xs"
+          >
+            Run another batch
+          </Button>
+        )}
       </div>
-      {lastResult && (
-        <div className="text-xs bg-gray-50 rounded p-3 text-gray-600">
-          Last run: <strong>{lastResult.processed}</strong> processed →{" "}
-          <strong className="text-emerald-600">{lastResult.written} written</strong>,{" "}
-          <span className="text-amber-600">{lastResult.skipped} skipped</span>,{" "}
-          <span className="text-red-500">{lastResult.errors} errors</span>
+
+      {/* Preview / result table */}
+      {activeData && activeData.results.length > 0 && (
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-semibold text-gray-600">
+              {stage === "preview" ? "Preview (not yet written)" : "Committed results"}
+              {" — "}{activeData.processed} companies
+            </span>
+            <div className="flex gap-3 text-xs">
+              <span className="text-emerald-600">{activeData.written} {stage === "preview" ? "would write" : "written"}</span>
+              <span className="text-amber-500">{activeData.skipped} skipped</span>
+              {activeData.errors > 0 && <span className="text-red-500">{activeData.errors} errors</span>}
+            </div>
+          </div>
+          <div className="border border-gray-100 rounded overflow-hidden">
+            <table className="w-full text-xs">
+              <thead className="bg-gray-50 text-gray-500">
+                <tr>
+                  <th className="text-left px-3 py-2 font-medium">Company</th>
+                  <th className="text-left px-3 py-2 font-medium">Website</th>
+                  <th className="text-left px-3 py-2 font-medium">Signal</th>
+                  <th className="text-center px-3 py-2 font-medium">Country</th>
+                  <th className="text-center px-3 py-2 font-medium">Confidence</th>
+                  <th className="text-center px-3 py-2 font-medium">{stage === "preview" ? "Would write" : "Written"}</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-50">
+                {activeData.results.map((row) => (
+                  <tr key={row.id} className={row.written ? "bg-white" : "bg-gray-50 opacity-60"}>
+                    <td className="px-3 py-1.5 font-medium text-gray-800 max-w-[180px] truncate">{row.name}</td>
+                    <td className="px-3 py-1.5 text-gray-400 max-w-[140px] truncate">
+                      {row.websiteUrl ? row.websiteUrl.replace(/^https?:\/\/(www\.)?/, "") : "—"}
+                    </td>
+                    <td className="px-3 py-1.5 text-blue-600 max-w-[160px] truncate" title={row.domainSignal ?? ""}>
+                      {row.domainSignal ? "🔵 domain" : "📄 brief"}
+                    </td>
+                    <td className="px-3 py-1.5 text-center">
+                      {row.country ? (
+                        <span className="font-mono font-bold text-gray-800">{row.country}</span>
+                      ) : (
+                        <span className="text-gray-300">—</span>
+                      )}
+                    </td>
+                    <td className={`px-3 py-1.5 text-center ${confidenceColor(row.confidence)}`}>{row.confidence}</td>
+                    <td className="px-3 py-1.5 text-center">
+                      {row.written ? (
+                        <CheckCircle2 className="w-3.5 h-3.5 text-emerald-500 mx-auto" />
+                      ) : (
+                        <span className="text-gray-300 text-xs">skip</span>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
     </div>

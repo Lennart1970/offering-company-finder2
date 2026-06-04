@@ -55,6 +55,21 @@ type ArticleFilter = "any" | "brief" | "approach" | "both" | "none";
 // Aligns with the geography multipliers used in fit scoring.
 
 const REGION_MAP: Record<string, string[]> = {
+  "DACH": [
+    "Germany", "Austria", "Switzerland",
+  ],
+  "Benelux": [
+    "Belgium", "Netherlands", "Luxembourg",
+  ],
+  "Nordics": [
+    "Denmark", "Finland", "Iceland", "Norway", "Sweden",
+  ],
+  "UK & Ireland": [
+    "United Kingdom", "Ireland",
+  ],
+  "Southern Europe": [
+    "France", "Italy", "Spain", "Portugal", "Greece",
+  ],
   "Europe": [
     "Albania", "Andorra", "Austria", "Belarus", "Belgium", "Bosnia and Herzegovina",
     "Bulgaria", "Croatia", "Cyprus", "Czech Republic", "Czechia", "Denmark", "Estonia",

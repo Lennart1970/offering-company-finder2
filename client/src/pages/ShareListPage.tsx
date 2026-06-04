@@ -27,6 +27,37 @@ function scoreColor(score: number | null): string {
 }
 
 type SortKey = "fitScore" | "urgencyScore" | "companyName";
+
+// Geo-region map (mirrors CompanyDatabase)
+const SHARE_REGION_MAP: Record<string, string[]> = {
+  "DACH": ["Germany", "Austria", "Switzerland"],
+  "Benelux": ["Belgium", "Netherlands", "Luxembourg"],
+  "Nordics": ["Denmark", "Finland", "Iceland", "Norway", "Sweden"],
+  "UK & Ireland": ["United Kingdom", "Ireland"],
+  "Southern Europe": ["France", "Italy", "Spain", "Portugal", "Greece"],
+  "Europe": [
+    "Albania", "Andorra", "Austria", "Belarus", "Belgium", "Bosnia and Herzegovina",
+    "Bulgaria", "Croatia", "Cyprus", "Czech Republic", "Czechia", "Denmark", "Estonia",
+    "Finland", "France", "Germany", "Greece", "Hungary", "Iceland", "Ireland", "Italy",
+    "Kosovo", "Latvia", "Liechtenstein", "Lithuania", "Luxembourg", "Malta", "Moldova",
+    "Monaco", "Montenegro", "Netherlands", "North Macedonia", "Norway", "Poland",
+    "Portugal", "Romania", "San Marino", "Serbia", "Slovakia", "Slovenia", "Spain",
+    "Sweden", "Switzerland", "Ukraine", "United Kingdom", "Vatican City",
+  ],
+  "USA / Canada": ["United States", "Canada"],
+  "China": ["China"],
+  "APAC": [
+    "Australia", "Hong Kong", "India", "Indonesia", "Japan", "Malaysia",
+    "New Zealand", "Philippines", "Singapore", "South Korea", "Taiwan", "Thailand", "Vietnam",
+  ],
+  "LATAM": [
+    "Argentina", "Brazil", "Chile", "Colombia", "Mexico", "Peru",
+  ],
+  "MEA": [
+    "Egypt", "Israel", "Nigeria", "Saudi Arabia", "South Africa", "Turkey", "Türkiye",
+    "United Arab Emirates",
+  ],
+};
 type SortDir = "desc" | "asc";
 
 // --- Sort header button -------------------------------------------------------
@@ -67,6 +98,16 @@ export default function ShareListPage() {
   const [minFit, setMinFit] = useState<number>(0);
   const [minUrgency, setMinUrgency] = useState<number>(0);
   const [search, setSearch] = useState<string>("");
+  const [selectedRegion, setSelectedRegion] = useState<string | undefined>(undefined);
+  const [selectedCountry, setSelectedCountry] = useState<string | undefined>(undefined);
+
+  // Derive unique country list from data
+  const availableCountries = useMemo(() => {
+    if (!data?.companies) return [];
+    const set = new Set<string>();
+    (data.companies as any[]).forEach((c) => { if (c.country) set.add(c.country); });
+    return Array.from(set).sort();
+  }, [data]);
 
   function handleSort(key: SortKey) {
     if (key === sortKey) {
@@ -99,6 +140,14 @@ export default function ShareListPage() {
     if (minFit > 0) list = list.filter((c) => (c.fitScore ?? 0) >= minFit);
     if (minUrgency > 0) list = list.filter((c) => (c.urgencyScore ?? 0) >= minUrgency);
 
+    // Geo filters — region takes precedence over country
+    if (selectedRegion && SHARE_REGION_MAP[selectedRegion]) {
+      const allowed = new Set(SHARE_REGION_MAP[selectedRegion]);
+      list = list.filter((c) => c.country && allowed.has(c.country));
+    } else if (selectedCountry) {
+      list = list.filter((c) => c.country === selectedCountry);
+    }
+
     // Sort
     list.sort((a, b) => {
       let av: any, bv: any;
@@ -115,7 +164,7 @@ export default function ShareListPage() {
     });
 
     return list;
-  }, [data, search, minFit, minUrgency, sortKey, sortDir]);
+  }, [data, search, minFit, minUrgency, selectedRegion, selectedCountry, sortKey, sortDir]);
 
   // -- Excel download ----------------------------------------------------------
   function handleDownloadExcel() {
@@ -343,10 +392,34 @@ export default function ShareListPage() {
             </div>
           </div>
 
+          {/* Region filter */}
+          <select
+            value={selectedRegion ?? ""}
+            onChange={(e) => { setSelectedRegion(e.target.value || undefined); setSelectedCountry(undefined); }}
+            className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+          >
+            <option value="">All regions</option>
+            {Object.keys(SHARE_REGION_MAP).map((r) => (
+              <option key={r} value={r}>{r}</option>
+            ))}
+          </select>
+
+          {/* Country filter */}
+          <select
+            value={selectedCountry ?? ""}
+            onChange={(e) => { setSelectedCountry(e.target.value || undefined); setSelectedRegion(undefined); }}
+            className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-black"
+          >
+            <option value="">All countries</option>
+            {availableCountries.map((c) => (
+              <option key={c} value={c}>{c}</option>
+            ))}
+          </select>
+
           {/* Reset */}
-          {(minFit > 0 || minUrgency > 0 || search) && (
+          {(minFit > 0 || minUrgency > 0 || search || selectedRegion || selectedCountry) && (
             <button
-              onClick={() => { setMinFit(0); setMinUrgency(0); setSearch(""); }}
+              onClick={() => { setMinFit(0); setMinUrgency(0); setSearch(""); setSelectedRegion(undefined); setSelectedCountry(undefined); }}
               className="text-xs text-gray-500 underline hover:text-black"
             >
               Reset

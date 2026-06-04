@@ -4,8 +4,9 @@
  * Runs inside the Express process. Picks pending jobs from campaign_queue
  * and runs the FULL pipeline:
  *
- *   Step 0: Apollo Enrichment  (if enrichmentStatus === "pending")
- *   Step 1: Fit Score          (scoreCompanyFit)
+ *   Step 0:   Apollo Enrichment   (if enrichmentStatus === "pending")
+ *   Step 0.5: Embed-on-Import     (embed → Supabase, compute FIT-SIM vs active Brain)
+ *   Step 1:   Fit Score           (scoreCompanyFit — LLM-based FIT-LLM score)
  *   Step 2+3: Brief + Sales Approach  (run IN PARALLEL after fit score)
  *
  * Acceleration strategies:
@@ -137,6 +138,26 @@ async function processJob() {
       company = await getCompanyById(job.companyId) ?? company;
     } else {
       console.log(`[CampaignQueue] ↩ Already enriched: ${company.name}`);
+    }
+
+    // ── Step 0.5: Embed-on-Import ──────────────────────────────────────────
+    // Embed the company into Supabase and compute FIT-SIM score against the
+    // active Brain. Runs after enrichment so location data is available.
+    // Only runs if similarityScore is not yet set (idempotent).
+    if (!company.similarityScore) {
+      try {
+        const { embedAndScoreCompany } = await import("./embedOnImport");
+        const embedResult = await embedAndScoreCompany(company);
+        if (embedResult.similarityScore != null) {
+          // Refresh company object so later steps see the updated score
+          company = await getCompanyById(job.companyId) ?? company;
+        }
+      } catch (err: any) {
+        console.warn(`[CampaignQueue] ⚠ Embed-on-import failed for ${company.name}: ${err.message}`);
+        // Non-fatal — continue with the rest of the pipeline
+      }
+    } else {
+      console.log(`[CampaignQueue] ↩ FIT-SIM cached: ${company.name} (${company.similarityScore})`);
     }
 
     // ── Step 1: Fit Score ──────────────────────────────────────────────────

@@ -69,6 +69,7 @@ import {
   setContactPhonePending,
   updateContactPhone,
   getAllBrainOutputsForCompany,
+  getNicheById,
 } from "./db";
 import { extractOffering } from "./offeringExtractor";
 import { searchApolloCompanies, enrichCompanyDetails } from "./apolloSearch";
@@ -2065,15 +2066,20 @@ export const companyFinderRouter = router({
         }
       }
 
+      // Load niche context if company has a nicheId
+      let niche = null;
+      if (company.nicheId) {
+        niche = await getNicheById(company.nicheId);
+      }
       return {
         company: companyWithBrainData,
         contacts,
         decision: decision ?? null,
         search: search ?? null,
         allBrainOutputs,
+        niche: niche ?? null,
       };
     }),
-
   // Get all contacts for a company
   getCompanyContacts: protectedProcedure
     .input(z.object({

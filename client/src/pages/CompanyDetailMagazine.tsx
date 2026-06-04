@@ -150,6 +150,7 @@ export default function CompanyDetailMagazine() {
     { enabled: !!companyId && !isNaN(companyId) }
   );
   const company = data?.company ?? null;
+  const niche = data?.niche ?? null;
   const rawContacts = data?.contacts ?? [];
 
   // Auto-poll every 5 seconds while any contact has phonePending=1
@@ -977,6 +978,55 @@ export default function CompanyDetailMagazine() {
               </div>
             )}
 
+            {/* Niche Context Panel */}
+            {niche && niche.fitScore != null && (() => {
+              let breakdown: Array<{ dimension: string; score: number; maxScore: number; reasoning: string }> = [];
+              try { breakdown = JSON.parse(niche.scoreBreakdown ?? '[]'); } catch {}
+              return (
+                <div className="border-2 border-gray-200 bg-gray-50 p-5">
+                  <div className="flex items-start gap-4 mb-4">
+                    <div className="shrink-0">
+                      <div className="text-[10px] font-black text-muted-foreground tracking-widest">NICHE FIT</div>
+                      <div className={`text-3xl font-black ${
+                        niche.fitScore >= 75 ? 'text-green-600' :
+                        niche.fitScore >= 50 ? 'text-yellow-600' : 'text-red-500'
+                      }`}>{niche.fitScore}<span className="text-base text-gray-400">/100</span></div>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[10px] font-black text-muted-foreground tracking-widest mb-1">NICHE</div>
+                      <div className="text-sm font-bold text-gray-900 leading-snug">{niche.name}</div>
+                    </div>
+                  </div>
+                  {niche.fitReasoning && (
+                    <p className="text-xs text-gray-700 leading-relaxed mb-4 border-l-2 border-gray-300 pl-3">{niche.fitReasoning}</p>
+                  )}
+                  {breakdown.length > 0 && (
+                    <div className="space-y-3">
+                      {breakdown.map((dim: any, i: number) => {
+                        const pct = Math.round(((dim.score ?? 0) / (dim.maxScore ?? 1)) * 100);
+                        return (
+                          <div key={i}>
+                            <div className="flex justify-between items-center mb-0.5">
+                              <span className="text-[10px] font-black uppercase tracking-wide text-gray-600">{dim.dimension}</span>
+                              <span className="text-[10px] font-black text-gray-700">{dim.score}/{dim.maxScore}</span>
+                            </div>
+                            <div className="h-1.5 bg-gray-200 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${
+                                  pct >= 75 ? 'bg-green-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-400'
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                            {dim.reasoning && <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">{dim.reasoning}</p>}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
             {/* Products & Services */}
             {briefData.productsAndServices?.length > 0 && (
               <div>

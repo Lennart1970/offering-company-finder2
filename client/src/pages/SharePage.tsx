@@ -441,13 +441,6 @@ export default function SharePage() {
           {/* --- LEFT SIDEBAR (sticky) --- */}
           <div className="w-64 shrink-0 space-y-4 sticky top-[57px]">
 
-            {/* Contacts panel */}
-            <ContactsPanel
-              token={token ?? ""}
-              initialContacts={contactList ?? []}
-              initialFetchedAt={contactsFetchedAt ? new Date(contactsFetchedAt as any) : null}
-            />
-
 {/* Website Visitors moved to main content column */}
 
             {/* Fit score breakdown panel — supports both new object format and legacy array format */}
@@ -493,6 +486,13 @@ export default function SharePage() {
                 </div>
               );
             })()}
+
+            {/* Contacts panel */}
+            <ContactsPanel
+              token={token ?? ""}
+              initialContacts={contactList ?? []}
+              initialFetchedAt={contactsFetchedAt ? new Date(contactsFetchedAt as any) : null}
+            />
 
             {/* Quick company meta */}
             <div className="bg-white border border-gray-200 rounded-xl p-5">

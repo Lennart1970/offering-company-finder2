@@ -232,4 +232,42 @@ router.get("/:listToken", async (req, res) => {
   }
 });
 
+// ---------------------------------------------------------------------------
+// POST /api/public/share-feedback — store anonymous feedback to Supabase
+// ---------------------------------------------------------------------------
+router.post("/feedback", async (req, res) => {
+  try {
+    const { shareToken, companyId, companyName, rating, comment, submitterName, submitterEmail } = req.body ?? {};
+    if (!shareToken) return res.status(400).json({ ok: false, error: "shareToken required" });
+
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (!supabaseUrl || !supabaseKey) return res.status(500).json({ ok: false, error: "Supabase not configured" });
+
+    const { createClient } = await import("@supabase/supabase-js");
+    const sb = createClient(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+
+    const { error } = await sb.from("lt_share_feedback").insert({
+      share_token: String(shareToken).slice(0, 200),
+      company_id: companyId ? Number(companyId) : null,
+      company_name: companyName ? String(companyName).slice(0, 300) : null,
+      rating: ["thumbs_up", "thumbs_down", "neutral"].includes(rating) ? rating : null,
+      comment: comment ? String(comment).slice(0, 2000) : null,
+      submitter_name: submitterName ? String(submitterName).slice(0, 200) : null,
+      submitter_email: submitterEmail ? String(submitterEmail).slice(0, 200) : null,
+    });
+
+    if (error) {
+      console.error("[ShareFeedback] Supabase insert error:", error);
+      return res.status(500).json({ ok: false, error: "Failed to save feedback" });
+    }
+
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[ShareFeedback] POST error:", err);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+
 export default router;
+

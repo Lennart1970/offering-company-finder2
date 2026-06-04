@@ -234,6 +234,165 @@ function ContactsPanel({ token, initialContacts = [], initialFetchedAt = null }:
   );
 }
 
+// --- Fit Breakdown Component ------------------------------------------------
+function FitBreakdown({ fitScoreData }: { fitScoreData: any }) {
+  if (!fitScoreData) return null;
+  const bd = fitScoreData.breakdown;
+  const newDims = bd && !Array.isArray(bd) ? [
+    bd.industryFit && { label: 'Industry Fit', score: bd.industryFit.score, max: bd.industryFit.max ?? 30, rationale: bd.industryFit.rationale },
+    bd.sizeFit && { label: 'Size / Revenue', score: bd.sizeFit.score, max: bd.sizeFit.max ?? 20, rationale: bd.sizeFit.rationale },
+    bd.mustHavesFit && { label: 'Must-Haves', score: bd.mustHavesFit.score, max: bd.mustHavesFit.max ?? 30, rationale: bd.mustHavesFit.rationale },
+    bd.buyingSignalsFit && { label: 'Buying Signals', score: bd.buyingSignalsFit.score, max: bd.buyingSignalsFit.max ?? 15, rationale: bd.buyingSignalsFit.rationale },
+  ].filter(Boolean) : [];
+  const legacyDims = Array.isArray(bd) ? bd : [];
+  const dims = newDims.length > 0 ? newDims : legacyDims;
+  const narrative = fitScoreData.overallRationale || fitScoreData.rationale || fitScoreData.summary || fitScoreData.narrative || null;
+  if (dims.length === 0 && !narrative) return null;
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-5">
+      <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">🎯 Fit Breakdown</h3>
+      {narrative && (
+        <p className="text-sm text-gray-700 leading-relaxed mb-4 border-l-2 border-blue-300 pl-3">{narrative}</p>
+      )}
+      {dims.length > 0 && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {dims.map((dim: any, i: number) => {
+            const max = dim.max ?? dim.maxScore ?? 10;
+            const pct = Math.min(100, Math.round((dim.score / max) * 100));
+            const barColor = pct >= 75 ? 'bg-blue-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-400';
+            return (
+              <div key={i} className="bg-gray-50 rounded-lg p-3">
+                <div className="flex justify-between text-xs mb-1.5">
+                  <span className="font-black text-gray-700">{dim.label ?? dim.dimension ?? dim.criterion}</span>
+                  <span className="text-gray-500 font-bold shrink-0 ml-2">{dim.score}/{max}</span>
+                </div>
+                <div className="w-full bg-gray-200 h-2 rounded-full">
+                  <div className={`h-2 rounded-full ${barColor}`} style={{ width: `${pct}%` }} />
+                </div>
+                {dim.rationale && <p className="text-[10px] text-gray-500 mt-1.5 leading-snug">{dim.rationale}</p>}
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// --- Feedback Box Component --------------------------------------------------
+function FeedbackBox({ shareToken, companyId, companyName }: {
+  shareToken: string;
+  companyId: number | null;
+  companyName: string;
+}) {
+  const [rating, setRating] = useState<"thumbs_up" | "thumbs_down" | "neutral" | null>(null);
+  const [comment, setComment] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+
+  const handleSubmit = async () => {
+    if (!rating) return;
+    setStatus("loading");
+    setErrorMsg("");
+    try {
+      const res = await fetch("/api/public/share-lists/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          shareToken,
+          companyId,
+          companyName,
+          rating,
+          comment: comment.trim() || null,
+          submitterName: name.trim() || null,
+          submitterEmail: email.trim() || null,
+        }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.ok) throw new Error(json.error ?? "Failed to submit");
+      setStatus("success");
+    } catch (err: any) {
+      setErrorMsg(err.message ?? "Something went wrong");
+      setStatus("error");
+    }
+  };
+
+  if (status === "success") {
+    return (
+      <div className="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
+        <div className="text-2xl mb-2">✅</div>
+        <p className="text-sm font-black text-green-800">Thank you for your feedback!</p>
+        <p className="text-xs text-green-600 mt-1">Your input helps us improve our intelligence.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-5">
+      <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">💬 Share Your Feedback</h3>
+      {/* Rating buttons */}
+      <div className="flex gap-2 mb-4">
+        {([
+          { value: "thumbs_up" as const, emoji: "👍", label: "Good fit" },
+          { value: "neutral" as const, emoji: "🤔", label: "Unsure" },
+          { value: "thumbs_down" as const, emoji: "👎", label: "Not a fit" },
+        ]).map((r) => (
+          <button
+            key={r.value}
+            onClick={() => setRating(r.value)}
+            className={`flex-1 flex flex-col items-center gap-1 py-2.5 rounded-lg border-2 text-xs font-black transition-colors ${
+              rating === r.value
+                ? r.value === "thumbs_up" ? "border-green-500 bg-green-50 text-green-700"
+                  : r.value === "thumbs_down" ? "border-red-400 bg-red-50 text-red-700"
+                  : "border-yellow-400 bg-yellow-50 text-yellow-700"
+                : "border-gray-200 text-gray-400 hover:border-gray-400"
+            }`}
+          >
+            <span className="text-lg">{r.emoji}</span>
+            <span>{r.label}</span>
+          </button>
+        ))}
+      </div>
+      {/* Optional comment */}
+      <textarea
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder="Optional comment… (e.g. already a customer, wrong industry)"
+        rows={3}
+        className="w-full text-xs border border-gray-200 rounded-lg p-3 resize-none focus:outline-none focus:border-gray-400 text-gray-700 placeholder-gray-300"
+      />
+      {/* Optional identity */}
+      <div className="grid grid-cols-2 gap-2 mt-2">
+        <input
+          type="text"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          placeholder="Your name (optional)"
+          className="text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 text-gray-700 placeholder-gray-300"
+        />
+        <input
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          placeholder="Email (optional)"
+          className="text-xs border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-gray-400 text-gray-700 placeholder-gray-300"
+        />
+      </div>
+      {/* Submit */}
+      {status === "error" && <p className="text-xs text-red-600 font-bold mt-2">{errorMsg}</p>}
+      <button
+        onClick={handleSubmit}
+        disabled={!rating || status === "loading"}
+        className="mt-3 w-full bg-gray-900 text-white text-xs font-black py-2.5 rounded-lg hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      >
+        {status === "loading" ? "Sending…" : "Submit Feedback"}
+      </button>
+    </div>
+  );
+}
+
 // --- Main Component ----------------------------------------------------------
 
 export default function SharePage() {
@@ -443,50 +602,6 @@ export default function SharePage() {
 
 {/* Website Visitors moved to main content column */}
 
-            {/* Fit score breakdown panel — supports both new object format and legacy array format */}
-            {fitScoreData && (() => {
-              const bd = fitScoreData.breakdown;
-              // New format: breakdown is an object with industryFit/sizeFit/mustHavesFit/buyingSignalsFit keys
-              const newDims = bd && !Array.isArray(bd) ? [
-                bd.industryFit && { label: 'Industry Fit', score: bd.industryFit.score, max: bd.industryFit.max ?? 30, rationale: bd.industryFit.rationale },
-                bd.sizeFit && { label: 'Size / Revenue', score: bd.sizeFit.score, max: bd.sizeFit.max ?? 20, rationale: bd.sizeFit.rationale },
-                bd.mustHavesFit && { label: 'Must-Haves', score: bd.mustHavesFit.score, max: bd.mustHavesFit.max ?? 30, rationale: bd.mustHavesFit.rationale },
-                bd.buyingSignalsFit && { label: 'Buying Signals', score: bd.buyingSignalsFit.score, max: bd.buyingSignalsFit.max ?? 15, rationale: bd.buyingSignalsFit.rationale },
-              ].filter(Boolean) : [];
-              // Legacy format: breakdown is an array
-              const legacyDims = Array.isArray(bd) ? bd : [];
-              const dims = newDims.length > 0 ? newDims : legacyDims;
-              const narrative = fitScoreData.overallRationale || fitScoreData.rationale || fitScoreData.summary || fitScoreData.narrative || null;
-              if (dims.length === 0 && !narrative) return null;
-              return (
-                <div className="bg-white border border-gray-200 rounded-xl p-5">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-4">Fit Breakdown</h3>
-                  {narrative && (
-                    <p className="text-xs text-gray-700 leading-relaxed mb-3 border-l-2 border-blue-300 pl-2">{narrative}</p>
-                  )}
-                  <div className="space-y-3">
-                    {dims.map((dim: any, i: number) => {
-                      const max = dim.max ?? dim.maxScore ?? 10;
-                      const pct = Math.min(100, Math.round((dim.score / max) * 100));
-                      const barColor = pct >= 75 ? 'bg-blue-500' : pct >= 50 ? 'bg-yellow-500' : 'bg-red-400';
-                      return (
-                        <div key={i}>
-                          <div className="flex justify-between text-xs mb-1">
-                            <span className="font-bold text-gray-700 truncate max-w-[130px]">{dim.label ?? dim.dimension ?? dim.criterion}</span>
-                            <span className="text-gray-400 shrink-0">{dim.score}/{max}</span>
-                          </div>
-                          <div className="w-full bg-gray-100 h-1.5">
-                            <div className={`h-1.5 ${barColor}`} style={{ width: `${pct}%` }} />
-                          </div>
-                          {dim.rationale && <p className="text-[10px] text-gray-400 mt-0.5 leading-snug line-clamp-2">{dim.rationale}</p>}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })()}
-
             {/* Contacts panel */}
             <ContactsPanel
               token={token ?? ""}
@@ -519,6 +634,16 @@ export default function SharePage() {
 
           {/* --- RIGHT MAIN CONTENT --- */}
           <div className="flex-1 min-w-0 space-y-10">
+
+            {/* -- FIT BREAKDOWN + FEEDBACK (always visible at top of right column) -- */}
+            <div className="space-y-4">
+              <FitBreakdown fitScoreData={fitScoreData} />
+              <FeedbackBox
+                shareToken={token ?? ""}
+                companyId={company.id ?? null}
+                companyName={company.name ?? ""}
+              />
+            </div>
 
             {/* -- WEBSITE VISITORS (Leadinfo) -- */}
             {leadinfo && (

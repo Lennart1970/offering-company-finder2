@@ -976,6 +976,7 @@ export default function CompanyDetailMagazine() {
                 bd.industryFit && { label: 'INDUSTRY FIT', score: bd.industryFit.score, max: bd.industryFit.max ?? 30, rationale: bd.industryFit.rationale },
                 bd.sizeFit && { label: 'SIZE / REVENUE FIT', score: bd.sizeFit.score, max: bd.sizeFit.max ?? 20, rationale: bd.sizeFit.rationale },
                 bd.mustHavesFit && { label: 'MUST-HAVES FIT', score: bd.mustHavesFit.score, max: bd.mustHavesFit.max ?? 30, rationale: bd.mustHavesFit.rationale, matched: bd.mustHavesFit.matched, missing: bd.mustHavesFit.missing },
+                bd.geoFit && { label: 'LOCATION FIT', score: bd.geoFit.score, max: bd.geoFit.max ?? 20, rationale: bd.geoFit.rationale, region: bd.geoFit.region, countryCode: bd.geoFit.countryCode },
                 bd.buyingSignalsFit && { label: 'BUYING SIGNALS', score: bd.buyingSignalsFit.score, max: bd.buyingSignalsFit.max ?? 20, rationale: bd.buyingSignalsFit.rationale },
               ].filter(Boolean) : [];
               const geo = bd?.geographyMultiplier;
@@ -991,9 +992,10 @@ export default function CompanyDetailMagazine() {
                       <div className={`text-4xl font-black ${
                         displayScore >= 75 ? 'text-green-600' : displayScore >= 50 ? 'text-yellow-600' : 'text-red-500'
                       }`}>{displayScore}<span className="text-lg text-gray-400">/100</span></div>
-                      {rawScore != null && rawScore !== displayScore && geo && (
-                        <div className="text-[10px] text-gray-400 mt-0.5">LLM: {rawScore} × geo {geo.multiplier} ({geo.region})</div>
+                      {rawScore != null && rawScore !== displayScore && (
+                        <div className="text-[10px] text-gray-400 mt-0.5">LLM raw: {rawScore}</div>
                       )}
+                      <div className="text-[9px] text-gray-400 mt-0.5">Industry + Size + Must-haves + Location + Signals</div>
                     </div>
                     {/* FIT-SIM similarity score */}
                     {(company as any).similarityScore != null && (
@@ -1044,8 +1046,14 @@ export default function CompanyDetailMagazine() {
                               }`} style={{ width: `${pct}%` }} />
                             </div>
                             {dim.rationale && <p className="text-[10px] text-gray-500 mt-0.5 leading-snug">{dim.rationale}</p>}
+                            {dim.matched?.length > 0 && (
+                              <p className="text-[10px] text-green-600 mt-0.5">✓ {dim.matched.join(' · ')}</p>
+                            )}
                             {dim.missing?.length > 0 && (
-                              <p className="text-[10px] text-red-500 mt-0.5">Missing: {dim.missing.join(', ')}</p>
+                              <p className="text-[10px] text-red-500 mt-0.5">✗ Missing: {dim.missing.join(', ')}</p>
+                            )}
+                            {dim.region && (
+                              <p className="text-[10px] text-gray-400 mt-0.5">{dim.region}{dim.countryCode ? ` (${dim.countryCode})` : ''}</p>
                             )}
                           </div>
                         );
@@ -1071,7 +1079,7 @@ export default function CompanyDetailMagazine() {
                               bd?.disqualifiers?.triggered ? 'a triggered disqualifier' :
                               bd?.sizeFit?.score < (bd?.sizeFit?.max ?? 20) * 0.5 ? 'a size/revenue mismatch' :
                               bd?.mustHavesFit?.missing?.length > 0 ? `missing must-haves: ${bd.mustHavesFit.missing.slice(0,2).join(', ')}` :
-                              geo && geo.multiplier < 1.0 ? `geography penalty (${geo.region}, ×${geo.multiplier})` :
+                              bd?.geoFit?.score < (bd?.geoFit?.max ?? 20) * 0.5 ? `low location fit (${bd.geoFit.region ?? 'unknown region'}, ${bd.geoFit.score}/${bd.geoFit.max ?? 20})` :
                               'lower scores on individual dimensions compared to the niche archetype'
                             }.`
                           : `This company outperforms its niche average by ${Math.abs(gap)} points — it is an above-average representative of the "${niche?.name}" cluster.`
@@ -1079,12 +1087,10 @@ export default function CompanyDetailMagazine() {
                       </p>
                     </div>
                   )}
-                  {/* Geo note */}
-                  {geo && geo.multiplier < 1.0 && (
-                    <div className="text-[10px] text-gray-400 border-t border-gray-100 pt-2">
-                      GEO: {geo.region} ({geo.countryCode}) · multiplier ×{geo.multiplier} · {geo.rationale}
-                    </div>
-                  )}
+                  {/* Score formula note */}
+                  <div className="text-[9px] text-gray-400 border-t border-gray-100 pt-2">
+                    Formula: Industry (30) + Size (20) + Must-haves (30) + Location (20) + Signals (20) = 120 max, normalised to 100
+                  </div>
                 </div>
               );
             })()}

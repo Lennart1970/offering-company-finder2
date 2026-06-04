@@ -688,28 +688,66 @@ export async function scoreCompanyFit(
   const icpIndustries = brain.icpIndustries ? JSON.parse(brain.icpIndustries) : [];
   const buyingSignals = brain.icpBuyingSignals ? JSON.parse(brain.icpBuyingSignals) : [];
 
+  // ── Resolve must-have criteria from EITHER fitCriteria schema ────────────
+  // Old schema: { mustHave: string[], niceToHave: string[], disqualifiers: string[] }
+  // New schema: { dimensions: [{name, strongFit, weakFit, weight}], strong_fit: string[], mustHave: [], disqualifiers: [] }
+  const mustHaveCriteria: string[] = (() => {
+    const arr: string[] = [];
+    // Old schema: fitCriteria.mustHave
+    if (Array.isArray(fitCriteria.mustHave) && fitCriteria.mustHave.length > 0) {
+      arr.push(...fitCriteria.mustHave);
+    }
+    // New schema: fitCriteria.strong_fit
+    if (Array.isArray(fitCriteria.strong_fit) && fitCriteria.strong_fit.length > 0) {
+      arr.push(...fitCriteria.strong_fit);
+    }
+    // Dimension schema: each dimension.strongFit is a must-have description
+    if (Array.isArray(fitCriteria.dimensions)) {
+      for (const dim of fitCriteria.dimensions as Array<{name:string;strongFit:string;weakFit?:string;weight?:number}>) {
+        if (dim.strongFit) arr.push(`${dim.name}: ${dim.strongFit}`);
+      }
+    }
+    return arr;
+  })();
+  const disqualifierCriteria: string[] = (() => {
+    const arr: string[] = [];
+    if (Array.isArray(fitCriteria.disqualifiers) && fitCriteria.disqualifiers.length > 0) arr.push(...fitCriteria.disqualifiers);
+    if (Array.isArray(fitCriteria.weak_fit) && fitCriteria.weak_fit.length > 0) arr.push(...fitCriteria.weak_fit);
+    return arr;
+  })();
+
+  // ── Enrich company profile with all available size/scale signals ─────────
+  const sliceMeta = (() => {
+    try { return company.sliceMetadata ? JSON.parse(company.sliceMetadata) : {}; } catch { return {}; }
+  })();
   const companyProfile = `
 Company: ${company.name}
 Website: ${company.websiteUrl || "unknown"}
 Location: ${[company.city, company.state, company.country].filter(Boolean).join(", ") || "unknown"}
-Revenue: ${company.revenue || "unknown"}
+Revenue (Apollo): ${company.revenue || "unknown"}
+Employee band (Apollo): ${sliceMeta.employeeBand || "unknown"}
+Headcount growth: ${company.headcountGrowth || "unknown"}
+Founded: ${company.foundedYear || "unknown"}
 Industry (NAICS): ${company.naicsCodes ? JSON.parse(company.naicsCodes).slice(0, 5).join(", ") : "unknown"}
 Industry (SIC): ${company.sicCodes ? JSON.parse(company.sicCodes).slice(0, 5).join(", ") : "unknown"}
 Short description: ${(company as any).shortDescription || "not available"}
+NOTE: Use your web-search capability to find recent news about this company — especially capital raises, acquisitions, headcount announcements, or expansion plans — before scoring sizeFit.
 `;
 
   const distributorScoringRules = angleInfo.isDistributor
     ? `DISTRIBUTOR SCORING RULES (override standard ICP scoring):
 - industryFit (0-30): Does this company operate in DISTRIBUTION, RETAIL, or RESELLER space for the relevant end-market? Are they a dealer, importer, wholesaler, or specialty retailer?
-- sizeFit (0-20): Does the company have sufficient commercial scale to be a meaningful channel partner? (revenue, team size, geographic reach)
+- sizeFit (0-20): Does the company have sufficient commercial scale to be a meaningful channel partner? (revenue, team size, geographic reach). Search the web for recent capital raises, acquisitions, or headcount announcements if Apollo data is missing.
 - mustHavesFit (0-30): Does the company have: (1) existing product portfolio in adjacent/complementary categories, (2) access to the target end-customer segment, (3) commercial infrastructure (sales team, logistics, showroom/online store)?
+- geoFit (0-20): Is the company located in the Brain's priority geography? Score based on country/region fit against ICP geography requirements.
 - disqualifiers: Disqualify if the company IS the end-user (uses products internally only), is a pure manufacturer with no distribution arm, or is a direct competitor.
 - buyingSignalsFit (0-20): Evidence of channel expansion, new brand partnerships, trade show presence, or distributor agreements?
 - overallRationale: Frame as channel partnership potential, not direct sales fit.`
     : `Scoring rules:
 - industryFit (0-30): Does the company operate in the Brain's ICP industries? Full score = perfect match, 0 = complete mismatch
-- sizeFit (0-20): Does the company's revenue/headcount match the Brain's ICP company size?
-- mustHavesFit (0-30): How many of the Brain's must-have criteria does this company appear to meet?
+- sizeFit (0-20): Does the company's revenue/headcount match the Brain's ICP company size? IMPORTANT: use your web-search to find recent capital raises, acquisitions, or headcount announcements if Apollo data is missing or the company is new.
+- mustHavesFit (0-30): How many of the Brain's must-have criteria does this company appear to meet? Score proportionally: full 30 if all met, 0 if none met.
+- geoFit (0-20): Is the company located in the Brain's priority geography? Score based on country/region fit. EU/primary market = 18-20, secondary market = 10-15, low-priority = 0-9.
 - disqualifiers: If ANY disqualifier is triggered, cap fitScore at 25 regardless of other scores
 - buyingSignalsFit (0-20): Does the company profile suggest any of the Brain's buying signals are present?`;
 
@@ -734,7 +772,7 @@ Evaluate the prospect and return a JSON object with this exact structure:
     "sizeFit": {
       "score": <0-20>,
       "max": 20,
-      "rationale": "<1-2 sentences explaining the size/revenue match>"
+      "rationale": "<1-2 sentences explaining the size/revenue match — include any news signals found>"
     },
     "mustHavesFit": {
       "score": <0-30>,
@@ -742,6 +780,13 @@ Evaluate the prospect and return a JSON object with this exact structure:
       "rationale": "<1-2 sentences>",
       "matched": ["<must-have criteria that appear to be met>"],
       "missing": ["<must-have criteria that appear to be missing>"]
+    },
+    "geoFit": {
+      "score": <0-20>,
+      "max": 20,
+      "rationale": "<1-2 sentences on geographic fit against ICP geography>",
+      "region": "<EU|US|APAC|China|Other>",
+      "countryCode": "<ISO-2 code>"
     },
     "disqualifiers": {
       "triggered": <true|false>,
@@ -757,11 +802,11 @@ Evaluate the prospect and return a JSON object with this exact structure:
 }
 
 ${distributorScoringRules}
-fitScore = industryFit.score + sizeFit.score + mustHavesFit.score + buyingSignalsFit.score (capped at 25 if disqualifier triggered)
+fitScore = industryFit.score + sizeFit.score + mustHavesFit.score + geoFit.score + buyingSignalsFit.score (capped at 25 if disqualifier triggered)
 
 ICP Industries to match against: ${icpIndustries.join(", ")}
-Must-haves: ${fitCriteria.mustHave?.join("; ") || "none specified"}
-Disqualifiers: ${fitCriteria.disqualifiers?.join("; ") || "none specified"}
+Must-have criteria (score 0 if none met, 30 if all met): ${mustHaveCriteria.length > 0 ? mustHaveCriteria.join("; ") : "none specified — use best judgment from ICP description"}
+Disqualifiers / weak-fit signals: ${disqualifierCriteria.length > 0 ? disqualifierCriteria.join("; ") : "none specified"}
 Buying signals: ${buyingSignals.join("; ")}
 ICP company size: ${brain.icpCompanySize || "not specified"}
 
@@ -785,53 +830,23 @@ Return ONLY the JSON object, no markdown, no explanation outside the JSON.`;
   }
   rawLlmScore = Math.max(0, Math.min(100, rawLlmScore));
 
-  // ── Geography multiplier ──────────────────────────────────────────────────
-  // Reads per-brain geographyWeights (JSON) or falls back to CG defaults.
-  // Multiplier is applied AFTER disqualifier cap so the penalty is always visible.
-  const DEFAULT_GEO_WEIGHTS = { eu: 1.0, us: 0.95, apac: 0.75, china: 0.40, other: 0.65 };
-  const geoWeights = (() => {
-    try { return brain.geographyWeights ? { ...DEFAULT_GEO_WEIGHTS, ...JSON.parse(brain.geographyWeights) } : DEFAULT_GEO_WEIGHTS; }
-    catch { return DEFAULT_GEO_WEIGHTS; }
-  })();
-
-  // EU ISO-2 codes (EU27 + UK + CH + NO + IS + LI)
-  const EU_CODES = new Set([
-    "AT","BE","BG","CY","CZ","DE","DK","EE","ES","FI","FR","GR","HR","HU",
-    "IE","IT","LT","LU","LV","MT","NL","PL","PT","RO","SE","SI","SK",
-    "GB","CH","NO","IS","LI",
-  ]);
-  const US_CODES = new Set(["US","CA"]);
-  const APAC_CODES = new Set(["JP","KR","SG","AU","NZ","TW","HK","IN","TH","MY","ID","PH","VN"]);
-  const CHINA_CODES = new Set(["CN","MO"]);
-
+  // ── Extract geoFit from LLM output (replaces old multiplier) ───────────────────────────
+  // The LLM now scores geoFit as a transparent dimension (0–20) inside the JSON.
+  // We keep a legacy geographyMultiplier block for backward-compat with the UI.
   const rawCode = (company.country ?? company.sourceCountryCode ?? "").toUpperCase().trim();
-  let geoRegion: string;
-  let geoMultiplier: number;
-  let geoRationale: string;
+  const geoFitFromLLM = parsed.breakdown?.geoFit;
+  const geoRegion: string = geoFitFromLLM?.region ?? "Other";
+  const geoRationale: string = geoFitFromLLM?.rationale ?? "Geography scored by LLM";
 
-  if (CHINA_CODES.has(rawCode)) {
-    geoRegion = "China"; geoMultiplier = geoWeights.china;
-    geoRationale = "China: significant commercial friction (language, legal, delivery). Score degraded.";
-  } else if (EU_CODES.has(rawCode)) {
-    geoRegion = "EU"; geoMultiplier = geoWeights.eu;
-    geoRationale = "EU/EEA/UK: primary market — full score.";
-  } else if (US_CODES.has(rawCode)) {
-    geoRegion = "US"; geoMultiplier = geoWeights.us;
-    geoRationale = "US/Canada: strong market — minor preference for EU.";
-  } else if (APAC_CODES.has(rawCode)) {
-    geoRegion = "APAC"; geoMultiplier = geoWeights.apac;
-    geoRationale = "APAC (ex-China): possible but lower priority. Score moderated.";
-  } else {
-    geoRegion = "Other"; geoMultiplier = geoWeights.other;
-    geoRationale = rawCode
-      ? `${rawCode}: outside primary markets — default score moderation applied.`
-      : "Unknown country — default score moderation applied.";
-  }
+  // Derive a legacy multiplier from the geoFit score for display-only purposes
+  const geoScore = Math.max(0, Math.min(20, geoFitFromLLM?.score ?? 10));
+  const geoMultiplier = parseFloat((geoScore / 20).toFixed(2)); // 0.0–1.0 for display
 
-  const finalScore = Math.round(rawLlmScore * geoMultiplier);
+  // fitScore is now the direct LLM sum (industryFit + sizeFit + mustHavesFit + geoFit + buyingSignalsFit)
+  const finalScore = rawLlmScore;
 
   console.log(
-    `[Fit Scorer] ${company.name} → LLM: ${rawLlmScore} × geo(${geoRegion} ${geoMultiplier}) = ${finalScore}`
+    `[Fit Scorer] ${company.name} → LLM: ${rawLlmScore} (geo: ${geoScore}/20, ${geoRegion}) = ${finalScore}`
   );
 
   return {
@@ -842,6 +857,7 @@ Return ONLY the JSON object, no markdown, no explanation outside the JSON.`;
     brainName: brain.brainName,
     breakdown: {
       ...parsed.breakdown,
+      // Keep geographyMultiplier for UI backward-compat (shown as footnote)
       geographyMultiplier: {
         multiplier: geoMultiplier,
         region: geoRegion,

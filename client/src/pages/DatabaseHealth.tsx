@@ -554,21 +554,21 @@ export default function DatabaseHealth() {
       <SectionCard title="Supabase Sync" icon={Globe}>
         {/* Schema note */}
         <div className="mb-4 px-3 py-2 bg-blue-50 border border-blue-200 rounded text-xs text-blue-700">
-          <strong>Live schema:</strong>{" "}
-          <code className="font-mono">lt_companies</code> (master registry, 1 row per company) +{" "}
-          <code className="font-mono">lt_campaign_companies</code> (enrichment layer, many-to-many) +{" "}
-          <code className="font-mono">lt_campaigns</code>.
-          The legacy <code className="font-mono">lt_mns_companies</code> table no longer exists — previous 157% coverage figure was a ghost count.
+          <strong>Supabase is the master dataset</strong> — larger than MySQL.
+          {" "}<code className="font-mono">lt_mns_companies</code> (master registry, 85K+) ·{" "}
+          <code className="font-mono">lt_mns_company_embeddings</code> (vectors, 71K+) ·{" "}
+          <code className="font-mono">lt_mns_company_pages</code> (enriched pages, 9K+).
+          MySQL contains the operational working subset — coverage % shows MySQL vs Supabase master.
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-          {/* lt_companies */}
+          {/* lt_mns_companies */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span className="text-sm font-semibold text-gray-700">lt_companies</span>
+              <span className="text-sm font-semibold text-gray-700">lt_mns_companies</span>
             </div>
             <div className="text-2xl font-bold text-gray-900">{fmt(supabaseSync.companiesCount)}</div>
-            <div className="text-xs text-gray-400">Master registry — 1 row per company</div>
+            <div className="text-xs text-gray-400">Master registry — all companies (Supabase)</div>
             <div className="text-xs text-gray-400 flex items-center gap-1">
               <Clock className="w-3 h-3" />
               Updated: {fmtDate(supabaseSync.lastSyncedAt)}
@@ -579,47 +579,47 @@ export default function DatabaseHealth() {
             {supabaseSync.companiesCount > 0 && totals.companies > 0 && (
               <div className="space-y-1">
                 <div className="text-xs text-gray-500">
-                  {Math.round((supabaseSync.companiesCount / totals.companies) * 100)}% of MySQL companies synced
+                  MySQL has {fmt(totals.companies)} ({(supabaseSync as any).mysqlCoveragePct ?? 0}% of Supabase master)
                 </div>
                 <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
                   <div
                     className="h-full bg-emerald-500 rounded-full"
-                    style={{ width: `${Math.min(Math.round((supabaseSync.companiesCount / totals.companies) * 100), 100)}%` }}
+                    style={{ width: `${Math.min((supabaseSync as any).mysqlCoveragePct ?? 0, 100)}%` }}
                   />
                 </div>
               </div>
             )}
           </div>
-          {/* lt_campaign_companies */}
+          {/* lt_mns_company_embeddings */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-500" />
-              <span className="text-sm font-semibold text-gray-700">lt_campaign_companies</span>
+              <CheckCircle2 className="w-4 h-4 text-purple-500" />
+              <span className="text-sm font-semibold text-gray-700">lt_mns_company_embeddings</span>
             </div>
-            <div className="text-2xl font-bold text-gray-900">{fmt((supabaseSync as any).campaignCompaniesCount ?? 0)}</div>
-            <div className="text-xs text-gray-400">Enrichment layer — fit, urgency, briefs</div>
-            <div className="text-xs text-gray-400 flex items-center gap-1">
-              <Clock className="w-3 h-3" />
-              Updated: {fmtDate((supabaseSync as any).campaignCompaniesLastAt ?? null)}
-              {(supabaseSync as any).campaignCompaniesLastAt && (
-                <span className="ml-1 text-gray-500">({fmtAgo((supabaseSync as any).campaignCompaniesLastAt)})</span>
-              )}
-            </div>
-            {(supabaseSync as any).campaignsCount != null && (
-              <div className="text-xs text-gray-500">
-                Across {(supabaseSync as any).campaignsCount} campaigns
+            <div className="text-2xl font-bold text-gray-900">{fmt((supabaseSync as any).embeddingsCount ?? 0)}</div>
+            <div className="text-xs text-gray-400">Vector embeddings for similarity search</div>
+            {supabaseSync.companiesCount > 0 && (supabaseSync as any).embeddingsCount > 0 && (
+              <div className="space-y-1">
+                <div className="text-xs text-gray-500">
+                  {Math.round(((supabaseSync as any).embeddingsCount / supabaseSync.companiesCount) * 100)}% of master companies have embeddings
+                </div>
+                <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div
+                    className="h-full bg-purple-500 rounded-full"
+                    style={{ width: `${Math.min(Math.round(((supabaseSync as any).embeddingsCount / supabaseSync.companiesCount) * 100), 100)}%` }}
+                  />
+                </div>
               </div>
             )}
           </div>
-          {/* lt_mns_company_pages (legacy) */}
+          {/* lt_mns_company_pages */}
           <div className="space-y-2">
             <div className="flex items-center gap-2">
-              <CheckCircle2 className="w-4 h-4 text-amber-400" />
+              <CheckCircle2 className="w-4 h-4 text-blue-500" />
               <span className="text-sm font-semibold text-gray-700">lt_mns_company_pages</span>
-              <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded font-medium">legacy</span>
             </div>
             <div className="text-2xl font-bold text-gray-900">{fmt(supabaseSync.pagesCount)}</div>
-            <div className="text-xs text-gray-400">Company page links (pending migration)</div>
+            <div className="text-xs text-gray-400">Enriched pages — fit + urgency scores per campaign</div>
             <div className="text-xs text-gray-400 flex items-center gap-1">
               <Clock className="w-3 h-3" />
               Last synced: {fmtDate(supabaseSync.pagesLastSyncedAt)}

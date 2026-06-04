@@ -79,15 +79,18 @@ export default function SyncPage() {
       </div>
 
       {/* ═══════════════════════════════════════════════════════════════════════
-          Sync card 1: lt_mns_companies (full company intelligence)
+          Sync card 1: lt_mns_companies (external master registry — read-only from this app)
           ═══════════════════════════════════════════════════════════════════════ */}
       <div className="border-2 border-black bg-white p-6 mb-6">
         <div className="flex items-start justify-between gap-4 mb-4">
           <div>
-            <div className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">Table</div>
+            <div className="text-xs font-black text-muted-foreground uppercase tracking-widest mb-1">Table — External Master</div>
             <div className="font-mono text-sm font-bold text-blue-700">lt_mns_companies</div>
             <div className="text-xs text-muted-foreground mt-1">
               Full company intelligence — urgency, fit, signals, contacts, profile text
+            </div>
+            <div className="mt-2 inline-flex items-center gap-1 text-xs bg-amber-50 border border-amber-200 text-amber-700 px-2 py-0.5 rounded font-medium">
+              ⚠️ Populated externally — this app syncs FROM this table, not TO it
             </div>
           </div>
           <div className="text-right shrink-0">
@@ -132,13 +135,13 @@ export default function SyncPage() {
           ))}
         </div>
 
-        {/* Last sync info + Refresh button */}
+        {/* Last updated info + Refresh button */}
         <div className="mb-4 flex items-center justify-between">
           <div className="text-xs text-muted-foreground">
             {companiesStats?.lastSyncedAt ? (
-              <>Last synced: <span className="font-bold text-foreground">{new Date(companiesStats.lastSyncedAt).toLocaleString()}</span></>
+              <>Last updated: <span className="font-bold text-foreground">{new Date(companiesStats.lastSyncedAt).toLocaleString()}</span></>
             ) : (
-              <span className="italic">Never synced</span>
+              <span className="italic">No timestamp available</span>
             )}
           </div>
           <Button
@@ -159,19 +162,18 @@ export default function SyncPage() {
           </Button>
         </div>
 
-        {/* Background running badge */}
-        {companiesBackgroundRunning && (
-          <div className="mb-4 border-2 border-blue-400 bg-blue-50 px-4 py-3 text-sm font-bold text-blue-800 flex items-center gap-2">
-            <span className="animate-spin inline-block w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full shrink-0" />
-            Sync running in background — stats refresh automatically every 30s. This takes ~3 minutes for 4,000+ companies.
-          </div>
-        )}
+        {/* Info: this table is read-only from this app */}
+        <div className="mb-4 border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          <strong>Read-only from this app.</strong> This table is populated by an external pipeline (not the SYNC button below).
+          Use the stats above to monitor freshness. The SYNC COMPANIES button below pushes MySQL data to{" "}
+          <span className="font-mono">lt_mns_companies</span> — only run it if you want to overwrite with MySQL-sourced data.
+        </div>
 
         {/* Sync button */}
         <Button
           onClick={handleSyncCompanies}
           disabled={isSyncingCompanies}
-          className="text-base px-8 py-5 font-black bg-blue-700 text-white hover:bg-blue-800 transition-colors disabled:opacity-60 w-full"
+          className="text-base px-8 py-5 font-black bg-gray-500 text-white hover:bg-gray-600 transition-colors disabled:opacity-60 w-full"
         >
           {isSyncingCompanies ? (
             <span className="flex items-center gap-2">
@@ -179,13 +181,13 @@ export default function SyncPage() {
               STARTING SYNC…
             </span>
           ) : (
-            "⚡ SYNC COMPANIES"
+            "⚡ PUSH MYSQL → lt_mns_companies (advanced)"
           )}
         </Button>
 
         <p className="mt-3 text-xs text-muted-foreground text-center">
-          Upserts all researched companies with full intelligence data (urgency, fit, signals, contacts). Safe to run multiple times.
-          Runs in background — button returns immediately.
+          Advanced: upserts MySQL-researched companies into Supabase. Only needed if you want to override the external pipeline data.
+          Safe to run multiple times. Runs in background.
         </p>
       </div>
 

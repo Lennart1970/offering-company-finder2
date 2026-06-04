@@ -148,6 +148,24 @@ function similarityBadge(score: number | null | undefined) {
   );
 }
 
+function nicheFitBadge(score: number | null | undefined, nicheName?: string | null) {
+  if (score == null) return <span className="text-xs text-gray-300">—</span>;
+  const cls =
+    score >= 70
+      ? "bg-purple-100 text-purple-800 border-purple-200"
+      : score >= 50
+      ? "bg-violet-100 text-violet-700 border-violet-200"
+      : "bg-gray-100 text-gray-600 border-gray-200";
+  return (
+    <span
+      className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${cls}`}
+      title={nicheName ? `Niche: ${nicheName}` : "Niche-level LLM fit score (cluster average)"}
+    >
+      {score}
+    </span>
+  );
+}
+
 function ArticleDots({
   hasBrief,
   hasApproach,
@@ -864,6 +882,7 @@ export default function CompanyDatabase() {
               </th>
               <Th col="fitScore" label="FIT-LLM" className="w-16 text-center" tooltip="FIT Tier 2: LLM deep-analysis fit score via Grok (on-demand). Confirms structural ICP match. High cost — only trigger on high-SIM companies." />
               <Th col="similarityScore" label="FIT-SIM" className="w-16 text-center" tooltip="FIT Tier 1: ICP fit proxy — cosine similarity vs Brain ICP embedding. Fast, zero-cost. High = company profile matches your ideal customer." />
+              <th className="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap w-20" title="Niche-level LLM fit score — cluster average scored against the Brain ICP. Shows how well the company's niche fits, independent of the individual company.">NICHE-FIT</th>
               <Th col="urgencyScoreNews" label="URG-NEWS" className="w-20 text-center" tooltip="URG Tier 1b — News Similarity: live Serper news snippet embedded and scored vs ABC centroid. High = current news matches a known trigger scenario → outreach is timely." />
               <Th col="urgencyScoreLLM" label="URG-LLM" className="w-18 text-center" tooltip="URG Tier 2 — LLM Urgency: Grok-based urgency analysis (on-demand). Confirmed time-sensitive buying signal. Future: HITL override for model calibration." />
               <Th col="briefGeneratedAt" label="Articles" className="min-w-[160px]" />
@@ -949,6 +968,7 @@ export default function CompanyDatabase() {
                     </td>
                     <td className="px-3 py-2 text-center">{fitBadge(row.fitScore)}</td>
                     <td className="px-3 py-2 text-center">{similarityBadge((row as any).similarityScore)}</td>
+                    <td className="px-3 py-2 text-center">{nicheFitBadge((row as any).nicheFitScore, (row as any).nicheName)}</td>
                     <td className="px-3 py-2 text-center">{urgencyBadge((row as any).urgencyScoreNews)}</td>
                     <td className="px-3 py-2 text-center">{urgencyBadge(row.urgencyScoreLLM)}</td>
                     <td className="px-3 py-2">

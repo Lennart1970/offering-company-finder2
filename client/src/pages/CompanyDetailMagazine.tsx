@@ -325,6 +325,18 @@ export default function CompanyDetailMagazine() {
     onError: () => { setReApproachLoading(false); toast.error("Re-approach failed"); },
   });
 
+  // FIT score — single-company LLM scoring
+  const [scoreFitLoading, setScoreFitLoading] = useState(false);
+  const scoreFitUtils = trpc.useUtils();
+  const scoreFitMutation = trpc.companyFinder.scoreCompanyFit.useMutation({
+    onSuccess: (data: any) => {
+      setScoreFitLoading(false);
+      scoreFitUtils.companyFinder.getCompany.invalidate({ companyId });
+      toast.success(`FIT scored: ${data?.result?.fitScore ?? '?'}/100`);
+    },
+    onError: (err: any) => { setScoreFitLoading(false); toast.error(`FIT scoring failed: ${err.message}`); },
+  });
+
   // Run brain on NO OUTPUT tab
   const [runBrainLoadingId, setRunBrainLoadingId] = useState<number | null>(null);
   const runBrainUtils = trpc.useUtils();
@@ -945,9 +957,22 @@ export default function CompanyDetailMagazine() {
       <section className="mb-12">
         <SectionHeader id="fit" emoji="🎯" title="FIT" color="border-blue-600"
           action={
-            briefData
-              ? <CacheBanner cachedAt={company.briefGeneratedAt} label="Research" onRefresh={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: true }); }} loading={reResearchLoading} />
-              : null
+            <div className="flex items-center gap-2">
+              {briefData && <CacheBanner cachedAt={company?.briefGeneratedAt} label="Research" onRefresh={() => { setReResearchLoading(true); reResearchMutation.mutate({ companyId, force: true }); }} loading={reResearchLoading} />}
+              <button
+                onClick={() => { setScoreFitLoading(true); scoreFitMutation.mutate({ companyId }); }}
+                disabled={scoreFitLoading}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-black border-2 border-blue-600 text-blue-700 bg-blue-50 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                title="Run LLM FIT scoring for this company against the active Brain"
+              >
+                {scoreFitLoading ? (
+                  <span className="inline-block w-3 h-3 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <span>🎯</span>
+                )}
+                {company?.fitScore != null ? '↻ RESCORE FIT' : '▶ SCORE FIT'}
+              </button>
+            </div>
           }
         />
 

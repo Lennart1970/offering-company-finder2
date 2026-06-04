@@ -1230,9 +1230,14 @@ export async function getCompanyDatabase(opts: {
       searchName: searches.location,
       searchOfferingName: searches.offeringName,
       searchRunId: companies.searchId,
+      // Niche fit score (cluster-level LLM score)
+      nicheFitScore: niches.fitScore,
+      nicheName: niches.name,
+      nicheId: companies.nicheId,
     })
     .from(companies)
     .leftJoin(searches, eq(companies.searchId, searches.id))
+    .leftJoin(niches, eq(companies.nicheId, niches.id))
     .where(whereClause)
     .orderBy(orderExpr)
     .limit(limit)

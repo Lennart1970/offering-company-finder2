@@ -4930,6 +4930,50 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
             continue; // skip LLM call entirely
           }
 
+          // ── LinkedIn JSON-LD fallback: fetch public LinkedIn page, extract Organization.address.addressCountry ──
+          const linkedinUrl: string | null = (co as any).linkedinUrl ?? null;
+          if (linkedinUrl && linkedinUrl.includes('linkedin.com/company/')) {
+            try {
+              const liRes = await fetch(linkedinUrl, {
+                headers: { 'User-Agent': 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)' },
+                signal: AbortSignal.timeout(8000),
+              });
+              if (liRes.ok) {
+                const html = await liRes.text();
+                // Extract all JSON-LD blocks and look for Organization with address.addressCountry
+                // Use exec loop instead of matchAll for ES2017 compat; strip newlines before matching
+                const htmlFlat = html.replace(/\r?\n/g, ' ');
+                const ldRe = /<script[^>]+type=["']application\/ld\+json["'][^>]*>(.*?)<\/script>/gi;
+                let ldMatch: RegExpExecArray | null;
+                let liCountryFound = false;
+                while ((ldMatch = ldRe.exec(htmlFlat)) !== null && !liCountryFound) {
+                  try {
+                    const parsed = JSON.parse(ldMatch[1]);
+                    const orgs: unknown[] = Array.isArray(parsed) ? parsed : [parsed];
+                    for (const org of orgs) {
+                      const o = org as Record<string, any>;
+                      const countryCode: string | null = o?.address?.addressCountry ?? o?.location?.addressCountry ?? null;
+                      if (countryCode && typeof countryCode === 'string' && /^[A-Z]{2}$/.test(countryCode.trim())) {
+                        const country = countryCode.trim().toUpperCase();
+                        if (!input.dryRun) {
+                          const { eq: eqUpd } = await import('drizzle-orm');
+                          const { companies: coUpd } = await import('../drizzle/schema');
+                          await db.update(coUpd).set({ country }).where(eqUpd(coUpd.id, co.id));
+                          written++;
+                        } else {
+                          written++;
+                        }
+                        results.push({ id: co.id, name: co.name, websiteUrl: co.websiteUrl ?? null, country, confidence: 'high', written: true, domainSignal: 'linkedin-jsonld' });
+                        liCountryFound = true;
+                        break;
+                      }
+                    }
+                  } catch { /* ignore malformed JSON-LD */ }
+                }
+              }
+            } catch { /* timeout or network error — fall through to LLM */ }
+          }
+
           const { hints: domainHints } = extractDomainSignals(co.websiteUrl ?? null);
           const context = [
             `Company name: ${co.name}`,

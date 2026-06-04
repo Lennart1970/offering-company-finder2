@@ -2597,3 +2597,14 @@
 - [x] Update backend getIntelligenceCompanies to accept dateFrom/dateTo (ISO strings) and filter by created_at
 - [x] Add date range inputs (From / To) to Intelligence page filter bar after campaign multi-select
 - [ ] Save checkpoint after implementation
+
+## Country Backfill & Table Fixes (Jun 2026)
+- [x] Fix LLM country inference (Option A): flatten executiveSummary object → readable string, read productsServices[0].description + recentDevelopments[0].text as context, REMOVE urgencySignals from prompt (trade show cities mislead model)
+- [x] Finalise targeted bulk backfill: add run/campaign selector dropdown to CountryBackfillPanel; add optional searchId to bulkInferCountry input + getCountryBackfillStats query; filter companies by searchId when selected
+- [x] Add CN (China) and US (United States) as explicit quick-select options in country filter/selection dropdowns in the company table
+
+## Brain Fit Scoring Criteria – Connect Group EMS Intelligence General (Jun 2026)
+- [ ] Fetch active brain "Connect Group EMS Intelligence – General" from DB and read full offering/ICP fields
+- [ ] Derive must-have criteria, nice-to-have criteria, and disqualifiers based on the offering (EMS/PCB, Western European OEMs, 100-5000 employees, regulated sectors)
+- [ ] Populate mustHaveCriteria, niceToHaveCriteria, disqualifiers fields in the brains table via SQL update
+- [ ] Trigger brain re-embedding (embedBrain procedure) so new criteria are reflected in vector search

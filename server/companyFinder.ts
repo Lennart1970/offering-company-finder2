@@ -4712,6 +4712,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
     .input(z.object({
       limit: z.number().min(1).max(500).default(50),
       dryRun: z.boolean().default(false), // preview mode — infer but do NOT write to DB
+      searchId: z.number().optional(), // optional: restrict to a specific campaign/run
     }))
     .mutation(async ({ input }) => {
       const { getDb } = await import("./db");
@@ -4719,15 +4720,15 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       const { companies } = await import("../drizzle/schema");
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+      const whereClause = and(
+        or(isNull(companies.country), eq(companies.country, "")),
+        isNotNull(companies.briefData),
+        input.searchId !== undefined ? eq(companies.searchId, input.searchId) : undefined,
+      );
       const batch = await db
         .select({ id: companies.id, name: companies.name, websiteUrl: companies.websiteUrl, briefData: companies.briefData })
         .from(companies)
-        .where(
-          and(
-            or(isNull(companies.country), eq(companies.country, "")),
-            isNotNull(companies.briefData),
-          )
-        )
+        .where(whereClause)
         .limit(input.limit);
       if (batch.length === 0) return { processed: 0, written: 0, skipped: 0, errors: 0, dryRun: input.dryRun, results: [] };
       const { invokeLLM } = await import("./_core/llm");
@@ -4773,25 +4774,54 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         try {
           let brief: Record<string, unknown> = {};
           try { brief = JSON.parse(co.briefData!); } catch { /* ignore */ }
-          const execSummary = typeof brief.executiveSummary === "string"
-            ? brief.executiveSummary.substring(0, 600)
-            : typeof brief.executiveSummary === "object" && brief.executiveSummary !== null
-              ? JSON.stringify(brief.executiveSummary).substring(0, 600)
-              : "";
-          const signals = Array.isArray(brief.urgencySignals)
-            ? (brief.urgencySignals as Array<{ snippet?: string; description?: string }>)
-                .slice(0, 3)
-                .map((s) => s.snippet || s.description || "")
+
+          // Flatten executiveSummary: if it's a metadata object (not a narrative string), convert to readable text
+          let execSummaryText = "";
+          if (typeof brief.executiveSummary === "string") {
+            execSummaryText = brief.executiveSummary.substring(0, 600);
+          } else if (typeof brief.executiveSummary === "object" && brief.executiveSummary !== null) {
+            const es = brief.executiveSummary as Record<string, unknown>;
+            // Build a readable sentence from the metadata fields
+            const parts: string[] = [];
+            if (es.company) parts.push(`Company: ${es.company}`);
+            if (es.industry && es.industry !== "Unknown") parts.push(`Industry: ${es.industry}`);
+            if (es.employees && es.employees !== "Unknown") parts.push(`Employees: ${es.employees}`);
+            if (es.revenue && es.revenue !== "Unknown") parts.push(`Revenue: ${es.revenue}`);
+            if (es.headquarters) parts.push(`Headquarters: ${es.headquarters}`);
+            if (es.location) parts.push(`Location: ${es.location}`);
+            execSummaryText = parts.join("; ");
+          }
+
+          // Read productsServices[0].description — often contains "X-based manufacturer" language
+          const prodDesc = Array.isArray(brief.productsServices)
+            ? (brief.productsServices as Array<{ description?: string; category?: string }>)
+                .slice(0, 2)
+                .map((p) => [p.category, p.description].filter(Boolean).join(": "))
+                .join(" | ")
+                .substring(0, 400)
+            : "";
+
+          // Read recentDevelopments[0].text — narrative snippets with company context
+          const devText = Array.isArray(brief.recentDevelopments)
+            ? (brief.recentDevelopments as Array<{ text?: string }>)
+                .slice(0, 2)
+                .map((d) => d.text || "")
                 .filter(Boolean)
                 .join(" | ")
+                .substring(0, 400)
             : "";
+
+          // NOTE: urgencySignals intentionally excluded — they contain trade show/event city names
+          // (e.g. "AUTOMATE 2026 Chicago") which mislead the model into inferring US/Mexico/Brazil.
+
           const { hints: domainHints } = extractDomainSignals(co.websiteUrl ?? null);
           const context = [
             `Company name: ${co.name}`,
             co.websiteUrl ? `Website: ${co.websiteUrl}` : "",
             domainHints.length > 0 ? `Domain signals: ${domainHints.join("; ")}` : "",
-            execSummary ? `Executive summary: ${execSummary}` : "",
-            signals ? `News signals: ${signals.substring(0, 400)}` : "",
+            execSummaryText ? `Company metadata: ${execSummaryText}` : "",
+            prodDesc ? `Products/services: ${prodDesc}` : "",
+            devText ? `Recent developments: ${devText}` : "",
           ]
             .filter(Boolean)
             .join("\n");
@@ -4800,12 +4830,14 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
               {
                 role: "system",
                 content:
-                  "You are a company HEADQUARTERS location expert. Identify the country of the company's HEADQUARTERS only — not where it sells, operates, or has customers.\n" +
+                  "You are a company HEADQUARTERS location expert. Identify the ISO-2 country code of the company's HEADQUARTERS only.\n" +
+                  "CRITICAL: Do NOT infer from trade show locations, event cities, customer countries, or markets served.\n" +
                   "Priority rules (apply in strict order):\n" +
-                  "1. If 'Domain signals: STRONG SIGNAL' is present, that IS the answer. Return it with confidence 'high'. Do not override it with text content.\n" +
-                  "2. Country-code TLDs (.de, .nl, .co.uk, .com.vn, etc.) are definitive.\n" +
-                  "3. For .com / .org / .net / .io domains with NO domain signals: only infer from text if the company name or executive summary EXPLICITLY names the headquarters city/country. Do NOT infer from: the language of the brief, countries mentioned as customers or markets, or Chinese/Japanese/Korean text in the brief.\n" +
-                  "4. If unsure, return null with confidence 'low'. Never guess.\n" +
+                  "1. If 'Domain signals: STRONG SIGNAL' is present, that IS the answer — return it with confidence 'high'.\n" +
+                  "2. Country-code TLDs (.de, .nl, .co.uk, .com.vn, .cn, .sg, etc.) are definitive.\n" +
+                  "3. For generic TLDs (.com/.org/.net/.io): infer ONLY if the text EXPLICITLY states the HQ city/country (e.g. 'Singapore-based', 'headquartered in Ningbo, China', 'Pte. Ltd.' → SG).\n" +
+                  "4. Legal entity suffixes are strong signals: 'Pte. Ltd.' → SG, 'GmbH/AG' → DE/CH/AT, 'BV/NV' → NL/BE, 'Ltd.' alone → ambiguous.\n" +
+                  "5. If unsure, return null with confidence 'low'. Never guess from event or customer locations.\n" +
                   "Return ONLY: {\"country\": \"XX\" or null, \"confidence\": \"high\" | \"medium\" | \"low\"}",
               },
               { role: "user", content: context },
@@ -4863,19 +4895,22 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
 
   // Count companies eligible for country backfill (no country, has briefData)
   getCountryBackfillStats: protectedProcedure
-    .query(async () => {
+    .input(z.object({ searchId: z.number().optional() }))
+    .query(async ({ input }) => {
       const { getDb } = await import("./db");
-      const { count, sql } = await import("drizzle-orm");
+      const { count, sql, eq, and } = await import("drizzle-orm");
       const { companies } = await import("../drizzle/schema");
       const db = await getDb();
       if (!db) return { eligible: 0, total: 0, missingCountry: 0 };
+      const whereClause = input.searchId !== undefined ? eq(companies.searchId, input.searchId) : undefined;
       const [stats] = await db
         .select({
           total: count(),
           missingCountry: count(sql`CASE WHEN (${companies.country} IS NULL OR ${companies.country} = '') THEN 1 END`),
           eligible: count(sql`CASE WHEN (${companies.country} IS NULL OR ${companies.country} = '') AND ${companies.briefData} IS NOT NULL THEN 1 END`),
         })
-        .from(companies);
+        .from(companies)
+        .where(whereClause);
       return {
         total: Number(stats.total),
         missingCountry: Number(stats.missingCountry),

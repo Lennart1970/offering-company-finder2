@@ -639,7 +639,10 @@ export default function CompanyDatabase() {
           </SelectTrigger>
           <SelectContent className="max-h-64 overflow-y-auto">
             <SelectItem value="all">All countries</SelectItem>
-            {(meta?.countries ?? []).map((c) => (
+            {/* Pinned quick-selects */}
+            <SelectItem value="CN">🇨🇳 China (CN)</SelectItem>
+            <SelectItem value="US">🇺🇸 United States (US)</SelectItem>
+            {(meta?.countries ?? []).filter((c) => c !== "CN" && c !== "US").map((c) => (
               <SelectItem key={c} value={c}>
                 {c}
               </SelectItem>

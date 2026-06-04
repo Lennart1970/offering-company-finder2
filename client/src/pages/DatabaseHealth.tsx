@@ -189,14 +189,18 @@ type BackfillResult = { processed: number; written: number; skipped: number; err
 
 function CountryBackfillPanel() {
   const [batchSize, setBatchSize] = useState(25);
+  const [selectedRunId, setSelectedRunId] = useState<number | undefined>(undefined);
   // "idle" → "preview" (dry-run done, showing table) → "committed" (real write done)
   const [stage, setStage] = useState<"idle" | "preview" | "committed">("idle");
   const [previewData, setPreviewData] = useState<BackfillResult | null>(null);
   const [commitData, setCommitData] = useState<BackfillResult | null>(null);
 
-  const { data: stats, refetch: refetchStats } = trpc.companyFinder.getCountryBackfillStats.useQuery(undefined, {
-    staleTime: 30_000,
-  });
+  const { data: searches } = trpc.companyFinder.getSearchHistory.useQuery({ showArchived: false });
+
+  const { data: stats, refetch: refetchStats } = trpc.companyFinder.getCountryBackfillStats.useQuery(
+    { searchId: selectedRunId },
+    { staleTime: 30_000 }
+  );
 
   const bulkMutation = trpc.companyFinder.bulkInferCountry.useMutation({
     onSuccess: (result) => {
@@ -278,6 +282,28 @@ function CountryBackfillPanel() {
 
       {/* Controls */}
       <div className="flex items-center gap-3 flex-wrap">
+        {/* Run selector */}
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-gray-500">Run:</label>
+          <select
+            value={selectedRunId ?? ""}
+            onChange={(e) => {
+              const v = e.target.value;
+              setSelectedRunId(v === "" ? undefined : Number(v));
+              setStage("idle"); setPreviewData(null);
+            }}
+            className="text-xs border border-gray-200 rounded px-2 py-1 bg-white max-w-[200px]"
+            disabled={bulkMutation.isPending}
+          >
+            <option value="">All runs</option>
+            {(searches ?? []).map((s) => (
+              <option key={s.id} value={s.id}>
+                #{s.id} {(s as any).offeringName || s.location || `Run #${s.id}`}
+              </option>
+            ))}
+          </select>
+        </div>
+
         <div className="flex items-center gap-2">
           <label className="text-xs text-gray-500">Batch size:</label>
           <select
@@ -297,7 +323,7 @@ function CountryBackfillPanel() {
           <Button
             size="sm"
             variant="outline"
-            onClick={() => { setStage("idle"); bulkMutation.mutate({ limit: batchSize, dryRun: true }); }}
+            onClick={() => { setStage("idle"); bulkMutation.mutate({ limit: batchSize, dryRun: true, searchId: selectedRunId }); }}
             disabled={bulkMutation.isPending || eligible === 0}
             className="gap-2 text-xs"
           >
@@ -314,7 +340,7 @@ function CountryBackfillPanel() {
           <>
             <Button
               size="sm"
-              onClick={() => bulkMutation.mutate({ limit: batchSize, dryRun: false })}
+              onClick={() => bulkMutation.mutate({ limit: batchSize, dryRun: false, searchId: selectedRunId })}
               disabled={bulkMutation.isPending}
               className="gap-2 text-xs bg-emerald-600 hover:bg-emerald-700 text-white"
             >

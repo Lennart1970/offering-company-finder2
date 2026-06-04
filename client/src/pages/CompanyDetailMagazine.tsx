@@ -995,6 +995,18 @@ export default function CompanyDetailMagazine() {
                         <div className="text-[10px] text-gray-400 mt-0.5">LLM: {rawScore} × geo {geo.multiplier} ({geo.region})</div>
                       )}
                     </div>
+                    {/* FIT-SIM similarity score */}
+                    {(company as any).similarityScore != null && (
+                      <div className="shrink-0">
+                        <div className="text-[10px] font-black text-muted-foreground tracking-widest">FIT-SIM</div>
+                        <div className={`text-4xl font-black ${
+                          (company as any).similarityScore >= 75 ? 'text-green-600'
+                          : (company as any).similarityScore >= 50 ? 'text-yellow-600'
+                          : 'text-red-500'
+                        }`}>{(company as any).similarityScore}<span className="text-lg text-gray-400">/100</span></div>
+                        <div className="text-[10px] text-gray-400 mt-0.5">vector similarity</div>
+                      </div>
+                    )}
                     {briefData.fitLabel && (
                       <div className="flex-1">
                         <div className="text-[10px] font-black text-muted-foreground tracking-widest mb-1">VERDICT</div>

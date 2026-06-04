@@ -4519,6 +4519,258 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       })),
     };
   }),
+
+  // ─── LLM Country Backfill ────────────────────────────────────────────────────
+  // Infer country (ISO-2) from briefData for a single company that has no country
+  // set by Apollo. Uses the executive summary, urgency signal snippets, website
+  // domain TLD, and company name as signals — no external API call needed.
+  inferCountryFromBrief: protectedProcedure
+    .input(z.object({ companyId: z.number() }))
+    .mutation(async ({ input }) => {
+      const { getDb } = await import("./db");
+      const { eq } = await import("drizzle-orm");
+      const { companies } = await import("../drizzle/schema");
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+      const [company] = await db
+        .select({
+          id: companies.id,
+          name: companies.name,
+          websiteUrl: companies.websiteUrl,
+          country: companies.country,
+          city: companies.city,
+          briefData: companies.briefData,
+        })
+        .from(companies)
+        .where(eq(companies.id, input.companyId))
+        .limit(1);
+
+      if (!company) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+      if (!company.briefData) throw new TRPCError({ code: "BAD_REQUEST", message: "No briefData available for this company" });
+
+      // Build a compact context string from the brief
+      let brief: Record<string, unknown> = {};
+      try { brief = JSON.parse(company.briefData); } catch { /* ignore */ }
+
+      const execSummary = typeof brief.executiveSummary === "string"
+        ? brief.executiveSummary.substring(0, 600)
+        : typeof brief.executiveSummary === "object" && brief.executiveSummary !== null
+          ? JSON.stringify(brief.executiveSummary).substring(0, 600)
+          : "";
+
+      const signals = Array.isArray(brief.urgencySignals)
+        ? (brief.urgencySignals as Array<{ snippet?: string; description?: string }>)
+            .slice(0, 3)
+            .map((s) => s.snippet || s.description || "")
+            .filter(Boolean)
+            .join(" | ")
+        : "";
+
+      const context = [
+        `Company name: ${company.name}`,
+        company.websiteUrl ? `Website: ${company.websiteUrl}` : "",
+        execSummary ? `Executive summary: ${execSummary}` : "",
+        signals ? `News signals: ${signals.substring(0, 400)}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const { invokeLLM } = await import("./_core/llm");
+      const response = await invokeLLM({
+        messages: [
+          {
+            role: "system",
+            content:
+              "You are a company location expert. Given company information, identify the country of headquarters. " +
+              "Return ONLY a valid JSON object with two fields: \"country\" (ISO 3166-1 alpha-2 code, e.g. \"DE\", \"US\", \"NL\") " +
+              "and \"confidence\" (\"high\", \"medium\", or \"low\"). " +
+              "Use the website domain TLD as a strong signal (.de → DE, .nl → NL, .com.vn → VN, .co.uk → GB). " +
+              "If the domain is .com or .org and you cannot determine country from the text, set confidence to \"low\". " +
+              "Never guess — if truly unknown return {\"country\": null, \"confidence\": \"low\"}.",
+          },
+          { role: "user", content: context },
+        ],
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: "country_inference",
+            strict: true,
+            schema: {
+              type: "object",
+              properties: {
+                country: { type: ["string", "null"], description: "ISO 3166-1 alpha-2 country code or null" },
+                confidence: { type: "string", enum: ["high", "medium", "low"] },
+              },
+              required: ["country", "confidence"],
+              additionalProperties: false,
+            },
+          },
+        },
+      });
+
+            let result: { country: string | null; confidence: string } = { country: null, confidence: "low" };
+      try {
+        const raw = response?.choices?.[0]?.message?.content;
+        if (raw) result = JSON.parse(typeof raw === "string" ? raw : JSON.stringify(raw));
+      } catch { /* ignore parse error */ }
+      // Only write back if we got a country and confidence is high or medium
+      if (result.country && (result.confidence === "high" || result.confidence === "medium")) {
+        const { eq: eq2 } = await import("drizzle-orm");
+        const { companies: co2 } = await import("../drizzle/schema");
+        await db
+          .update(co2)
+          .set({ country: result.country.toUpperCase() })
+          .where(eq2(co2.id, input.companyId));
+      }
+
+      return {
+        companyId: input.companyId,
+        companyName: company.name,
+        inferredCountry: result.country,
+        confidence: result.confidence,
+        written: !!(result.country && (result.confidence === "high" || result.confidence === "medium")),
+      };
+    }),
+
+  // Bulk backfill: process up to `limit` companies with briefData but no country.
+  // Runs sequentially with a small delay to avoid LLM rate limits.
+  // Returns a summary of how many were written vs skipped (low confidence).
+  bulkInferCountry: protectedProcedure
+    .input(z.object({ limit: z.number().min(1).max(500).default(50) }))
+    .mutation(async ({ input }) => {
+      const { getDb } = await import("./db");
+      const { eq, and, or, isNull, isNotNull } = await import("drizzle-orm");
+      const { companies } = await import("../drizzle/schema");
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+      const batch = await db
+        .select({ id: companies.id, name: companies.name, websiteUrl: companies.websiteUrl, briefData: companies.briefData })
+        .from(companies)
+        .where(
+          and(
+            or(isNull(companies.country), eq(companies.country, "")),
+            isNotNull(companies.briefData),
+          )
+        )
+        .limit(input.limit);
+
+      if (batch.length === 0) return { processed: 0, written: 0, skipped: 0, errors: 0, results: [] };
+
+      const { invokeLLM } = await import("./_core/llm");
+      let written = 0;
+      let skipped = 0;
+      let errors = 0;
+      const results: Array<{ id: number; name: string; country: string | null; confidence: string; written: boolean }> = [];
+
+      for (const co of batch) {
+        try {
+          let brief: Record<string, unknown> = {};
+          try { brief = JSON.parse(co.briefData!); } catch { /* ignore */ }
+
+          const execSummary = typeof brief.executiveSummary === "string"
+            ? brief.executiveSummary.substring(0, 600)
+            : typeof brief.executiveSummary === "object" && brief.executiveSummary !== null
+              ? JSON.stringify(brief.executiveSummary).substring(0, 600)
+              : "";
+
+          const signals = Array.isArray(brief.urgencySignals)
+            ? (brief.urgencySignals as Array<{ snippet?: string; description?: string }>)
+                .slice(0, 3)
+                .map((s) => s.snippet || s.description || "")
+                .filter(Boolean)
+                .join(" | ")
+            : "";
+
+          const context = [
+            `Company name: ${co.name}`,
+            co.websiteUrl ? `Website: ${co.websiteUrl}` : "",
+            execSummary ? `Executive summary: ${execSummary}` : "",
+            signals ? `News signals: ${signals.substring(0, 400)}` : "",
+          ]
+            .filter(Boolean)
+            .join("\n");
+
+          const response = await invokeLLM({
+            messages: [
+              {
+                role: "system",
+                content:
+                  "You are a company location expert. Given company information, identify the country of headquarters. " +
+                  "Return ONLY a valid JSON object with two fields: \"country\" (ISO 3166-1 alpha-2 code, e.g. \"DE\", \"US\", \"NL\") " +
+                  "and \"confidence\" (\"high\", \"medium\", or \"low\"). " +
+                  "Use the website domain TLD as a strong signal (.de → DE, .nl → NL, .com.vn → VN, .co.uk → GB). " +
+                  "If the domain is .com or .org and you cannot determine country from the text, set confidence to \"low\". " +
+                  "Never guess — if truly unknown return {\"country\": null, \"confidence\": \"low\"}.",
+              },
+              { role: "user", content: context },
+            ],
+            response_format: {
+              type: "json_schema",
+              json_schema: {
+                name: "country_inference",
+                strict: true,
+                schema: {
+                  type: "object",
+                  properties: {
+                    country: { type: ["string", "null"], description: "ISO 3166-1 alpha-2 country code or null" },
+                    confidence: { type: "string", enum: ["high", "medium", "low"] },
+                  },
+                  required: ["country", "confidence"],
+                  additionalProperties: false,
+                },
+              },
+            },
+          });
+
+          let result: { country: string | null; confidence: string } = { country: null, confidence: "low" };
+          try {
+            const raw = response?.choices?.[0]?.message?.content;
+            if (raw) result = JSON.parse(typeof raw === "string" ? raw : JSON.stringify(raw));
+          } catch { /* ignore */ }
+
+          const shouldWrite = !!(result.country && (result.confidence === "high" || result.confidence === "medium"));
+          if (shouldWrite) {
+            const { eq: eqUpd } = await import("drizzle-orm");
+            const { companies: coUpd } = await import("../drizzle/schema");
+            await db.update(coUpd).set({ country: result.country!.toUpperCase() }).where(eqUpd(coUpd.id, co.id));
+            written++;
+          } else {
+            skipped++;
+          }
+
+          results.push({ id: co.id, name: co.name, country: result.country, confidence: result.confidence, written: shouldWrite });
+        } catch (e) {
+          errors++;
+          results.push({ id: co.id, name: co.name, country: null, confidence: "error", written: false });
+        }
+      }
+
+      return { processed: batch.length, written, skipped, errors, results };
+    }),
+
+  // Count companies eligible for country backfill (no country, has briefData)
+  getCountryBackfillStats: protectedProcedure
+    .query(async () => {
+      const { getDb } = await import("./db");
+      const { count, sql } = await import("drizzle-orm");
+      const { companies } = await import("../drizzle/schema");
+      const db = await getDb();
+      if (!db) return { eligible: 0, total: 0, missingCountry: 0 };
+      const [stats] = await db
+        .select({
+          total: count(),
+          missingCountry: count(sql`CASE WHEN (${companies.country} IS NULL OR ${companies.country} = '') THEN 1 END`),
+          eligible: count(sql`CASE WHEN (${companies.country} IS NULL OR ${companies.country} = '') AND ${companies.briefData} IS NOT NULL THEN 1 END`),
+        })
+        .from(companies);
+      return {
+        total: Number(stats.total),
+        missingCountry: Number(stats.missingCountry),
+        eligible: Number(stats.eligible),
+      };
+    }),
 });
 // Background search function using brain offering data
 async function searchWithBrainOffering(

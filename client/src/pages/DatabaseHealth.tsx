@@ -1,8 +1,9 @@
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Database, Activity, CheckCircle2, AlertCircle, Clock, Zap, FileText, Users, Globe, BrainCircuit } from "lucide-react";
+import { RefreshCw, Database, Activity, CheckCircle2, AlertCircle, Clock, Zap, FileText, Users, Globe, BrainCircuit, MapPin } from "lucide-react";
 import { useState } from "react";
+import { toast } from "sonner";
 
 // ─── helpers ──────────────────────────────────────────────────────────────────
 
@@ -177,6 +178,109 @@ function CampaignTable({ campaigns, total }: { campaigns: CampaignRow[]; total: 
           ))}
         </tbody>
       </table>
+    </div>
+  );
+}
+
+// ─── Country Backfill Panel ──────────────────────────────────────────────────
+
+function CountryBackfillPanel() {
+  const [batchSize, setBatchSize] = useState(50);
+  const [lastResult, setLastResult] = useState<{ processed: number; written: number; skipped: number; errors: number } | null>(null);
+
+  const { data: stats, refetch: refetchStats } = trpc.companyFinder.getCountryBackfillStats.useQuery(undefined, {
+    staleTime: 30_000,
+  });
+
+  const bulkMutation = trpc.companyFinder.bulkInferCountry.useMutation({
+    onSuccess: (result) => {
+      setLastResult(result);
+      refetchStats();
+      toast.success(`Country backfill: ${result.written} written, ${result.skipped} skipped (low confidence), ${result.errors} errors`);
+    },
+    onError: (err) => toast.error(`Backfill failed: ${err.message}`),
+  });
+
+  const eligible = stats?.eligible ?? 0;
+  const missing = stats?.missingCountry ?? 0;
+  const total = stats?.total ?? 0;
+  const filled = total - missing;
+  const filledPct = total > 0 ? Math.round((filled / total) * 100) : 0;
+
+  return (
+    <div className="border border-gray-100 rounded-lg p-5 bg-white space-y-4">
+      <div className="flex items-center gap-2">
+        <MapPin className="w-4 h-4 text-blue-500" />
+        <h3 className="font-semibold text-gray-800 text-sm">Country Backfill (LLM)</h3>
+        <Badge className="bg-blue-50 text-blue-700 border-blue-200 text-xs">AI-powered</Badge>
+      </div>
+      <p className="text-xs text-gray-500">
+        Infers country (ISO-2) from research brief text for companies where Apollo returned no location.
+        Only writes when confidence is <strong>high</strong> or <strong>medium</strong>.
+      </p>
+      <div className="grid grid-cols-3 gap-4 text-center">
+        <div>
+          <div className="text-xl font-bold text-gray-900">{fmt(filled)}</div>
+          <div className="text-xs text-gray-400">Have country</div>
+        </div>
+        <div>
+          <div className="text-xl font-bold text-amber-600">{fmt(missing)}</div>
+          <div className="text-xs text-gray-400">Missing country</div>
+        </div>
+        <div>
+          <div className="text-xl font-bold text-blue-600">{fmt(eligible)}</div>
+          <div className="text-xs text-gray-400">Eligible (has brief)</div>
+        </div>
+      </div>
+      <div>
+        <div className="flex justify-between text-xs text-gray-500 mb-1">
+          <span>Country coverage</span>
+          <span>{filledPct}%</span>
+        </div>
+        <div className="w-full bg-gray-100 rounded-full h-2">
+          <div
+            className={`h-2 rounded-full transition-all ${
+              filledPct >= 80 ? "bg-emerald-500" : filledPct >= 40 ? "bg-amber-400" : "bg-red-400"
+            }`}
+            style={{ width: `${filledPct}%` }}
+          />
+        </div>
+      </div>
+      <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <label className="text-xs text-gray-500">Batch size:</label>
+          <select
+            value={batchSize}
+            onChange={(e) => setBatchSize(Number(e.target.value))}
+            className="text-xs border border-gray-200 rounded px-2 py-1 bg-white"
+            disabled={bulkMutation.isPending}
+          >
+            {[10, 25, 50, 100, 200].map((n) => (
+              <option key={n} value={n}>{n}</option>
+            ))}
+          </select>
+        </div>
+        <Button
+          size="sm"
+          onClick={() => bulkMutation.mutate({ limit: batchSize })}
+          disabled={bulkMutation.isPending || eligible === 0}
+          className="gap-2 text-xs"
+        >
+          {bulkMutation.isPending ? (
+            <><RefreshCw className="w-3 h-3 animate-spin" /> Running…</>
+          ) : (
+            <><MapPin className="w-3 h-3" /> Run Backfill ({fmt(Math.min(batchSize, eligible))} companies)</>
+          )}
+        </Button>
+      </div>
+      {lastResult && (
+        <div className="text-xs bg-gray-50 rounded p-3 text-gray-600">
+          Last run: <strong>{lastResult.processed}</strong> processed →{" "}
+          <strong className="text-emerald-600">{lastResult.written} written</strong>,{" "}
+          <span className="text-amber-600">{lastResult.skipped} skipped</span>,{" "}
+          <span className="text-red-500">{lastResult.errors} errors</span>
+        </div>
+      )}
     </div>
   );
 }
@@ -400,6 +504,11 @@ export default function DatabaseHealth() {
             </div>
           </div>
         </div>
+      </SectionCard>
+
+      {/* Country Backfill */}
+      <SectionCard title="Data Enrichment Tools" icon={MapPin}>
+        <CountryBackfillPanel />
       </SectionCard>
 
       {/* Per-campaign breakdown */}

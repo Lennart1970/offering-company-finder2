@@ -4541,17 +4541,20 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
           country: companies.country,
           city: companies.city,
           briefData: companies.briefData,
+          fitScoreData: companies.fitScoreData,
         })
         .from(companies)
         .where(eq(companies.id, input.companyId))
         .limit(1);
 
       if (!company) throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
-      if (!company.briefData) throw new TRPCError({ code: "BAD_REQUEST", message: "No briefData available for this company" });
+      // Allow inference from fitScoreData even if briefData is missing
+      const hasAnyData = company.briefData || company.fitScoreData;
+      if (!hasAnyData) throw new TRPCError({ code: "BAD_REQUEST", message: "No research data available for this company" });
 
-      // Build a compact context string from the brief
+      // ── Extract signals from briefData ──────────────────────────────────────
       let brief: Record<string, unknown> = {};
-      try { brief = JSON.parse(company.briefData); } catch { /* ignore */ }
+      try { if (company.briefData) brief = JSON.parse(company.briefData); } catch { /* ignore */ }
 
       const execSummary = typeof brief.executiveSummary === "string"
         ? brief.executiveSummary.substring(0, 600)
@@ -4566,6 +4569,30 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
             .filter(Boolean)
             .join(" | ")
         : "";
+
+      // ── Extract fit score summary (often contains explicit country mentions) ─
+      let fitSummary = "";
+      try {
+        if (company.fitScoreData) {
+          const fitData = JSON.parse(company.fitScoreData as string);
+          // fitScoreData may be an object with a summary/rationale field, or an array
+          if (typeof fitData === "string") {
+            fitSummary = fitData.substring(0, 500);
+          } else if (typeof fitData?.summary === "string") {
+            fitSummary = fitData.summary.substring(0, 500);
+          } else if (typeof fitData?.rationale === "string") {
+            fitSummary = fitData.rationale.substring(0, 500);
+          } else if (typeof fitData?.overallRationale === "string") {
+            fitSummary = fitData.overallRationale.substring(0, 500);
+          } else if (Array.isArray(fitData) && typeof fitData[0]?.rationale === "string") {
+            fitSummary = fitData[0].rationale.substring(0, 500);
+          } else {
+            fitSummary = JSON.stringify(fitData).substring(0, 500);
+          }
+        }
+      } catch { /* ignore */ }
+
+      // urgencyData column does not exist — urgency signals are read from briefData above
 
       // ── Pre-compute domain geography signals before calling the LLM ──────────
       const domainHints: string[] = [];
@@ -4617,6 +4644,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         company.websiteUrl ? `Website: ${company.websiteUrl}` : "",
         domainHints.length > 0 ? `Domain signals: ${domainHints.join("; ")}` : "",
         execSummary ? `Executive summary: ${execSummary}` : "",
+        fitSummary ? `Fit analysis: ${fitSummary}` : "",
         signals ? `News signals: ${signals.substring(0, 400)}` : "",
       ]
         .filter(Boolean)
@@ -4632,7 +4660,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
               "Priority rules (apply in strict order):\n" +
               "1. If 'Domain signals: STRONG SIGNAL' is present, that IS the answer. Return it with confidence 'high'. Do not override it with text content.\n" +
               "2. Country-code TLDs (.de, .nl, .co.uk, .com.vn, etc.) are definitive.\n" +
-              "3. For .com / .org / .net / .io domains with NO domain signals: only infer from text if the company name or executive summary EXPLICITLY names the headquarters city/country. Do NOT infer from: the language of the brief, countries mentioned as customers or markets, or Chinese/Japanese/Korean text in the brief.\n" +
+              "3. For .com / .org / .net / .io domains with NO domain signals: infer from text if ANY field EXPLICITLY states the HQ country or city. Examples that qualify: 'US-based company', 'headquartered in Indiana', 'Chinese robotics integrator', 'founded in Shenzhen'. Use confidence 'high' for direct HQ statements, 'medium' for strong contextual clues (e.g. US state names, city names). Do NOT infer from: the language of the brief alone, countries mentioned only as customers or markets.\n" +
               "4. If unsure, return null with confidence 'low'. Never guess.\n" +
               "Return ONLY: {\"country\": \"XX\" or null, \"confidence\": \"high\" | \"medium\" | \"low\"}",
           },

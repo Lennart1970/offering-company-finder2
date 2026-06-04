@@ -45,6 +45,7 @@ import ImportPreview from "./pages/ImportPreview";
 import RawDataPage from "./pages/RawDataPage";
 import CompanyDatabase from "./pages/CompanyDatabase";
 import DatabaseHealth from "./pages/DatabaseHealth";
+import FeedbackPage from "./pages/FeedbackPage";
 
 
 function Router() {
@@ -92,6 +93,7 @@ function Router() {
         <Route path={"/cg-team"} component={ConnectGroupTeam} />
         <Route path={"/terms"} component={TermsOfUse} />
         <Route path={"/share-access-log"} component={ShareAccessLogPage} />
+        <Route path={"/feedback"} component={FeedbackPage} />
         <Route path={"/niche/:nicheId"} component={({ params }: { params: { nicheId: string } }) => <NicheCompanyList nicheId={parseInt(params.nicheId)} />} />
 
         <Route path={"/404"} component={NotFound} />

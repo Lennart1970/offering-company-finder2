@@ -1,7 +1,7 @@
 import { trpc } from "@/lib/trpc";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Database, Activity, CheckCircle2, AlertCircle, Clock, Zap, FileText, Users, Globe, BrainCircuit, MapPin, Trash2, Eye } from "lucide-react";
+import { RefreshCw, Database, Activity, CheckCircle2, AlertCircle, Clock, Zap, FileText, Users, Globe, BrainCircuit, MapPin, Trash2, Eye, Share2, MessageSquare, ExternalLink } from "lucide-react";
 import { useState } from "react";
 import { toast } from "sonner";
 
@@ -812,6 +812,11 @@ export default function DatabaseHealth() {
         </div>
       </SectionCard>
 
+      {/* Share Lists Management */}
+      <SectionCard title="Share Lists" icon={Share2}>
+        <ShareListsPanel />
+      </SectionCard>
+
       {/* Per-campaign breakdown */}
       <SectionCard title="Per-Campaign KPI Breakdown (Top 20)" icon={Database}>
         <div className="text-xs text-gray-400 mb-3">
@@ -822,6 +827,132 @@ export default function DatabaseHealth() {
         </div>
         <CampaignTable campaigns={campaigns as CampaignRow[]} total={totals.companies} />
       </SectionCard>
+    </div>
+  );
+}
+
+// ─── ShareListsPanel ──────────────────────────────────────────────────────────
+
+function ShareListsPanel() {
+  const { data, isLoading, refetch, isFetching } = (trpc as any).share.getShareLists.useQuery(undefined, {
+    staleTime: 30_000,
+    refetchOnWindowFocus: false,
+  });
+  const deleteMutation = (trpc as any).share.deleteShareList.useMutation({
+    onSuccess: () => {
+      toast.success("Share list deleted");
+      refetch();
+    },
+    onError: (err: any) => toast.error(err.message ?? "Delete failed"),
+  });
+
+  const [confirmId, setConfirmId] = useState<number | null>(null);
+
+  const lists: any[] = data?.lists ?? [];
+
+  if (isLoading) return (
+    <div className="flex items-center gap-2 text-gray-400 text-sm py-4">
+      <RefreshCw className="w-3.5 h-3.5 animate-spin" /> Loading share lists…
+    </div>
+  );
+
+  if (lists.length === 0) return (
+    <div className="text-sm text-gray-400 py-4">
+      No share lists found. Create one from the Intelligence or Search Results page.
+    </div>
+  );
+
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs text-gray-500">
+          Share lists are stored in MySQL <code className="bg-gray-100 px-1 rounded text-[10px]">share_lists</code> +
+          <code className="bg-gray-100 px-1 rounded text-[10px] ml-1">share_list_items</code> +
+          <code className="bg-gray-100 px-1 rounded text-[10px] ml-1">share_tokens</code>.
+          Deleting a list cascades to its items.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => refetch()} disabled={isFetching} className="gap-1 text-xs h-7">
+          <RefreshCw className={`w-3 h-3 ${isFetching ? "animate-spin" : ""}`} /> Refresh
+        </Button>
+      </div>
+
+      <div className="border border-gray-200 rounded-xl overflow-hidden">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="bg-gray-50 border-b border-gray-200">
+              <th className="text-left text-xs font-black text-gray-500 uppercase tracking-widest px-4 py-2.5">List Name</th>
+              <th className="text-left text-xs font-black text-gray-500 uppercase tracking-widest px-4 py-2.5">Business Unit</th>
+              <th className="text-center text-xs font-black text-gray-500 uppercase tracking-widest px-4 py-2.5">Companies</th>
+              <th className="text-left text-xs font-black text-gray-500 uppercase tracking-widest px-4 py-2.5">Created</th>
+              <th className="text-left text-xs font-black text-gray-500 uppercase tracking-widest px-4 py-2.5">Feedback</th>
+              <th className="text-right text-xs font-black text-gray-500 uppercase tracking-widest px-4 py-2.5">Actions</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {lists.map((list: any) => (
+              <tr key={list.id} className="hover:bg-gray-50 transition-colors">
+                <td className="px-4 py-3">
+                  <p className="font-bold text-gray-900 text-xs">{list.shareListName ?? <span className="text-gray-400 font-normal italic">Unnamed list</span>}</p>
+                  <p className="text-[10px] font-mono text-gray-400 mt-0.5">{list.listToken.slice(0, 16)}…</p>
+                </td>
+                <td className="px-4 py-3">
+                  <span className="text-xs text-gray-600">{list.brainName ?? <span className="text-gray-300">—</span>}</span>
+                </td>
+                <td className="px-4 py-3 text-center">
+                  <span className="text-xs font-bold text-gray-900">{list.companyCount}</span>
+                </td>
+                <td className="px-4 py-3">
+                  <span className="text-xs text-gray-500 whitespace-nowrap">
+                    {list.createdAt ? new Date(list.createdAt).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }) : "—"}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  {list.feedbackCount > 0 ? (
+                    <a href="/feedback" className="inline-flex items-center gap-1 text-xs text-blue-600 font-bold hover:underline">
+                      <MessageSquare className="w-3 h-3" />{list.feedbackCount}
+                    </a>
+                  ) : (
+                    <span className="text-xs text-gray-300">—</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <div className="flex items-center justify-end gap-2">
+                    <a
+                      href={`/share/list/${list.listToken}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 text-xs text-blue-500 hover:underline"
+                    >
+                      <ExternalLink className="w-3 h-3" /> View
+                    </a>
+                    {confirmId === list.id ? (
+                      <div className="flex items-center gap-1">
+                        <span className="text-xs text-red-600 font-bold">Delete?</span>
+                        <button
+                          onClick={() => { deleteMutation.mutate({ listId: list.id }); setConfirmId(null); }}
+                          className="text-xs font-black text-red-600 hover:text-red-800 px-1.5 py-0.5 border border-red-300 rounded"
+                        >Yes</button>
+                        <button
+                          onClick={() => setConfirmId(null)}
+                          className="text-xs text-gray-500 hover:text-gray-700 px-1.5 py-0.5 border border-gray-200 rounded"
+                        >No</button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => setConfirmId(list.id)}
+                        className="inline-flex items-center gap-1 text-xs text-red-400 hover:text-red-600 transition-colors"
+                        title="Delete this share list"
+                      >
+                        <Trash2 className="w-3 h-3" /> Delete
+                      </button>
+                    )}
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

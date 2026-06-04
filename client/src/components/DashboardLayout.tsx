@@ -24,7 +24,7 @@ import {
 } from "@/components/ui/sidebar";
 import { getLoginUrl } from "@/const";
 import { useIsMobile } from "@/hooks/useMobile";
-import { List, LogOut, PanelLeft, BrainCircuit, FileSpreadsheet, Phone, ScrollText, Network, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook, UserPlus, BookMarked, Eye, FolderOpen, MapPin, Building2, Users, Activity, ChevronDown, Crosshair, Share2, Table2, Database } from "lucide-react";
+import { List, LogOut, PanelLeft, BrainCircuit, FileSpreadsheet, Phone, ScrollText, Network, Camera, Package, Globe, LayoutList, RefreshCw, Zap, Webhook, UserPlus, BookMarked, Eye, FolderOpen, MapPin, Building2, Users, Activity, ChevronDown, Crosshair, Share2, Table2, Database, MessageSquare } from "lucide-react";
 import { CSSProperties, useCallback, useEffect, useRef, useState } from "react";
 import { useLocation } from "wouter";
 import { DashboardLayoutSkeleton } from './DashboardLayoutSkeleton';
@@ -74,6 +74,7 @@ const navGroups: NavGroup[] = [
       { icon: Eye, label: "Business Unit Visibility", path: "/brain-visibility", superAdminOnly: true },
       { icon: FolderOpen, label: "Sales Materials", path: "/sales-materials" },
       { icon: Activity, label: "Access Log", path: "/share-access-log" },
+      { icon: MessageSquare, label: "Share Feedback", path: "/feedback" },
     ],
   },
   {

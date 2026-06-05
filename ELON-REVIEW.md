@@ -182,3 +182,89 @@ This could be a 9.5/10 tool for its users. Right now the UI is adding cognitive 
 ---
 
 *Generated during a design review session on 2026-06-05. Actionable items extracted into `todo.md` under a dedicated section.*
+
+---
+
+## Code & Databases Review — 2026-06-05 (Grok/Elon First-Principles Addendum)
+
+**Scope:** Static + architectural review of server/, drizzle/, references/db-architecture.md, key services (embedding, bulk sim/urgency, supabase*, campaign queue), companyFinder (the 5k LOC router), db.ts (1.3k LOC query layer), schema evolution (59 migrations), dual-DB usage patterns, test surface, and cross-cutting concerns. Performed immediately after the design review and the docs commit/push.
+
+### Engine Strengths (This Is Real Leverage)
+- **Dual-DB boundary is well thought-out and documented.** MySQL (via Drizzle + TiDB?) is the operational source of truth for pipeline writes (enrichment, scoring, content gen, decisions). Supabase (PG + pgvector) is the intelligence layer for vector search, similarity, embeddings, and some sharing/recipient reads. The `references/db-architecture.md` (June 2026) clearly calls out the contract, FK bridging via `mysql_id` + deterministic UUIDs, and what lives where. This is mature systems thinking.
+- **Scoring sophistication is excellent.** Three-tier urgency (synthetic ABC cosine on embeddings, news-embedding sim, LLM, HITL override) + three-tier fit (similarityScore cosine vs Brain ICP embedding, LLM fitScore + data, HITL). Niches with centroids for pre-filter clustering. Geography multipliers, sector exclusions, brain traceability (generatedWithBrainId + denormalized name on companies). This is not naive "vector search + rerank" — it's production-grade calibration-ready.
+- **Prompts as first-class citizen.** `server/prompts/index.ts` + ALL_PROMPTS + UI at /prompts is exactly right: typed, versioned, categorised, auditable, single source of truth. Every LLM call should route through this. High signal.
+- **Service extraction for the new intelligence layer is good.** `embeddingService.ts`, `bulkSimilarityService.ts`, `bulkNewsUrgencyService.ts`, `supabaseEmbeddings.ts`, `embedOnImport.ts`, `brainResearchService.ts`, `briefGenerator.ts`, `salesApproachGenerator.ts` etc. are focused modules doing one job (build text → embed or fetch vectors from SB → cosine → bulk write scores to MySQL). Campaign queue worker orchestrates enrichment → score → brief/approach in parallel with job tracking in batch_jobs.
+- **Migration discipline.** 59 named Drizzle migrations, recent 0053–0058 added the embedding/similarity/urgency columns and supporting tables cleanly. Schema in `drizzle/schema.ts` (667 LOC) shows pragmatic evolution: JSON-in-text for flexible LLM outputs (briefData, fitScoreData, scoreBreakdown, signalOpeners, etc.) + structured columns for the things you filter/sort on (scores, status, nicheId, sector, cg* fields).
+- **Observability in the worker.** campaignQueueWorker.ts is intentionally chatty with structured console logs for ops visibility on long-running background work. Acceptable (and useful) for now.
+- **HITL + feedback loops present.** companyDecisions, excludedCodes, callOutcomes, urgencyScoreHITL + note, feedback table (lt_share_feedback), DatabaseHealth + ShareListsPanel. The system is designed to get better from use.
+- **Tests on the server side.** ~45 *.test.ts files covering critical paths (companyFinder, brain, sync, queue, embeddings, prompts, etc.). No client-side tests visible in src — expected when logic is server-heavy.
+
+### Major Code Smells & Risks
+1. **God object: companyFinder.ts at 4,915 lines.** This single file is the tRPC router for "companyFinder" but has become the kitchen sink: procedures for brains, searches, companies, decisions, exclusions, contacts, batch jobs, company DB queries, raw data, sync stats, niche review, trigger review, etc. It imports from db.ts, apollo*, brain*, embedding*, bulk*, etc., and contains a ton of inline logic + JSON parsing helpers. 
+   - Velocity killer and cognitive load for anyone touching the core flow.
+   - Hard to test in isolation.
+   - Rec: extract more domain services (e.g. SearchService, CompanyService, BrainService, ScoringService) and keep the router as thin orchestration + input validation. Move the 2k+ lines of "getCompanyDatabase..." queries and view-specific transforms out.
+
+2. **db.ts at ~1,300 lines is also a god query module.** Lazy singleton drizzle + dozens of specific upsert/get functions, many with complex joins or JSON handling. Some duplication risk between db.ts helpers and direct drizzle calls in other modules. The "getCompanyDatabase" family of functions (for the new CompanyDatabase page with 10+ sort + filters) lives here and is heavy.
+
+3. **Legacy table references still live in production code paths (drift vs arch doc).** 
+   - `getCompaniesTableSyncStats` and related in companyFinder.ts still query `lt_mns_companies` (which the arch doc + deprecation comment say no longer exists and returns stale cache or errors). DatabaseHealth and SyncPage likely show wrong numbers because of this.
+   - Several places still hit `lt_mns_offering_brains`, `lt_mns_angles`, `lt_mns_trigger_references` (briefGenerator, bulkNewsUrgency, companyFinder brain sync).
+   - Per arch doc "Recommended Next Steps" (June 2026): implement `syncMySQLToLtCompanies`, migrate company_pages, add unique (apollo_id, mysql_id), remove the dead sync/stats functions.
+   - **Risk:** silent wrong data in health dashboards, failed syncs, confusion during the dual-DB cutover. This directly undermines the "maximum truth" goal.
+
+4. **JSON-in-text everywhere is pragmatic but has tax.** fitCriteria, valuePropositions, briefData, salesApproachData, signalOpeners, sliceMetadata, scoreBreakdown, etc. are text columns with JSON.parse everywhere (with try/catch fallbacks that often coerce objects to strings via heuristics in Brain.tsx and parseStringArray helpers). 
+   - Good for iteration speed with evolving LLM output shapes.
+   - Bad for queryability, type safety, and migration pain later.
+   - Rec: for new stable structures, consider JSON columns (MySQL 5.7+/TiDB supports) or normalized child tables (e.g. brain_capabilities, company_signals). Keep JSON for truly free-form (rawResearchData).
+
+5. **Some `any` leakage and legacy Express routes.** routes/api.ts (the old CSV/enrich endpoints) and a few LLM response parsers use `any` liberally. Newer tRPC + service code is cleaner. The app has a hybrid surface: modern tRPC for most UI, legacy Express routers for imports/webhooks. Not evil, but increases surface for auth mistakes or inconsistent error handling.
+
+6. **Monster client component: SearchResults.tsx (2,623 lines).** Stateful beast with view modes (list/card/raw), pagination accumulation, job polling (activeJobId + latestJob + status intervals), selection, exclusions, modals, quick-view lazy fetch, brain mismatch, share list creation, etc. Matches the "feature explosion" noted in the UI review. Rec: extract hooks (useJobPolling, useCompanySelection, useSearchData), view components per mode, and a clean state machine or XState if it grows more.
+
+7. **Cross-DB mental model leakage in code.** Services like bulkSimilarityService and supabaseEmbeddings have to do UUID mapping (toCompanyUUID using uuidv5 + fixed namespace) to join MySQL ids to Supabase rows. Brain sync has special cases for local vs supabase brain ids. This complexity is inherent to the dual store but is scattered; centralize the bridging logic + document the "one source of truth for X" rules more visibly in code (not just the MD).
+
+8. **Test surface is server-only and procedure-heavy.** Good coverage on the engine, weak on the UI surfaces that users live in (the 2.6k LOC SearchResults, CompanyDatabase filters, health KPIs, etc.). No e2e or component tests visible for the complex async flows.
+
+9. **Operational surfaces (workers, batch jobs, scheduled shares) are started in _core/index.ts but their health/visibility is bolted on later (WebhookLog, DatabaseHealth, batch progress endpoints).** Good that they exist; make sure every long-running thing has a first-class "is this healthy?" surface.
+
+10. **CG-specific fields have crept deep into the core schema** (cgBusinessUnit, cgSalesManager, cgLeadClass, cgMarket, cgSharepointId, cg* contact fields on companies table). These are domain-specific to one customer/use case. They bloat the master table and risk leaking "Connect Group" assumptions into general flows. Consider a separate cg_leads or custom_fields JSON/extension table for tenant-specific CRM sync data.
+
+### Database-Specific Observations (Tying to arch doc)
+- **lt_companies is clean per the June analysis** (37k rows, 1:1 mysql_id, domain unique, but many orphans — 96% not linked to active campaigns — which is expected for the "embed everything for vector search" strategy).
+- **The health page was lying** (157% coverage bug was from querying the dropped lt_mns_companies table). The arch doc calls this out explicitly.
+- **Embeddings live only in Supabase** (lt_companies.embedding or the older lt_mns_* embeddings table). MySQL never sees vectors — correct.
+- **Sharing & feedback are Supabase-native** (lt_share_*, lt_share_feedback) — makes sense for public recipient flows without MySQL accounts.
+- **Niches table** is interesting: stores cluster + centroid + dynamic LLM-scored fit at segment level + companyIds JSON. Powerful for "Market Segments" / niche review flow, but the companyIds JSON + separate per-company scoring creates two sources of truth that must be kept in sync.
+- **Recent schema additions (similarityScore, urgency* tiers, generatedWithBrain*, nicheId, many cg* )** show the product is evolving fast in the intelligence + CRM-sync direction. Migrations are small and focused — good.
+
+### Recommendations (Prioritized, Same Ruthless Lens)
+**P0 (Fix the Drift Now)**
+- Execute the 4 "Recommended Next Steps" from references/db-architecture.md immediately. Update DatabaseHealth + SyncPage + getCompaniesTableSyncStats + any remaining lt_mns_* calls to the new lt_* model. Delete the dead code paths. Verify with the diag-*.mjs scripts.
+- Add a runtime guard or health check that fails loud if code tries to query a known-dropped table.
+
+**P0 (Structural Hygiene)**
+- Carve up companyFinder.ts. Target: router file <800 LOC, most logic in services.
+- Same for db.ts — group the "Company Database query family" behind a dedicated module or repository.
+
+**P1**
+- Centralize all Supabase <-> MySQL bridging (UUID mapping, mysql_id resolution, brain id translation) into one small `dualDbBridge.ts` or similar with clear docs and tests.
+- Decide on JSON strategy for the next 6–12 months: document "use JSON columns or normalized tables for X; free-form text JSON only for Y".
+- Add client or integration tests for the two biggest user-facing surfaces (SearchResults flows + CompanyDatabase filtering/sorting + job progress).
+- Extract CG CRM fields to a side table or JSON extension to keep the companies table general.
+
+**P2**
+- Introduce a thin structured logger (pino or similar) for the workers instead of raw console.* so logs are machine-parseable in prod.
+- Consider read replicas or query caching strategy if CompanyDatabase + health queries on 37k+ rows with many filters become slow (current implementation does a lot of in-app sorting/filtering after fetch in some paths?).
+- Make the prompt repo even stronger: add usage telemetry (which prompt + version was used for a given brain/score/brief) for true auditability.
+
+### Tie-Back to the UI/Design Review
+The backend engine is *ahead* of the UI in sophistication and first-principles thinking. The powerful dual-DB + multi-tier scoring + embedding similarity + bulk automation is exactly the "model does the hard work" advantage. But:
+- The god modules and lingering legacy table references create the same "hidden complexity / not obvious truth" problem the design review called out for the user.
+- The "Under Development" junk drawer in nav is mirrored by "we shipped the embedding pipeline but didn't finish the cutover of the health/sync surfaces" in code.
+- Fixing the code smells (especially the lt_mns drift and god files) will make the "why this score / why this company" provenance easier to surface in the UI — directly enabling the P0 terminology + model transparency and P1 "explain scores" items from the design review.
+
+**Bottom line on code + DB:** The foundation is strong and the intelligence layer is legitimately advanced. The main risks are **architectural drift during the dual-DB transition** and **monolithic modules that will slow future iteration**. Ruthlessly finish the migration the arch doc already prescribed, carve up the big files, and the system will be as clean on the inside as the ambitious product vision deserves on the outside.
+
+*This addendum captured 2026-06-05 immediately after the initial design review + first commit/push. Actionable items should be folded into the P0/P1 lists in the main review section and todo.md.*
+

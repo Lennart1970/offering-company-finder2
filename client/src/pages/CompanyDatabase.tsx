@@ -26,9 +26,11 @@ import {
   Zap,
   Loader2,
   Newspaper,
+  Sparkles,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
+import { SimilaritySearchModal } from "@/components/SimilaritySearchModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -361,6 +363,7 @@ export default function CompanyDatabase() {
   const [minFitScore, setMinFitScore] = useState<number | undefined>(undefined);
   const [hasFitScoreOnly, setHasFitScoreOnly] = useState(false);
   const [articleFilter, setArticleFilter] = useState<ArticleFilter>("any");
+  const [simModalOpen, setSimModalOpen] = useState(false);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -929,9 +932,17 @@ export default function CompanyDatabase() {
           ) : (
             <Newspaper className="w-3 h-3" />
           )}
-          URG-NEWS
+                    URG-NEWS
         </button>
-
+        {/* Create Campaign from DB Similarity button */}
+        <button
+          onClick={() => setSimModalOpen(true)}
+          className="h-8 px-3 rounded text-xs font-medium border border-purple-300 text-purple-700 bg-purple-50 hover:bg-purple-100 flex items-center gap-1.5 transition-colors"
+          title="Find companies in your existing database that match a brain's ICP via similarity scoring — create a campaign without any Apollo calls"
+        >
+          <Sparkles className="w-3 h-3" />
+          From DB
+        </button>
         {/* Article stats pill */}
         {rows.length > 0 && (
           <div className="flex items-center gap-3 text-xs text-gray-500">
@@ -948,6 +959,8 @@ export default function CompanyDatabase() {
         )}
       </div>
 
+      {/* Similarity Search Modal */}
+      <SimilaritySearchModal open={simModalOpen} onClose={() => setSimModalOpen(false)} />
       {/* ── Table ── */}
       <div className="flex-1 overflow-auto">
         <table className="w-full text-sm border-collapse">

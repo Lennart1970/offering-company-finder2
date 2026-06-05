@@ -1,5 +1,35 @@
 # Project TODO
 
+## Elon Review Action Items (Grok/Elon-favored Design Review — 2026-06-05)
+
+See full details, rationale, strengths, problems, and context in `ELON-REVIEW.md` (created 2026-06-05 after full codebase walk post-main pull).
+
+### P0 — Must Do (Highest Leverage, Delete/Simplify First)
+- [ ] Commit or kill the design language: finish brutalist system (0 radius, hard 2-4px black borders on white, font-black/900 for headers, no soft shadows, functional state color only) **or** pivot cleanly to Industrial Command Console (darker default, precise lines, legible data colors). Execute a one-week "restyle lock" pass on the main surfaces (Brain editor, SearchResults in list/card/raw, CompanyDatabase, DatabaseHealth, Call Today/queues, import flows). Kill soft `rounded-xl` cards and `rounded-md` buttons where they fight the chosen aesthetic.
+- [ ] Fix information architecture and permanent nav: remove or hide the "Under Development" group + CG-specific pages (ConnectGroupMarket/Sites/Team) + prototype surfaces from the main sidebar for normal use (put behind flag, "Experiments" section, or separate admin area). Redesign root `/` (currently lands in dense Brain editor) as a real **cockpit overview** surface: active brain summary + recent runs + key health/metrics + big obvious primary CTAs ("New Search from Active Brain", "Import Raw Data", "View Company Database", "Sync Status").
+- [ ] Terminology unification + model transparency: pick **one** term for the core concept ("Brain" — punchy and ownable, or "Business Unit" for corporate clarity) and use it consistently in UI, copy, routes, and docs. Add a tiny always-available "What is a Brain?" model inspector or inline help. In results, CompanyDatabase, and detail views, surface clear "why this score" explanations (fit criteria, embedding similarity, news urgency components, recent signals) using the traces that already exist in the backend (fitCriteria, briefGenerator, salesApproachGenerator, nicheFitScorer, embeddingService, bulk services, etc.). Maximum truth means the user can see the reasoning without digging.
+
+### P1 — Strong Next (Make the Core Loop a Weapon)
+- [ ] Make the power surfaces feel like weapons: SearchResults + CompanyDatabase (and Call Today/queues) should have consistent brain-context headers, instant-feeling filters, world-class empty states that guide the next action, keyboard support (arrows, space select/queue, / filter focus, e explain, etc.), and direct "add to Call Today", "generate brief", "share list" actions from list/card/raw without context loss. Elevate async job/progress (doAll, do10, research, import, sync, embed backfill) to first-class, always-visible instrumentation — these are multi-minute ops; the UI must tell the truth and let the user work in parallel safely.
+- [ ] Component + layout hygiene: define and enforce simple page templates (brutal/console header, context bar with brain + freshness + health, action cluster, main content with disciplined padding/borders/spacing). Audit every Card/Button/Input/Table/etc. usage and extend the primitives with "brutal" (or console) variants, or replace the offenders. Stop per-page `border-4 p-8` inventions.
+- [ ] Onboarding & post-login "now what?": after the stark login screen, provide a 30-second guided path. Detect "no active Brain" and offer the fastest route (research from website / import existing / seed template). Show one canonical happy-path flow with visible progress. Reduce the "land in the densest editor" tax.
+
+### P2 / Polish / Follow-Ups (After P0/P1)
+- [ ] Typography, spacing, contrast, and line-length audit for the chosen aesthetic (heavy type + tight tracking works *only* when everything is perfect). Make it excellent, not just declared in `index.css`.
+- [ ] Public share recipient experience (SharePage, ShareListPage, ShareBrainPage, BrainOverviewPage, access log, feedback) deserves the same rigor as the internal cockpit — these are the external face, marketing, and proof of the tool's value.
+- [ ] Charts and data viz (recharts in DatabaseHealth, Intelligence, etc.) treated as precision instrumentation, not generic dashboard widgets. Apply the same aesthetic and clarity rules.
+- [ ] After the code + database architecture review (this session), fold additional technical debt, smells, duplication, performance, or schema issues into this list or a dedicated "Code & DB Review — 2026-06-05" subsection.
+- [ ] Ruthlessly kill or ship the remaining "under dev" / prototype items. Every permanent surface in the nav costs attention, maintenance, and user cognition. Ship or delete.
+- [ ] Consider a small "design system lock" document or AGENTS.md / .cursor/rules entry that codifies the chosen aesthetic and IA principles so future features don't regress the clarity.
+
+### P3 / Later (Nice to Have)
+- [ ] Revisit dark mode: either make it excellent and default for power users, or remove the half-implementation (currently switchable=false and stylistically divergent).
+- [ ] Add a tiny logo/mark or perfect the `[CF]` wordmark treatment if staying pure text.
+- [ ] Keyboard maestro / command palette for power users (jump to brain, start search, view DB filtered by score, etc.).
+- [ ] Decompose monster files (SearchResults.tsx is >2.7k lines with job polling, multiple views, modals, selection, etc.) into focused components/hooks for long-term velocity and testability.
+
+---
+
 ## Core Features
 - [x] Form interface with company website URL and location fields
 - [x] Integration with offering-extractor skill for analyzing company offerings

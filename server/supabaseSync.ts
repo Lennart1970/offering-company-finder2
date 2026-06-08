@@ -265,19 +265,26 @@ async function syncSignalsForCompanies(
 // ─── Sync company pages (shareable links) ──────────────────────────────────
 
 export async function syncCompanyPagesToSupabase(
-  appBaseUrl?: string
-): Promise<{ synced: number; errors: number; message: string }> {
+  appBaseUrl?: string,
+  batchSize = 300,
+  offsetId = 0
+): Promise<{ synced: number; errors: number; message: string; nextOffsetId?: number }> {
   const supabase = getSupabaseClient();
   const db = await getDb();
   if (!db) return { synced: 0, errors: 0, message: "Database not available" };
 
-  // Fetch all researched companies with their campaign context
+  // Import gt for the offset filter
+  const { gt, and } = await import("drizzle-orm");
+
+  // Fetch a batch of researched companies with their campaign context
   type SearchRow = typeof searches.$inferSelect;
   const rows = await db
     .select({ company: companies, search: searches })
     .from(companies)
     .leftJoin(searches, eq(companies.searchId, searches.id))
-    .where(isNotNull(companies.briefData));
+    .where(and(isNotNull(companies.briefData), gt(companies.id, offsetId)))
+    .orderBy(companies.id)
+    .limit(batchSize);
 
   if (rows.length === 0) return { synced: 0, errors: 0, message: "No researched companies found" };
 
@@ -320,10 +327,12 @@ export async function syncCompanyPagesToSupabase(
     }
   }
 
+  const lastId = rows.length > 0 ? (rows[rows.length - 1] as { company: CompanyRow; search: typeof searches.$inferSelect | null }).company.id : offsetId;
   return {
     synced: pageRows.length - totalErrors,
     errors: totalErrors,
     message: `Synced ${pageRows.length - totalErrors} company pages to Supabase`,
+    nextOffsetId: rows.length === batchSize ? lastId : undefined,
   };
 }
 

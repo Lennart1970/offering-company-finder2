@@ -755,12 +755,8 @@ export const shareExtRouter = router({
           .not("page_url", "is", null)
           .order("urgency_score", { ascending: false })
           .range(offset, offset + batchSize - 1);
-        if (input.dateFrom) q = q.gte("synced_at", input.dateFrom);
-        if (input.dateTo) {
-          const toDate = new Date(input.dateTo);
-          toDate.setDate(toDate.getDate() + 1);
-          q = q.lt("synced_at", toDate.toISOString());
-        }
+        // Note: dateFrom/dateTo filter campaigns on the MySQL side; campaignIds already encode the date scope.
+        // We do NOT filter Supabase by synced_at (push timestamp != campaign run date).
         if (input.minFit) q = q.gte("fit_score", input.minFit);
         if (input.urgencyLabel) q = q.eq("urgency_label", input.urgencyLabel);
         if (input.campaignIds && input.campaignIds.length > 0) q = q.in("campaign_id", input.campaignIds);

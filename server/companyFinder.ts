@@ -3788,17 +3788,30 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
   syncCompanyPages: protectedProcedure
     .input(z.object({ appBaseUrl: z.string().optional() }).optional())
     .mutation(async ({ ctx, input }) => {
-      // Fire-and-forget: kick off sync in background, return immediately
+      // Fire-and-forget: loop through all batches until complete
       (async () => {
         try {
           const { syncCompanyPagesToSupabase } = await import("./supabaseSync");
-          const result = await syncCompanyPagesToSupabase();
-          console.log(`[SupabaseSync] syncCompanyPages complete: ${result.message}`);
+          const BATCH_SIZE = 300;
+          let offsetId = 0;
+          let totalSynced = 0;
+          let totalErrors = 0;
+          let batchNum = 0;
+          while (true) {
+            batchNum++;
+            const result = await syncCompanyPagesToSupabase(input?.appBaseUrl, BATCH_SIZE, offsetId);
+            totalSynced += result.synced;
+            totalErrors += result.errors;
+            console.log(`[SupabaseSync] syncCompanyPages batch ${batchNum} (offsetId=${offsetId}): ${result.message}`);
+            if (result.nextOffsetId === undefined) break;
+            offsetId = result.nextOffsetId;
+          }
+          console.log(`[SupabaseSync] syncCompanyPages DONE: ${totalSynced} synced, ${totalErrors} errors across ${batchNum} batches`);
         } catch (e) {
           console.error("[SupabaseSync] syncCompanyPages background error:", e instanceof Error ? e.message : String(e));
         }
       })();
-      return { synced: 0, errors: 0, message: "Sync started in background — check server logs or refresh stats in ~2 minutes" };
+      return { synced: 0, errors: 0, message: "Sync started in background — processing in batches of 300. Check server logs or refresh stats in ~5 minutes" };
     }),
 
   // Get last sync stats for the company pages table
@@ -3874,15 +3887,9 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       if (input.minFit) {
         query = query.gte("fit_score", input.minFit);
       }
-      if (input.dateFrom) {
-        query = query.gte("synced_at", input.dateFrom);
-      }
-      if (input.dateTo) {
-        // Add one day to make the "to" date inclusive
-        const toDate = new Date(input.dateTo);
-        toDate.setDate(toDate.getDate() + 1);
-        query = query.lt("synced_at", toDate.toISOString());
-      }
+      // Note: dateFrom/dateTo are used to filter campaigns on the MySQL side (getIntelligenceCampaigns).
+      // The resulting campaignIds already encode the date scope — we do NOT filter Supabase by synced_at
+      // because synced_at reflects the push timestamp, not the campaign run date.
       if (input.brainName) {
         // Resolve campaign IDs for this brain from the local DB, then filter by them in Supabase
         const { getDb: getLocalDb } = await import("./db");

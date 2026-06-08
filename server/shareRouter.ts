@@ -737,61 +737,57 @@ export const shareExtRouter = router({
       if (!db) throw new Error("Database unavailable");
       const userId = ctx.user.id;
 
-      // 1. Fetch companies from Supabase respecting the active filters
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        { auth: { persistSession: false } }
-      );
+      // 1. Fetch companies from MySQL directly (source of truth — Supabase may be stale)
+      const { isNotNull, gte: gteOp, inArray: inArrayOp } = await import("drizzle-orm");
+      const { searches } = await import("../drizzle/schema");
 
-      // Fetch in batches (Supabase max 1000 per query)
-      let allRows: Array<{ page_url: string | null; campaign_id: number | null; company_name: string; domain: string | null; urgency_score: number | null; fit_score: number | null; urgency_label: string | null; campaign_name: string | null }> = [];
-      let offset = 0;
-      const batchSize = 1000;
-      while (true) {
-        let q = (supabase.from("lt_mns_company_pages") as any)
-          .select("page_url, campaign_id, company_name, domain, urgency_score, fit_score, urgency_label, campaign_name")
-          .not("page_url", "is", null)
-          .order("urgency_score", { ascending: false })
-          .range(offset, offset + batchSize - 1);
-        // Note: dateFrom/dateTo filter campaigns on the MySQL side; campaignIds already encode the date scope.
-        // We do NOT filter Supabase by synced_at (push timestamp != campaign run date).
-        if (input.minFit) q = q.gte("fit_score", input.minFit);
-        if (input.urgencyLabel) q = q.eq("urgency_label", input.urgencyLabel);
-        if (input.campaignIds && input.campaignIds.length > 0) q = q.in("campaign_id", input.campaignIds);
-        const { data, error } = await q;
-        if (error) throw new Error(error.message);
-        if (!data || data.length === 0) break;
-        allRows = allRows.concat(data);
-        if (data.length < batchSize) break;
-        offset += batchSize;
+      // Build conditions
+      const conditions: any[] = [isNotNull(companies.briefData)];
+      if (input.campaignIds && input.campaignIds.length > 0) {
+        conditions.push(inArrayOp(companies.searchId, input.campaignIds));
+      }
+      if (input.urgencyLabel) {
+        // urgencyLabel is stored in fitScoreData.label — filter by score range instead
+        if (input.urgencyLabel === "HIGH") conditions.push(gteOp(companies.urgencyScore, 70));
+        else if (input.urgencyLabel === "MEDIUM") {
+          const { between } = await import("drizzle-orm");
+          conditions.push(between(companies.urgencyScore, 40, 69));
+        } else if (input.urgencyLabel === "LOW") {
+          const { lt: ltOp } = await import("drizzle-orm");
+          conditions.push(ltOp(companies.urgencyScore, 40));
+        }
+      }
+      if (input.minFit) {
+        conditions.push(gteOp(companies.fitScore, input.minFit));
       }
 
-      if (allRows.length === 0) throw new Error("No companies match the active filters");
+      const mysqlRows = await db
+        .select({ company: companies, search: searches })
+        .from(companies)
+        .leftJoin(searches, eq(companies.searchId, searches.id))
+        .where(and(...conditions))
+        .orderBy(companies.urgencyScore)
+        .limit(2000);
+
+      if (mysqlRows.length === 0) throw new Error("No companies match the active filters");
 
       // 2. For each company, find the brainId via searches table
-      const { searches } = await import("../drizzle/schema");
       const searchCache = new Map<number, number | null>();
 
       const tokenResults: Array<{ companyId: number; brainId: number; token: string; tokenId: number }> = [];
 
-      for (const row of allRows) {
-        // Extract local company ID from page_url (e.g. "/company/1560001/extended?..." → 1560001)
-        const localIdMatch = row.page_url?.match(/\/company\/(\d+)/);
-        if (!localIdMatch) continue;
-        const companyId = parseInt(localIdMatch[1], 10);
-        if (isNaN(companyId)) continue;
+      for (const { company: row, search } of mysqlRows) {
+        const companyId = row.id;
 
         // Find brainId from campaign (searchId)
         let brainId: number | null = null;
-        if (row.campaign_id) {
-          if (searchCache.has(row.campaign_id)) {
-            brainId = searchCache.get(row.campaign_id) ?? null;
+        const campaignId = row.searchId;
+        if (campaignId) {
+          if (searchCache.has(campaignId)) {
+            brainId = searchCache.get(campaignId) ?? null;
           } else {
-            const searchRows = await db.select({ brainId: searches.brainId }).from(searches).where(eq(searches.id, row.campaign_id)).limit(1);
-            brainId = searchRows[0]?.brainId ?? null;
-            searchCache.set(row.campaign_id, brainId);
+            brainId = search?.brainId ?? null;
+            searchCache.set(campaignId, brainId);
           }
         }
 

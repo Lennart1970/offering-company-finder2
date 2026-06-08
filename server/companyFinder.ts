@@ -3954,42 +3954,36 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       dateTo: z.string().optional(),
     }).optional())
     .query(async ({ input }) => {
-      const { createClient } = await import("@supabase/supabase-js");
-      const supabase = createClient(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        { auth: { persistSession: false } }
-      );
-      // Paginate through all rows to avoid the 1000-row Supabase default limit
-      const seen = new Set<number>();
-      const campaigns: Array<{ id: number; name: string }> = [];
-      let offset = 0;
-      const batchSize = 1000;
-      while (true) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        let q = (supabase.from("lt_mns_company_pages") as any)
-          .select("campaign_id, campaign_name")
-          .not("campaign_id", "is", null)
-          .range(offset, offset + batchSize - 1);
-        if (input?.dateFrom) q = q.gte("synced_at", input.dateFrom);
-        if (input?.dateTo) {
-          const toDate = new Date(input.dateTo);
-          toDate.setDate(toDate.getDate() + 1);
-          q = q.lt("synced_at", toDate.toISOString());
-        }
-        const { data, error } = await q;
-        if (error) throw new Error(error.message);
-        for (const row of (data ?? [])) {
-          if (!seen.has(row.campaign_id)) {
-            seen.add(row.campaign_id);
-            campaigns.push({ id: row.campaign_id, name: row.campaign_name ?? `Campaign ${row.campaign_id}` });
-          }
-        }
-        if (!data || data.length < batchSize) break;
-        offset += batchSize;
+      // Query MySQL directly — Supabase synced_at is the push timestamp, not the campaign run date
+      const { getDb: getLocalDb } = await import("./db");
+      const { searches: searchesSchema, companies: companiesSchema } = await import("../drizzle/schema");
+      const { isNotNull: isNotNullOp, gte: gteOp, lte: lteOp, and: andOp, eq: eqOp2, desc: descOp } = await import("drizzle-orm");
+      const localDb = await getLocalDb();
+      if (!localDb) return [];
+
+      // Find all campaigns that have at least one researched company (briefData not null)
+      // Filter by briefGeneratedAt date range if provided
+      const conditions: any[] = [isNotNullOp(companiesSchema.briefData), isNotNullOp(companiesSchema.searchId)];
+      if (input?.dateFrom) conditions.push(gteOp(companiesSchema.briefGeneratedAt, new Date(input.dateFrom)));
+      if (input?.dateTo) {
+        const toDate = new Date(input.dateTo);
+        toDate.setDate(toDate.getDate() + 1);
+        conditions.push(lteOp(companiesSchema.briefGeneratedAt, toDate));
       }
-      // Sort by id descending (newest runs first)
-      return campaigns.sort((a, b) => b.id - a.id);
+
+      const rows = await localDb
+        .selectDistinct({ campaignId: companiesSchema.searchId, campaignName: searchesSchema.offeringName })
+        .from(companiesSchema)
+        .leftJoin(searchesSchema, eqOp2(companiesSchema.searchId, searchesSchema.id))
+        .where(andOp(...conditions))
+        .orderBy(descOp(companiesSchema.searchId));
+
+      return rows
+        .filter((r: { campaignId: number | null; campaignName: string | null }) => r.campaignId !== null)
+        .map((r: { campaignId: number | null; campaignName: string | null }) => ({
+          id: r.campaignId!,
+          name: r.campaignName ?? `Campaign ${r.campaignId}`,
+        }));
     }),
 
   // Get distinct business units from the local offering_brain table (those that have at least one campaign)

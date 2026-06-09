@@ -186,7 +186,7 @@ function countryLabel(val: string): string {
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
-function fitBadge(score: number | null | undefined) {
+function fitBadge(score: number | null | undefined, source?: string | null) {
   if (score == null) return <span className="text-xs text-gray-300">—</span>;
   const cls =
     score >= 70
@@ -194,9 +194,15 @@ function fitBadge(score: number | null | undefined) {
       : score >= 50
       ? "bg-yellow-100 text-yellow-800 border-yellow-200"
       : "bg-gray-100 text-gray-600 border-gray-200";
+  const srcLabel = source === 'llm' ? 'LLM' : source === 'embed' ? 'SIM' : null;
   return (
-    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold border ${cls}`}>
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold border ${cls}`}>
       {score}
+      {srcLabel && (
+        <span className={`text-[9px] font-normal opacity-70 ${source === 'llm' ? 'text-blue-700' : 'text-gray-500'}`}>
+          {srcLabel}
+        </span>
+      )}
     </span>
   );
 }
@@ -1063,7 +1069,7 @@ export default function CompanyDatabase() {
                         <span className="text-gray-300">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-center">{fitBadge(row.fitScore)}</td>
+                    <td className="px-3 py-2 text-center">{fitBadge(row.fitScore, (row as any).fitScoreSource)}</td>
                     <td className="px-3 py-2 text-center">{similarityBadge((row as any).similarityScore)}</td>
                     <td className="px-3 py-2 text-center">{nicheFitBadge((row as any).nicheFitScore, (row as any).nicheName)}</td>
                     <td className="px-3 py-2 text-center">{urgencyBadge((row as any).urgencyScoreNews)}</td>

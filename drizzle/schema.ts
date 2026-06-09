@@ -116,6 +116,7 @@ export const companies = mysqlTable("companies", {
   fitScore: int("fitScore"),
   fitScoreData: text("fitScoreData"),
   fitScoreGeneratedAt: timestamp("fitScoreGeneratedAt"),
+  fitScoreSource: varchar("fitScoreSource", { length: 10 }), // 'embed' | 'llm' — how the fitScore was produced
   // Tier 3: Human-in-the-loop override (ground truth for model calibration)
   fitScoreHITL: int("fitScoreHITL"),
   fitScoreHITLUpdatedAt: timestamp("fitScoreHITLUpdatedAt"),

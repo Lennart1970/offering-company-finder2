@@ -1191,6 +1191,7 @@ export async function getCompanyDatabase(opts: {
       sliceMetadata: companies.sliceMetadata,
       fitScore: companies.fitScore,
       fitScoreData: companies.fitScoreData,
+      fitScoreSource: companies.fitScoreSource,
       similarityScore: companies.similarityScore,
       similarityScoreGeneratedAt: companies.similarityScoreGeneratedAt,
       urgencyScore: companies.urgencyScore,

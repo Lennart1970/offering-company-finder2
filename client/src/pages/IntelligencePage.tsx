@@ -534,10 +534,17 @@ export default function IntelligencePage() {
                   </div>
 
                   {/* Fit score */}
-                  <div className="flex justify-center">
+                  <div className="flex flex-col items-center gap-0.5">
                     <span className={`text-sm ${fitColor(c.fit_score)}`}>
                       {c.fit_score != null ? `${c.fit_score}` : "—"}
                     </span>
+                    {c.fit_score != null && (c as any).fit_score_source && (
+                      <span className={`text-[9px] font-medium leading-none ${
+                        (c as any).fit_score_source === 'llm' ? 'text-blue-500' : 'text-gray-400'
+                      }`}>
+                        {(c as any).fit_score_source === 'llm' ? 'LLM' : 'SIM'}
+                      </span>
+                    )}
                   </div>
 
                   {/* Synced at */}

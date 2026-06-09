@@ -137,12 +137,15 @@ export async function embedAndScoreCompany(
     const sim = cosineSimilarity(vector, brainVector);
     const score = Math.round(((sim + 1) / 2) * 100);
 
-    // ── Step 5: Write similarityScore to MySQL ──────────────────────────────
+    // ── Step 5: Write similarityScore + seed fitScore (embed tier) to MySQL ───
     const now = new Date();
     await db.execute(sql`
       UPDATE companies
       SET similarityScore = ${score},
-          similarityScoreGeneratedAt = ${now}
+          similarityScoreGeneratedAt = ${now},
+          fitScore = ${score},
+          fitScoreGeneratedAt = ${now},
+          fitScoreSource = 'embed'
       WHERE id = ${company.id}
     `);
 

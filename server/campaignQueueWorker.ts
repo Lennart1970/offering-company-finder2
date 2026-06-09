@@ -161,10 +161,13 @@ async function processJob() {
     }
 
     // ── Step 1: Fit Score ──────────────────────────────────────────────────
-    // Runs for: "full" (if not yet scored), "score_only" (always — rescore forces it)
+    // Runs for:
+    //   "full"       — always run LLM fit UNLESS already LLM-scored (embed score is only a seed)
+    //   "score_only" — always rescore
+    const alreadyLlmScored = company.fitScore && (company as any).fitScoreSource === 'llm';
     const needsFitScore =
-      (job.jobType === "full" && !company.fitScore) ||
-      job.jobType === "score_only";  // score_only always rescores
+      (job.jobType === "full" && !alreadyLlmScored) ||
+      job.jobType === "score_only";
 
     if (needsFitScore) {
       try {
@@ -174,15 +177,16 @@ async function processJob() {
           fitScore: result.fitScore,
           fitScoreData: JSON.stringify(result),
           fitScoreGeneratedAt: new Date(),
-        });
+          fitScoreSource: 'llm',
+        } as any);
         console.log(
-          `[CampaignQueue] ✓ Fit score: ${company.name} → LLM:${result.rawLlmScore} × geo(${result.breakdown.geographyMultiplier?.region}) = ${result.fitScore}`
+          `[CampaignQueue] ✓ Fit score (LLM): ${company.name} → LLM:${result.rawLlmScore} × geo(${result.breakdown.geographyMultiplier?.region}) = ${result.fitScore}`
         );
       } catch (err: any) {
         console.warn(`[CampaignQueue] ⚠ Fit score failed for ${company.name}: ${err.message}`);
       }
     } else if (company.fitScore) {
-      console.log(`[CampaignQueue] ↩ Fit score cached: ${company.name} (${company.fitScore})`);
+      console.log(`[CampaignQueue] ↩ Fit score cached (${(company as any).fitScoreSource ?? 'embed'}): ${company.name} (${company.fitScore})`);
     }
 
     // ── score_only: stop here, skip brief + approach ───────────────────────

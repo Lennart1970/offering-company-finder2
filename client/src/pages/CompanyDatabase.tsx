@@ -207,6 +207,44 @@ function fitBadge(score: number | null | undefined, source?: string | null) {
   );
 }
 
+// Renders stacked brain-specific fit scores from "BrainName:score||BrainName2:score2" string
+function brainFitStack(allBrainFitScores: string | null | undefined, fitScore: number | null | undefined, fitScoreSource: string | null | undefined) {
+  if (!allBrainFitScores) {
+    // Fallback to single score badge
+    return fitBadge(fitScore, fitScoreSource);
+  }
+  const pairs = allBrainFitScores.split('||').map(p => {
+    const colonIdx = p.lastIndexOf(':');
+    const name = p.slice(0, colonIdx);
+    const scoreStr = p.slice(colonIdx + 1);
+    const score = scoreStr === '' ? null : Number(scoreStr);
+    return { name, score };
+  }).filter(p => p.name);
+
+  if (pairs.length === 0) return fitBadge(fitScore, fitScoreSource);
+  if (pairs.length === 1) return fitBadge(pairs[0].score, fitScoreSource);
+
+  return (
+    <div className="flex flex-col gap-0.5 items-start">
+      {pairs.map((p, i) => {
+        const s = p.score;
+        const cls = s == null ? 'bg-gray-50 text-gray-400 border-gray-200'
+          : s >= 70 ? 'bg-green-100 text-green-800 border-green-200'
+          : s >= 50 ? 'bg-yellow-100 text-yellow-800 border-yellow-200'
+          : 'bg-gray-100 text-gray-600 border-gray-200';
+        // Shorten brain name: take first 12 chars
+        const shortName = p.name.length > 14 ? p.name.slice(0, 13) + '…' : p.name;
+        return (
+          <span key={i} title={`${p.name}: ${s ?? '—'}`} className={`inline-flex items-center gap-1 px-1.5 py-0 rounded text-[11px] font-semibold border ${cls} whitespace-nowrap`}>
+            {s ?? '—'}
+            <span className="text-[9px] font-normal opacity-60 max-w-[80px] truncate">{shortName}</span>
+          </span>
+        );
+      })}
+    </div>
+  );
+}
+
 function urgencyBadge(score: number | null | undefined) {
   if (score == null) return <span className="text-xs text-gray-300">—</span>;
   const cls =
@@ -1069,7 +1107,7 @@ export default function CompanyDatabase() {
                         <span className="text-gray-300">—</span>
                       )}
                     </td>
-                    <td className="px-3 py-2 text-center">{fitBadge(row.fitScore, (row as any).fitScoreSource)}</td>
+                    <td className="px-3 py-2">{brainFitStack((row as any).allBrainFitScores, row.fitScore, (row as any).fitScoreSource)}</td>
                     <td className="px-3 py-2 text-center">{similarityBadge((row as any).similarityScore)}</td>
                     <td className="px-3 py-2 text-center">{nicheFitBadge((row as any).nicheFitScore, (row as any).nicheName)}</td>
                     <td className="px-3 py-2 text-center">{urgencyBadge((row as any).urgencyScoreNews)}</td>

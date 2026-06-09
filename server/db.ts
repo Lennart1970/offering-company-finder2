@@ -1220,6 +1220,13 @@ export async function getCompanyDatabase(opts: {
         INNER JOIN offering_brain ob2 ON cbo2.brainId = ob2.id
         WHERE cbo2.companyId = ${companies.id}
       )`,
+      // Brain-specific fit scores: "BrainName:score||BrainName2:score2" for inline display
+      allBrainFitScores: sql<string>`(
+        SELECT GROUP_CONCAT(CONCAT(ob2.brainName, ':', COALESCE(cbo2.fitScore, '')) ORDER BY ob2.brainName SEPARATOR '||')
+        FROM company_brain_outputs cbo2
+        INNER JOIN offering_brain ob2 ON cbo2.brainId = ob2.id
+        WHERE cbo2.companyId = ${companies.id}
+      )`,
       // CG CRM fields
       cgBusinessUnit: companies.cgBusinessUnit,
       cgSalesManager: companies.cgSalesManager,

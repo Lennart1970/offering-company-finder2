@@ -16,12 +16,22 @@ export default function SyncPage() {
   const syncPagesMutation = trpc.companyFinder.syncCompanyPages.useMutation({
     onSuccess: (result) => {
       setIsSyncingPages(false);
-      setPagesBackgroundRunning(true);
-      toast.info(result.message ?? "⏳ Sync running in background — stats will update automatically");
-      // Auto-refresh every 30s for 2 minutes for incremental, 5 minutes for full
-      const intervals = [30_000, 60_000, 90_000, 120_000, 150_000, 180_000, 210_000, 240_000, 270_000, 300_000];
-      intervals.forEach((ms) => setTimeout(() => refetchPagesStats(), ms));
-      setTimeout(() => setPagesBackgroundRunning(false), 300_000);
+      // Incremental sync is synchronous — stats are already updated, just refresh once
+      refetchPagesStats();
+      if (result.synced === 0) {
+        toast.success(result.message ?? 'Already up to date');
+        setPagesBackgroundRunning(false);
+      } else if (result.message?.includes('background')) {
+        // Full sync is still background
+        setPagesBackgroundRunning(true);
+        toast.info(result.message);
+        const intervals = [30_000, 60_000, 90_000, 120_000, 150_000, 180_000, 210_000, 240_000, 270_000, 300_000];
+        intervals.forEach((ms) => setTimeout(() => refetchPagesStats(), ms));
+        setTimeout(() => setPagesBackgroundRunning(false), 300_000);
+      } else {
+        setPagesBackgroundRunning(false);
+        toast.success(result.message ?? `Synced ${result.synced} articles`);
+      }
     },
     onError: (err) => {
       setIsSyncingPages(false);

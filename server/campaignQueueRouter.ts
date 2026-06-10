@@ -39,6 +39,7 @@ export const campaignQueueRouter = router({
           salesApproachData: companies.salesApproachData,
           enrichmentStatus: companies.enrichmentStatus,
           fitScore: companies.fitScore,
+          fitScoreSource: companies.fitScoreSource,
         })
         .from(companies)
         .where(and(
@@ -67,9 +68,9 @@ export const campaignQueueRouter = router({
       // Filter: skip if already queued, and skip if already processed (unless forceRefresh/forceRescore)
       const toEnqueue = processable.filter((c) => {
         if (alreadyQueued.has(c.id)) return false;
-        // score_only: only skip if forceRescore is false AND company already has a fit score
+        // score_only: skip only if already LLM-scored (embed score is a seed, not final)
         if (input.jobType === "score_only") {
-          if (!input.forceRescore && (c as any).fitScore) return false;
+          if (!input.forceRescore && (c as any).fitScoreSource === 'llm') return false;
           return true;
         }
         if (!input.forceRefresh && c.briefData && c.salesApproachData) return false;

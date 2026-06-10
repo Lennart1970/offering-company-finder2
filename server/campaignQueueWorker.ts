@@ -200,6 +200,53 @@ async function processJob() {
       return true;
     }
 
+    // ── score_urgency_only: run brief (urgency) only, skip approach ───────────
+    if (job.jobType === "score_urgency_only") {
+      try {
+        const { generateSalesIntelligenceBrief } = await import("./briefGenerator");
+        const brief = await generateSalesIntelligenceBrief(job.companyId, job.userId);
+        await updateCompany(job.companyId, {
+          urgencyScore: brief.urgencyScore,
+          urgencyScoreLLM: brief.urgencyScore,
+          urgencyScoreLLMGeneratedAt: new Date(),
+          briefData: JSON.stringify(brief),
+          briefGeneratedAt: new Date(),
+        });
+        console.log(`[CampaignQueue] ✓ Urgency scored: ${company.name} → ${brief.urgencyScore}`);
+      } catch (err: any) {
+        console.warn(`[CampaignQueue] ⚠ Urgency scoring failed for ${company.name}: ${err.message}`);
+      }
+      await stampBrain();
+      await db!.update(campaignQueue).set({
+        status: "completed",
+        completedAt: new Date(),
+      }).where(eq(campaignQueue.id, job.id));
+      console.log(`[CampaignQueue] ✅ Score-urgency job ${job.id} complete — ${company.name}`);
+      return true;
+    }
+
+    // ── outreach_only: generate sales approach only (requires existing brief) ──
+    if (job.jobType === "outreach_only") {
+      try {
+        const { generateSalesApproach } = await import("./salesApproachGenerator");
+        const salesApproach = await generateSalesApproach(job.companyId, job.userId);
+        await updateCompany(job.companyId, {
+          salesApproachData: JSON.stringify(salesApproach),
+          salesApproachGeneratedAt: new Date(),
+        });
+        console.log(`[CampaignQueue] ✓ Outreach created: ${company.name}`);
+      } catch (err: any) {
+        console.warn(`[CampaignQueue] ⚠ Outreach creation failed for ${company.name}: ${err.message}`);
+      }
+      await stampBrain();
+      await db!.update(campaignQueue).set({
+        status: "completed",
+        completedAt: new Date(),
+      }).where(eq(campaignQueue.id, job.id));
+      console.log(`[CampaignQueue] ✅ Outreach job ${job.id} complete — ${company.name}`);
+      return true;
+    }
+
     // ── Step 2 + 3: Brief + Sales Approach IN PARALLEL ─────────────────────
     // These are independent once we have the fit score. Run them concurrently.
     const freshCompany = await getCompanyById(job.companyId) ?? company;

@@ -671,8 +671,8 @@ export default function SearchResults() {
                         const qStatus = (globalQueueStatus as any)?.[search.id];
                         const isPending = queueingSearchId === search.id;
                         return (
-                          <div className="flex items-center gap-2">
-                            {/* Score All — enqueue only unscored companies for fit scoring (cheap, fast) */}
+                          <div className="flex items-center gap-1">
+                            {/* ── LLM Pipeline: 3 sequential steps ── */}
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
@@ -680,36 +680,36 @@ export default function SearchResults() {
                                 enqueueSearch.mutate({ searchId: search.id, jobType: "score_only", forceRescore: false });
                               }}
                               disabled={isPending || enqueueSearch.isPending}
-                              className="text-xs font-black border-2 px-3 py-1 transition-colors border-emerald-600 text-emerald-600 hover:bg-emerald-600 hover:text-white disabled:opacity-40"
-                              title="Score All: queue all unscored companies for fit scoring only (no brief/approach). Applies geography multiplier."
+                              className="text-xs font-black border-2 px-2 py-1 transition-colors border-emerald-600 text-emerald-600 hover:bg-emerald-600 hover:text-white disabled:opacity-40"
+                              title="Step 1 — Score FIT: LLM evaluates each company against the Brain ICP. Upgrades SIM scores to LLM scores."
                             >
-                              {isPending ? "QUEUING..." : "🎯 SCORE ALL"}
+                              {isPending ? "..." : "① SCORE FIT"}
                             </button>
-                            {/* Rescore — force-rescore ALL companies (overwrites existing scores) */}
+                            <span className="text-gray-300 font-bold text-xs">→</span>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setQueueingSearchId(search.id);
-                                enqueueSearch.mutate({ searchId: search.id, jobType: "score_only", forceRescore: true });
+                                enqueueSearch.mutate({ searchId: search.id, jobType: "score_urgency_only", forceRefresh: false });
                               }}
                               disabled={isPending || enqueueSearch.isPending}
-                              className="text-xs font-black border-2 px-3 py-1 transition-colors border-amber-500 text-amber-600 hover:bg-amber-500 hover:text-white disabled:opacity-40"
-                              title="Rescore: force-rescore ALL companies in this campaign (overwrites existing fit scores). Use after updating Brain geography weights."
+                              className="text-xs font-black border-2 px-2 py-1 transition-colors border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white disabled:opacity-40"
+                              title="Step 2 — Score Urgency: Grok news scan generates urgency score + deep research brief for each company."
                             >
-                              {isPending ? "QUEUING..." : "🔄 RESCORE"}
+                              {isPending ? "..." : "② SCORE URGENCY"}
                             </button>
-                            {/* Full Pipeline — enqueue all for full Enrich → Score → Brief → Approach */}
+                            <span className="text-gray-300 font-bold text-xs">→</span>
                             <button
                               onClick={(e) => {
                                 e.stopPropagation();
                                 setQueueingSearchId(search.id);
-                                enqueueSearch.mutate({ searchId: search.id, jobType: "full" });
+                                enqueueSearch.mutate({ searchId: search.id, jobType: "outreach_only", forceRefresh: false });
                               }}
                               disabled={isPending || enqueueSearch.isPending}
-                              className="text-xs font-black border-2 px-3 py-1 transition-colors border-blue-600 text-blue-600 hover:bg-blue-600 hover:text-white disabled:opacity-40"
-                              title="Full Pipeline: Enrich → Fit Score → Deep Research Brief → Sales Approach"
+                              className="text-xs font-black border-2 px-2 py-1 transition-colors border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white disabled:opacity-40"
+                              title="Step 3 — Create Outreach: generates personalised sales approach for each company (requires urgency brief)."
                             >
-                              {isPending ? "QUEUING..." : "⚡ FULL PIPELINE"}
+                              {isPending ? "..." : "③ CREATE OUTREACH"}
                             </button>
                           </div>
                         );
@@ -1201,32 +1201,38 @@ export default function SearchResults() {
             >
               {deduplicateMutation.isPending ? '⏳ DEDUPLICATING...' : '🔁 DEDUPLICATE'}
             </Button>
-            {/* Score All — enqueue unscored companies for fit scoring only */}
-            <Button
-              onClick={() => {
-                enqueueSearch.mutate({ searchId: searchId!, jobType: "score_only", forceRescore: false });
-              }}
-              disabled={enqueueSearch.isPending}
-              variant="outline"
-              className="text-sm px-4 py-2 font-black border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors disabled:opacity-50"
-              title="Score All: queue all unscored companies for fit scoring only (no brief/approach). Applies geography multiplier."
-            >
-              {enqueueSearch.isPending ? '⏳ QUEUING...' : '🎯 SCORE ALL'}
-            </Button>
-            {/* Rescore — force-rescore ALL companies (overwrites existing scores) */}
-            <Button
-              onClick={() => {
-                if (confirm('Force-rescore ALL companies in this campaign? This overwrites existing fit scores. Use after updating Brain geography weights.')) {
-                  enqueueSearch.mutate({ searchId: searchId!, jobType: "score_only", forceRescore: true });
-                }
-              }}
-              disabled={enqueueSearch.isPending}
-              variant="outline"
-              className="text-sm px-4 py-2 font-black border-2 border-amber-500 text-amber-600 hover:bg-amber-500 hover:text-white transition-colors disabled:opacity-50"
-              title="Rescore: force-rescore ALL companies in this campaign (overwrites existing fit scores). Use after updating Brain geography weights."
-            >
-              {enqueueSearch.isPending ? '⏳ QUEUING...' : '🔄 RESCORE'}
-            </Button>
+            {/* ── LLM Pipeline: 3 sequential steps ── */}
+            <div className="flex items-center gap-1">
+              <Button
+                onClick={() => enqueueSearch.mutate({ searchId: searchId!, jobType: "score_only", forceRescore: false })}
+                disabled={enqueueSearch.isPending}
+                variant="outline"
+                className="text-sm px-3 py-2 font-black border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors disabled:opacity-50"
+                title="Step 1 — Score FIT: LLM evaluates each company against the Brain ICP. Upgrades SIM scores to LLM scores."
+              >
+                {enqueueSearch.isPending ? '⏳...' : '① SCORE FIT'}
+              </Button>
+              <span className="text-gray-300 font-bold">→</span>
+              <Button
+                onClick={() => enqueueSearch.mutate({ searchId: searchId!, jobType: "score_urgency_only", forceRefresh: false })}
+                disabled={enqueueSearch.isPending}
+                variant="outline"
+                className="text-sm px-3 py-2 font-black border-2 border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white transition-colors disabled:opacity-50"
+                title="Step 2 — Score Urgency: Grok news scan generates urgency score + deep research brief for each company."
+              >
+                {enqueueSearch.isPending ? '⏳...' : '② SCORE URGENCY'}
+              </Button>
+              <span className="text-gray-300 font-bold">→</span>
+              <Button
+                onClick={() => enqueueSearch.mutate({ searchId: searchId!, jobType: "outreach_only", forceRefresh: false })}
+                disabled={enqueueSearch.isPending}
+                variant="outline"
+                className="text-sm px-3 py-2 font-black border-2 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white transition-colors disabled:opacity-50"
+                title="Step 3 — Create Outreach: generates personalised sales approach for each company (requires urgency brief)."
+              >
+                {enqueueSearch.isPending ? '⏳...' : '③ CREATE OUTREACH'}
+              </Button>
+            </div>
           </div>
 
           {/* Background Job Progress Bar */}

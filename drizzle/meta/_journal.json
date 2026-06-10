@@ -421,6 +421,13 @@
       "when": 1780999539265,
       "tag": "0059_tough_psynapse",
       "breakpoints": true
+    },
+    {
+      "idx": 60,
+      "version": "5",
+      "when": 1781083799446,
+      "tag": "0060_clean_nightmare",
+      "breakpoints": true
     }
   ]
 }

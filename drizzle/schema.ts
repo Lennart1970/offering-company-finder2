@@ -480,7 +480,7 @@ export const campaignQueue = mysqlTable("campaign_queue", {
   companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
   userId: int("userId").notNull().references(() => users.id),
   companyName: varchar("companyName", { length: 512 }).notNull(),
-  jobType: mysqlEnum("jobType", ["full", "brief_only", "score_only"]).default("full").notNull(),
+  jobType: mysqlEnum("jobType", ["full", "brief_only", "score_only", "score_urgency_only", "outreach_only"]).default("full").notNull(),
   status: mysqlEnum("status", ["pending", "running", "completed", "failed"]).default("pending").notNull(),
   errorMessage: text("errorMessage"),
   startedAt: timestamp("startedAt"),

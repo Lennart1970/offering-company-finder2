@@ -19,7 +19,7 @@ export const campaignQueueRouter = router({
   enqueueSearch: protectedProcedure
     .input(z.object({
       searchId: z.number(),
-      jobType: z.enum(["full", "brief_only", "score_only"]).default("full"),
+      jobType: z.enum(["full", "brief_only", "score_only", "score_urgency_only", "outreach_only"]).default("full"),
       // If true, re-enqueue companies that already have a brief (force refresh)
       forceRefresh: z.boolean().default(false),
       // If true, re-enqueue companies that already have a fit score (force rescore)
@@ -71,6 +71,16 @@ export const campaignQueueRouter = router({
         // score_only: skip only if already LLM-scored (embed score is a seed, not final)
         if (input.jobType === "score_only") {
           if (!input.forceRescore && (c as any).fitScoreSource === 'llm') return false;
+          return true;
+        }
+        // score_urgency_only: skip if already has a brief (urgency comes from brief generation)
+        if (input.jobType === "score_urgency_only") {
+          if (!input.forceRefresh && c.briefData) return false;
+          return true;
+        }
+        // outreach_only: skip if already has a sales approach
+        if (input.jobType === "outreach_only") {
+          if (!input.forceRefresh && c.salesApproachData) return false;
           return true;
         }
         if (!input.forceRefresh && c.briefData && c.salesApproachData) return false;

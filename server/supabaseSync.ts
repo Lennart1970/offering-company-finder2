@@ -137,7 +137,6 @@ export async function syncCompaniesToSupabase(companyIds: number[]): Promise<{
       nace_codes: company.naicsCodes ?? null,
       urgency_score: company.urgencyScore ?? null,
       fit_score: company.fitScore ?? null,
-      fit_score_source: (company as any).fitScoreSource ?? null,
       urgency_label: urgencyLabel,
       fit_label: fitData.label ?? null,
       fit_tier: fitData.label ?? null,
@@ -271,17 +270,28 @@ async function syncSignalsForCompanies(
  */
 export async function getLastSyncedCompanyId(): Promise<number> {
   const supabase = getSupabaseClient();
-  // company_id is a UUID like "company-<id>" — we store the raw int id in the page_url as /company/<id>
-  // Easiest: query max(synced_at) row and extract company id from page_url
-  const { data, error } = await (supabase.from("lt_mns_company_pages") as any)
-    .select("page_url")
-    .order("synced_at", { ascending: false })
-    .limit(1)
-    .single();
-  if (error || !data?.page_url) return 0;
-  // page_url is "/company/<id>"
-  const match = String(data.page_url).match(/\/company\/(\d+)/);
-  return match ? parseInt(match[1], 10) : 0;
+  // Fetch all page_urls to find the maximum integer company ID
+  // We paginate to handle large tables (9,000+ rows)
+  let maxId = 0;
+  let from = 0;
+  const pageSize = 1000;
+  while (true) {
+    const { data, error } = await (supabase.from("lt_mns_company_pages") as any)
+      .select("page_url")
+      .range(from, from + pageSize - 1);
+    if (error || !data || data.length === 0) break;
+    for (const row of data) {
+      const match = String(row.page_url ?? "").match(/\/company\/(\d+)/);
+      if (match) {
+        const id = parseInt(match[1], 10);
+        if (id > maxId) maxId = id;
+      }
+    }
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  console.log(`[SupabaseSync] getLastSyncedCompanyId: max company ID in Supabase = ${maxId}`);
+  return maxId;
 }
 
 export async function syncCompanyPagesToSupabase(
@@ -326,7 +336,6 @@ export async function syncCompanyPagesToSupabase(
       campaign_name: search?.offeringName ?? null,
       urgency_score: company.urgencyScore ?? null,
       fit_score: company.fitScore ?? null,
-      fit_score_source: (company as any).fitScoreSource ?? null,
       urgency_label: urgencyLabel,
       fit_label: fitData.label ?? null,
       page_url: pageUrl,

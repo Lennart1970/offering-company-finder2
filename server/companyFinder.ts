@@ -3785,18 +3785,24 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
 
   // Sync all researched company pages to Supabase lt_mns_company_pages table
   // Runs as a background job to avoid HTTP timeout
+  // Default: incremental (only syncs companies newer than last synced ID)
+  // forceFullSync=true: re-syncs all companies from the beginning
   syncCompanyPages: protectedProcedure
-    .input(z.object({ appBaseUrl: z.string().optional() }).optional())
+    .input(z.object({ appBaseUrl: z.string().optional(), forceFullSync: z.boolean().optional() }).optional())
     .mutation(async ({ ctx, input }) => {
+      const forceFullSync = input?.forceFullSync ?? false;
       // Fire-and-forget: loop through all batches until complete
       (async () => {
         try {
-          const { syncCompanyPagesToSupabase } = await import("./supabaseSync");
+          const { syncCompanyPagesToSupabase, getLastSyncedCompanyId } = await import("./supabaseSync");
           const BATCH_SIZE = 300;
-          let offsetId = 0;
+          // Incremental: start from the last synced company ID (skip already-synced rows)
+          let offsetId = forceFullSync ? 0 : await getLastSyncedCompanyId();
+          const startOffsetId = offsetId;
           let totalSynced = 0;
           let totalErrors = 0;
           let batchNum = 0;
+          console.log(`[SupabaseSync] syncCompanyPages starting — mode=${forceFullSync ? 'FULL' : 'INCREMENTAL'}, offsetId=${offsetId}`);
           while (true) {
             batchNum++;
             const result = await syncCompanyPagesToSupabase(input?.appBaseUrl, BATCH_SIZE, offsetId);
@@ -3806,12 +3812,13 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
             if (result.nextOffsetId === undefined) break;
             offsetId = result.nextOffsetId;
           }
-          console.log(`[SupabaseSync] syncCompanyPages DONE: ${totalSynced} synced, ${totalErrors} errors across ${batchNum} batches`);
+          console.log(`[SupabaseSync] syncCompanyPages DONE: ${totalSynced} synced, ${totalErrors} errors across ${batchNum} batches (from id=${startOffsetId})`);
         } catch (e) {
           console.error("[SupabaseSync] syncCompanyPages background error:", e instanceof Error ? e.message : String(e));
         }
       })();
-      return { synced: 0, errors: 0, message: "Sync started in background — processing in batches of 300. Check server logs or refresh stats in ~5 minutes" };
+      const mode = forceFullSync ? 'Full sync' : 'Incremental sync';
+      return { synced: 0, errors: 0, message: `${mode} started in background — only new articles will be synced. Refresh stats in ~30 seconds` };
     }),
 
   // Get last sync stats for the company pages table

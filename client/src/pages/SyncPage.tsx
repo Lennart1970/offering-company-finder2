@@ -17,11 +17,11 @@ export default function SyncPage() {
     onSuccess: (result) => {
       setIsSyncingPages(false);
       setPagesBackgroundRunning(true);
-      toast.info("⏳ Sync running in background — stats will update automatically");
-      // Auto-refresh every 30s for 3 minutes, then clear the "running" badge
-      const intervals = [30_000, 60_000, 90_000, 120_000, 150_000, 180_000];
+      toast.info(result.message ?? "⏳ Sync running in background — stats will update automatically");
+      // Auto-refresh every 30s for 2 minutes for incremental, 5 minutes for full
+      const intervals = [30_000, 60_000, 90_000, 120_000, 150_000, 180_000, 210_000, 240_000, 270_000, 300_000];
       intervals.forEach((ms) => setTimeout(() => refetchPagesStats(), ms));
-      setTimeout(() => setPagesBackgroundRunning(false), 180_000);
+      setTimeout(() => setPagesBackgroundRunning(false), 300_000);
     },
     onError: (err) => {
       setIsSyncingPages(false);
@@ -29,10 +29,10 @@ export default function SyncPage() {
     },
   });
 
-  function handleSyncPages() {
+  function handleSyncPages(forceFullSync = false) {
     setIsSyncingPages(true);
     setPagesBackgroundRunning(false);
-    syncPagesMutation.mutate({ appBaseUrl: window.location.origin });
+    syncPagesMutation.mutate({ appBaseUrl: window.location.origin, forceFullSync });
   }
 
   // ── Companies sync state ──────────────────────────────────────────────────
@@ -270,25 +270,37 @@ export default function SyncPage() {
           </div>
         )}
 
-        {/* Sync button */}
-        <Button
-          onClick={handleSyncPages}
-          disabled={isSyncingPages}
-          className="text-base px-8 py-5 font-black bg-emerald-700 text-white hover:bg-emerald-800 transition-colors disabled:opacity-60 w-full"
-        >
-          {isSyncingPages ? (
-            <span className="flex items-center gap-2">
-              <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
-              STARTING SYNC…
-            </span>
-          ) : (
-            "⚡ SYNC COMPANY PAGES"
-          )}
-        </Button>
+        {/* Sync buttons: incremental (default) + force full */}
+        <div className="flex gap-2">
+          <Button
+            onClick={() => handleSyncPages(false)}
+            disabled={isSyncingPages}
+            className="flex-1 text-base px-6 py-5 font-black bg-emerald-700 text-white hover:bg-emerald-800 transition-colors disabled:opacity-60"
+            title="Incremental: only syncs new articles since the last sync. Fast (≤30s)."
+          >
+            {isSyncingPages ? (
+              <span className="flex items-center gap-2">
+                <span className="animate-spin inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full" />
+                STARTING…
+              </span>
+            ) : (
+              "⚡ SYNC NEW ARTICLES"
+            )}
+          </Button>
+          <Button
+            onClick={() => handleSyncPages(true)}
+            disabled={isSyncingPages}
+            variant="outline"
+            className="text-sm px-4 py-5 font-black border-2 border-gray-400 text-gray-600 hover:bg-gray-100 transition-colors disabled:opacity-60"
+            title="Force full sync: re-syncs all 4,800+ companies from scratch. Takes ~5 minutes."
+          >
+            🔄 FULL SYNC
+          </Button>
+        </div>
 
         <p className="mt-3 text-xs text-muted-foreground text-center">
-          Upserts all researched companies as lightweight page links. Used by Intelligence page and external tools. Safe to run multiple times.
-          Runs in background — button returns immediately.
+          <strong>Sync New Articles</strong> only pushes companies newer than the last sync (fast, use daily).
+          <strong> Full Sync</strong> re-syncs all companies from scratch (use after bulk updates).
         </p>
       </div>
 

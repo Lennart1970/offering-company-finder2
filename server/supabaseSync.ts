@@ -265,6 +265,25 @@ async function syncSignalsForCompanies(
 
 // ─── Sync company pages (shareable links) ──────────────────────────────────
 
+/**
+ * Get the highest MySQL company ID currently in lt_mns_company_pages.
+ * Used for incremental sync — only sync companies newer than this.
+ */
+export async function getLastSyncedCompanyId(): Promise<number> {
+  const supabase = getSupabaseClient();
+  // company_id is a UUID like "company-<id>" — we store the raw int id in the page_url as /company/<id>
+  // Easiest: query max(synced_at) row and extract company id from page_url
+  const { data, error } = await (supabase.from("lt_mns_company_pages") as any)
+    .select("page_url")
+    .order("synced_at", { ascending: false })
+    .limit(1)
+    .single();
+  if (error || !data?.page_url) return 0;
+  // page_url is "/company/<id>"
+  const match = String(data.page_url).match(/\/company\/(\d+)/);
+  return match ? parseInt(match[1], 10) : 0;
+}
+
 export async function syncCompanyPagesToSupabase(
   appBaseUrl?: string,
   batchSize = 300,

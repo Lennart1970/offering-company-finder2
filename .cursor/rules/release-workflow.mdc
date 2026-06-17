@@ -1,0 +1,15 @@
+---
+description: Remind agent of ask-plan-develop-push-handover workflow on feature work
+alwaysApply: true
+---
+
+# Release workflow reminder
+
+When the user starts a feature, finishes implementation, or says "done" / "wrap up":
+
+1. Follow the **feature-release-workflow** skill (personal) for phases: ask → plan → develop → push → handover.
+2. For LeadTrigger v1 / Manus deploys, also use the **leadtrigger-release** project skill.
+3. Before ending a session with shipped or shippable code:
+   - Confirm whether GitHub push is needed and user has approved commit.
+   - Confirm whether a deploy handover doc exists in `docs/` (use `handover-template.md` if missing).
+4. Do not commit unless the user explicitly asks.

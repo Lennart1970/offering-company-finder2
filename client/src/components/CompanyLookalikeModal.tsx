@@ -86,11 +86,6 @@ export function CompanyLookalikeModal({ open, onClose, seed, defaultBrainId }: P
   );
 
   const createCampaign = trpc.companyFinder.createCampaignFromLookalike.useMutation({
-    onSuccess: (data) => {
-      toast.success(`Lookalike campaign created with ${data.companiesCreated} companies — FIT scoring queued`);
-      onClose();
-      navigate(`/search-results/${data.searchId}`);
-    },
     onError: (err) => {
       toast.error(`Failed to create campaign: ${err.message}`);
     },
@@ -135,6 +130,8 @@ export function CompanyLookalikeModal({ open, onClose, seed, defaultBrainId }: P
       return;
     }
 
+    const seedDeselected = !selectedIds.has(seed.id);
+
     const similarityScores: Record<string, number> = {};
     for (const c of companies) {
       if (selectedIds.has(c.id)) {
@@ -142,13 +139,23 @@ export function CompanyLookalikeModal({ open, onClose, seed, defaultBrainId }: P
       }
     }
 
-    createCampaign.mutate({
-      seedCompanyId: seed.id,
-      brainId: selectedBrainId,
-      campaignName: campaignName.trim(),
-      companyIds: Array.from(selectedIds),
-      similarityScores,
-    });
+    createCampaign.mutate(
+      {
+        seedCompanyId: seed.id,
+        brainId: selectedBrainId,
+        campaignName: campaignName.trim(),
+        companyIds: Array.from(selectedIds),
+        similarityScores,
+      },
+      {
+        onSuccess: (data) => {
+          const base = `Lookalike campaign created with ${data.companiesCreated} companies — FIT scoring queued`;
+          toast.success(seedDeselected ? `${base} (source company included)` : base);
+          onClose();
+          navigate(`/search-results/${data.searchId}`);
+        },
+      },
+    );
   };
 
   if (!seed) return null;
@@ -344,10 +351,12 @@ export function CompanyLookalikeModal({ open, onClose, seed, defaultBrainId }: P
                   </tr>
                 </thead>
                 <tbody>
-                  {companies.map((c) => (
+                  {companies.map((c) => {
+                    const isSeedRow = c.isSeed === true || c.id === seed.id;
+                    return (
                     <tr
                       key={c.id}
-                      className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${selectedIds.has(c.id) ? "bg-purple-50/40" : ""}`}
+                      className={`border-b border-gray-100 hover:bg-gray-50 cursor-pointer ${selectedIds.has(c.id) ? "bg-purple-50/40" : ""} ${isSeedRow ? "bg-purple-50/20" : ""}`}
                       onClick={() => toggleOne(c.id)}
                     >
                       <td className="py-1.5 pr-2">
@@ -362,6 +371,11 @@ export function CompanyLookalikeModal({ open, onClose, seed, defaultBrainId }: P
                       <td className="py-1.5 pr-3 font-medium text-gray-800">
                         <div className="flex items-center gap-1 min-w-0">
                           <span className="truncate">{c.name}</span>
+                          {isSeedRow && (
+                            <span className="shrink-0 rounded px-1 py-0.5 text-[10px] font-semibold uppercase tracking-wide bg-purple-100 text-purple-700">
+                              Source
+                            </span>
+                          )}
                           {c.websiteUrl && (
                             <a
                               href={c.websiteUrl}
@@ -400,7 +414,8 @@ export function CompanyLookalikeModal({ open, onClose, seed, defaultBrainId }: P
                         )}
                       </td>
                     </tr>
-                  ))}
+                    );
+                  })}
                 </tbody>
               </table>
             </>

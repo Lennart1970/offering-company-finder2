@@ -7,7 +7,10 @@ import {
   rpcSimilarityToSim0to100,
   matchCompaniesByEmbeddingRpc,
   mapRpcMatchesToMysqlCompanies,
+  prependSeedToLookalikeResults,
+  mergeLookalikeCampaignCompanyIds,
   type RpcMatchRow,
+  type MysqlCompanySimRow,
 } from "./companySimilaritySearch";
 import { toCompanyUUID } from "./supabaseEmbeddings";
 
@@ -314,5 +317,59 @@ describe("createCampaignFromLookalike naming contract", () => {
 
     expect(offeringName).toBe("[LIKE] Like AIRBUS peers");
     expect(location).toBe("Lookalike: AIRBUS (id=7)");
+  });
+});
+
+describe("lookalike seed inclusion helpers", () => {
+  const baseSeed: Omit<MysqlCompanySimRow, "simScore" | "isSeed"> = {
+    id: 1,
+    name: "AIRBUS",
+    websiteUrl: "https://airbus.com",
+    primaryDomain: "airbus.com",
+    city: "Toulouse",
+    country: "France",
+    sector: "Aerospace",
+    fitScore: 82,
+    searchId: 10,
+    generatedWithBrainName: "Industrial IoT",
+  };
+
+  const peer: MysqlCompanySimRow = {
+    id: 2,
+    name: "Peer A",
+    websiteUrl: null,
+    primaryDomain: "peera.com",
+    city: "Paris",
+    country: "France",
+    sector: "Aerospace",
+    fitScore: 75,
+    searchId: 11,
+    generatedWithBrainName: null,
+    simScore: 88,
+  };
+
+  it("prepends seed with simScore 100 and isSeed true", () => {
+    const result = prependSeedToLookalikeResults(baseSeed, [peer]);
+
+    expect(result).toHaveLength(2);
+    expect(result[0].id).toBe(1);
+    expect(result[0].simScore).toBe(100);
+    expect(result[0].isSeed).toBe(true);
+    expect(result[1].id).toBe(2);
+  });
+
+  it("dedupes seed when it appears among peers", () => {
+    const duplicatePeer: MysqlCompanySimRow = { ...baseSeed, simScore: 99 };
+    const result = prependSeedToLookalikeResults(baseSeed, [duplicatePeer, peer]);
+
+    expect(result).toHaveLength(2);
+    expect(result[0].isSeed).toBe(true);
+    expect(result.filter((c) => c.id === 1)).toHaveLength(1);
+  });
+
+  it("mergeLookalikeCampaignCompanyIds always includes seed and dedupes", () => {
+    expect(mergeLookalikeCampaignCompanyIds(7, [2, 3])).toEqual([7, 2, 3]);
+    expect(mergeLookalikeCampaignCompanyIds(7, [7, 2, 3])).toEqual([7, 2, 3]);
+    expect(mergeLookalikeCampaignCompanyIds(7, [2])).toEqual([7, 2]);
   });
 });

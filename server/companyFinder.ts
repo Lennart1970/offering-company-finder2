@@ -5267,6 +5267,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         getSupabaseClient,
         fetchSeedEmbedding,
         previewSimilarityByVector,
+        prependSeedToLookalikeResults,
       } = await import("./companySimilaritySearch");
       const { toCompanyUUID } = await import("./supabaseEmbeddings");
 
@@ -5279,8 +5280,12 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
           name: companies.name,
           websiteUrl: companies.websiteUrl,
           primaryDomain: companies.primaryDomain,
+          city: companies.city,
           country: companies.country,
           sector: companies.sector,
+          fitScore: companies.fitScore,
+          searchId: companies.searchId,
+          generatedWithBrainName: companies.generatedWithBrainName,
         })
         .from(companies)
         .where(eq(companies.id, input.seedCompanyId))
@@ -5314,7 +5319,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
 
       return {
         seedCompany: seedRow,
-        companies: result,
+        companies: prependSeedToLookalikeResults(seedRow, result),
         totalMatched,
       };
     }),
@@ -5470,11 +5475,17 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
           scoreMap.set(Number(idStr), score);
         }
       }
+      if (!scoreMap.has(input.seedCompanyId)) {
+        scoreMap.set(input.seedCompanyId, 100);
+      }
+
+      const { mergeLookalikeCampaignCompanyIds } = await import("./companySimilaritySearch");
+      const companyIds = mergeLookalikeCampaignCompanyIds(input.seedCompanyId, input.companyIds);
 
       const sourceCompanies = await db
         .select()
         .from(companies)
-        .where(inArr(companies.id, input.companyIds));
+        .where(inArr(companies.id, companyIds));
 
       const toInsert = sourceCompanies.map((c) => ({
         searchId,

@@ -172,6 +172,25 @@ export interface MysqlCompanySimRow {
   searchId: number;
   generatedWithBrainName: string | null;
   simScore: number;
+  /** True when this row is the lookalike source company (prepended to preview results). */
+  isSeed?: boolean;
+}
+
+/** Prepend lookalike seed as first row (SIM 100); dedupe if seed appears among peers. */
+export function prependSeedToLookalikeResults(
+  seed: Omit<MysqlCompanySimRow, "simScore" | "isSeed">,
+  peers: MysqlCompanySimRow[],
+): MysqlCompanySimRow[] {
+  const seedRow: MysqlCompanySimRow = { ...seed, simScore: 100, isSeed: true };
+  return [seedRow, ...peers.filter((c) => c.id !== seed.id)];
+}
+
+/** Always include seed in lookalike campaign clone list; dedupe when already selected. */
+export function mergeLookalikeCampaignCompanyIds(
+  seedCompanyId: number,
+  companyIds: number[],
+): number[] {
+  return [...new Set([seedCompanyId, ...companyIds])];
 }
 
 export interface MapCompaniesFilters {

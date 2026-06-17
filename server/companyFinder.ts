@@ -5235,7 +5235,13 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         mapWatchlistIdsToMysqlCompanies,
       } = await import("./companySimilaritySearch");
       const sb = getSupabaseClient();
-      const brainVec = await fetchBrainEmbedding(sb, input.brainId);
+      let brainVec: number[];
+      try {
+        brainVec = await fetchBrainEmbedding(sb, input.brainId);
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        throw new TRPCError({ code: "NOT_FOUND", message: msg });
+      }
       const { scored, top } = await scoreAllEmbeddingsAgainstVector(sb, brainVec, {
         minScore: input.minSim,
         maxResults: input.maxResults,

@@ -90,7 +90,7 @@ export default function FeedbackPage() {
             Share Page Feedback
           </h1>
           <p className="text-sm text-gray-500 mt-0.5">
-            Responses submitted by recipients of shared company pages · stored in Supabase <code className="text-xs bg-gray-100 px-1 rounded">lt_share_feedback</code>
+            Responses submitted by recipients of shared company pages · stored in MySQL <code className="text-xs bg-gray-100 px-1 rounded">share_feedback</code>
           </p>
         </div>
         <Button
@@ -155,7 +155,7 @@ export default function FeedbackPage() {
       {isLoading && (
         <div className="flex items-center gap-3 text-gray-500 py-8">
           <RefreshCw className="w-4 h-4 animate-spin" />
-          <span className="text-sm">Loading feedback from Supabase…</span>
+          <span className="text-sm">Loading feedback…</span>
         </div>
       )}
       {error && (
@@ -245,7 +245,7 @@ export default function FeedbackPage() {
                   {/* Share token (links to public list page) */}
                   <td className="px-4 py-3">
                     <a
-                      href={`/share-list/${row.shareToken}`}
+                      href={`/share/${row.shareToken}`}
                       target="_blank"
                       rel="noopener noreferrer"
                       className="inline-flex items-center gap-1 text-[10px] font-mono text-blue-500 hover:underline"

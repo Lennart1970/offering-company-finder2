@@ -14,6 +14,8 @@
 
 import { Router } from "express";
 import mysql from "mysql2/promise";
+import { getDb } from "../db";
+import { shareFeedback } from "../../drizzle/schema";
 
 const router = Router();
 
@@ -233,15 +235,13 @@ router.get("/:listToken", async (req, res) => {
 });
 
 // ---------------------------------------------------------------------------
-// POST /api/public/share-feedback — store anonymous feedback to MySQL
+// POST /api/public/share-lists/feedback — store anonymous feedback to MySQL
 // ---------------------------------------------------------------------------
 router.post("/feedback", async (req, res) => {
   try {
     const { shareToken, companyId, companyName, rating, comment, submitterName, submitterEmail } = req.body ?? {};
     if (!shareToken) return res.status(400).json({ ok: false, error: "shareToken required" });
 
-    const { getDb } = await import("../db.js");
-    const { shareFeedback } = await import("../../drizzle/schema.js");
     const db = await getDb();
     if (!db) return res.status(500).json({ ok: false, error: "Database not available" });
 

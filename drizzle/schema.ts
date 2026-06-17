@@ -677,6 +677,24 @@ export type ShareAccessLog = typeof shareAccessLog.$inferSelect;
 export type InsertShareAccessLog = typeof shareAccessLog.$inferInsert;
 
 /**
+ * Anonymous feedback submitted on public share company pages.
+ */
+export const shareFeedback = mysqlTable("share_feedback", {
+  id: int("id").autoincrement().primaryKey(),
+  shareToken: varchar("shareToken", { length: 200 }).notNull(),
+  companyId: int("companyId").references(() => companies.id, { onDelete: "set null" }),
+  companyName: varchar("companyName", { length: 300 }),
+  rating: mysqlEnum("rating", ["thumbs_up", "thumbs_down", "neutral"]),
+  comment: text("comment"),
+  submitterName: varchar("submitterName", { length: 200 }),
+  submitterEmail: varchar("submitterEmail", { length: 200 }),
+  submittedAt: timestamp("submittedAt").defaultNow().notNull(),
+});
+
+export type ShareFeedback = typeof shareFeedback.$inferSelect;
+export type InsertShareFeedback = typeof shareFeedback.$inferInsert;
+
+/**
  * Allowlist of email domains permitted to access public share pages.
  * Admins can add/remove domains from the app.
  */
@@ -718,6 +736,24 @@ export const shareVisitors = mysqlTable("share_visitors", {
 
 export type ShareVisitor = typeof shareVisitors.$inferSelect;
 export type InsertShareVisitor = typeof shareVisitors.$inferInsert;
+
+/**
+ * Audit log: which share-page visitor retrieved contact details (Apollo fetch).
+ */
+export const shareContactRetrievalLog = mysqlTable("share_contact_retrieval_log", {
+  id: int("id").autoincrement().primaryKey(),
+  visitorEmail: varchar("visitorEmail", { length: 320 }).notNull(),
+  domain: varchar("domain", { length: 128 }).notNull(),
+  shareToken: varchar("shareToken", { length: 64 }).notNull(),
+  companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  companyName: varchar("companyName", { length: 300 }),
+  actionType: mysqlEnum("actionType", ["decision_makers", "all_personnel"]).notNull(),
+  contactsReturned: int("contactsReturned").notNull().default(0),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ShareContactRetrievalLog = typeof shareContactRetrievalLog.$inferSelect;
+export type InsertShareContactRetrievalLog = typeof shareContactRetrievalLog.$inferInsert;
 
 /**
  * SharePoint CRM lead lookup table — read-only reference for CRM presence badges.

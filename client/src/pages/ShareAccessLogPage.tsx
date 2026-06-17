@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { Activity, Users, Eye, Clock, Mail, Globe, ChevronDown, ChevronUp } from "lucide-react";
+import { Activity, Users, Eye, Clock, Mail, Globe, ChevronDown, ChevronUp, UserSearch } from "lucide-react";
 
-type Tab = "visitors" | "log";
+type Tab = "visitors" | "log" | "contacts";
 
 function formatDate(d: Date | string) {
   return new Date(d).toLocaleString(undefined, {
@@ -27,6 +27,22 @@ function tokenTypeBadge(type: string) {
   );
 }
 
+function actionTypeBadge(type: string) {
+  const map: Record<string, string> = {
+    decision_makers: "bg-purple-100 text-purple-700",
+    all_personnel: "bg-blue-100 text-blue-700",
+  };
+  const labels: Record<string, string> = {
+    decision_makers: "Decision Makers",
+    all_personnel: "All Personnel",
+  };
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${map[type] ?? "bg-gray-100 text-gray-600"}`}>
+      {labels[type] ?? type}
+    </span>
+  );
+}
+
 export default function ShareAccessLogPage() {
   const [tab, setTab] = useState<Tab>("visitors");
   const [sortField, setSortField] = useState<"lastSeen" | "accessCount">("lastSeen");
@@ -34,9 +50,11 @@ export default function ShareAccessLogPage() {
 
   const visitorsQuery = trpc.shareExt.getShareVisitors.useQuery();
   const logQuery = trpc.shareExt.getShareAccessLog.useQuery({ limit: 200 });
+  const contactLogQuery = trpc.shareExt.getShareContactRetrievalLog.useQuery({ limit: 200 });
 
   const visitors = visitorsQuery.data ?? [];
   const log = logQuery.data ?? [];
+  const contactLog = contactLogQuery.data ?? [];
 
   const sortedVisitors = [...visitors].sort((a, b) => {
     const av = sortField === "accessCount" ? a.accessCount : new Date(a.lastSeen).getTime();
@@ -68,12 +86,12 @@ export default function ShareAccessLogPage() {
         <Activity className="w-6 h-6 text-gray-700" />
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Share Access Log</h1>
-          <p className="text-sm text-gray-500">Track who accessed public share pages</p>
+          <p className="text-sm text-gray-500">Track who accessed public share pages and retrieved contact details</p>
         </div>
       </div>
 
       {/* Summary stats */}
-      <div className="grid grid-cols-3 gap-4">
+      <div className="grid grid-cols-4 gap-4">
         <div className="bg-white border border-gray-200 rounded-xl p-4">
           <div className="flex items-center gap-2 mb-1">
             <Users className="w-4 h-4 text-blue-500" />
@@ -94,6 +112,13 @@ export default function ShareAccessLogPage() {
             <span className="text-xs text-gray-500 uppercase tracking-wide font-medium">Log Entries</span>
           </div>
           <p className="text-3xl font-bold text-gray-900">{log.length}</p>
+        </div>
+        <div className="bg-white border border-gray-200 rounded-xl p-4">
+          <div className="flex items-center gap-2 mb-1">
+            <UserSearch className="w-4 h-4 text-purple-500" />
+            <span className="text-xs text-gray-500 uppercase tracking-wide font-medium">Contact Retrievals</span>
+          </div>
+          <p className="text-3xl font-bold text-gray-900">{contactLog.length}</p>
         </div>
       </div>
 
@@ -116,6 +141,15 @@ export default function ShareAccessLogPage() {
         >
           <Clock className="w-3.5 h-3.5 inline mr-1.5" />
           Access Log ({log.length})
+        </button>
+        <button
+          onClick={() => setTab("contacts")}
+          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            tab === "contacts" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <UserSearch className="w-3.5 h-3.5 inline mr-1.5" />
+          Contact Retrievals ({contactLog.length})
         </button>
       </div>
 
@@ -215,6 +249,52 @@ export default function ShareAccessLogPage() {
                           ✗ Denied
                         </span>
                       )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-400">{formatDate(entry.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* Contact retrieval log tab */}
+      {tab === "contacts" && (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          {contactLogQuery.isLoading ? (
+            <div className="p-8 text-center text-gray-400 text-sm">Loading contact retrievals…</div>
+          ) : contactLog.length === 0 ? (
+            <div className="p-8 text-center text-gray-400 text-sm">No contact retrievals yet.</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Visitor</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Company</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Action</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Contacts</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {contactLog.map((entry) => (
+                  <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                        <span className="text-gray-900">{entry.visitorEmail}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">{entry.companyName ?? "—"}</div>
+                      <span className="font-mono text-xs text-gray-400">{entry.shareToken.slice(0, 12)}…</span>
+                    </td>
+                    <td className="px-4 py-3">{actionTypeBadge(entry.actionType)}</td>
+                    <td className="px-4 py-3 text-right">
+                      <span className="inline-flex items-center justify-center min-w-7 h-7 px-2 rounded-full bg-purple-50 text-purple-700 text-xs font-bold">
+                        {entry.contactsReturned}
+                      </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-400">{formatDate(entry.createdAt)}</td>
                   </tr>

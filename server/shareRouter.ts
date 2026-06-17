@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { eq, and, or } from "drizzle-orm";
+import { eq, and, or, desc } from "drizzle-orm";
 import crypto from "crypto";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
 import { getDb } from "./db";
@@ -17,14 +17,39 @@ import {
   contacts,
   shareAccessLog,
   shareAllowedDomains,
+  shareFeedback,
   brainShareTokens,
   shareVisitors,
+  shareContactRetrievalLog,
   leadinfoVisits,
 } from "../drizzle/schema";
 
 /** Generate a cryptographically random 32-char hex token */
 function generateToken(): string {
   return crypto.randomBytes(16).toString("hex");
+}
+
+async function logShareContactRetrieval(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  params: {
+    visitorEmail: string;
+    shareToken: string;
+    companyId: number;
+    companyName: string | null;
+    actionType: "decision_makers" | "all_personnel";
+    contactsReturned: number;
+  }
+) {
+  const domain = params.visitorEmail.split("@")[1]?.toLowerCase() ?? "";
+  await db.insert(shareContactRetrievalLog).values({
+    visitorEmail: params.visitorEmail.toLowerCase(),
+    domain,
+    shareToken: params.shareToken,
+    companyId: params.companyId,
+    companyName: params.companyName,
+    actionType: params.actionType,
+    contactsReturned: params.contactsReturned,
+  });
 }
 
 export const shareRouter = router({
@@ -680,6 +705,19 @@ export const shareExtRouter = router({
       .orderBy(desc(shareVisitors.lastSeen));
   }),
 
+  /** Admin — who retrieved contact details on share pages */
+  getShareContactRetrievalLog: protectedProcedure
+    .input(z.object({ limit: z.number().default(200) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new Error("Database unavailable");
+      return db
+        .select()
+        .from(shareContactRetrievalLog)
+        .orderBy(desc(shareContactRetrievalLog.createdAt))
+        .limit(input.limit);
+    }),
+
   /** Protected — create or reuse a brain share token */
   createBrainShareToken: protectedProcedure
     .input(z.object({ brainId: z.number() }))
@@ -906,7 +944,17 @@ export const shareExtRouter = router({
         } catch { /* skip duplicates */ }
       }
 
-      return { contacts: savedContacts, tierLabel: result.tierLabel, tiersSearched: result.tiersSearched };
+      const returned = savedContacts.filter(Boolean);
+      await logShareContactRetrieval(db, {
+        visitorEmail: input.visitorEmail,
+        shareToken: input.token,
+        companyId,
+        companyName: company.name ?? null,
+        actionType: "decision_makers",
+        contactsReturned: returned.length,
+      });
+
+      return { contacts: returned, tierLabel: result.tierLabel, tiersSearched: result.tiersSearched };
     }),
 
   /**
@@ -976,6 +1024,16 @@ export const shareExtRouter = router({
 
       // Return all stored contacts
       const allContacts = await getContactsByCompanyId(companyId);
+
+      await logShareContactRetrieval(db, {
+        visitorEmail: input.visitorEmail,
+        shareToken: input.token,
+        companyId,
+        companyName: company.name ?? null,
+        actionType: "all_personnel",
+        contactsReturned: allContacts.length,
+      });
+
       return { contacts: allContacts, total: result.totalFound, fetchedAt: new Date() };
     }),
 
@@ -1005,13 +1063,13 @@ export const shareExtRouter = router({
   getFeedback: protectedProcedure.query(async () => {
     const db = await getDb();
     if (!db) throw new Error("Database unavailable");
-    const { shareFeedback } = await import('../drizzle/schema.js');
-    const { desc } = await import('drizzle-orm');
+
     const rows = await db
       .select()
       .from(shareFeedback)
       .orderBy(desc(shareFeedback.submittedAt))
       .limit(500);
+
     return {
       rows: rows.map((r) => ({
         id: r.id,

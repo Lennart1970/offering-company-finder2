@@ -122,9 +122,11 @@ function mapRowToCompany(
   const employeeRaw = cell(row, idx.employees);
   const employeeCount = employeeRaw ? parseInt(employeeRaw.replace(/[^0-9]/g, "")) || null : null;
 
+  const industryVal = cell(row, idx.industry);
+
   const sliceMetadata = {
     employeeCount,
-    industry: cell(row, idx.industry),
+    industry: industryVal,
     keywords: cell(row, idx.keywords),
     description: cell(row, idx.description),
     lists: cell(row, idx.lists),
@@ -157,6 +159,7 @@ function mapRowToCompany(
     rawAddress: cell(row, idx.address),
     sicCodes: JSON.stringify(sicCodes),
     naicsCodes: null,
+    sector: industryVal,
     sliceMetadata: JSON.stringify(sliceMetadata),
     urgencyScore: null,
     briefData: null,

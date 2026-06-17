@@ -442,6 +442,13 @@
       "when": 1781690000000,
       "tag": "0062_share_contact_retrieval_log",
       "breakpoints": true
+    },
+    {
+      "idx": 63,
+      "version": "5",
+      "when": 1782000000000,
+      "tag": "0063_backfill_sector_from_slice_metadata",
+      "breakpoints": true
     }
   ]
 }

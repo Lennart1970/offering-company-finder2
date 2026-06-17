@@ -113,6 +113,8 @@ var init_schema = __esm({
       name: varchar("name", { length: 512 }).notNull(),
       websiteUrl: varchar("websiteUrl", { length: 512 }),
       primaryDomain: varchar("primaryDomain", { length: 256 }),
+      /** Lowercase hostname for CRM domain match — set from primaryDomain or websiteUrl */
+      normalizedDomain: varchar("normalizedDomain", { length: 256 }),
       linkedinUrl: varchar("linkedinUrl", { length: 512 }),
       twitterUrl: varchar("twitterUrl", { length: 512 }),
       facebookUrl: varchar("facebookUrl", { length: 512 }),
@@ -733,6 +735,37 @@ var init_env = __esm({
   }
 });
 
+// server/normalizeCompanyDomain.ts
+function normalizeHostname(host) {
+  const s = host.trim().replace(/^www\./i, "").toLowerCase().split("/")[0].split(":")[0].trim();
+  return s.length > 0 ? s : null;
+}
+function extractHostnameFromWebsite(websiteUrl) {
+  const raw = websiteUrl.trim();
+  if (!raw) return null;
+  try {
+    const url = new URL(raw.startsWith("http") ? raw : `https://${raw}`);
+    return normalizeHostname(url.hostname);
+  } catch {
+    return normalizeHostname(raw.replace(/^https?:\/\//i, ""));
+  }
+}
+function normalizeCompanyDomain(opts) {
+  if (opts.primaryDomain?.trim()) {
+    const fromPrimary = normalizeHostname(opts.primaryDomain);
+    if (fromPrimary) return fromPrimary;
+  }
+  if (opts.websiteUrl?.trim()) {
+    return extractHostnameFromWebsite(opts.websiteUrl);
+  }
+  return null;
+}
+var init_normalizeCompanyDomain = __esm({
+  "server/normalizeCompanyDomain.ts"() {
+    "use strict";
+  }
+});
+
 // server/db.ts
 var db_exports = {};
 __export(db_exports, {
@@ -819,7 +852,7 @@ __export(db_exports, {
   upsertCompanyBrainOutput: () => upsertCompanyBrainOutput,
   upsertUser: () => upsertUser
 });
-import { eq, and, or, desc, sql } from "drizzle-orm";
+import { eq, and, or, desc, sql, exists, not, ne, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
@@ -941,7 +974,14 @@ async function createCompanies(companyList) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
   if (companyList.length === 0) return;
-  await db.insert(companies).values(companyList);
+  const stamped = companyList.map((c) => ({
+    ...c,
+    normalizedDomain: c.normalizedDomain ?? normalizeCompanyDomain({
+      primaryDomain: c.primaryDomain,
+      websiteUrl: c.websiteUrl
+    })
+  }));
+  await db.insert(companies).values(stamped);
 }
 async function getCompaniesBySearchId(searchId) {
   const db = await getDb();
@@ -1070,7 +1110,23 @@ async function getCompanyById(id) {
 async function updateCompany(id, updates) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(companies).set(updates).where(eq(companies.id, id));
+  let patch = updates;
+  if ("primaryDomain" in updates || "websiteUrl" in updates) {
+    let primaryDomain = updates.primaryDomain;
+    let websiteUrl = updates.websiteUrl;
+    if (primaryDomain === void 0 || websiteUrl === void 0) {
+      const existing = await getCompanyById(id);
+      if (existing) {
+        if (primaryDomain === void 0) primaryDomain = existing.primaryDomain;
+        if (websiteUrl === void 0) websiteUrl = existing.websiteUrl;
+      }
+    }
+    patch = {
+      ...updates,
+      normalizedDomain: normalizeCompanyDomain({ primaryDomain, websiteUrl })
+    };
+  }
+  await db.update(companies).set(patch).where(eq(companies.id, id));
 }
 async function getPendingCompaniesBySearchId(searchId) {
   const { and: and14 } = await import("drizzle-orm");
@@ -1469,35 +1525,28 @@ async function getAllBrainOutputsForCompany(companyId) {
   ));
   return rows;
 }
-function companyInCrmExistsSql() {
-  return sql`EXISTS (
-    SELECT 1 FROM lt_mns_cg_leads cg
-    WHERE (
-      ${companies.cgSharepointId} IS NOT NULL
-      AND ${companies.cgSharepointId} REGEXP '^[0-9]+$'
-      AND cg.id = CAST(${companies.cgSharepointId} AS UNSIGNED)
-    ) OR (
-      ${companies.primaryDomain} IS NOT NULL
-      AND ${companies.primaryDomain} != ''
-      AND cg.domain = LOWER(REPLACE(TRIM(${companies.primaryDomain}), 'www.', ''))
-    ) OR (
-      ${companies.websiteUrl} IS NOT NULL
-      AND ${companies.websiteUrl} != ''
-      AND cg.domain IS NOT NULL
-      AND cg.domain = LOWER(
-        SUBSTRING_INDEX(
-          SUBSTRING_INDEX(
-            REPLACE(REPLACE(REPLACE(TRIM(${companies.websiteUrl}), 'https://', ''), 'http://', ''), 'www.', ''),
-            '/', 1
-          ),
-          ':', 1
-        )
-      )
+function companyCrmMatchWhere() {
+  return or(
+    and(
+      isNotNull(companies.normalizedDomain),
+      ne(companies.normalizedDomain, ""),
+      eq(cgLeads.domain, companies.normalizedDomain)
+    ),
+    and(
+      isNotNull(companies.cgSharepointId),
+      sql`${companies.cgSharepointId} REGEXP '^[0-9]+$'`,
+      eq(cgLeads.id, sql`CAST(${companies.cgSharepointId} AS UNSIGNED)`)
     )
-  )`;
+  );
+}
+function companyCrmPresenceCondition(db, mode) {
+  const matchExists = exists(
+    db.select({ one: sql`1` }).from(cgLeads).where(companyCrmMatchWhere())
+  );
+  return mode === "in" ? matchExists : not(matchExists);
 }
 async function getCompanyDatabase(opts) {
-  const { asc: asc2, desc: desc5, like, and: and14, gte: gte2, isNotNull: isNotNull5, isNull: isNull7, inArray: inArray13, sql: _sql } = await import("drizzle-orm");
+  const { asc: asc2, desc: desc5, like, and: and14, gte: gte2, isNotNull: isNotNull6, isNull: isNull7, inArray: inArray13, sql: _sql } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return [];
   const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, searchIds, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin, crmFilter } = opts;
@@ -1509,7 +1558,7 @@ async function getCompanyDatabase(opts) {
   else if (countries && countries.length > 0) conditions.push(inArray13(companies.country, countries));
   if (sector) conditions.push(eq(companies.sector, sector));
   if (minFitScore !== void 0) conditions.push(gte2(companies.fitScore, minFitScore));
-  if (hasFitScore) conditions.push(isNotNull5(companies.fitScore));
+  if (hasFitScore) conditions.push(isNotNull6(companies.fitScore));
   if (brainId) conditions.push(
     inArray13(
       companies.id,
@@ -1519,18 +1568,17 @@ async function getCompanyDatabase(opts) {
   if (cgBusinessUnit) conditions.push(eq(companies.cgBusinessUnit, cgBusinessUnit));
   if (cgLeadClass) conditions.push(eq(companies.cgLeadClass, cgLeadClass));
   if (cgLeadOrigin) conditions.push(eq(companies.cgLeadOrigin, cgLeadOrigin));
-  if (articleFilter === "brief") conditions.push(isNotNull5(companies.briefGeneratedAt));
-  if (articleFilter === "approach") conditions.push(isNotNull5(companies.salesApproachGeneratedAt));
+  if (articleFilter === "brief") conditions.push(isNotNull6(companies.briefGeneratedAt));
+  if (articleFilter === "approach") conditions.push(isNotNull6(companies.salesApproachGeneratedAt));
   if (articleFilter === "both") {
-    conditions.push(isNotNull5(companies.briefGeneratedAt));
-    conditions.push(isNotNull5(companies.salesApproachGeneratedAt));
+    conditions.push(isNotNull6(companies.briefGeneratedAt));
+    conditions.push(isNotNull6(companies.salesApproachGeneratedAt));
   }
   if (articleFilter === "none") {
     conditions.push(isNull7(companies.briefGeneratedAt));
     conditions.push(isNull7(companies.salesApproachGeneratedAt));
   }
-  if (crmFilter === "in") conditions.push(companyInCrmExistsSql());
-  if (crmFilter === "not_in") conditions.push(sql`NOT ${companyInCrmExistsSql()}`);
+  if (crmFilter) conditions.push(companyCrmPresenceCondition(db, crmFilter));
   const whereClause = conditions.length > 0 ? and14(...conditions) : void 0;
   const colMap = {
     name: companies.name,
@@ -1617,7 +1665,7 @@ async function getCompanyDatabase(opts) {
   return rows;
 }
 async function countCompanyDatabase(opts) {
-  const { count: count2, like, and: and14, gte: gte2, isNotNull: isNotNull5, isNull: isNull7, inArray: inArray13 } = await import("drizzle-orm");
+  const { count: count2, like, and: and14, gte: gte2, isNotNull: isNotNull6, isNull: isNull7, inArray: inArray13 } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return 0;
   const { search, searchId, searchIds, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin, crmFilter } = opts;
@@ -1629,7 +1677,7 @@ async function countCompanyDatabase(opts) {
   else if (countries && countries.length > 0) conditions.push(inArray13(companies.country, countries));
   if (sector) conditions.push(eq(companies.sector, sector));
   if (minFitScore !== void 0) conditions.push(gte2(companies.fitScore, minFitScore));
-  if (hasFitScore) conditions.push(isNotNull5(companies.fitScore));
+  if (hasFitScore) conditions.push(isNotNull6(companies.fitScore));
   if (brainId) conditions.push(
     inArray13(
       companies.id,
@@ -1639,18 +1687,17 @@ async function countCompanyDatabase(opts) {
   if (cgBusinessUnit) conditions.push(eq(companies.cgBusinessUnit, cgBusinessUnit));
   if (cgLeadClass) conditions.push(eq(companies.cgLeadClass, cgLeadClass));
   if (cgLeadOrigin) conditions.push(eq(companies.cgLeadOrigin, cgLeadOrigin));
-  if (articleFilter === "brief") conditions.push(isNotNull5(companies.briefGeneratedAt));
-  if (articleFilter === "approach") conditions.push(isNotNull5(companies.salesApproachGeneratedAt));
+  if (articleFilter === "brief") conditions.push(isNotNull6(companies.briefGeneratedAt));
+  if (articleFilter === "approach") conditions.push(isNotNull6(companies.salesApproachGeneratedAt));
   if (articleFilter === "both") {
-    conditions.push(isNotNull5(companies.briefGeneratedAt));
-    conditions.push(isNotNull5(companies.salesApproachGeneratedAt));
+    conditions.push(isNotNull6(companies.briefGeneratedAt));
+    conditions.push(isNotNull6(companies.salesApproachGeneratedAt));
   }
   if (articleFilter === "none") {
     conditions.push(isNull7(companies.briefGeneratedAt));
     conditions.push(isNull7(companies.salesApproachGeneratedAt));
   }
-  if (crmFilter === "in") conditions.push(companyInCrmExistsSql());
-  if (crmFilter === "not_in") conditions.push(sql`NOT ${companyInCrmExistsSql()}`);
+  if (crmFilter) conditions.push(companyCrmPresenceCondition(db, crmFilter));
   const whereClause = conditions.length > 0 ? and14(...conditions) : void 0;
   const result = await db.select({ total: count2() }).from(companies).where(whereClause);
   return result[0]?.total ?? 0;
@@ -1678,8 +1725,8 @@ async function getCompanyDatabaseCountries() {
 async function getCompanyDatabaseSectors() {
   const db = await getDb();
   if (!db) return [];
-  const { count: count2, isNotNull: isNotNull5, sql: sql8 } = await import("drizzle-orm");
-  const rows = await db.select({ sector: companies.sector, cnt: count2() }).from(companies).where(isNotNull5(companies.sector)).groupBy(companies.sector).orderBy(sql8`count(*) desc`).limit(100);
+  const { count: count2, isNotNull: isNotNull6, sql: sql8 } = await import("drizzle-orm");
+  const rows = await db.select({ sector: companies.sector, cnt: count2() }).from(companies).where(isNotNull6(companies.sector)).groupBy(companies.sector).orderBy(sql8`count(*) desc`).limit(100);
   return rows.filter((r) => r.sector && r.sector !== "null").map((r) => ({ sector: r.sector, count: Number(r.cnt) }));
 }
 async function getCompanyDatabaseBrains() {
@@ -1700,22 +1747,22 @@ async function getCompanyDatabaseBrains() {
 async function getCompanyDatabaseCgBusinessUnits() {
   const db = await getDb();
   if (!db) return [];
-  const { count: count2, isNotNull: isNotNull5, sql: sql8 } = await import("drizzle-orm");
-  const rows = await db.select({ bu: companies.cgBusinessUnit, cnt: count2() }).from(companies).where(isNotNull5(companies.cgBusinessUnit)).groupBy(companies.cgBusinessUnit).orderBy(sql8`count(*) desc`);
+  const { count: count2, isNotNull: isNotNull6, sql: sql8 } = await import("drizzle-orm");
+  const rows = await db.select({ bu: companies.cgBusinessUnit, cnt: count2() }).from(companies).where(isNotNull6(companies.cgBusinessUnit)).groupBy(companies.cgBusinessUnit).orderBy(sql8`count(*) desc`);
   return rows.map((r) => ({ bu: r.bu, count: Number(r.cnt) }));
 }
 async function getCompanyDatabaseCgLeadClasses() {
   const db = await getDb();
   if (!db) return [];
-  const { count: count2, isNotNull: isNotNull5, sql: sql8 } = await import("drizzle-orm");
-  const rows = await db.select({ cls: companies.cgLeadClass, cnt: count2() }).from(companies).where(isNotNull5(companies.cgLeadClass)).groupBy(companies.cgLeadClass).orderBy(sql8`count(*) desc`);
+  const { count: count2, isNotNull: isNotNull6, sql: sql8 } = await import("drizzle-orm");
+  const rows = await db.select({ cls: companies.cgLeadClass, cnt: count2() }).from(companies).where(isNotNull6(companies.cgLeadClass)).groupBy(companies.cgLeadClass).orderBy(sql8`count(*) desc`);
   return rows.map((r) => ({ cls: r.cls, count: Number(r.cnt) }));
 }
 async function getCompanyDatabaseCgLeadOrigins() {
   const db = await getDb();
   if (!db) return [];
-  const { count: count2, isNotNull: isNotNull5, sql: sql8 } = await import("drizzle-orm");
-  const rows = await db.select({ origin: companies.cgLeadOrigin, cnt: count2() }).from(companies).where(isNotNull5(companies.cgLeadOrigin)).groupBy(companies.cgLeadOrigin).orderBy(sql8`count(*) desc`);
+  const { count: count2, isNotNull: isNotNull6, sql: sql8 } = await import("drizzle-orm");
+  const rows = await db.select({ origin: companies.cgLeadOrigin, cnt: count2() }).from(companies).where(isNotNull6(companies.cgLeadOrigin)).groupBy(companies.cgLeadOrigin).orderBy(sql8`count(*) desc`);
   return rows.map((r) => ({ origin: r.origin, count: Number(r.cnt) }));
 }
 function normalizeCgCompanyName(s) {
@@ -1766,6 +1813,7 @@ var init_db = __esm({
     "use strict";
     init_schema();
     init_env();
+    init_normalizeCompanyDomain();
     _db = null;
     nicheDisplayColumns = {
       id: niches.id,
@@ -5452,7 +5500,7 @@ __export(supabaseSync_exports, {
 });
 import { createClient } from "@supabase/supabase-js";
 import { v5 as uuidv5 } from "uuid";
-import { eq as eq2, inArray, isNotNull } from "drizzle-orm";
+import { eq as eq2, inArray, isNotNull as isNotNull2 } from "drizzle-orm";
 function toUUID(prefix, id) {
   return uuidv5(`${prefix}-${id}`, LT_NAMESPACE);
 }
@@ -5640,7 +5688,7 @@ async function syncCompanyPagesToSupabase(appBaseUrl, batchSize = 300, offsetId 
   const db = await getDb();
   if (!db) return { synced: 0, errors: 0, message: "Database not available" };
   const { gt, and: and14 } = await import("drizzle-orm");
-  const rows = await db.select({ company: companies, search: searches }).from(companies).leftJoin(searches, eq2(companies.searchId, searches.id)).where(and14(isNotNull(companies.briefData), gt(companies.id, offsetId))).orderBy(companies.id).limit(batchSize);
+  const rows = await db.select({ company: companies, search: searches }).from(companies).leftJoin(searches, eq2(companies.searchId, searches.id)).where(and14(isNotNull2(companies.briefData), gt(companies.id, offsetId))).orderBy(companies.id).limit(batchSize);
   if (rows.length === 0) return { synced: 0, errors: 0, message: "No researched companies found" };
   const pageRows = rows.map(({ company, search }) => {
     const brief = company.briefData ? JSON.parse(company.briefData) : {};
@@ -10021,7 +10069,7 @@ var companyFinderRouter = router({
   getNurtureList: protectedProcedure.query(async ({ ctx }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { callOutcomes: callOutcomes2, companies: companies2, searches: searches3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq21, and: and14, isNotNull: isNotNull5, asc: asc2, desc: desc5, sql: sql8 } = await import("drizzle-orm");
+    const { eq: eq21, and: and14, isNotNull: isNotNull6, asc: asc2, desc: desc5, sql: sql8 } = await import("drizzle-orm");
     const db = await getDb2();
     if (!db) return { items: [] };
     const rows = await db.select({
@@ -10040,7 +10088,7 @@ var companyFinderRouter = router({
     }).from(callOutcomes2).innerJoin(companies2, eq21(callOutcomes2.companyId, companies2.id)).where(
       and14(
         eq21(callOutcomes2.userId, ctx.user.id),
-        isNotNull5(callOutcomes2.followUpDate)
+        isNotNull6(callOutcomes2.followUpDate)
       )
     ).orderBy(asc2(callOutcomes2.followUpDate));
     const seen = /* @__PURE__ */ new Set();
@@ -11404,7 +11452,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
    */
   getDatabaseHealth: protectedProcedure.query(async () => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-    const { count: count2, isNotNull: isNotNull5, sql: sql8, inArray: inArray13 } = await import("drizzle-orm");
+    const { count: count2, isNotNull: isNotNull6, sql: sql8, inArray: inArray13 } = await import("drizzle-orm");
     const { companies: companies2, searches: searches3, offeringBrain: offeringBrain2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const db = await getDb2();
     if (!db) return null;
@@ -11413,17 +11461,17 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
     const [enrichedRow] = await db.select({ n: count2() }).from(companies2).where(sql8`enrichmentStatus = 'enriched'`);
     const [failedRow] = await db.select({ n: count2() }).from(companies2).where(sql8`enrichmentStatus = 'failed'`);
     const [pendingRow] = await db.select({ n: count2() }).from(companies2).where(sql8`enrichmentStatus = 'pending'`);
-    const [simRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.similarityScore));
-    const [fitRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.fitScore));
-    const [urgSynthRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.urgencyScoreSynth));
-    const [urgNewsRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.urgencyScoreNews));
-    const [urgLLMRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.urgencyScoreLLM));
-    const [urgHITLRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.urgencyScoreHITL));
-    const [fitHITLRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.fitScoreHITL));
-    const [briefRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.briefGeneratedAt));
-    const [salesRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.salesApproachGeneratedAt));
-    const [contactsRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.contactsFetchedAt));
-    const [cgRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.cgImportedAt));
+    const [simRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.similarityScore));
+    const [fitRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.fitScore));
+    const [urgSynthRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.urgencyScoreSynth));
+    const [urgNewsRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.urgencyScoreNews));
+    const [urgLLMRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.urgencyScoreLLM));
+    const [urgHITLRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.urgencyScoreHITL));
+    const [fitHITLRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.fitScoreHITL));
+    const [briefRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.briefGeneratedAt));
+    const [salesRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.salesApproachGeneratedAt));
+    const [contactsRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.contactsFetchedAt));
+    const [cgRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.cgImportedAt));
     const [lastEnrichedRow] = await db.select({ ts: sql8`MAX(createdAt)` }).from(companies2).where(sql8`enrichmentStatus = 'enriched'`);
     const [lastFitRow] = await db.select({ ts: sql8`MAX(fitScoreGeneratedAt)` }).from(companies2);
     const [lastUrgSynthRow] = await db.select({ ts: sql8`MAX(urgencyScoreSynthGeneratedAt)` }).from(companies2);
@@ -11743,13 +11791,13 @@ Return ONLY: {"country": "XX" or null, "confidence": "high" | "medium" | "low"}`
     // optional: restrict to a specific campaign/run
   })).mutation(async ({ input }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-    const { eq: eq21, and: and14, or: or4, isNull: isNull7, isNotNull: isNotNull5 } = await import("drizzle-orm");
+    const { eq: eq21, and: and14, or: or4, isNull: isNull7, isNotNull: isNotNull6 } = await import("drizzle-orm");
     const { companies: companies2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const db = await getDb2();
     if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
     const whereClause = and14(
       or4(isNull7(companies2.country), eq21(companies2.country, "")),
-      isNotNull5(companies2.briefData),
+      isNotNull6(companies2.briefData),
       input.searchId !== void 0 ? eq21(companies2.searchId, input.searchId) : void 0
     );
     const batch = await db.select({ id: companies2.id, name: companies2.name, websiteUrl: companies2.websiteUrl, briefData: companies2.briefData, fitScoreData: companies2.fitScoreData, city: companies2.city, state: companies2.state, rawAddress: companies2.rawAddress, sourceCountryCode: companies2.sourceCountryCode }).from(companies2).where(whereClause).limit(input.limit);
@@ -15438,7 +15486,7 @@ var campaignQueueRouter = router({
 import { z as z8 } from "zod";
 init_db();
 init_schema();
-import { eq as eq11, and as and6, isNotNull as isNotNull2, sql as sql5 } from "drizzle-orm";
+import { eq as eq11, and as and6, isNotNull as isNotNull3, sql as sql5 } from "drizzle-orm";
 
 // server/leadinfoService.ts
 import * as XLSX2 from "xlsx";
@@ -15792,11 +15840,11 @@ var leadinfoRouter = router({
     const directRows = await db.select({ companyId: leadinfoVisits.companyId }).from(leadinfoVisits).where(
       and6(
         eq11(leadinfoVisits.searchId, input.searchId),
-        isNotNull2(leadinfoVisits.companyId)
+        isNotNull3(leadinfoVisits.companyId)
       )
     );
     const directIds = new Set(directRows.map((r) => r.companyId));
-    const allLeadinfoDomains = await db.select({ domain: leadinfoVisits.domain }).from(leadinfoVisits).where(isNotNull2(leadinfoVisits.domain)).groupBy(leadinfoVisits.domain);
+    const allLeadinfoDomains = await db.select({ domain: leadinfoVisits.domain }).from(leadinfoVisits).where(isNotNull3(leadinfoVisits.domain)).groupBy(leadinfoVisits.domain);
     const leadinfoDomainSet = new Set(
       allLeadinfoDomains.map((r) => r.domain).filter(Boolean)
     );
@@ -16712,9 +16760,9 @@ var shareExtRouter = router({
     const db = await getDb();
     if (!db) throw new Error("Database unavailable");
     const userId = ctx.user.id;
-    const { isNotNull: isNotNull5, gte: gteOp, inArray: inArrayOp } = await import("drizzle-orm");
+    const { isNotNull: isNotNull6, gte: gteOp, inArray: inArrayOp } = await import("drizzle-orm");
     const { searches: searches3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const conditions = [isNotNull5(companies.briefData)];
+    const conditions = [isNotNull6(companies.briefData)];
     if (input.campaignIds && input.campaignIds.length > 0) {
       conditions.push(inArrayOp(companies.searchId, input.campaignIds));
     }
@@ -18969,7 +19017,7 @@ init_db();
 init_schema();
 import { Router as Router4 } from "express";
 import * as XLSX4 from "xlsx";
-import { eq as eq15, and as and10, inArray as inArray9, isNotNull as isNotNull3 } from "drizzle-orm";
+import { eq as eq15, and as and10, inArray as inArray9, isNotNull as isNotNull4 } from "drizzle-orm";
 var router5 = Router4();
 router5.get("/", async (req, res) => {
   try {
@@ -18987,7 +19035,7 @@ router5.get("/", async (req, res) => {
       rows = await dbInstance.select().from(companies).where(
         and10(
           eq15(companies.searchId, Number(searchId)),
-          isNotNull3(companies.urgencyScore)
+          isNotNull4(companies.urgencyScore)
         )
       ).orderBy(companies.urgencyScore);
     } else {
@@ -19831,7 +19879,10 @@ router7.post("/", upload3.single("file"), async (req, res) => {
           if (byName.length > 0) existingId = byName[0].id;
         }
         if (existingId) {
-          await db.update(companies).set(cgFields).where(eq17(companies.id, existingId));
+          await db.update(companies).set({
+            ...cgFields,
+            ...domain ? { normalizedDomain: domain } : {}
+          }).where(eq17(companies.id, existingId));
           updated++;
           const contactEmail = (row["Email"] || "").trim();
           const contactFirstName = (row["Contact Name"] || "").trim();
@@ -19881,6 +19932,7 @@ router7.post("/", upload3.single("file"), async (req, res) => {
             name: companyName,
             websiteUrl: websiteRaw || null,
             primaryDomain: domain,
+            normalizedDomain: domain,
             country,
             city: row["City"] || null,
             streetAddress: row["HQ Address"] || null,

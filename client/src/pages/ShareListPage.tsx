@@ -360,6 +360,42 @@ export default function ShareListPage() {
         </div>
       </div>
 
+      {/* -- Sales Intro Banner -- */}
+      <div className="bg-amber-50 border-b-2 border-amber-300">
+        <div className="max-w-7xl mx-auto px-6 py-5">
+          <div className="flex items-start gap-4">
+            <div className="text-2xl mt-0.5">⚡</div>
+            <div>
+              <h2 className="text-sm font-black uppercase tracking-widest text-amber-800 mb-1">How to use this list</h2>
+              <p className="text-sm text-gray-700 leading-relaxed max-w-3xl">
+                This list was prepared for you by the <span className="font-bold">LeadTrigger intelligence platform</span> — 
+                an AI system that continuously scans thousands of companies, scores them on strategic fit and buying urgency, 
+                and surfaces the ones most likely to convert right now.
+              </p>
+              <p className="text-sm text-gray-700 leading-relaxed max-w-3xl mt-2">
+                Each company below has been <span className="font-bold">researched, scored, and enriched</span> with a tailored brief, 
+                urgency signals, and a suggested conversation starter. 
+                Click any company to open its full intelligence card — then use the approach to start the conversation.
+              </p>
+              <div className="flex flex-wrap gap-4 mt-3">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-gray-600">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-green-500 text-white text-[10px] font-black">F</span>
+                  FIT — how well the company matches our offering
+                </div>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-gray-600">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-orange-500 text-white text-[10px] font-black">U</span>
+                  URGENCY — recent signals that suggest they are buying now
+                </div>
+                <div className="flex items-center gap-1.5 text-xs font-bold text-gray-600">
+                  <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-blue-500 text-white text-[10px] font-black">→</span>
+                  Click a row to open the full brief and outreach approach
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* -- Filter & sort toolbar -- */}
       <div className="bg-white border-b border-gray-200 sticky top-[57px] z-30">
         <div className="max-w-7xl mx-auto px-6 py-3 flex items-center gap-4 flex-wrap">

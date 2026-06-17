@@ -1,5 +1,11 @@
 var __defProp = Object.defineProperty;
 var __getOwnPropNames = Object.getOwnPropertyNames;
+var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require !== "undefined") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
 var __esm = (fn, res) => function __init() {
   return fn && (res = (0, fn[__getOwnPropNames(fn)[0]])(fn = 0)), res;
 };
@@ -15,8 +21,10 @@ __export(schema_exports, {
   batchJobs: () => batchJobs,
   bomCalculations: () => bomCalculations,
   bomItems: () => bomItems,
+  brainShareTokens: () => brainShareTokens,
   callOutcomes: () => callOutcomes,
   campaignQueue: () => campaignQueue,
+  cgLeads: () => cgLeads,
   codeDescriptions: () => codeDescriptions,
   companies: () => companies,
   companyBrainOutputs: () => companyBrainOutputs,
@@ -27,12 +35,21 @@ __export(schema_exports, {
   niches: () => niches,
   offeringBrain: () => offeringBrain,
   prototypeRequests: () => prototypeRequests,
+  salesMaterials: () => salesMaterials,
   salesPackages: () => salesPackages,
   searches: () => searches,
+  shareAccessLog: () => shareAccessLog,
+  shareAllowedDomains: () => shareAllowedDomains,
+  shareContactRetrievalLog: () => shareContactRetrievalLog,
+  shareFeedback: () => shareFeedback,
+  shareListItems: () => shareListItems,
+  shareLists: () => shareLists,
+  shareTokens: () => shareTokens,
+  shareVisitors: () => shareVisitors,
   users: () => users
 });
 import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, tinyint, decimal } from "drizzle-orm/mysql-core";
-var users, searches, companies, salesPackages, companyDecisions, excludedCodes, codeDescriptions, contacts, offeringBrain, callOutcomes, niches, batchJobs, prototypeRequests, bomItems, bomCalculations, campaignQueue, leadinfoVisits, apolloWebhookLogs, companyBrainOutputs;
+var users, searches, companies, salesPackages, companyDecisions, excludedCodes, codeDescriptions, contacts, offeringBrain, callOutcomes, niches, batchJobs, prototypeRequests, bomItems, bomCalculations, campaignQueue, leadinfoVisits, apolloWebhookLogs, companyBrainOutputs, salesMaterials, shareTokens, shareLists, shareListItems, shareAccessLog, shareFeedback, shareAllowedDomains, brainShareTokens, shareVisitors, shareContactRetrievalLog, cgLeads;
 var init_schema = __esm({
   "drizzle/schema.ts"() {
     "use strict";
@@ -47,7 +64,7 @@ var init_schema = __esm({
       name: text("name"),
       email: varchar("email", { length: 320 }),
       loginMethod: varchar("loginMethod", { length: 64 }),
-      role: mysqlEnum("role", ["user", "admin"]).default("user").notNull(),
+      role: mysqlEnum("role", ["user", "admin", "super_admin"]).default("user").notNull(),
       createdAt: timestamp("createdAt").defaultNow().notNull(),
       updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
       lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull()
@@ -119,14 +136,41 @@ var init_schema = __esm({
       // JSON array of NAICS codes
       sliceMetadata: text("sliceMetadata"),
       // JSON object: { employeeBand, industry, keywordSet, matchedKeywords }
+      sector: varchar("sector", { length: 255 }),
+      // Extracted from sliceMetadata.industry — dedicated column for fast filtering
       sourceCountryCode: varchar("sourceCountryCode", { length: 8 }),
       // ISO-2 country code from conference scraper (e.g. "NL", "DE")
       urgencyScore: int("urgencyScore"),
-      // 0-100 urgency score from Grok analysis
+      // 0-100 urgency score: ABC scenario match (cosine vs scenario centroid) — high = known trigger pattern applies
+      urgencyScoreGeneratedAt: timestamp("urgencyScoreGeneratedAt"),
+      // legacy — will be migrated to urgencyScoreSynth
+      // ── Three-Tier Urgency Scoring ─────────────────────────────────────────────
+      // Tier 1: ABC scenario cosine match (fast, zero LLM cost)
+      urgencyScoreSynth: int("urgencyScoreSynth"),
+      urgencyScoreSynthGeneratedAt: timestamp("urgencyScoreSynthGeneratedAt"),
+      // Tier 1b: News embedding similarity — Serper news snippet → embed → cosine vs ABC centroid
+      urgencyScoreNews: int("urgencyScoreNews"),
+      urgencyScoreNewsGeneratedAt: timestamp("urgencyScoreNewsGeneratedAt"),
+      // Tier 2: LLM-based urgency analysis via Grok (on-demand)
+      urgencyScoreLLM: int("urgencyScoreLLM"),
+      urgencyScoreLLMGeneratedAt: timestamp("urgencyScoreLLMGeneratedAt"),
+      // Tier 3: Human-in-the-loop override (ground truth for model calibration)
+      urgencyScoreHITL: int("urgencyScoreHITL"),
+      urgencyScoreHITLUpdatedAt: timestamp("urgencyScoreHITLUpdatedAt"),
+      urgencyScoreHITLNote: text("urgencyScoreHITLNote"),
+      // ── Three-Tier Fit Scoring ─────────────────────────────────────────────────
+      // Tier 1: SIM = cosine similarity vs Brain ICP embedding (fast, zero LLM cost)
+      similarityScore: int("similarityScore"),
+      similarityScoreGeneratedAt: timestamp("similarityScoreGeneratedAt"),
+      // Tier 2: LLM deep-analysis fit score via Grok (on-demand)
       fitScore: int("fitScore"),
-      // 0-100 fit score from Grok ICP analysis
       fitScoreData: text("fitScoreData"),
-      // JSON-stringified FitScoreResult (breakdown + rationale)
+      fitScoreGeneratedAt: timestamp("fitScoreGeneratedAt"),
+      fitScoreSource: varchar("fitScoreSource", { length: 10 }),
+      // 'embed' | 'llm' — how the fitScore was produced
+      fitScoreHITL: int("fitScoreHITL"),
+      fitScoreHITLUpdatedAt: timestamp("fitScoreHITLUpdatedAt"),
+      fitScoreHITLNote: text("fitScoreHITLNote"),
       briefData: text("briefData"),
       // JSON-stringified SalesIntelligenceBrief (Deep Research)
       briefGeneratedAt: timestamp("briefGeneratedAt"),
@@ -158,6 +202,44 @@ var init_schema = __esm({
       // Niche cluster assignment (set during Phase 1 seed clustering or Phase 2 proximity assignment)
       // Note: FK constraint added via SQL migration to avoid circular reference in schema definition
       nicheId: int("nicheId"),
+      contactsFetchedAt: timestamp("contactsFetchedAt"),
+      // When all personnel were last fetched from Apollo
+      // Connect Group CRM fields — populated from SharePoint lead list import
+      cgBusinessUnit: varchar("cgBusinessUnit", { length: 128 }),
+      // BU: DACH & EE, Benelux & FR, Spain, Mexico, China
+      cgSalesManager: varchar("cgSalesManager", { length: 256 }),
+      // Sales manager email from CG CRM
+      cgLeadClass: varchar("cgLeadClass", { length: 64 }),
+      // Lead / Suspect / Customer
+      cgLeadOrigin: varchar("cgLeadOrigin", { length: 256 }),
+      // Fair / Network / Market Research etc.
+      cgMarket: varchar("cgMarket", { length: 256 }),
+      // Market segment from CG CRM (Industry, Healthcare, Defence etc.)
+      cgComment: text("cgComment"),
+      // Free-text comment from CRM
+      cgRemarks: text("cgRemarks"),
+      // Additional remarks from CRM
+      cgSharepointId: varchar("cgSharepointId", { length: 64 }),
+      // Original SharePoint list item ID for dedup/sync
+      cgImportedAt: timestamp("cgImportedAt"),
+      // When this row was last synced from the CG lead list
+      // CG contact-level fields (from SharePoint lead list — one primary contact per company row)
+      cgParentCompany: varchar("cgParentCompany", { length: 512 }),
+      // Parent company name from CRM
+      cgContactGender: varchar("cgContactGender", { length: 16 }),
+      // M / F / blank
+      cgContactFirstName: varchar("cgContactFirstName", { length: 128 }),
+      // Contact first name
+      cgContactLastName: varchar("cgContactLastName", { length: 128 }),
+      // Contact last name
+      cgContactPosition: varchar("cgContactPosition", { length: 256 }),
+      // Job title
+      cgContactPhone: varchar("cgContactPhone", { length: 64 }),
+      // Direct phone
+      cgContactEmail: varchar("cgContactEmail", { length: 256 }),
+      // Direct email
+      cgHqAddress: varchar("cgHqAddress", { length: 512 }),
+      // Full HQ address string from CRM
       createdAt: timestamp("createdAt").defaultNow().notNull()
     });
     salesPackages = mysqlTable("salesPackages", {
@@ -238,6 +320,8 @@ var init_schema = __esm({
       // Ideal company size range
       icpGeography: text("icpGeography"),
       // Target geographies
+      geographyWeights: text("geographyWeights"),
+      // JSON: { eu: 1.0, us: 0.95, apac: 0.75, china: 0.40, other: 0.65 } — multipliers applied after LLM fit score
       icpPainPoints: text("icpPainPoints"),
       // JSON array of pain points the offering solves
       icpBuyingSignals: text("icpBuyingSignals"),
@@ -329,6 +413,7 @@ var init_schema = __esm({
       totalCompanies: int("totalCompanies").default(0).notNull(),
       // Total companies in this job's queue
       enriched: int("enriched").default(0).notNull(),
+      fitScored: int("fitScored").default(0).notNull(),
       researched: int("researched").default(0).notNull(),
       approached: int("approached").default(0).notNull(),
       failed: int("failed").default(0).notNull(),
@@ -426,7 +511,7 @@ var init_schema = __esm({
       companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
       userId: int("userId").notNull().references(() => users.id),
       companyName: varchar("companyName", { length: 512 }).notNull(),
-      jobType: mysqlEnum("jobType", ["full", "brief_only"]).default("full").notNull(),
+      jobType: mysqlEnum("jobType", ["full", "brief_only", "score_only", "score_urgency_only", "outreach_only"]).default("full").notNull(),
       status: mysqlEnum("status", ["pending", "running", "completed", "failed"]).default("pending").notNull(),
       errorMessage: text("errorMessage"),
       startedAt: timestamp("startedAt"),
@@ -520,6 +605,110 @@ var init_schema = __esm({
       createdAt: timestamp("createdAt").defaultNow().notNull(),
       updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
     });
+    salesMaterials = mysqlTable("sales_materials", {
+      id: int("id").autoincrement().primaryKey(),
+      uploadedBy: int("uploadedBy").notNull().references(() => users.id),
+      title: varchar("title", { length: 256 }).notNull(),
+      description: text("description"),
+      fileName: varchar("fileName", { length: 512 }).notNull(),
+      fileKey: varchar("fileKey", { length: 512 }).notNull(),
+      fileUrl: text("fileUrl").notNull(),
+      fileSize: int("fileSize"),
+      // bytes
+      mimeType: varchar("mimeType", { length: 128 }),
+      category: varchar("category", { length: 128 }),
+      // e.g. "Railway", "Automotive", "General"
+      sortOrder: int("sortOrder").default(0),
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull()
+    });
+    shareTokens = mysqlTable("share_tokens", {
+      id: int("id").autoincrement().primaryKey(),
+      token: varchar("token", { length: 64 }).notNull().unique(),
+      companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
+      brainId: int("brainId").notNull().references(() => offeringBrain.id, { onDelete: "cascade" }),
+      createdBy: int("createdBy").notNull().references(() => users.id),
+      // Optional label for the share list this token belongs to
+      shareListName: varchar("shareListName", { length: 256 }),
+      // Pre-rendered image URLs (JSON array) — avoids Serper API call on every page visit
+      cachedImages: text("cachedImages"),
+      // When the cache was last refreshed
+      cachedAt: timestamp("cachedAt"),
+      createdAt: timestamp("createdAt").defaultNow().notNull()
+    });
+    shareLists = mysqlTable("share_lists", {
+      id: int("id").autoincrement().primaryKey(),
+      listToken: varchar("listToken", { length: 64 }).notNull().unique(),
+      shareListName: varchar("shareListName", { length: 256 }),
+      createdBy: int("createdBy").notNull().references(() => users.id),
+      createdAt: timestamp("createdAt").defaultNow().notNull(),
+      brainId: int("brainId").references(() => offeringBrain.id, { onDelete: "set null" })
+    });
+    shareListItems = mysqlTable("share_list_items", {
+      id: int("id").autoincrement().primaryKey(),
+      shareListId: int("shareListId").notNull().references(() => shareLists.id, { onDelete: "cascade" }),
+      shareTokenId: int("shareTokenId").notNull().references(() => shareTokens.id, { onDelete: "cascade" })
+    });
+    shareAccessLog = mysqlTable("share_access_log", {
+      id: int("id").autoincrement().primaryKey(),
+      email: varchar("email", { length: 320 }).notNull(),
+      domain: varchar("domain", { length: 128 }).notNull(),
+      tokenType: mysqlEnum("tokenType", ["company", "list", "brain"]).notNull(),
+      tokenValue: varchar("tokenValue", { length: 64 }).notNull(),
+      accessGranted: tinyint("accessGranted").notNull().default(0),
+      ipAddress: varchar("ipAddress", { length: 64 }),
+      createdAt: timestamp("createdAt").defaultNow().notNull()
+    });
+    shareFeedback = mysqlTable("share_feedback", {
+      id: int("id").autoincrement().primaryKey(),
+      shareToken: varchar("shareToken", { length: 200 }).notNull(),
+      companyId: int("companyId").references(() => companies.id, { onDelete: "set null" }),
+      companyName: varchar("companyName", { length: 300 }),
+      rating: mysqlEnum("rating", ["thumbs_up", "thumbs_down", "neutral"]),
+      comment: text("comment"),
+      submitterName: varchar("submitterName", { length: 200 }),
+      submitterEmail: varchar("submitterEmail", { length: 200 }),
+      submittedAt: timestamp("submittedAt").defaultNow().notNull()
+    });
+    shareAllowedDomains = mysqlTable("share_allowed_domains", {
+      id: int("id").autoincrement().primaryKey(),
+      domain: varchar("domain", { length: 128 }).notNull().unique(),
+      addedBy: int("addedBy").references(() => users.id),
+      createdAt: timestamp("createdAt").defaultNow().notNull()
+    });
+    brainShareTokens = mysqlTable("brain_share_tokens", {
+      id: int("id").autoincrement().primaryKey(),
+      token: varchar("token", { length: 64 }).notNull().unique(),
+      brainId: int("brainId").notNull().references(() => offeringBrain.id, { onDelete: "cascade" }),
+      createdBy: int("createdBy").notNull().references(() => users.id),
+      createdAt: timestamp("createdAt").defaultNow().notNull()
+    });
+    shareVisitors = mysqlTable("share_visitors", {
+      id: int("id").autoincrement().primaryKey(),
+      email: varchar("email", { length: 320 }).notNull().unique(),
+      firstSeen: timestamp("firstSeen").defaultNow().notNull(),
+      lastSeen: timestamp("lastSeen").defaultNow().onUpdateNow().notNull(),
+      accessCount: int("accessCount").default(1).notNull()
+    });
+    shareContactRetrievalLog = mysqlTable("share_contact_retrieval_log", {
+      id: int("id").autoincrement().primaryKey(),
+      visitorEmail: varchar("visitorEmail", { length: 320 }).notNull(),
+      domain: varchar("domain", { length: 128 }).notNull(),
+      shareToken: varchar("shareToken", { length: 64 }).notNull(),
+      companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
+      companyName: varchar("companyName", { length: 300 }),
+      actionType: mysqlEnum("actionType", ["decision_makers", "all_personnel"]).notNull(),
+      contactsReturned: int("contactsReturned").notNull().default(0),
+      createdAt: timestamp("createdAt").defaultNow().notNull()
+    });
+    cgLeads = mysqlTable("lt_mns_cg_leads", {
+      id: int("id").primaryKey(),
+      companyName: text("company_name").notNull(),
+      website: text("website"),
+      domain: text("domain"),
+      sharepointUrl: text("sharepoint_url").notNull(),
+      createdAt: timestamp("created_at").defaultNow()
+    });
   }
 });
 
@@ -551,6 +740,7 @@ __export(db_exports, {
   archiveSearch: () => archiveSearch,
   countCompaniesByNicheId: () => countCompaniesByNicheId,
   countCompaniesBySearchId: () => countCompaniesBySearchId,
+  countCompanyDatabase: () => countCompanyDatabase,
   countWebhookLogs: () => countWebhookLogs,
   createBatchJob: () => createBatchJob,
   createCompanies: () => createCompanies,
@@ -564,6 +754,7 @@ __export(db_exports, {
   deleteNichesByParentId: () => deleteNichesByParentId,
   deleteNichesBySearchId: () => deleteNichesBySearchId,
   deleteOfferingBrain: () => deleteOfferingBrain,
+  findCgLead: () => findCgLead,
   getActiveBrain: () => getActiveBrain,
   getAllBrainOutputsForCompany: () => getAllBrainOutputsForCompany,
   getBatchJob: () => getBatchJob,
@@ -573,9 +764,18 @@ __export(db_exports, {
   getCompaniesByNicheId: () => getCompaniesByNicheId,
   getCompaniesBySearchId: () => getCompaniesBySearchId,
   getCompaniesBySearchIdPaged: () => getCompaniesBySearchIdPaged,
+  getCompaniesBySearchIdRaw: () => getCompaniesBySearchIdRaw,
   getCompanyBrainOutput: () => getCompanyBrainOutput,
   getCompanyBrainOutputsForSearch: () => getCompanyBrainOutputsForSearch,
   getCompanyById: () => getCompanyById,
+  getCompanyDatabase: () => getCompanyDatabase,
+  getCompanyDatabaseBrains: () => getCompanyDatabaseBrains,
+  getCompanyDatabaseCgBusinessUnits: () => getCompanyDatabaseCgBusinessUnits,
+  getCompanyDatabaseCgLeadClasses: () => getCompanyDatabaseCgLeadClasses,
+  getCompanyDatabaseCgLeadOrigins: () => getCompanyDatabaseCgLeadOrigins,
+  getCompanyDatabaseCountries: () => getCompanyDatabaseCountries,
+  getCompanyDatabaseSearches: () => getCompanyDatabaseSearches,
+  getCompanyDatabaseSectors: () => getCompanyDatabaseSectors,
   getCompanyDecision: () => getCompanyDecision,
   getContactByApolloPersonId: () => getContactByApolloPersonId,
   getContactByCompanyId: () => getContactByCompanyId,
@@ -590,6 +790,9 @@ __export(db_exports, {
   getNichesByParentId: () => getNichesByParentId,
   getNichesBySearchId: () => getNichesBySearchId,
   getNichesByUserId: () => getNichesByUserId,
+  getNichesLightByParentId: () => getNichesLightByParentId,
+  getNichesLightBySearchId: () => getNichesLightBySearchId,
+  getNichesLightByUserId: () => getNichesLightByUserId,
   getOfferingBrainById: () => getOfferingBrainById,
   getPendingCompaniesBySearchId: () => getPendingCompaniesBySearchId,
   getPreviousOffering: () => getPreviousOffering,
@@ -599,6 +802,7 @@ __export(db_exports, {
   getUserSearches: () => getUserSearches,
   getWebhookLogs: () => getWebhookLogs,
   insertWebhookLog: () => insertWebhookLog,
+  normalizeCgCompanyName: () => normalizeCgCompanyName,
   removeExcludedCode: () => removeExcludedCode,
   saveBomCalculation: () => saveBomCalculation,
   setContactPhonePending: () => setContactPhonePending,
@@ -615,7 +819,7 @@ __export(db_exports, {
   upsertCompanyBrainOutput: () => upsertCompanyBrainOutput,
   upsertUser: () => upsertUser
 });
-import { eq, and, or, desc } from "drizzle-orm";
+import { eq, and, or, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 async function getDb() {
   if (!_db && process.env.DATABASE_URL) {
@@ -660,7 +864,6 @@ async function upsertUser(user) {
       updateSet.role = user.role;
     } else if (user.openId === ENV.ownerOpenId) {
       values.role = "admin";
-      updateSet.role = "admin";
     }
     if (!values.lastSignedIn) {
       values.lastSignedIn = /* @__PURE__ */ new Date();
@@ -699,8 +902,9 @@ async function updateSearch(id, updates) {
 async function getSearchById(id) {
   const db = await getDb();
   if (!db) return void 0;
-  const result = await db.select().from(searches).where(eq(searches.id, id)).limit(1);
-  return result[0];
+  const result = await db.select({ search: searches, brainName: offeringBrain.brainName }).from(searches).leftJoin(offeringBrain, eq(searches.brainId, offeringBrain.id)).where(eq(searches.id, id)).limit(1);
+  if (!result[0]) return void 0;
+  return { ...result[0].search, brainName: result[0].brainName ?? null };
 }
 async function getUserSearches(userId, showArchived = false) {
   const db = await getDb();
@@ -745,7 +949,7 @@ async function getCompaniesBySearchId(searchId) {
   return db.select().from(companies).where(eq(companies.searchId, searchId));
 }
 async function getCompaniesBySearchIdPaged(searchId, limit = 100, offset = 0) {
-  const { desc: desc4 } = await import("drizzle-orm");
+  const { desc: desc5 } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return [];
   return db.select({
@@ -791,17 +995,47 @@ async function getCompaniesBySearchIdPaged(searchId, limit = 100, offset = 0) {
     // briefData and salesApproachData are intentionally excluded from the list
     // query to keep the payload small (~200KB vs 8MB). The quick-view modal
     // and company detail pages fetch them on demand via getCompany.
-  }).from(companies).where(eq(companies.searchId, searchId)).orderBy(desc4(companies.fitScore), desc4(companies.urgencyScore)).limit(limit).offset(offset);
+  }).from(companies).where(eq(companies.searchId, searchId)).orderBy(desc5(companies.fitScore), desc5(companies.urgencyScore)).limit(limit).offset(offset);
 }
-async function countCompaniesBySearchId(searchId) {
-  const { count: count2 } = await import("drizzle-orm");
+async function getCompaniesBySearchIdRaw(searchId, limit, offset, sortBy = "id", sortDir = "asc", search) {
+  const { asc: asc2, desc: desc5, like, and: and14 } = await import("drizzle-orm");
+  const db = await getDb();
+  if (!db) return [];
+  const searchCondition = search ? like(companies.name, `%${search}%`) : void 0;
+  const whereClause = searchCondition ? and14(eq(companies.searchId, searchId), searchCondition) : eq(companies.searchId, searchId);
+  const colMap = {
+    name: companies.name,
+    country: companies.country,
+    city: companies.city,
+    id: companies.id,
+    fitScore: companies.fitScore
+  };
+  const col2 = colMap[sortBy] ?? companies.id;
+  const orderExpr = sortDir === "desc" ? desc5(col2) : asc2(col2);
+  return db.select({
+    id: companies.id,
+    name: companies.name,
+    websiteUrl: companies.websiteUrl,
+    city: companies.city,
+    state: companies.state,
+    country: companies.country,
+    enrichmentStatus: companies.enrichmentStatus,
+    sliceMetadata: companies.sliceMetadata,
+    fitScore: companies.fitScore,
+    fitScoreData: companies.fitScoreData,
+    createdAt: companies.createdAt
+  }).from(companies).where(whereClause).orderBy(orderExpr).limit(limit).offset(offset);
+}
+async function countCompaniesBySearchId(searchId, search) {
+  const { count: count2, like, and: and14 } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return 0;
-  const result = await db.select({ total: count2() }).from(companies).where(eq(companies.searchId, searchId));
+  const whereClause = search ? and14(eq(companies.searchId, searchId), like(companies.name, `%${search}%`)) : eq(companies.searchId, searchId);
+  const result = await db.select({ total: count2() }).from(companies).where(whereClause);
   return result[0]?.total ?? 0;
 }
 async function getCompaniesByNicheId(nicheId, limit = 500, offset = 0) {
-  const { and: and10 } = await import("drizzle-orm");
+  const { and: and14 } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return [];
   return db.select({
@@ -839,11 +1073,11 @@ async function updateCompany(id, updates) {
   await db.update(companies).set(updates).where(eq(companies.id, id));
 }
 async function getPendingCompaniesBySearchId(searchId) {
-  const { and: and10 } = await import("drizzle-orm");
+  const { and: and14 } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return [];
   return db.select().from(companies).where(
-    and10(eq(companies.searchId, searchId), eq(companies.enrichmentStatus, "pending"))
+    and14(eq(companies.searchId, searchId), eq(companies.enrichmentStatus, "pending"))
   );
 }
 async function createSalesPackage(pkg) {
@@ -1078,6 +1312,21 @@ async function getNichesByUserId(userId) {
   if (!db) return [];
   return db.select().from(niches).where(eq(niches.userId, userId)).orderBy(desc(niches.fitScore));
 }
+async function getNichesLightBySearchId(searchId) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select(nicheDisplayColumns).from(niches).where(eq(niches.searchId, searchId)).orderBy(desc(niches.fitScore));
+}
+async function getNichesLightByUserId(userId) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select(nicheDisplayColumns).from(niches).where(eq(niches.userId, userId)).orderBy(desc(niches.fitScore));
+}
+async function getNichesLightByParentId(parentNicheId) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select(nicheDisplayColumns).from(niches).where(eq(niches.parentNicheId, parentNicheId)).orderBy(desc(niches.fitScore));
+}
 async function getNicheById(id) {
   const db = await getDb();
   if (!db) return null;
@@ -1184,16 +1433,16 @@ async function upsertCompanyBrainOutput(companyId, brainId, updates) {
 async function getCompanyBrainOutput(companyId, brainId) {
   const db = await getDb();
   if (!db) return null;
-  const { and: and10 } = await import("drizzle-orm");
-  const rows = await db.select().from(companyBrainOutputs).where(and10(eq(companyBrainOutputs.companyId, companyId), eq(companyBrainOutputs.brainId, brainId))).limit(1);
+  const { and: and14 } = await import("drizzle-orm");
+  const rows = await db.select().from(companyBrainOutputs).where(and14(eq(companyBrainOutputs.companyId, companyId), eq(companyBrainOutputs.brainId, brainId))).limit(1);
   return rows[0] ?? null;
 }
 async function getCompanyBrainOutputsForSearch(companyIds, brainId) {
   const db = await getDb();
   const map = /* @__PURE__ */ new Map();
   if (!db || companyIds.length === 0) return map;
-  const { inArray: inArray9, and: and10 } = await import("drizzle-orm");
-  const rows = await db.select().from(companyBrainOutputs).where(and10(inArray9(companyBrainOutputs.companyId, companyIds), eq(companyBrainOutputs.brainId, brainId)));
+  const { inArray: inArray13, and: and14 } = await import("drizzle-orm");
+  const rows = await db.select().from(companyBrainOutputs).where(and14(inArray13(companyBrainOutputs.companyId, companyIds), eq(companyBrainOutputs.brainId, brainId)));
   for (const row of rows) map.set(row.companyId, row);
   return map;
 }
@@ -1220,13 +1469,324 @@ async function getAllBrainOutputsForCompany(companyId) {
   ));
   return rows;
 }
-var _db;
+function companyInCrmExistsSql() {
+  return sql`EXISTS (
+    SELECT 1 FROM lt_mns_cg_leads cg
+    WHERE (
+      ${companies.cgSharepointId} IS NOT NULL
+      AND ${companies.cgSharepointId} REGEXP '^[0-9]+$'
+      AND cg.id = CAST(${companies.cgSharepointId} AS UNSIGNED)
+    ) OR (
+      ${companies.primaryDomain} IS NOT NULL
+      AND ${companies.primaryDomain} != ''
+      AND cg.domain = LOWER(REPLACE(TRIM(${companies.primaryDomain}), 'www.', ''))
+    ) OR (
+      ${companies.websiteUrl} IS NOT NULL
+      AND ${companies.websiteUrl} != ''
+      AND cg.domain IS NOT NULL
+      AND cg.domain = LOWER(
+        SUBSTRING_INDEX(
+          SUBSTRING_INDEX(
+            REPLACE(REPLACE(REPLACE(TRIM(${companies.websiteUrl}), 'https://', ''), 'http://', ''), 'www.', ''),
+            '/', 1
+          ),
+          ':', 1
+        )
+      )
+    )
+  )`;
+}
+async function getCompanyDatabase(opts) {
+  const { asc: asc2, desc: desc5, like, and: and14, gte: gte2, isNotNull: isNotNull5, isNull: isNull7, inArray: inArray13, sql: _sql } = await import("drizzle-orm");
+  const db = await getDb();
+  if (!db) return [];
+  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, searchIds, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin, crmFilter } = opts;
+  const conditions = [];
+  if (search) conditions.push(like(companies.name, `%${search}%`));
+  if (searchIds && searchIds.length > 0) conditions.push(inArray13(companies.searchId, searchIds));
+  else if (searchId) conditions.push(eq(companies.searchId, searchId));
+  if (country) conditions.push(eq(companies.country, country));
+  else if (countries && countries.length > 0) conditions.push(inArray13(companies.country, countries));
+  if (sector) conditions.push(eq(companies.sector, sector));
+  if (minFitScore !== void 0) conditions.push(gte2(companies.fitScore, minFitScore));
+  if (hasFitScore) conditions.push(isNotNull5(companies.fitScore));
+  if (brainId) conditions.push(
+    inArray13(
+      companies.id,
+      db.select({ id: companyBrainOutputs.companyId }).from(companyBrainOutputs).where(eq(companyBrainOutputs.brainId, brainId))
+    )
+  );
+  if (cgBusinessUnit) conditions.push(eq(companies.cgBusinessUnit, cgBusinessUnit));
+  if (cgLeadClass) conditions.push(eq(companies.cgLeadClass, cgLeadClass));
+  if (cgLeadOrigin) conditions.push(eq(companies.cgLeadOrigin, cgLeadOrigin));
+  if (articleFilter === "brief") conditions.push(isNotNull5(companies.briefGeneratedAt));
+  if (articleFilter === "approach") conditions.push(isNotNull5(companies.salesApproachGeneratedAt));
+  if (articleFilter === "both") {
+    conditions.push(isNotNull5(companies.briefGeneratedAt));
+    conditions.push(isNotNull5(companies.salesApproachGeneratedAt));
+  }
+  if (articleFilter === "none") {
+    conditions.push(isNull7(companies.briefGeneratedAt));
+    conditions.push(isNull7(companies.salesApproachGeneratedAt));
+  }
+  if (crmFilter === "in") conditions.push(companyInCrmExistsSql());
+  if (crmFilter === "not_in") conditions.push(sql`NOT ${companyInCrmExistsSql()}`);
+  const whereClause = conditions.length > 0 ? and14(...conditions) : void 0;
+  const colMap = {
+    name: companies.name,
+    country: companies.country,
+    city: companies.city,
+    fitScore: companies.fitScore,
+    similarityScore: companies.similarityScore,
+    urgencyScore: companies.urgencyScore,
+    urgencyScoreSynth: companies.urgencyScoreSynth,
+    urgencyScoreNews: companies.urgencyScoreNews,
+    urgencyScoreLLM: companies.urgencyScoreLLM,
+    createdAt: companies.createdAt,
+    searchId: companies.searchId,
+    briefGeneratedAt: companies.briefGeneratedAt,
+    salesApproachGeneratedAt: companies.salesApproachGeneratedAt,
+    brainName: companies.generatedWithBrainName
+  };
+  const col2 = colMap[sortBy] ?? companies.fitScore;
+  const orderExpr = sortDir === "desc" ? desc5(col2) : asc2(col2);
+  const rows = await db.select({
+    id: companies.id,
+    searchId: companies.searchId,
+    name: companies.name,
+    websiteUrl: companies.websiteUrl,
+    primaryDomain: companies.primaryDomain,
+    city: companies.city,
+    country: companies.country,
+    sliceMetadata: companies.sliceMetadata,
+    fitScore: companies.fitScore,
+    fitScoreData: companies.fitScoreData,
+    fitScoreSource: companies.fitScoreSource,
+    similarityScore: companies.similarityScore,
+    similarityScoreGeneratedAt: companies.similarityScoreGeneratedAt,
+    urgencyScore: companies.urgencyScore,
+    urgencyScoreSynth: companies.urgencyScoreSynth,
+    urgencyScoreSynthGeneratedAt: companies.urgencyScoreSynthGeneratedAt,
+    urgencyScoreNews: companies.urgencyScoreNews,
+    urgencyScoreNewsGeneratedAt: companies.urgencyScoreNewsGeneratedAt,
+    urgencyScoreLLM: companies.urgencyScoreLLM,
+    urgencyScoreLLMGeneratedAt: companies.urgencyScoreLLMGeneratedAt,
+    urgencyScoreHITL: companies.urgencyScoreHITL,
+    enrichmentStatus: companies.enrichmentStatus,
+    createdAt: companies.createdAt,
+    // Article status from companies table (legacy + current)
+    briefGeneratedAt: companies.briefGeneratedAt,
+    salesApproachGeneratedAt: companies.salesApproachGeneratedAt,
+    callReadinessSummary: companies.callReadinessSummary,
+    // Sector (dedicated column, backfilled from sliceMetadata.industry)
+    sector: companies.sector,
+    // Brain used for last generation (denormalised for fast display)
+    generatedWithBrainId: companies.generatedWithBrainId,
+    generatedWithBrainName: companies.generatedWithBrainName,
+    // All brain names from company_brain_outputs (correlated subquery — avoids GROUP BY/ORDER BY conflicts)
+    allBrainNames: sql`(
+        SELECT GROUP_CONCAT(DISTINCT ob2.brainName ORDER BY ob2.brainName SEPARATOR '||')
+        FROM company_brain_outputs cbo2
+        INNER JOIN offering_brain ob2 ON cbo2.brainId = ob2.id
+        WHERE cbo2.companyId = ${companies.id}
+      )`,
+    // Brain-specific fit scores: "BrainName:score||BrainName2:score2" for inline display
+    allBrainFitScores: sql`(
+        SELECT GROUP_CONCAT(CONCAT(ob2.brainName, ':', COALESCE(cbo2.fitScore, '')) ORDER BY ob2.brainName SEPARATOR '||')
+        FROM company_brain_outputs cbo2
+        INNER JOIN offering_brain ob2 ON cbo2.brainId = ob2.id
+        WHERE cbo2.companyId = ${companies.id}
+      )`,
+    // CG CRM fields
+    cgBusinessUnit: companies.cgBusinessUnit,
+    cgSalesManager: companies.cgSalesManager,
+    cgLeadClass: companies.cgLeadClass,
+    cgLeadOrigin: companies.cgLeadOrigin,
+    cgSharepointId: companies.cgSharepointId,
+    cgMarket: companies.cgMarket,
+    cgImportedAt: companies.cgImportedAt,
+    // Join search run identifier
+    searchName: searches.location,
+    searchOfferingName: searches.offeringName,
+    searchRunId: companies.searchId,
+    // Niche fit score (cluster-level LLM score)
+    nicheFitScore: niches.fitScore,
+    nicheName: niches.name,
+    nicheId: companies.nicheId
+  }).from(companies).leftJoin(searches, eq(companies.searchId, searches.id)).leftJoin(niches, eq(companies.nicheId, niches.id)).where(whereClause).orderBy(orderExpr).limit(limit).offset(offset);
+  return rows;
+}
+async function countCompanyDatabase(opts) {
+  const { count: count2, like, and: and14, gte: gte2, isNotNull: isNotNull5, isNull: isNull7, inArray: inArray13 } = await import("drizzle-orm");
+  const db = await getDb();
+  if (!db) return 0;
+  const { search, searchId, searchIds, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin, crmFilter } = opts;
+  const conditions = [];
+  if (search) conditions.push(like(companies.name, `%${search}%`));
+  if (searchIds && searchIds.length > 0) conditions.push(inArray13(companies.searchId, searchIds));
+  else if (searchId) conditions.push(eq(companies.searchId, searchId));
+  if (country) conditions.push(eq(companies.country, country));
+  else if (countries && countries.length > 0) conditions.push(inArray13(companies.country, countries));
+  if (sector) conditions.push(eq(companies.sector, sector));
+  if (minFitScore !== void 0) conditions.push(gte2(companies.fitScore, minFitScore));
+  if (hasFitScore) conditions.push(isNotNull5(companies.fitScore));
+  if (brainId) conditions.push(
+    inArray13(
+      companies.id,
+      db.select({ id: companyBrainOutputs.companyId }).from(companyBrainOutputs).where(eq(companyBrainOutputs.brainId, brainId))
+    )
+  );
+  if (cgBusinessUnit) conditions.push(eq(companies.cgBusinessUnit, cgBusinessUnit));
+  if (cgLeadClass) conditions.push(eq(companies.cgLeadClass, cgLeadClass));
+  if (cgLeadOrigin) conditions.push(eq(companies.cgLeadOrigin, cgLeadOrigin));
+  if (articleFilter === "brief") conditions.push(isNotNull5(companies.briefGeneratedAt));
+  if (articleFilter === "approach") conditions.push(isNotNull5(companies.salesApproachGeneratedAt));
+  if (articleFilter === "both") {
+    conditions.push(isNotNull5(companies.briefGeneratedAt));
+    conditions.push(isNotNull5(companies.salesApproachGeneratedAt));
+  }
+  if (articleFilter === "none") {
+    conditions.push(isNull7(companies.briefGeneratedAt));
+    conditions.push(isNull7(companies.salesApproachGeneratedAt));
+  }
+  if (crmFilter === "in") conditions.push(companyInCrmExistsSql());
+  if (crmFilter === "not_in") conditions.push(sql`NOT ${companyInCrmExistsSql()}`);
+  const whereClause = conditions.length > 0 ? and14(...conditions) : void 0;
+  const result = await db.select({ total: count2() }).from(companies).where(whereClause);
+  return result[0]?.total ?? 0;
+}
+async function getCompanyDatabaseSearches() {
+  const db = await getDb();
+  if (!db) return [];
+  const { count: count2 } = await import("drizzle-orm");
+  const rows = await db.select({
+    id: searches.id,
+    location: searches.location,
+    offeringName: searches.offeringName,
+    brainId: searches.brainId,
+    companyCount: count2(companies.id)
+  }).from(searches).leftJoin(companies, eq(searches.id, companies.searchId)).groupBy(searches.id).orderBy(searches.id);
+  return rows.filter((r) => Number(r.companyCount) > 0);
+}
+async function getCompanyDatabaseCountries() {
+  const db = await getDb();
+  if (!db) return [];
+  const { sql: sql8 } = await import("drizzle-orm");
+  const rows = await db.selectDistinct({ country: companies.country }).from(companies).where(sql8`${companies.country} IS NOT NULL AND ${companies.country} != ''`).orderBy(companies.country);
+  return rows.map((r) => r.country).filter(Boolean);
+}
+async function getCompanyDatabaseSectors() {
+  const db = await getDb();
+  if (!db) return [];
+  const { count: count2, isNotNull: isNotNull5, sql: sql8 } = await import("drizzle-orm");
+  const rows = await db.select({ sector: companies.sector, cnt: count2() }).from(companies).where(isNotNull5(companies.sector)).groupBy(companies.sector).orderBy(sql8`count(*) desc`).limit(100);
+  return rows.filter((r) => r.sector && r.sector !== "null").map((r) => ({ sector: r.sector, count: Number(r.cnt) }));
+}
+async function getCompanyDatabaseBrains() {
+  const db = await getDb();
+  if (!db) return [];
+  const { count: count2, sql: sql8 } = await import("drizzle-orm");
+  const rows = await db.select({
+    id: offeringBrain.id,
+    brainName: offeringBrain.brainName,
+    cnt: count2(companyBrainOutputs.companyId)
+  }).from(offeringBrain).innerJoin(companyBrainOutputs, eq(offeringBrain.id, companyBrainOutputs.brainId)).groupBy(offeringBrain.id).orderBy(sql8`count(${companyBrainOutputs.companyId}) desc`);
+  return rows.map((r) => ({
+    id: r.id,
+    brainName: r.brainName,
+    count: Number(r.cnt)
+  }));
+}
+async function getCompanyDatabaseCgBusinessUnits() {
+  const db = await getDb();
+  if (!db) return [];
+  const { count: count2, isNotNull: isNotNull5, sql: sql8 } = await import("drizzle-orm");
+  const rows = await db.select({ bu: companies.cgBusinessUnit, cnt: count2() }).from(companies).where(isNotNull5(companies.cgBusinessUnit)).groupBy(companies.cgBusinessUnit).orderBy(sql8`count(*) desc`);
+  return rows.map((r) => ({ bu: r.bu, count: Number(r.cnt) }));
+}
+async function getCompanyDatabaseCgLeadClasses() {
+  const db = await getDb();
+  if (!db) return [];
+  const { count: count2, isNotNull: isNotNull5, sql: sql8 } = await import("drizzle-orm");
+  const rows = await db.select({ cls: companies.cgLeadClass, cnt: count2() }).from(companies).where(isNotNull5(companies.cgLeadClass)).groupBy(companies.cgLeadClass).orderBy(sql8`count(*) desc`);
+  return rows.map((r) => ({ cls: r.cls, count: Number(r.cnt) }));
+}
+async function getCompanyDatabaseCgLeadOrigins() {
+  const db = await getDb();
+  if (!db) return [];
+  const { count: count2, isNotNull: isNotNull5, sql: sql8 } = await import("drizzle-orm");
+  const rows = await db.select({ origin: companies.cgLeadOrigin, cnt: count2() }).from(companies).where(isNotNull5(companies.cgLeadOrigin)).groupBy(companies.cgLeadOrigin).orderBy(sql8`count(*) desc`);
+  return rows.map((r) => ({ origin: r.origin, count: Number(r.cnt) }));
+}
+function normalizeCgCompanyName(s) {
+  return s.toLowerCase().replace(/\b(bv|b\.v\.|nv|n\.v\.|gmbh|ag|ltd|limited|inc|corp|sa|sas|srl|llc|plc|pty)\b/g, "").replace(/[^a-z0-9]/g, " ").replace(/\s+/g, " ").trim();
+}
+async function findCgLead(opts) {
+  const db = await getDb();
+  if (!db) return null;
+  if (opts.sharepointId != null && opts.sharepointId !== "") {
+    const spId = parseInt(String(opts.sharepointId), 10);
+    if (!Number.isNaN(spId)) {
+      const rows = await db.select({
+        id: cgLeads.id,
+        companyName: cgLeads.companyName,
+        sharepointUrl: cgLeads.sharepointUrl
+      }).from(cgLeads).where(eq(cgLeads.id, spId)).limit(1);
+      if (rows.length) return rows[0];
+    }
+  }
+  if (opts.domain) {
+    const clean = opts.domain.replace(/^www\./, "").toLowerCase();
+    const rows = await db.select({
+      id: cgLeads.id,
+      companyName: cgLeads.companyName,
+      sharepointUrl: cgLeads.sharepointUrl
+    }).from(cgLeads).where(eq(cgLeads.domain, clean)).limit(1);
+    if (rows.length) return rows[0];
+  }
+  if (opts.companyName) {
+    const needle = normalizeCgCompanyName(opts.companyName);
+    if (needle.length >= 3) {
+      const { like } = await import("drizzle-orm");
+      const prefix = needle.slice(0, 20).replace(/[%_]/g, "\\$&");
+      const candidates = await db.select({
+        id: cgLeads.id,
+        companyName: cgLeads.companyName,
+        sharepointUrl: cgLeads.sharepointUrl
+      }).from(cgLeads).where(like(cgLeads.companyName, `${prefix}%`)).limit(10);
+      const match = candidates.find((c) => normalizeCgCompanyName(c.companyName) === needle);
+      if (match) return match;
+    }
+  }
+  return null;
+}
+var _db, nicheDisplayColumns;
 var init_db = __esm({
   "server/db.ts"() {
     "use strict";
     init_schema();
     init_env();
     _db = null;
+    nicheDisplayColumns = {
+      id: niches.id,
+      userId: niches.userId,
+      searchId: niches.searchId,
+      brainId: niches.brainId,
+      name: niches.name,
+      description: niches.description,
+      companyCount: niches.companyCount,
+      topKeywords: niches.topKeywords,
+      sampleCompanies: niches.sampleCompanies,
+      rationale: niches.rationale,
+      fitScore: niches.fitScore,
+      fitReasoning: niches.fitReasoning,
+      scoreBreakdown: niches.scoreBreakdown,
+      scoredAt: niches.scoredAt,
+      scoredWithBrainId: niches.scoredWithBrainId,
+      parentNicheId: niches.parentNicheId,
+      createdAt: niches.createdAt,
+      updatedAt: niches.updatedAt
+    };
   }
 });
 
@@ -2016,6 +2576,926 @@ var init_apolloSearch = __esm({
   }
 });
 
+// server/briefGenerator.ts
+var briefGenerator_exports = {};
+__export(briefGenerator_exports, {
+  generateSalesIntelligenceBrief: () => generateSalesIntelligenceBrief,
+  getAngleContext: () => getAngleContext,
+  scoreCompanyFit: () => scoreCompanyFit
+});
+async function getBrainContext(userId, brainId) {
+  try {
+    const brain = brainId ? await getOfferingBrainById(brainId, userId) : await getActiveBrain(userId);
+    if (!brain || brain.status !== "completed") return "";
+    const capabilities = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
+    const valueProps = brain.valuePropositions ? JSON.parse(brain.valuePropositions) : [];
+    const icpIndustries = brain.icpIndustries ? JSON.parse(brain.icpIndustries) : [];
+    const painPoints = brain.icpPainPoints ? JSON.parse(brain.icpPainPoints) : [];
+    const buyingSignals = brain.icpBuyingSignals ? JSON.parse(brain.icpBuyingSignals) : [];
+    const fitCriteria = brain.fitCriteria ? JSON.parse(brain.fitCriteria) : { mustHave: [], niceToHave: [], disqualifiers: [] };
+    const urgencyTriggers = brain.urgencyTriggers ? JSON.parse(brain.urgencyTriggers) : [];
+    return `
+**YOUR COMPANY (Seller) \u2014 Offering Brain Intelligence:**
+- Company: ${brain.companyName}
+- Summary: ${brain.offeringSummary}
+- Core Capabilities: ${capabilities.join("; ")}
+- Value Propositions: ${valueProps.map((vp) => `${vp.proposition} (for: ${vp.targetAudience})`).join("; ")}
+- Competitive Advantages: ${brain.competitiveAdvantages}
+- ICP Industries: ${icpIndustries.join(", ")}
+- ICP Company Size: ${brain.icpCompanySize}
+- ICP Pain Points: ${painPoints.join("; ")}
+- Buying Signals to Watch: ${buyingSignals.join("; ")}
+- Fit Must-Haves: ${fitCriteria.mustHave?.join("; ") || "None"}
+- Fit Disqualifiers: ${fitCriteria.disqualifiers?.join("; ") || "None"}
+- Urgency Triggers: ${urgencyTriggers.join("; ")}
+`;
+  } catch (error) {
+    console.warn("[Brain Context] Failed to load brain:", error);
+    return "";
+  }
+}
+function todayString() {
+  return (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+}
+function stripJsonFences(raw) {
+  const trimmed = raw.trim();
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/);
+  if (fenceMatch) return fenceMatch[1].trim();
+  return trimmed;
+}
+async function callGrokWithWebSearch2(input, _jsonSchema) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 18e4);
+  try {
+    const response = await fetch(`${XAI_BASE_URL3}/responses`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${XAI_API_KEY3}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "grok-4.3",
+        tools: [{ type: "web_search" }],
+        // Explicit web_search tool
+        input
+        // NOTE: response_format intentionally omitted — incompatible with web_search tools
+        // The Responses API returns 422 when response_format is combined with web_search.
+        // JSON is extracted from the text response via regex instead.
+      }),
+      signal: controller.signal
+    });
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Grok API error: ${response.status} - ${error}`);
+    }
+    const data = await response.json();
+    let rawText = null;
+    if (data.output && Array.isArray(data.output)) {
+      for (const item of data.output) {
+        if (item.content && Array.isArray(item.content)) {
+          const textContent = item.content.find((c) => c.type === "output_text");
+          if (textContent?.text) {
+            rawText = textContent.text;
+            break;
+          }
+        }
+        if (rawText) break;
+      }
+    }
+    if (!rawText && data.text) {
+      rawText = data.text;
+    }
+    if (!rawText) {
+      throw new Error("Unexpected Responses API format: no output text found in response.output[].content[]");
+    }
+    rawText = stripJsonFences(rawText);
+    const jsonMatch = rawText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      return jsonMatch[0];
+    }
+    return rawText;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+}
+async function generateSalesIntelligenceBrief(companyId, userId, brainId) {
+  const company = await getCompanyById(companyId);
+  if (!company) {
+    throw new Error(`Company not found: ${companyId}`);
+  }
+  console.log(`[Brief Generator] Generating brief for ${company.name}`);
+  const domain = company.primaryDomain || company.websiteUrl || "unknown.com";
+  const naicsCodes = company.naicsCodes ? JSON.parse(company.naicsCodes) : [];
+  const industry = inferIndustryFromNAICS(naicsCodes);
+  const brainContext = userId ? await getBrainContext(userId, brainId) : "";
+  if (brainContext) {
+    console.log(`[Brief Generator] Brain context loaded \u2014 will inform fit/urgency evaluation`);
+  }
+  const URGENCY_SCHEMA = {
+    type: "object",
+    properties: {
+      urgencyScore: { type: "number" },
+      urgencyBreakdown: {
+        type: "object",
+        properties: {
+          companyContext: { type: "number" },
+          marketSignals: { type: "number" },
+          recentActivity: { type: "number" }
+        },
+        required: ["companyContext", "marketSignals", "recentActivity"],
+        additionalProperties: false
+      },
+      recentDevelopments: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            text: { type: "string" },
+            date: { type: "string" },
+            sourceUrl: { type: "string" },
+            snippet: { type: "string" }
+          },
+          required: ["text", "date", "sourceUrl", "snippet"],
+          additionalProperties: false
+        }
+      },
+      urgencySignals: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            category: { type: "string" },
+            type: { type: "string" },
+            description: { type: "string" },
+            weight: { type: "number" },
+            sourceUrl: { type: "string" },
+            snippet: { type: "string" },
+            detectedAt: { type: "string" }
+          },
+          required: ["category", "type", "description", "weight", "sourceUrl", "snippet", "detectedAt"],
+          additionalProperties: false
+        }
+      },
+      sources: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            url: { type: "string" },
+            title: { type: "string" },
+            snippet: { type: "string" },
+            dateAccessed: { type: "string" }
+          },
+          required: ["url", "title", "snippet", "dateAccessed"],
+          additionalProperties: false
+        }
+      },
+      searchNotes: { type: "string" }
+    },
+    required: ["urgencyScore", "urgencyBreakdown", "recentDevelopments", "urgencySignals", "sources", "searchNotes"],
+    additionalProperties: false
+  };
+  const INTELLIGENCE_SCHEMA = {
+    type: "object",
+    properties: {
+      productsServices: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            category: { type: "string" },
+            description: { type: "string" },
+            sourceUrl: { type: "string" }
+          },
+          required: ["category", "description", "sourceUrl"],
+          additionalProperties: false
+        }
+      },
+      keyTechnologies: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            name: { type: "string" },
+            description: { type: "string" },
+            sourceUrl: { type: "string" }
+          },
+          required: ["name", "description", "sourceUrl"],
+          additionalProperties: false
+        }
+      },
+      targetMarkets: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            segment: { type: "string" },
+            description: { type: "string" }
+          },
+          required: ["segment", "description"],
+          additionalProperties: false
+        }
+      },
+      industryKeywords: { type: "array", items: { type: "string" } },
+      sources: {
+        type: "array",
+        items: {
+          type: "object",
+          properties: {
+            url: { type: "string" },
+            title: { type: "string" },
+            snippet: { type: "string" },
+            dateAccessed: { type: "string" }
+          },
+          required: ["url", "title", "snippet", "dateAccessed"],
+          additionalProperties: false
+        }
+      }
+    },
+    required: ["productsServices", "keyTechnologies", "targetMarkets", "industryKeywords", "sources"],
+    additionalProperties: false
+  };
+  const urgencyPrompt = `You are a B2B sales intelligence analyst. Today is ${todayString()}. Your task: score how urgently a B2B seller should contact this prospect RIGHT NOW based on verified signals from the past 12 months.
+${brainContext ? `${brainContext}
+**Use the Offering Brain intelligence above to:**
+- Weight urgency higher when the prospect shows signals matching the seller's urgency triggers
+- Identify specific buying signals that match the seller's offering
+
+` : ""}**Target Company:** "${company.name}" (${domain})
+
+**Instructions:**
+1. Search for the latest news and developments about "${company.name}" from the past 12 months
+2. Only use verified data from your searches \u2014 do NOT hallucinate URLs or facts
+3. Prioritize sources from 2026 and late 2025
+
+**SCORING MODEL \u2014 read carefully before scoring:**
+
+Company Context (0-40): Evidence of company growth momentum
+  - 30-40: Funding round (Series A+), acquisition, major strategic pivot, IPO filing
+  - 20-29: Seed/angel funding, significant revenue growth reported, entering new market
+  - 10-19: Award or recognition (national/industry), new product launch, key certification achieved (ISO, FDA, CE)
+  - 5-9:  Positive press coverage, new partnership announced, website redesign/relaunch
+  - 1-4:  Company has active web presence, recent blog/social activity
+  - 0:    No evidence of any company activity found
+
+Market Signals (0-35): External forces creating urgency to buy/partner NOW
+  - 25-35: Regulatory deadline, market disruption, competitor acquisition in their space
+  - 15-24: Industry growth trend directly affecting their sector, new compliance requirement
+  - 8-14:  Market expansion in their geography or vertical, technology shift they must respond to
+  - 1-7:   General industry activity, sector-level news
+  - 0:     No relevant market signals found
+
+Recent Activity (0-25): Operational signals of active change or investment
+  - 20-25: Active hiring for roles that indicate expansion (engineering, sales, ops), M&A activity
+  - 12-19: Multiple job postings, conference participation, product roadmap announcements
+  - 5-11:  Some hiring activity, event attendance, press releases in past 6 months
+  - 1-4:   Minimal recent activity but company is reachable and active
+  - 0:     No recent activity found
+
+**CALIBRATION ANCHORS:**
+- Score 70-100: Funding announced, active hiring surge, product launch + market expansion simultaneously
+- Score 50-69: Award won + new product line, or funding + hiring, or entering new geography
+- Score 30-49: Industry award, new certification, partnership announced, or notable press coverage
+- Score 15-29: Active company with some recent news but no strong growth signals
+- Score 5-14:  Company exists and is reachable but minimal recent signals
+- Score 0-4:   No signals found at all \u2014 company may be dormant or unfindable
+
+**IMPORTANT:** A company that has won a national award, launched a new product, or received a certification in the past 12 months should score AT LEAST 25. Do not score 0 unless you genuinely found zero evidence of any activity.
+
+**Return JSON only:**
+{
+  "urgencyScore": 45,
+  "urgencyBreakdown": {
+    "companyContext": 20,
+    "marketSignals": 15,
+    "recentActivity": 10
+  },
+  "recentDevelopments": [
+    {
+      "text": "Won EmprendeXXI national startup award for Region of Murcia",
+      "date": "2026-05-01",
+      "sourceUrl": "https://working.website.com/article",
+      "snippet": "Direct quote or excerpt from the verified source page"
+    }
+  ],
+  "urgencySignals": [
+    {
+      "category": "Growth",
+      "type": "Award / Recognition",
+      "description": "Won national startup award \u2014 signals growth phase and partner-seeking behaviour",
+      "weight": 8,
+      "sourceUrl": "https://working.website.com/article",
+      "snippet": "Direct quote from verified source",
+      "detectedAt": "2026-05-01"
+    }
+  ],
+  "sources": [
+    {
+      "url": "https://working.website.com/article",
+      "title": "Page title from search",
+      "snippet": "Key excerpt from the page",
+      "dateAccessed": "2026-05-11"
+    }
+  ],
+  "searchNotes": "Any caveats about source availability or search limitations"
+}`;
+  const intelligencePrompt = `You are a B2B sales intelligence analyst. Today is ${todayString()}. Your goal is to provide verifiable company intelligence with traceable sources.
+${brainContext ? `${brainContext}
+**Use the Offering Brain intelligence above to:**
+- Focus on products/services that overlap with the seller's capabilities
+- Identify technologies that indicate the prospect needs the seller's services
+- Highlight target markets where the seller can add value
+
+` : ""}**Target Company:** "${company.name}" (${domain})
+
+**Instructions:**
+1. Research "${company.name}" to find:
+   - Products & services offerings
+   - Technology stack and platform
+   - Target markets and customer industries
+2. Visit the company website (${domain}) if possible
+3. Only include facts backed by verified sources \u2014 do NOT hallucinate
+
+**Return JSON only:**
+{
+  "productsServices": [
+    {
+      "category": "IoT Devices",
+      "description": "Smart home sensors and gateways",
+      "sourceUrl": "https://company.com/products"
+    }
+  ],
+  "keyTechnologies": [
+    {
+      "name": "IoT",
+      "description": "Internet of Things connectivity platform",
+      "sourceUrl": "https://company.com/technology"
+    }
+  ],
+  "targetMarkets": [
+    {"segment": "Smart Home", "description": "Residential automation systems"},
+    {"segment": "Healthcare", "description": "Medical diagnostic equipment"}
+  ],
+  "industryKeywords": ["IoT", "sensors", "wireless", "embedded systems", "PCB", "electronics"],
+  "sources": [
+    {
+      "url": "https://company.com/products",
+      "title": "Products page title",
+      "snippet": "Key excerpt",
+      "dateAccessed": "2026-02-23"
+    }
+  ]
+}`;
+  console.log(`[Brief Generator] Phase 1: Detecting urgency signals with source verification...`);
+  const [urgencyRaw, intelligenceRaw] = await Promise.all([
+    callGrokWithWebSearch2(urgencyPrompt, URGENCY_SCHEMA),
+    callGrokWithWebSearch2(intelligencePrompt, INTELLIGENCE_SCHEMA)
+  ]);
+  const urgencyData = JSON.parse(urgencyRaw);
+  const intelligenceData = JSON.parse(intelligenceRaw);
+  console.log(`[Brief Generator] Urgency score: ${urgencyData.urgencyScore}`);
+  console.log(`[Brief Generator] Sources found: ${urgencyData.sources?.length || 0}`);
+  console.log(
+    `[Brief Generator] Found ${intelligenceData.productsServices?.length || 0} product categories`
+  );
+  console.log(`[Brief Generator] Intelligence sources: ${intelligenceData.sources?.length || 0}`);
+  const normalizedDevelopments = (urgencyData.recentDevelopments || []).map((dev) => {
+    if (typeof dev === "string") {
+      return { text: dev, date: "", sourceUrl: "", snippet: "" };
+    }
+    return {
+      text: dev.text || dev.event || "",
+      date: dev.date || "",
+      sourceUrl: dev.sourceUrl || dev.url || "",
+      snippet: dev.snippet || ""
+    };
+  });
+  const normalizedSignals = (urgencyData.urgencySignals || []).map((signal) => ({
+    category: signal.category || "Unknown",
+    type: signal.type || "Unknown",
+    description: signal.description || "",
+    weight: signal.weight || 0,
+    sourceUrl: signal.sourceUrl || signal.url || "",
+    snippet: signal.snippet || "",
+    detectedAt: signal.detectedAt || signal.date || (/* @__PURE__ */ new Date()).toISOString().split("T")[0]
+  }));
+  const allSources = [
+    ...urgencyData.sources || [],
+    ...intelligenceData.sources || []
+  ];
+  const brief = {
+    companyName: company.name,
+    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    urgencyScore: urgencyData.urgencyScore || 0,
+    urgencyBreakdown: urgencyData.urgencyBreakdown || {
+      companyContext: 0,
+      marketSignals: 0,
+      recentActivity: 0
+    },
+    executiveSummary: {
+      company: company.name,
+      industry,
+      employees: "Unknown",
+      // Employee count not stored in schema
+      revenue: company.revenue || "Unknown",
+      domain,
+      linkedin: company.linkedinUrl || ""
+    },
+    verifiedContacts: {
+      website: {
+        value: domain,
+        source: "Apollo API",
+        verified: true
+      },
+      linkedin: {
+        value: company.linkedinUrl || "",
+        source: "Apollo API",
+        verified: !!company.linkedinUrl
+      }
+    },
+    productsServices: intelligenceData.productsServices || [],
+    keyTechnologies: intelligenceData.keyTechnologies || [],
+    recentDevelopments: normalizedDevelopments,
+    targetMarkets: intelligenceData.targetMarkets || [],
+    industryKeywords: intelligenceData.industryKeywords || [],
+    naicsCodes,
+    urgencySignals: normalizedSignals,
+    sources: allSources,
+    rawGrokUrgency: urgencyRaw,
+    rawGrokIntelligence: intelligenceRaw
+  };
+  console.log(`[Brief Generator] Brief complete for ${company.name}`);
+  return brief;
+}
+function inferIndustryFromNAICS(naicsCodes) {
+  if (!naicsCodes || naicsCodes.length === 0) return "Unknown";
+  const firstCode = naicsCodes[0];
+  const sector = firstCode.substring(0, 2);
+  const sectorMap = {
+    "11": "Agriculture",
+    "21": "Mining",
+    "22": "Utilities",
+    "23": "Construction",
+    "31": "Manufacturing",
+    "32": "Manufacturing",
+    "33": "Manufacturing",
+    "42": "Wholesale Trade",
+    "44": "Retail Trade",
+    "45": "Retail Trade",
+    "48": "Transportation",
+    "49": "Transportation",
+    "51": "Information",
+    "52": "Finance",
+    "53": "Real Estate",
+    "54": "Professional Services",
+    "55": "Management",
+    "56": "Administrative Services",
+    "61": "Educational Services",
+    "62": "Healthcare",
+    "71": "Arts & Entertainment",
+    "72": "Accommodation & Food",
+    "81": "Other Services",
+    "92": "Public Administration"
+  };
+  return sectorMap[sector] || "Unknown";
+}
+async function getAngleContext(angleId) {
+  if (!angleId) return { context: "", isDistributor: false, angleName: "Potential Customer" };
+  try {
+    const { createClient: createClient9 } = await import("@supabase/supabase-js");
+    const sb = createClient9(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+    const { data: angle } = await sb.from("lt_mns_angles").select("id, name, description").eq("id", angleId).single();
+    if (!angle) return { context: "", isDistributor: false, angleName: "Potential Customer" };
+    const isDistributor = angle.name === "Distributor";
+    const context = isDistributor ? `
+**ENGAGEMENT ANGLE: DISTRIBUTOR / CHANNEL PARTNER**
+You are NOT evaluating this company as a direct end-customer. You are evaluating it as a potential DISTRIBUTOR or CHANNEL PARTNER.
+The goal is to find companies that can RESELL, DISTRIBUTE, or REPRESENT the seller's products to end-users.
+Evaluate: (1) Does this company sell to the target end-customer segment? (2) Does it have an existing complementary product portfolio? (3) Does it have commercial infrastructure (sales team, logistics, showroom/store)? (4) Is there commercial motivation to add a new premium product line?
+` : `
+**ENGAGEMENT ANGLE: ${angle.name}**
+${angle.description}
+`;
+    return { context, isDistributor, angleName: angle.name };
+  } catch (err) {
+    console.warn("[Angle Context] Failed to load angle:", err);
+    return { context: "", isDistributor: false, angleName: "Potential Customer" };
+  }
+}
+async function scoreCompanyFit(companyId, userId, brainId, angleId) {
+  const company = await getCompanyById(companyId);
+  if (!company) throw new Error(`Company ${companyId} not found`);
+  const brain = userId ? brainId ? await getOfferingBrainById(brainId, userId) : await getActiveBrain(userId) : null;
+  if (!brain || brain.status !== "completed") {
+    throw new Error("No active Brain found \u2014 cannot score fit without ICP criteria");
+  }
+  const brainContext = await getBrainContext(userId, brainId);
+  const angleInfo = await getAngleContext(angleId);
+  const fitCriteria = brain.fitCriteria ? JSON.parse(brain.fitCriteria) : { mustHave: [], niceToHave: [], disqualifiers: [] };
+  const icpIndustries = brain.icpIndustries ? JSON.parse(brain.icpIndustries) : [];
+  const buyingSignals = brain.icpBuyingSignals ? JSON.parse(brain.icpBuyingSignals) : [];
+  const mustHaveCriteria = (() => {
+    const arr = [];
+    if (Array.isArray(fitCriteria.mustHave) && fitCriteria.mustHave.length > 0) {
+      arr.push(...fitCriteria.mustHave);
+    }
+    if (Array.isArray(fitCriteria.strong_fit) && fitCriteria.strong_fit.length > 0) {
+      arr.push(...fitCriteria.strong_fit);
+    }
+    if (Array.isArray(fitCriteria.dimensions)) {
+      for (const dim of fitCriteria.dimensions) {
+        if (dim.strongFit) arr.push(`${dim.name}: ${dim.strongFit}`);
+      }
+    }
+    return arr;
+  })();
+  const disqualifierCriteria = (() => {
+    const arr = [];
+    if (Array.isArray(fitCriteria.disqualifiers) && fitCriteria.disqualifiers.length > 0) arr.push(...fitCriteria.disqualifiers);
+    if (Array.isArray(fitCriteria.weak_fit) && fitCriteria.weak_fit.length > 0) arr.push(...fitCriteria.weak_fit);
+    return arr;
+  })();
+  const sliceMeta = (() => {
+    try {
+      return company.sliceMetadata ? JSON.parse(company.sliceMetadata) : {};
+    } catch {
+      return {};
+    }
+  })();
+  const companyProfile = `
+Company: ${company.name}
+Website: ${company.websiteUrl || "unknown"}
+Location: ${[company.city, company.state, company.country].filter(Boolean).join(", ") || "unknown"}
+Revenue (Apollo): ${company.revenue || "unknown"}
+Employee band (Apollo): ${sliceMeta.employeeBand || "unknown"}
+Headcount growth: ${company.headcountGrowth || "unknown"}
+Founded: ${company.foundedYear || "unknown"}
+Industry (NAICS): ${company.naicsCodes ? JSON.parse(company.naicsCodes).slice(0, 5).join(", ") : "unknown"}
+Industry (SIC): ${company.sicCodes ? JSON.parse(company.sicCodes).slice(0, 5).join(", ") : "unknown"}
+Short description: ${company.shortDescription || "not available"}
+NOTE: Use your web-search capability to find recent news about this company \u2014 especially capital raises, acquisitions, headcount announcements, or expansion plans \u2014 before scoring sizeFit.
+`;
+  const distributorScoringRules = angleInfo.isDistributor ? `DISTRIBUTOR SCORING RULES (override standard ICP scoring):
+- industryFit (0-35): Does this company operate in DISTRIBUTION, RETAIL, or RESELLER space for the relevant end-market? Are they a dealer, importer, wholesaler, or specialty retailer?
+- sizeFit (0-20): Does the company have sufficient commercial scale to be a meaningful channel partner? (revenue, team size, geographic reach). Search the web for recent capital raises, acquisitions, or headcount announcements if Apollo data is missing.
+- mustHavesFit (0-30): Does the company have: (1) existing product portfolio in adjacent/complementary categories, (2) access to the target end-customer segment, (3) commercial infrastructure (sales team, logistics, showroom/online store)?
+- disqualifiers: Disqualify if the company IS the end-user (uses products internally only), is a pure manufacturer with no distribution arm, or is a direct competitor.
+- buyingSignalsFit (0-15): Evidence of channel expansion, new brand partnerships, trade show presence, or distributor agreements?
+- overallRationale: Frame as channel partnership potential, not direct sales fit.
+IMPORTANT: Location/geography is NOT a scoring dimension. Do not penalise or reward companies for their location. Geography is applied as a separate filter outside of fit scoring.` : `Scoring rules:
+- industryFit (0-35): Does the company operate in the Brain's ICP industries? Full score = perfect match, 0 = complete mismatch
+- sizeFit (0-20): Does the company's revenue/headcount match the Brain's ICP company size? IMPORTANT: use your web-search to find recent capital raises, acquisitions, or headcount announcements if Apollo data is missing or the company is new.
+- mustHavesFit (0-30): How many of the Brain's must-have criteria does this company appear to meet? Score proportionally: full 30 if all met, 0 if none met.
+- disqualifiers: If ANY disqualifier is triggered, cap fitScore at 25 regardless of other scores
+- buyingSignalsFit (0-15): Does the company profile suggest any of the Brain's buying signals are present?
+IMPORTANT: Location/geography is NOT a scoring dimension. Do not penalise or reward companies for their location. Geography is applied as a separate filter outside of fit scoring.`;
+  const prompt = `You are a B2B sales qualification analyst. Score the prospect company's fit against the seller's Ideal Customer Profile (ICP).${angleInfo.context}
+
+${brainContext}
+
+**PROSPECT COMPANY:**
+${companyProfile}
+
+**SCORING TASK:**
+Evaluate the prospect and return a JSON object with this exact structure:
+
+{
+  "fitScore": <integer 0-100>,
+  "breakdown": {
+    "industryFit": {
+      "score": <0-35>,
+      "max": 35,
+      "rationale": "<1-2 sentences explaining the industry match>"
+    },
+    "sizeFit": {
+      "score": <0-20>,
+      "max": 20,
+      "rationale": "<1-2 sentences explaining the size/revenue match \u2014 include any news signals found>"
+    },
+    "mustHavesFit": {
+      "score": <0-30>,
+      "max": 30,
+      "rationale": "<1-2 sentences>",
+      "matched": ["<must-have criteria that appear to be met>"],
+      "missing": ["<must-have criteria that appear to be missing>"]
+    },
+    "disqualifiers": {
+      "triggered": <true|false>,
+      "reasons": ["<any disqualifier criteria that appear to apply>"]
+    },
+    "buyingSignalsFit": {
+      "score": <0-15>,
+      "max": 15,
+      "rationale": "<1-2 sentences on buying signal alignment>"
+    }
+  },
+  "overallRationale": "<3-4 sentence executive summary of why this company is or isn't a strong fit as a ${angleInfo.isDistributor ? "DISTRIBUTOR / CHANNEL PARTNER" : "direct customer"}>"
+}
+
+${distributorScoringRules}
+fitScore = industryFit.score + sizeFit.score + mustHavesFit.score + buyingSignalsFit.score (max 100, capped at 25 if disqualifier triggered)
+Formula: 35 + 20 + 30 + 15 = 100 points total. Location is NOT scored here \u2014 it is a filter applied separately.
+
+ICP Industries to match against: ${icpIndustries.join(", ")}
+Must-have criteria (score 0 if none met, 30 if all met): ${mustHaveCriteria.length > 0 ? mustHaveCriteria.join("; ") : "none specified \u2014 use best judgment from ICP description"}
+Disqualifiers / weak-fit signals: ${disqualifierCriteria.length > 0 ? disqualifierCriteria.join("; ") : "none specified"}
+Buying signals: ${buyingSignals.join("; ")}
+ICP company size: ${brain.icpCompanySize || "not specified"}
+
+Return ONLY the JSON object, no markdown, no explanation outside the JSON.`;
+  console.log(`[Fit Scorer] Scoring fit for ${company.name}...`);
+  const rawGrokFit = await callGrokWithWebSearch2(prompt);
+  const firstBrace = rawGrokFit.indexOf("{");
+  const lastBrace = rawGrokFit.lastIndexOf("}");
+  if (firstBrace === -1 || lastBrace === -1) {
+    throw new Error("Grok fit scoring returned no valid JSON");
+  }
+  const parsed = JSON.parse(rawGrokFit.slice(firstBrace, lastBrace + 1));
+  let rawLlmScore = parsed.fitScore ?? 0;
+  if (parsed.breakdown?.disqualifiers?.triggered) {
+    rawLlmScore = Math.min(rawLlmScore, 25);
+  }
+  rawLlmScore = Math.max(0, Math.min(100, rawLlmScore));
+  const rawCode = (company.country ?? company.sourceCountryCode ?? "").toUpperCase().trim();
+  const finalScore = rawLlmScore;
+  console.log(
+    `[Fit Scorer] ${company.name} \u2192 LLM: ${rawLlmScore} (location: ${rawCode || "unknown"}, not scored) = ${finalScore}`
+  );
+  return {
+    fitScore: finalScore,
+    rawLlmScore,
+    scoredAt: (/* @__PURE__ */ new Date()).toISOString(),
+    companyName: company.name,
+    brainName: brain.brainName,
+    breakdown: {
+      ...parsed.breakdown,
+      // Location info preserved for display only — not part of score
+      locationInfo: {
+        countryCode: rawCode || null,
+        note: "Location is a filter, not a scoring dimension (v2 formula)"
+      }
+    },
+    overallRationale: parsed.overallRationale,
+    rawGrokFit
+  };
+}
+var XAI_API_KEY3, XAI_BASE_URL3;
+var init_briefGenerator = __esm({
+  "server/briefGenerator.ts"() {
+    "use strict";
+    init_db();
+    XAI_API_KEY3 = process.env.XAI_API_KEY;
+    XAI_BASE_URL3 = "https://api.x.ai/v1";
+  }
+});
+
+// server/salesApproachGenerator.ts
+var salesApproachGenerator_exports = {};
+__export(salesApproachGenerator_exports, {
+  generateSalesApproach: () => generateSalesApproach,
+  normaliseConversationStarters: () => normaliseConversationStarters
+});
+async function getBrainContextForApproach(userId, brainId) {
+  try {
+    const brain = brainId ? await getOfferingBrainById(brainId, userId) : await getActiveBrain(userId);
+    if (!brain || brain.status !== "completed") return { context: "", companyName: "Your Company" };
+    const capabilities = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
+    const valueProps = brain.valuePropositions ? JSON.parse(brain.valuePropositions) : [];
+    const painPoints = brain.icpPainPoints ? JSON.parse(brain.icpPainPoints) : [];
+    return {
+      companyName: brain.companyName || "Your Company",
+      context: `
+**YOUR COMPANY (Seller) \u2014 ${brain.companyName}:**
+- Summary: ${brain.offeringSummary}
+- Core Capabilities: ${capabilities.join("; ")}
+- Value Propositions: ${valueProps.map((vp) => `${vp.proposition} (for: ${vp.targetAudience})`).join("; ")}
+- Competitive Advantages: ${brain.competitiveAdvantages}
+- Pain Points We Solve: ${painPoints.join("; ")}
+`
+    };
+  } catch (error) {
+    console.warn("[Brain Context] Failed to load brain for sales approach:", error);
+    return { context: "", companyName: "Your Company" };
+  }
+}
+function normaliseConversationStarters(raw) {
+  if (!Array.isArray(raw)) return [];
+  return raw.map((s) => {
+    if (typeof s === "string") return { opener: s, sourceUrl: "", basedOn: "" };
+    if (s && typeof s === "object") {
+      const opener = s.opener ?? s.conversationStarter ?? s.description ?? s.text ?? JSON.stringify(s);
+      return {
+        opener,
+        sourceUrl: typeof s.sourceUrl === "string" ? s.sourceUrl : "",
+        basedOn: typeof s.basedOn === "string" ? s.basedOn : typeof s.type === "string" ? s.type : ""
+      };
+    }
+    return { opener: String(s ?? ""), sourceUrl: "", basedOn: "" };
+  });
+}
+async function callGrokWithWebSearch3(input) {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 12e4);
+  let response;
+  try {
+    response = await fetch(`${XAI_BASE_URL4}/responses`, {
+      method: "POST",
+      headers: {
+        "Authorization": `Bearer ${XAI_API_KEY4}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "grok-4.3",
+        tools: [{ type: "web_search" }],
+        // Explicit web_search tool
+        input
+        // NOTE: response_format intentionally omitted — incompatible with web_search tools.
+        // The Responses API returns 422 when response_format is combined with web_search.
+        // JSON is extracted from the text response via regex instead.
+      }),
+      signal: controller.signal
+    });
+  } finally {
+    clearTimeout(timeoutId);
+  }
+  if (!response.ok) {
+    const error = await response.text();
+    throw new Error(`Grok API error: ${response.status} - ${error}`);
+  }
+  const data = await response.json();
+  let rawText = null;
+  if (data.output && Array.isArray(data.output)) {
+    for (const item of data.output) {
+      if (item.content && Array.isArray(item.content)) {
+        const textContent = item.content.find((c) => c.type === "output_text");
+        if (textContent?.text) {
+          rawText = textContent.text;
+          break;
+        }
+      }
+    }
+  }
+  if (!rawText && data.text) {
+    rawText = data.text;
+  }
+  if (!rawText) {
+    throw new Error("Unexpected Responses API format: no output text found in response.output[].content[]");
+  }
+  const trimmed = rawText.trim();
+  const fenceMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/);
+  const cleaned = fenceMatch ? fenceMatch[1].trim() : trimmed;
+  const jsonMatch = cleaned.match(/\{[\s\S]*\}/);
+  if (jsonMatch) return jsonMatch[0];
+  return cleaned;
+}
+async function generateSalesApproach(companyId, userId, brainId, angleId) {
+  const company = await getCompanyById(companyId);
+  if (!company) {
+    throw new Error(`Company not found: ${companyId}`);
+  }
+  if (!company.briefData) {
+    throw new Error(`Deep research not found for company ${companyId}. Run Deep Research first.`);
+  }
+  const briefData = JSON.parse(company.briefData);
+  console.log(`[Sales Approach] Generating personalized outreach for ${company.name}`);
+  const domain = company.primaryDomain || company.websiteUrl || "unknown.com";
+  const brainInfo = userId ? await getBrainContextForApproach(userId, brainId) : { context: "", companyName: "Your Company" };
+  const sellerName = brainInfo.companyName;
+  const angleInfo = await getAngleContext(angleId);
+  const verifiedDevelopments = (briefData.recentDevelopments || []).filter((d) => d && (typeof d === "string" || d.text)).map((d) => {
+    if (typeof d === "string") return `- ${d}`;
+    const sourceNote = d.sourceUrl ? ` [Source: ${d.sourceUrl}]` : "";
+    return `- ${d.text}${d.date ? ` (${d.date})` : ""}${sourceNote}`;
+  }).join("\n");
+  const verifiedSources = (briefData.sources || []).map((s) => `- ${s.title || "Source"}: ${s.url}`).join("\n");
+  const todayStr = (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
+  const distributorInstructions = angleInfo.isDistributor ? `
+**ENGAGEMENT ANGLE: DISTRIBUTOR / CHANNEL PARTNER**
+You are crafting a CHANNEL PARTNERSHIP outreach \u2014 NOT a direct sales pitch.
+The goal is to explore whether ${company.name} would be a strong DISTRIBUTOR, RESELLER, or CHANNEL PARTNER for ${sellerName}.
+
+FRAMING RULES for all outreach materials:
+- Email subject should reference partnership/distribution opportunity, NOT product features
+- Email body should lead with their market position and distribution reach, then propose a channel partnership conversation
+- LinkedIn message should reference their role in the market and mutual customer base
+- Call script should open with acknowledging their market presence, then pivot to channel opportunity
+- conversationStarters should be about their distribution network, customer base, or product portfolio \u2014 NOT about their own needs
+- engagementStrategy.whyThisProspectMatters should explain why they are a strong CHANNEL PARTNER candidate
+- engagementStrategy.recommendedApproach should describe the channel partnership pitch sequence
+- engagementStrategy.keyTalkingPoints should cover: mutual customer base, margin opportunity, exclusivity potential, support model
+` : angleInfo.angleName && angleInfo.angleName !== "Potential Customer" ? `
+**ENGAGEMENT ANGLE: ${angleInfo.angleName.toUpperCase()}**
+${angleInfo.context}
+Frame ALL outreach materials through this lens. Adjust the email, LinkedIn message, call script, and conversation starters to reflect this specific engagement angle.
+` : `
+**ENGAGEMENT ANGLE: POTENTIAL CUSTOMER**
+You are crafting a direct sales outreach \u2014 the target is a potential end-user buyer for ${sellerName}'s products/services.
+Personalize all materials to the prospect's specific situation, pain points, and business context.
+`;
+  const approachPrompt = `You are a B2B sales expert. Today is ${todayStr}. You are crafting a complete sales approach for ${sellerName}.${distributorInstructions}
+${brainInfo.context ? `${brainInfo.context}
+**Use the seller intelligence above to tailor all outreach materials to the seller's specific capabilities and value propositions.**
+` : ""}
+
+**Target Company:** ${company.name} (${domain})
+
+**Deep Research Summary (with verified sources):**
+- Urgency Score: ${briefData.urgencyScore}/100
+- Products/Services: ${briefData.productsServices?.map((p) => p.category).join(", ") || "Unknown"}
+- Key Technologies: ${briefData.keyTechnologies?.map((t2) => t2.name).join(", ") || "Unknown"}
+- Target Markets: ${briefData.targetMarkets?.map((m) => m.segment).join(", ") || "Unknown"}
+
+**Verified Recent Developments:**
+${verifiedDevelopments || "No verified developments available."}
+
+**Verified Sources from Deep Research:**
+${verifiedSources || "No verified sources available."}
+
+**INSTRUCTIONS:**
+1. Search for the absolute latest news about "${company.name}" from the past 12 months to supplement the deep research
+2. Ground ALL conversation starters in specific, verified developments with working source URLs
+3. The email draft should reference at least one specific, verified development
+4. Only use verified data from your searches \u2014 do NOT hallucinate URLs or facts
+5. ${angleInfo.isDistributor ? "Frame ALL materials as a CHANNEL PARTNERSHIP opportunity \u2014 never as a direct product sale" : "Personalize all materials to the prospect's specific situation and pain points"}
+
+**Generate a complete sales approach.**
+- conversationStarters: 3 specific openers, each tied to a verified source URL
+- engagementStrategy: why this prospect matters${angleInfo.isDistributor ? " as a CHANNEL PARTNER" : ""}, recommended approach, key talking points
+- emailDraft: personalized ${angleInfo.isDistributor ? "channel partnership" : "cold"} email with subject, body (3 paragraphs), and referenced sources
+- linkedinMessage: connection request (max 200 chars) and follow-up message
+- callScript: 30-second opening, 3 discovery questions, value proposition, call to action
+
+Return ONLY a JSON object with EXACTLY these keys (camelCase, no other keys):
+{
+  "conversationStarters": [
+    {"opener": "<specific opening line>", "sourceUrl": "<url of the news/fact used>", "basedOn": "<brief description of what this is based on>"}
+  ],
+  "engagementStrategy": {
+    "whyThisProspectMatters": ["<reason 1>", "<reason 2>"],
+    "recommendedApproach": ["<step 1>", "<step 2>"],
+    "keyTalkingPoints": ["<point 1>", "<point 2>", "<point 3>"]
+  },
+  "emailDraft": {
+    "subject": "<email subject line>",
+    "body": "<full email body>",
+    "referencedSources": ["<url1>", "<url2>"]
+  },
+  "linkedinMessage": {
+    "connectionRequest": "<connection request under 200 chars>",
+    "followUp": "<follow-up message>"
+  },
+  "callScript": {
+    "opening": "<30-second opening>",
+    "discoveryQuestions": ["<question 1>", "<question 2>", "<question 3>"],
+    "valueProposition": "<core value prop paragraph>",
+    "callToAction": "<specific next step ask>"
+  }
+}`;
+  const approachRaw = await callGrokWithWebSearch3(approachPrompt);
+  const approachData = JSON.parse(approachRaw);
+  const salesApproach = {
+    companyName: company.name,
+    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+    angleId,
+    // Stamp the angle used — enables cache invalidation when angle changes
+    conversationStarters: normaliseConversationStarters(approachData.conversationStarters || []),
+    engagementStrategy: approachData.engagementStrategy || {
+      whyThisProspectMatters: [],
+      recommendedApproach: [],
+      keyTalkingPoints: []
+    },
+    emailDraft: approachData.emailDraft || {
+      subject: "Exploring partnership opportunities",
+      body: "Email generation failed. Please try again.",
+      referencedSources: []
+    },
+    linkedinMessage: approachData.linkedinMessage || {
+      connectionRequest: "Connection request generation failed.",
+      followUp: "Follow-up message generation failed."
+    },
+    callScript: approachData.callScript || {
+      opening: "Call script generation failed.",
+      discoveryQuestions: [],
+      valueProposition: "Value prop generation failed.",
+      callToAction: "Next step generation failed."
+    },
+    rawGrokApproach: approachRaw
+    // Debug: preserve raw Grok output for auditability and HITL review
+  };
+  console.log(`[Sales Approach] Personalized outreach generated for ${company.name} with ${salesApproach.conversationStarters.length} source-backed conversation starters`);
+  return salesApproach;
+}
+var XAI_API_KEY4, XAI_BASE_URL4;
+var init_salesApproachGenerator = __esm({
+  "server/salesApproachGenerator.ts"() {
+    "use strict";
+    init_db();
+    init_briefGenerator();
+    XAI_API_KEY4 = process.env.XAI_API_KEY;
+    XAI_BASE_URL4 = "https://api.x.ai/v1";
+  }
+});
+
 // server/prompts/selectIndustryCodes.ts
 function buildCodeSelectionPrompt(offering) {
   return `You are an industry classification expert helping identify potential customers for a B2B offering.
@@ -2227,807 +3707,6 @@ function naicsMatchesHierarchically(companyCode, selectedCodes) {
 var init_naicsHierarchy = __esm({
   "shared/naicsHierarchy.ts"() {
     "use strict";
-  }
-});
-
-// server/briefGenerator.ts
-var briefGenerator_exports = {};
-__export(briefGenerator_exports, {
-  generateSalesIntelligenceBrief: () => generateSalesIntelligenceBrief,
-  scoreCompanyFit: () => scoreCompanyFit
-});
-async function getBrainContext(userId, brainId) {
-  try {
-    const brain = brainId ? await getOfferingBrainById(brainId, userId) : await getActiveBrain(userId);
-    if (!brain || brain.status !== "completed") return "";
-    const capabilities = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
-    const valueProps = brain.valuePropositions ? JSON.parse(brain.valuePropositions) : [];
-    const icpIndustries = brain.icpIndustries ? JSON.parse(brain.icpIndustries) : [];
-    const painPoints = brain.icpPainPoints ? JSON.parse(brain.icpPainPoints) : [];
-    const buyingSignals = brain.icpBuyingSignals ? JSON.parse(brain.icpBuyingSignals) : [];
-    const fitCriteria = brain.fitCriteria ? JSON.parse(brain.fitCriteria) : { mustHave: [], niceToHave: [], disqualifiers: [] };
-    const urgencyTriggers = brain.urgencyTriggers ? JSON.parse(brain.urgencyTriggers) : [];
-    return `
-**YOUR COMPANY (Seller) \u2014 Offering Brain Intelligence:**
-- Company: ${brain.companyName}
-- Summary: ${brain.offeringSummary}
-- Core Capabilities: ${capabilities.join("; ")}
-- Value Propositions: ${valueProps.map((vp) => `${vp.proposition} (for: ${vp.targetAudience})`).join("; ")}
-- Competitive Advantages: ${brain.competitiveAdvantages}
-- ICP Industries: ${icpIndustries.join(", ")}
-- ICP Company Size: ${brain.icpCompanySize}
-- ICP Pain Points: ${painPoints.join("; ")}
-- Buying Signals to Watch: ${buyingSignals.join("; ")}
-- Fit Must-Haves: ${fitCriteria.mustHave?.join("; ") || "None"}
-- Fit Disqualifiers: ${fitCriteria.disqualifiers?.join("; ") || "None"}
-- Urgency Triggers: ${urgencyTriggers.join("; ")}
-`;
-  } catch (error) {
-    console.warn("[Brain Context] Failed to load brain:", error);
-    return "";
-  }
-}
-function todayString() {
-  return (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-}
-function stripJsonFences(raw) {
-  const trimmed = raw.trim();
-  const fenceMatch = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```\s*$/);
-  if (fenceMatch) return fenceMatch[1].trim();
-  return trimmed;
-}
-async function callGrokWithWebSearch2(input, jsonSchema) {
-  const responseFormat = jsonSchema ? { type: "json_schema", json_schema: { name: "output", strict: true, schema: jsonSchema } } : { type: "json_object" };
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 18e4);
-  try {
-    const response = await fetch(`${XAI_BASE_URL3}/responses`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${XAI_API_KEY3}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "grok-4-1-fast-reasoning",
-        tools: [{ type: "web_search" }],
-        // Explicit web_search tool
-        input,
-        response_format: responseFormat
-      }),
-      signal: controller.signal
-    });
-    if (!response.ok) {
-      const error = await response.text();
-      throw new Error(`Grok API error: ${response.status} - ${error}`);
-    }
-    const data = await response.json();
-    if (data.output && Array.isArray(data.output)) {
-      for (const item of data.output) {
-        if (item.content && Array.isArray(item.content)) {
-          const textContent = item.content.find((c) => c.type === "output_text");
-          if (textContent?.text) {
-            return stripJsonFences(textContent.text);
-          }
-        }
-      }
-    }
-    if (data.text) {
-      return stripJsonFences(data.text);
-    }
-    throw new Error("Unexpected Responses API format: no output text found in response.output[].content[]");
-  } finally {
-    clearTimeout(timeoutId);
-  }
-}
-async function generateSalesIntelligenceBrief(companyId, userId, brainId) {
-  const company = await getCompanyById(companyId);
-  if (!company) {
-    throw new Error(`Company not found: ${companyId}`);
-  }
-  console.log(`[Brief Generator] Generating brief for ${company.name}`);
-  const domain = company.primaryDomain || company.websiteUrl || "unknown.com";
-  const naicsCodes = company.naicsCodes ? JSON.parse(company.naicsCodes) : [];
-  const industry = inferIndustryFromNAICS(naicsCodes);
-  const brainContext = userId ? await getBrainContext(userId, brainId) : "";
-  if (brainContext) {
-    console.log(`[Brief Generator] Brain context loaded \u2014 will inform fit/urgency evaluation`);
-  }
-  const URGENCY_SCHEMA = {
-    type: "object",
-    properties: {
-      urgencyScore: { type: "number" },
-      urgencyBreakdown: {
-        type: "object",
-        properties: {
-          companyContext: { type: "number" },
-          marketSignals: { type: "number" },
-          recentActivity: { type: "number" }
-        },
-        required: ["companyContext", "marketSignals", "recentActivity"],
-        additionalProperties: false
-      },
-      recentDevelopments: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            text: { type: "string" },
-            date: { type: "string" },
-            sourceUrl: { type: "string" },
-            snippet: { type: "string" }
-          },
-          required: ["text", "date", "sourceUrl", "snippet"],
-          additionalProperties: false
-        }
-      },
-      urgencySignals: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            category: { type: "string" },
-            type: { type: "string" },
-            description: { type: "string" },
-            weight: { type: "number" },
-            sourceUrl: { type: "string" },
-            snippet: { type: "string" },
-            detectedAt: { type: "string" }
-          },
-          required: ["category", "type", "description", "weight", "sourceUrl", "snippet", "detectedAt"],
-          additionalProperties: false
-        }
-      },
-      sources: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            url: { type: "string" },
-            title: { type: "string" },
-            snippet: { type: "string" },
-            dateAccessed: { type: "string" }
-          },
-          required: ["url", "title", "snippet", "dateAccessed"],
-          additionalProperties: false
-        }
-      },
-      searchNotes: { type: "string" }
-    },
-    required: ["urgencyScore", "urgencyBreakdown", "recentDevelopments", "urgencySignals", "sources", "searchNotes"],
-    additionalProperties: false
-  };
-  const INTELLIGENCE_SCHEMA = {
-    type: "object",
-    properties: {
-      productsServices: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            category: { type: "string" },
-            description: { type: "string" },
-            sourceUrl: { type: "string" }
-          },
-          required: ["category", "description", "sourceUrl"],
-          additionalProperties: false
-        }
-      },
-      keyTechnologies: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            name: { type: "string" },
-            description: { type: "string" },
-            sourceUrl: { type: "string" }
-          },
-          required: ["name", "description", "sourceUrl"],
-          additionalProperties: false
-        }
-      },
-      targetMarkets: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            segment: { type: "string" },
-            description: { type: "string" }
-          },
-          required: ["segment", "description"],
-          additionalProperties: false
-        }
-      },
-      industryKeywords: { type: "array", items: { type: "string" } },
-      sources: {
-        type: "array",
-        items: {
-          type: "object",
-          properties: {
-            url: { type: "string" },
-            title: { type: "string" },
-            snippet: { type: "string" },
-            dateAccessed: { type: "string" }
-          },
-          required: ["url", "title", "snippet", "dateAccessed"],
-          additionalProperties: false
-        }
-      }
-    },
-    required: ["productsServices", "keyTechnologies", "targetMarkets", "industryKeywords", "sources"],
-    additionalProperties: false
-  };
-  const urgencyPrompt = `You are a B2B sales intelligence analyst. Today is ${todayString()}. Your goal is to provide verifiable answers with traceable sources from the most recent content available.
-${brainContext ? `${brainContext}
-**Use the Offering Brain intelligence above to:**
-- Assess how well this prospect fits the seller's ICP
-- Identify specific buying signals that match the seller's offering
-- Weight urgency higher when the prospect shows signals matching the seller's urgency triggers
-- Note any disqualifiers from the fit criteria
-
-` : ""}**Target Company:** "${company.name}" (${domain})
-
-**Instructions:**
-1. Search for the absolute latest news and developments about "${company.name}" from the past 12 months
-2. Focus on: product launches, expansions, hiring, partnerships, acquisitions, funding
-3. Prioritize sources from 2026 and late 2025
-4. Only use verified data from your searches \u2014 do NOT hallucinate URLs or facts
-
-**Score urgency 0-100 based on:**
-- Company Context (0-40): Growth stage, financial health, industry momentum
-- Market Signals (0-35): Competitive pressure, market expansion, technology shifts
-- Recent Activity (0-25): Hiring, announcements, news mentions in past 12 months
-
-**Return JSON only:**
-{
-  "urgencyScore": 45,
-  "urgencyBreakdown": {
-    "companyContext": 20,
-    "marketSignals": 15,
-    "recentActivity": 10
-  },
-  "recentDevelopments": [
-    {
-      "text": "Launched new product line for IoT sensors",
-      "date": "2026-01-15",
-      "sourceUrl": "https://working.website.com/article",
-      "snippet": "Direct quote or excerpt from the verified source page"
-    }
-  ],
-  "urgencySignals": [
-    {
-      "category": "Growth",
-      "type": "Product Launch",
-      "description": "Launched new IoT sensor line in Q4 2025",
-      "weight": 8,
-      "sourceUrl": "https://working.website.com/article",
-      "snippet": "Direct quote from verified source",
-      "detectedAt": "2026-01-15"
-    }
-  ],
-  "sources": [
-    {
-      "url": "https://working.website.com/article",
-      "title": "Page title from search",
-      "snippet": "Key excerpt from the page",
-      "dateAccessed": "2026-02-23"
-    }
-  ],
-  "searchNotes": "Any caveats about source availability or search limitations"
-}`;
-  const intelligencePrompt = `You are a B2B sales intelligence analyst. Today is ${todayString()}. Your goal is to provide verifiable company intelligence with traceable sources.
-${brainContext ? `${brainContext}
-**Use the Offering Brain intelligence above to:**
-- Focus on products/services that overlap with the seller's capabilities
-- Identify technologies that indicate the prospect needs the seller's services
-- Highlight target markets where the seller can add value
-
-` : ""}**Target Company:** "${company.name}" (${domain})
-
-**Instructions:**
-1. Research "${company.name}" to find:
-   - Products & services offerings
-   - Technology stack and platform
-   - Target markets and customer industries
-2. Visit the company website (${domain}) if possible
-3. Only include facts backed by verified sources \u2014 do NOT hallucinate
-
-**Return JSON only:**
-{
-  "productsServices": [
-    {
-      "category": "IoT Devices",
-      "description": "Smart home sensors and gateways",
-      "sourceUrl": "https://company.com/products"
-    }
-  ],
-  "keyTechnologies": [
-    {
-      "name": "IoT",
-      "description": "Internet of Things connectivity platform",
-      "sourceUrl": "https://company.com/technology"
-    }
-  ],
-  "targetMarkets": [
-    {"segment": "Smart Home", "description": "Residential automation systems"},
-    {"segment": "Healthcare", "description": "Medical diagnostic equipment"}
-  ],
-  "industryKeywords": ["IoT", "sensors", "wireless", "embedded systems", "PCB", "electronics"],
-  "sources": [
-    {
-      "url": "https://company.com/products",
-      "title": "Products page title",
-      "snippet": "Key excerpt",
-      "dateAccessed": "2026-02-23"
-    }
-  ]
-}`;
-  console.log(`[Brief Generator] Phase 1: Detecting urgency signals with source verification...`);
-  const [urgencyRaw, intelligenceRaw] = await Promise.all([
-    callGrokWithWebSearch2(urgencyPrompt, URGENCY_SCHEMA),
-    callGrokWithWebSearch2(intelligencePrompt, INTELLIGENCE_SCHEMA)
-  ]);
-  const urgencyData = JSON.parse(urgencyRaw);
-  const intelligenceData = JSON.parse(intelligenceRaw);
-  console.log(`[Brief Generator] Urgency score: ${urgencyData.urgencyScore}`);
-  console.log(`[Brief Generator] Sources found: ${urgencyData.sources?.length || 0}`);
-  console.log(
-    `[Brief Generator] Found ${intelligenceData.productsServices?.length || 0} product categories`
-  );
-  console.log(`[Brief Generator] Intelligence sources: ${intelligenceData.sources?.length || 0}`);
-  const normalizedDevelopments = (urgencyData.recentDevelopments || []).map((dev) => {
-    if (typeof dev === "string") {
-      return { text: dev, date: "", sourceUrl: "", snippet: "" };
-    }
-    return {
-      text: dev.text || dev.event || "",
-      date: dev.date || "",
-      sourceUrl: dev.sourceUrl || dev.url || "",
-      snippet: dev.snippet || ""
-    };
-  });
-  const normalizedSignals = (urgencyData.urgencySignals || []).map((signal) => ({
-    category: signal.category || "Unknown",
-    type: signal.type || "Unknown",
-    description: signal.description || "",
-    weight: signal.weight || 0,
-    sourceUrl: signal.sourceUrl || signal.url || "",
-    snippet: signal.snippet || "",
-    detectedAt: signal.detectedAt || signal.date || (/* @__PURE__ */ new Date()).toISOString().split("T")[0]
-  }));
-  const allSources = [
-    ...urgencyData.sources || [],
-    ...intelligenceData.sources || []
-  ];
-  const brief = {
-    companyName: company.name,
-    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    urgencyScore: urgencyData.urgencyScore || 0,
-    urgencyBreakdown: urgencyData.urgencyBreakdown || {
-      companyContext: 0,
-      marketSignals: 0,
-      recentActivity: 0
-    },
-    executiveSummary: {
-      company: company.name,
-      industry,
-      employees: "Unknown",
-      // Employee count not stored in schema
-      revenue: company.revenue || "Unknown",
-      domain,
-      linkedin: company.linkedinUrl || ""
-    },
-    verifiedContacts: {
-      website: {
-        value: domain,
-        source: "Apollo API",
-        verified: true
-      },
-      linkedin: {
-        value: company.linkedinUrl || "",
-        source: "Apollo API",
-        verified: !!company.linkedinUrl
-      }
-    },
-    productsServices: intelligenceData.productsServices || [],
-    keyTechnologies: intelligenceData.keyTechnologies || [],
-    recentDevelopments: normalizedDevelopments,
-    targetMarkets: intelligenceData.targetMarkets || [],
-    industryKeywords: intelligenceData.industryKeywords || [],
-    naicsCodes,
-    urgencySignals: normalizedSignals,
-    sources: allSources,
-    rawGrokUrgency: urgencyRaw,
-    rawGrokIntelligence: intelligenceRaw
-  };
-  console.log(`[Brief Generator] Brief complete for ${company.name}`);
-  return brief;
-}
-function inferIndustryFromNAICS(naicsCodes) {
-  if (!naicsCodes || naicsCodes.length === 0) return "Unknown";
-  const firstCode = naicsCodes[0];
-  const sector = firstCode.substring(0, 2);
-  const sectorMap = {
-    "11": "Agriculture",
-    "21": "Mining",
-    "22": "Utilities",
-    "23": "Construction",
-    "31": "Manufacturing",
-    "32": "Manufacturing",
-    "33": "Manufacturing",
-    "42": "Wholesale Trade",
-    "44": "Retail Trade",
-    "45": "Retail Trade",
-    "48": "Transportation",
-    "49": "Transportation",
-    "51": "Information",
-    "52": "Finance",
-    "53": "Real Estate",
-    "54": "Professional Services",
-    "55": "Management",
-    "56": "Administrative Services",
-    "61": "Educational Services",
-    "62": "Healthcare",
-    "71": "Arts & Entertainment",
-    "72": "Accommodation & Food",
-    "81": "Other Services",
-    "92": "Public Administration"
-  };
-  return sectorMap[sector] || "Unknown";
-}
-async function scoreCompanyFit(companyId, userId) {
-  const company = await getCompanyById(companyId);
-  if (!company) throw new Error(`Company ${companyId} not found`);
-  const brain = userId ? await getActiveBrain(userId) : null;
-  if (!brain || brain.status !== "completed") {
-    throw new Error("No active Brain found \u2014 cannot score fit without ICP criteria");
-  }
-  const brainContext = await getBrainContext(userId);
-  const fitCriteria = brain.fitCriteria ? JSON.parse(brain.fitCriteria) : { mustHave: [], niceToHave: [], disqualifiers: [] };
-  const icpIndustries = brain.icpIndustries ? JSON.parse(brain.icpIndustries) : [];
-  const buyingSignals = brain.icpBuyingSignals ? JSON.parse(brain.icpBuyingSignals) : [];
-  const companyProfile = `
-Company: ${company.name}
-Website: ${company.websiteUrl || "unknown"}
-Location: ${[company.city, company.state, company.country].filter(Boolean).join(", ") || "unknown"}
-Revenue: ${company.revenue || "unknown"}
-Industry (NAICS): ${company.naicsCodes ? JSON.parse(company.naicsCodes).slice(0, 5).join(", ") : "unknown"}
-Industry (SIC): ${company.sicCodes ? JSON.parse(company.sicCodes).slice(0, 5).join(", ") : "unknown"}
-Short description: ${company.shortDescription || "not available"}
-`;
-  const prompt = `You are a B2B sales qualification analyst. Score the prospect company's fit against the seller's Ideal Customer Profile (ICP).
-
-${brainContext}
-
-**PROSPECT COMPANY:**
-${companyProfile}
-
-**SCORING TASK:**
-Evaluate the prospect against the Brain's ICP criteria and return a JSON object with this exact structure:
-
-{
-  "fitScore": <integer 0-100>,
-  "breakdown": {
-    "industryFit": {
-      "score": <0-30>,
-      "max": 30,
-      "rationale": "<1-2 sentences explaining the industry match>"
-    },
-    "sizeFit": {
-      "score": <0-20>,
-      "max": 20,
-      "rationale": "<1-2 sentences explaining the size/revenue match>"
-    },
-    "mustHavesFit": {
-      "score": <0-30>,
-      "max": 30,
-      "rationale": "<1-2 sentences>",
-      "matched": ["<must-have criteria that appear to be met>"],
-      "missing": ["<must-have criteria that appear to be missing>"]
-    },
-    "disqualifiers": {
-      "triggered": <true|false>,
-      "reasons": ["<any disqualifier criteria that appear to apply>"]
-    },
-    "buyingSignalsFit": {
-      "score": <0-20>,
-      "max": 20,
-      "rationale": "<1-2 sentences on buying signal alignment>"
-    }
-  },
-  "overallRationale": "<3-4 sentence executive summary of why this company is or isn't a strong fit>"
-}
-
-Scoring rules:
-- industryFit (0-30): Does the company operate in the Brain's ICP industries? Full score = perfect match, 0 = complete mismatch
-- sizeFit (0-20): Does the company's revenue/headcount match the Brain's ICP company size?
-- mustHavesFit (0-30): How many of the Brain's must-have criteria does this company appear to meet?
-- disqualifiers: If ANY disqualifier is triggered, cap fitScore at 25 regardless of other scores
-- buyingSignalsFit (0-20): Does the company profile suggest any of the Brain's buying signals are present?
-- fitScore = industryFit.score + sizeFit.score + mustHavesFit.score + buyingSignalsFit.score (capped at 25 if disqualifier triggered)
-
-ICP Industries to match against: ${icpIndustries.join(", ")}
-Must-haves: ${fitCriteria.mustHave?.join("; ") || "none specified"}
-Disqualifiers: ${fitCriteria.disqualifiers?.join("; ") || "none specified"}
-Buying signals: ${buyingSignals.join("; ")}
-ICP company size: ${brain.icpCompanySize || "not specified"}
-
-Return ONLY the JSON object, no markdown, no explanation outside the JSON.`;
-  console.log(`[Fit Scorer] Scoring fit for ${company.name}...`);
-  const rawGrokFit = await callGrokWithWebSearch2(prompt);
-  const firstBrace = rawGrokFit.indexOf("{");
-  const lastBrace = rawGrokFit.lastIndexOf("}");
-  if (firstBrace === -1 || lastBrace === -1) {
-    throw new Error("Grok fit scoring returned no valid JSON");
-  }
-  const parsed = JSON.parse(rawGrokFit.slice(firstBrace, lastBrace + 1));
-  let finalScore = parsed.fitScore ?? 0;
-  if (parsed.breakdown?.disqualifiers?.triggered) {
-    finalScore = Math.min(finalScore, 25);
-  }
-  finalScore = Math.max(0, Math.min(100, finalScore));
-  console.log(`[Fit Scorer] ${company.name} \u2192 fitScore: ${finalScore}`);
-  return {
-    fitScore: finalScore,
-    scoredAt: (/* @__PURE__ */ new Date()).toISOString(),
-    companyName: company.name,
-    brainName: brain.brainName,
-    breakdown: parsed.breakdown,
-    overallRationale: parsed.overallRationale,
-    rawGrokFit
-  };
-}
-var XAI_API_KEY3, XAI_BASE_URL3;
-var init_briefGenerator = __esm({
-  "server/briefGenerator.ts"() {
-    "use strict";
-    init_db();
-    XAI_API_KEY3 = process.env.XAI_API_KEY;
-    XAI_BASE_URL3 = "https://api.x.ai/v1";
-  }
-});
-
-// server/salesApproachGenerator.ts
-var salesApproachGenerator_exports = {};
-__export(salesApproachGenerator_exports, {
-  generateSalesApproach: () => generateSalesApproach,
-  normaliseConversationStarters: () => normaliseConversationStarters
-});
-async function getBrainContextForApproach(userId, brainId) {
-  try {
-    const brain = brainId ? await getOfferingBrainById(brainId, userId) : await getActiveBrain(userId);
-    if (!brain || brain.status !== "completed") return { context: "", companyName: "Your Company" };
-    const capabilities = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
-    const valueProps = brain.valuePropositions ? JSON.parse(brain.valuePropositions) : [];
-    const painPoints = brain.icpPainPoints ? JSON.parse(brain.icpPainPoints) : [];
-    return {
-      companyName: brain.companyName || "Your Company",
-      context: `
-**YOUR COMPANY (Seller) \u2014 ${brain.companyName}:**
-- Summary: ${brain.offeringSummary}
-- Core Capabilities: ${capabilities.join("; ")}
-- Value Propositions: ${valueProps.map((vp) => `${vp.proposition} (for: ${vp.targetAudience})`).join("; ")}
-- Competitive Advantages: ${brain.competitiveAdvantages}
-- Pain Points We Solve: ${painPoints.join("; ")}
-`
-    };
-  } catch (error) {
-    console.warn("[Brain Context] Failed to load brain for sales approach:", error);
-    return { context: "", companyName: "Your Company" };
-  }
-}
-function normaliseConversationStarters(raw) {
-  if (!Array.isArray(raw)) return [];
-  return raw.map((s) => {
-    if (typeof s === "string") return { opener: s, sourceUrl: "", basedOn: "" };
-    if (s && typeof s === "object") {
-      const opener = s.opener ?? s.conversationStarter ?? s.description ?? s.text ?? JSON.stringify(s);
-      return {
-        opener,
-        sourceUrl: typeof s.sourceUrl === "string" ? s.sourceUrl : "",
-        basedOn: typeof s.basedOn === "string" ? s.basedOn : typeof s.type === "string" ? s.type : ""
-      };
-    }
-    return { opener: String(s ?? ""), sourceUrl: "", basedOn: "" };
-  });
-}
-async function callGrokWithWebSearch3(input) {
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 12e4);
-  let response;
-  try {
-    response = await fetch(`${XAI_BASE_URL4}/responses`, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${XAI_API_KEY4}`,
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify({
-        model: "grok-4-1-fast-reasoning",
-        tools: [{ type: "web_search" }],
-        // Explicit web_search tool
-        input,
-        response_format: {
-          type: "json_schema",
-          json_schema: {
-            name: "sales_approach",
-            strict: true,
-            schema: SALES_APPROACH_SCHEMA
-          }
-        }
-      }),
-      signal: controller.signal
-    });
-  } finally {
-    clearTimeout(timeoutId);
-  }
-  if (!response.ok) {
-    const error = await response.text();
-    throw new Error(`Grok API error: ${response.status} - ${error}`);
-  }
-  const data = await response.json();
-  if (data.output && Array.isArray(data.output)) {
-    for (const item of data.output) {
-      if (item.content && Array.isArray(item.content)) {
-        const textContent = item.content.find((c) => c.type === "output_text");
-        if (textContent?.text) {
-          return textContent.text;
-        }
-      }
-    }
-  }
-  if (data.text) {
-    return data.text;
-  }
-  throw new Error("Unexpected Responses API format: no output text found in response.output[].content[]");
-}
-async function generateSalesApproach(companyId, userId, brainId) {
-  const company = await getCompanyById(companyId);
-  if (!company) {
-    throw new Error(`Company not found: ${companyId}`);
-  }
-  if (!company.briefData) {
-    throw new Error(`Deep research not found for company ${companyId}. Run Deep Research first.`);
-  }
-  const briefData = JSON.parse(company.briefData);
-  console.log(`[Sales Approach] Generating personalized outreach for ${company.name}`);
-  const domain = company.primaryDomain || company.websiteUrl || "unknown.com";
-  const brainInfo = userId ? await getBrainContextForApproach(userId, brainId) : { context: "", companyName: "Your Company" };
-  const sellerName = brainInfo.companyName;
-  const verifiedDevelopments = (briefData.recentDevelopments || []).filter((d) => d && (typeof d === "string" || d.text)).map((d) => {
-    if (typeof d === "string") return `- ${d}`;
-    const sourceNote = d.sourceUrl ? ` [Source: ${d.sourceUrl}]` : "";
-    return `- ${d.text}${d.date ? ` (${d.date})` : ""}${sourceNote}`;
-  }).join("\n");
-  const verifiedSources = (briefData.sources || []).map((s) => `- ${s.title || "Source"}: ${s.url}`).join("\n");
-  const todayStr = (/* @__PURE__ */ new Date()).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" });
-  const approachPrompt = `You are a B2B sales expert. Today is ${todayStr}. You are crafting a complete sales approach for ${sellerName}.
-${brainInfo.context ? `${brainInfo.context}
-**Use the seller intelligence above to tailor all outreach materials to the seller's specific capabilities and value propositions.**
-` : ""}
-
-**Target Company:** ${company.name} (${domain})
-
-**Deep Research Summary (with verified sources):**
-- Urgency Score: ${briefData.urgencyScore}/100
-- Products/Services: ${briefData.productsServices?.map((p) => p.category).join(", ") || "Unknown"}
-- Key Technologies: ${briefData.keyTechnologies?.map((t2) => t2.name).join(", ") || "Unknown"}
-- Target Markets: ${briefData.targetMarkets?.map((m) => m.segment).join(", ") || "Unknown"}
-
-**Verified Recent Developments:**
-${verifiedDevelopments || "No verified developments available."}
-
-**Verified Sources from Deep Research:**
-${verifiedSources || "No verified sources available."}
-
-**INSTRUCTIONS:**
-1. Search for the absolute latest news about "${company.name}" from the past 12 months to supplement the deep research
-2. Ground ALL conversation starters in specific, verified developments with working source URLs
-3. The email draft should reference at least one specific, verified development
-4. Only use verified data from your searches \u2014 do NOT hallucinate URLs or facts
-
-**Generate a complete sales approach. Return JSON matching the required schema:**
-- conversationStarters: 3 specific openers, each tied to a verified source URL
-- engagementStrategy: why this prospect matters, recommended approach, key talking points
-- emailDraft: personalized cold email with subject, body (3 paragraphs), and referenced sources
-- linkedinMessage: connection request (max 200 chars) and follow-up message
-- callScript: 30-second opening, 3 discovery questions, value proposition, call to action`;
-  const approachRaw = await callGrokWithWebSearch3(approachPrompt);
-  const approachData = JSON.parse(approachRaw);
-  const salesApproach = {
-    companyName: company.name,
-    generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
-    conversationStarters: normaliseConversationStarters(approachData.conversationStarters || []),
-    engagementStrategy: approachData.engagementStrategy || {
-      whyThisProspectMatters: [],
-      recommendedApproach: [],
-      keyTalkingPoints: []
-    },
-    emailDraft: approachData.emailDraft || {
-      subject: "Exploring partnership opportunities",
-      body: "Email generation failed. Please try again.",
-      referencedSources: []
-    },
-    linkedinMessage: approachData.linkedinMessage || {
-      connectionRequest: "Connection request generation failed.",
-      followUp: "Follow-up message generation failed."
-    },
-    callScript: approachData.callScript || {
-      opening: "Call script generation failed.",
-      discoveryQuestions: [],
-      valueProposition: "Value prop generation failed.",
-      callToAction: "Next step generation failed."
-    }
-  };
-  console.log(`[Sales Approach] Personalized outreach generated for ${company.name} with ${salesApproach.conversationStarters.length} source-backed conversation starters`);
-  return salesApproach;
-}
-var XAI_API_KEY4, XAI_BASE_URL4, SALES_APPROACH_SCHEMA;
-var init_salesApproachGenerator = __esm({
-  "server/salesApproachGenerator.ts"() {
-    "use strict";
-    init_db();
-    XAI_API_KEY4 = process.env.XAI_API_KEY;
-    XAI_BASE_URL4 = "https://api.x.ai/v1";
-    SALES_APPROACH_SCHEMA = {
-      type: "object",
-      properties: {
-        conversationStarters: {
-          type: "array",
-          items: {
-            type: "object",
-            properties: {
-              opener: { type: "string" },
-              sourceUrl: { type: "string" },
-              basedOn: { type: "string" }
-            },
-            required: ["opener", "sourceUrl", "basedOn"],
-            additionalProperties: false
-          }
-        },
-        engagementStrategy: {
-          type: "object",
-          properties: {
-            whyThisProspectMatters: { type: "array", items: { type: "string" } },
-            recommendedApproach: { type: "array", items: { type: "string" } },
-            keyTalkingPoints: { type: "array", items: { type: "string" } }
-          },
-          required: ["whyThisProspectMatters", "recommendedApproach", "keyTalkingPoints"],
-          additionalProperties: false
-        },
-        emailDraft: {
-          type: "object",
-          properties: {
-            subject: { type: "string" },
-            body: { type: "string" },
-            referencedSources: { type: "array", items: { type: "string" } }
-          },
-          required: ["subject", "body", "referencedSources"],
-          additionalProperties: false
-        },
-        linkedinMessage: {
-          type: "object",
-          properties: {
-            connectionRequest: { type: "string" },
-            followUp: { type: "string" }
-          },
-          required: ["connectionRequest", "followUp"],
-          additionalProperties: false
-        },
-        callScript: {
-          type: "object",
-          properties: {
-            opening: { type: "string" },
-            discoveryQuestions: { type: "array", items: { type: "string" } },
-            valueProposition: { type: "string" },
-            callToAction: { type: "string" }
-          },
-          required: ["opening", "discoveryQuestions", "valueProposition", "callToAction"],
-          additionalProperties: false
-        }
-      },
-      required: ["conversationStarters", "engagementStrategy", "emailDraft", "linkedinMessage", "callScript"],
-      additionalProperties: false
-    };
   }
 });
 
@@ -3546,9 +4225,12 @@ function parseApolloCSV(csvContent) {
 function mapApolloRowToCompany(row, searchId) {
   const employeeCount = row["# Employees"] ? parseInt(row["# Employees"]) : null;
   const sicCodes = row["SIC Codes"] ? row["SIC Codes"].split(",").map((code) => code.trim()).filter(Boolean) : [];
+  const industry = row["Industry"] || null;
+  const country = row["Company Country"] || null;
   const sliceMetadata = {
     employeeCount,
-    industry: row["Industry"] || null,
+    industry,
+    country,
     keywords: row["Keywords"] || null,
     description: row["Short Description"] || null,
     lists: row["Lists"] || null,
@@ -3580,22 +4262,24 @@ function mapApolloRowToCompany(row, searchId) {
     // Not in Apollo CSV
     parentCompanyName: row["Subsidiary of"] || null,
     parentCompanyId: row["Subsidiary of (Organization ID)"] || null,
-    searchLocation: row["Company State"] || row["Company Country"] || null,
+    searchLocation: row["Company State"] || country || null,
     city: row["Company City"] || null,
     state: row["Company State"] || null,
-    country: row["Company Country"] || null,
+    country,
     streetAddress: row["Company Street"] || null,
     rawAddress: row["Company Address"] || null,
     sicCodes: JSON.stringify(sicCodes),
     naicsCodes: null,
     // Not in Apollo CSV
+    sector: industry,
     sliceMetadata: JSON.stringify(sliceMetadata),
     urgencyScore: null,
     briefData: null,
     briefGeneratedAt: null,
     salesApproachData: null,
     salesApproachGeneratedAt: null,
-    enrichmentStatus: "pending"
+    // Apollo CSV already contains firmographics — skip API enrichment (preserves country from CSV)
+    enrichmentStatus: "enriched"
   };
 }
 var init_apolloCSVParser = __esm({
@@ -3806,7 +4490,7 @@ ${truncated}`;
     const response = await axios4.post(
       "https://api.x.ai/v1/chat/completions",
       {
-        model: "grok-3-fast-beta",
+        model: "grok-4.20-non-reasoning",
         messages: [{ role: "user", content: prompt }],
         temperature: 0,
         max_tokens: 8e3
@@ -4686,14 +5370,18 @@ async function fetchSerperImages(companyName, primaryDomain, limit = 6) {
   const domainMatched = ownDomain ? allImages.filter((img) => img.domain?.replace(/^www\./, "").toLowerCase() === ownDomain) : [];
   const others = ownDomain ? allImages.filter((img) => img.domain?.replace(/^www\./, "").toLowerCase() !== ownDomain) : allImages;
   const ordered = [...domainMatched, ...others].slice(0, limit);
-  return ordered.map((img) => ({
-    imageUrl: img.imageUrl ?? "",
-    thumbnailUrl: img.thumbnailUrl ?? "",
-    title: img.title ?? "",
-    source: img.source ?? img.domain ?? "",
-    domain: img.domain ?? "",
-    link: img.link ?? ""
-  }));
+  return ordered.map((img) => {
+    const thumb = img.thumbnailUrl ?? "";
+    const safeThumb = thumb.startsWith("data:") ? "" : thumb;
+    return {
+      imageUrl: img.imageUrl ?? "",
+      thumbnailUrl: safeThumb || (img.imageUrl ?? ""),
+      title: img.title ?? "",
+      source: img.source ?? img.domain ?? "",
+      domain: img.domain ?? "",
+      link: img.link ?? ""
+    };
+  });
 }
 var BLOCKED_DOMAINS;
 var init_serperImages = __esm({
@@ -4751,6 +5439,7 @@ var init_serperImages = __esm({
 var supabaseSync_exports = {};
 __export(supabaseSync_exports, {
   getCompaniesTableSyncStats: () => getCompaniesTableSyncStats,
+  getLastSyncedCompanyId: () => getLastSyncedCompanyId,
   pullAllBrainsFromSupabase: () => pullAllBrainsFromSupabase,
   pullSingleBrainFromSupabase: () => pullSingleBrainFromSupabase,
   pushSingleBrainToSupabase: () => pushSingleBrainToSupabase,
@@ -4925,11 +5614,33 @@ async function syncSignalsForCompanies(supabase, companyList) {
     console.error("[SupabaseSync] Error syncing signals:", error.message);
   }
 }
-async function syncCompanyPagesToSupabase(appBaseUrl) {
+async function getLastSyncedCompanyId() {
+  const supabase = getSupabaseClient();
+  let maxId = 0;
+  let from = 0;
+  const pageSize = 1e3;
+  while (true) {
+    const { data, error } = await supabase.from("lt_mns_company_pages").select("page_url").range(from, from + pageSize - 1);
+    if (error || !data || data.length === 0) break;
+    for (const row of data) {
+      const match = String(row.page_url ?? "").match(/\/company\/(\d+)/);
+      if (match) {
+        const id = parseInt(match[1], 10);
+        if (id > maxId) maxId = id;
+      }
+    }
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+  console.log(`[SupabaseSync] getLastSyncedCompanyId: max company ID in Supabase = ${maxId}`);
+  return maxId;
+}
+async function syncCompanyPagesToSupabase(appBaseUrl, batchSize = 300, offsetId = 0) {
   const supabase = getSupabaseClient();
   const db = await getDb();
   if (!db) return { synced: 0, errors: 0, message: "Database not available" };
-  const rows = await db.select({ company: companies, search: searches }).from(companies).leftJoin(searches, eq2(companies.searchId, searches.id)).where(isNotNull(companies.briefData));
+  const { gt, and: and14 } = await import("drizzle-orm");
+  const rows = await db.select({ company: companies, search: searches }).from(companies).leftJoin(searches, eq2(companies.searchId, searches.id)).where(and14(isNotNull(companies.briefData), gt(companies.id, offsetId))).orderBy(companies.id).limit(batchSize);
   if (rows.length === 0) return { synced: 0, errors: 0, message: "No researched companies found" };
   const pageRows = rows.map(({ company, search }) => {
     const brief = company.briefData ? JSON.parse(company.briefData) : {};
@@ -4939,7 +5650,6 @@ async function syncCompanyPagesToSupabase(appBaseUrl) {
     return {
       id: toUUID("page", company.id),
       company_id: toUUID("company", company.id),
-      local_id: company.id,
       company_name: company.name,
       domain: company.websiteUrl ?? null,
       campaign_id: company.searchId ?? null,
@@ -4963,10 +5673,12 @@ async function syncCompanyPagesToSupabase(appBaseUrl) {
       totalErrors += chunk.length;
     }
   }
+  const lastId = rows.length > 0 ? rows[rows.length - 1].company.id : offsetId;
   return {
     synced: pageRows.length - totalErrors,
     errors: totalErrors,
-    message: `Synced ${pageRows.length - totalErrors} company pages to Supabase`
+    message: `Synced ${pageRows.length - totalErrors} company pages to Supabase`,
+    nextOffsetId: rows.length === batchSize ? lastId : void 0
   };
 }
 async function syncContactsToSupabase(companyIds) {
@@ -5134,9 +5846,9 @@ async function pullSingleBrainFromSupabase(brainId) {
 async function syncAllCompaniesToSupabase() {
   const db = await getDb();
   if (!db) return { synced: 0, errors: 0, message: "Database not available" };
-  const allCompanies = await db.select({ id: companies.id }).from(companies).where(isNotNull(companies.briefData));
+  const allCompanies = await db.select({ id: companies.id }).from(companies);
   if (allCompanies.length === 0) {
-    return { synced: 0, errors: 0, message: "No researched companies found" };
+    return { synced: 0, errors: 0, message: "No companies found" };
   }
   const CHUNK = 200;
   const ids = allCompanies.map((c) => c.id);
@@ -5297,6 +6009,862 @@ var init_supabaseSync = __esm({
   }
 });
 
+// server/bulkSimilarityService.ts
+var bulkSimilarityService_exports = {};
+__export(bulkSimilarityService_exports, {
+  runBulkSimilarityScoring: () => runBulkSimilarityScoring
+});
+import { createClient as createClient2 } from "@supabase/supabase-js";
+import { v5 as uuidv52 } from "uuid";
+import { eq as eq3, isNull } from "drizzle-orm";
+function toCompanyUUID(mysqlId) {
+  return uuidv52(`company-${mysqlId}`, LT_NAMESPACE2);
+}
+function dotProduct(a, b) {
+  let s = 0;
+  for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+  return s;
+}
+function magnitude(v) {
+  return Math.sqrt(dotProduct(v, v));
+}
+function cosineSimilarity(a, b) {
+  const d = magnitude(a) * magnitude(b);
+  return d === 0 ? 0 : dotProduct(a, b) / d;
+}
+function getSupabase() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set");
+  return createClient2(url, key, { auth: { persistSession: false } });
+}
+async function runBulkSimilarityScoring(opts) {
+  const sb = getSupabase();
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const { sql: sql8 } = await import("drizzle-orm");
+  const brainRows = opts.brainId ? await db.execute(sql8`SELECT id, brainName FROM offering_brain WHERE id = ${opts.brainId} LIMIT 1`) : await db.execute(sql8`SELECT id, brainName FROM offering_brain WHERE isActive = 1 AND show_on_leadtrigger = 1 ORDER BY updatedAt DESC LIMIT 1`);
+  const brainArr = brainRows;
+  if (!brainArr || brainArr.length === 0) {
+    throw new Error(opts.brainId ? `Brain id=${opts.brainId} not found` : "No active Brain found \u2014 cannot compute similarity scores");
+  }
+  const brain = brainArr[0];
+  const activeBrainId = String(brain.id);
+  console.log(`[BulkSimilarity] Brain: "${brain.brainName}" (id=${activeBrainId})${opts.brainId ? " [campaign-specific]" : " [globally-active]"}`);
+  const { data: brainEmbRow, error: brainEmbErr } = await sb.from("lt_mns_brain_embeddings").select("brain_id, embedding").eq("brain_id", activeBrainId).single();
+  if (brainEmbErr || !brainEmbRow) {
+    throw new Error(`Brain embedding not found for brain_id=${activeBrainId}: ${brainEmbErr?.message}`);
+  }
+  const brainVector = typeof brainEmbRow.embedding === "string" ? JSON.parse(brainEmbRow.embedding) : brainEmbRow.embedding;
+  console.log(`[BulkSimilarity] Brain vector loaded (${brainVector.length} dims)`);
+  let targetIds = [];
+  if (opts.mode === "ungraded") {
+    const rows = await db.select({ id: companies.id }).from(companies).where(isNull(companies.similarityScore));
+    targetIds = rows.map((r) => r.id);
+  } else if (opts.mode === "campaign" && opts.searchId) {
+    const rows = await db.select({ id: companies.id }).from(companies).where(eq3(companies.searchId, opts.searchId));
+    targetIds = rows.map((r) => r.id);
+  } else {
+    const rows = await db.select({ id: companies.id }).from(companies);
+    targetIds = rows.map((r) => r.id);
+  }
+  if (targetIds.length === 0) {
+    console.log("[BulkSimilarity] No target companies \u2014 nothing to score");
+    return {
+      scored: 0,
+      updated: 0,
+      activeBrainId,
+      activeBrainName: brain.brainName,
+      scoreRange: { min: 0, max: 0, avg: 0 }
+    };
+  }
+  const uuidToMysqlId = /* @__PURE__ */ new Map();
+  for (const id of targetIds) {
+    uuidToMysqlId.set(toCompanyUUID(id), id);
+  }
+  console.log(`[BulkSimilarity] Target companies: ${targetIds.length} (mode=${opts.mode})`);
+  const mysqlUpdates = [];
+  let page = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const from = page * SUPABASE_PAGE_SIZE;
+    const to = from + SUPABASE_PAGE_SIZE - 1;
+    const { data: embRows, error: embErr } = await sb.from("lt_mns_company_embeddings").select("watchlist_id, embedding").range(from, to);
+    if (embErr) {
+      console.error(`[BulkSimilarity] Supabase error on page ${page + 1}:`, embErr.message);
+      break;
+    }
+    if (!embRows || embRows.length === 0) {
+      hasMore = false;
+      break;
+    }
+    for (const row of embRows) {
+      const mysqlId = uuidToMysqlId.get(row.watchlist_id);
+      if (!mysqlId) continue;
+      const vec = typeof row.embedding === "string" ? JSON.parse(row.embedding) : row.embedding;
+      const sim = cosineSimilarity(vec, brainVector);
+      const score = Math.round((sim + 1) / 2 * 100);
+      mysqlUpdates.push({ mysqlId, score });
+    }
+    console.log(`[BulkSimilarity] Page ${page + 1}: ${embRows.length} embeddings, ${mysqlUpdates.length} matched so far`);
+    if (embRows.length < SUPABASE_PAGE_SIZE) {
+      hasMore = false;
+    } else {
+      page++;
+    }
+  }
+  const now = /* @__PURE__ */ new Date();
+  let updated = 0;
+  for (let i = 0; i < mysqlUpdates.length; i += MYSQL_BATCH) {
+    const batch = mysqlUpdates.slice(i, i + MYSQL_BATCH);
+    const batchIds = batch.map((u) => u.mysqlId);
+    const caseScore = batch.map((u) => `WHEN ${u.mysqlId} THEN ${u.score}`).join(" ");
+    const inList = batchIds.join(",");
+    await db.execute(sql8`
+      UPDATE companies
+      SET similarityScore = CASE id ${sql8.raw(caseScore)} END,
+          similarityScoreGeneratedAt = ${now}
+      WHERE id IN (${sql8.raw(inList)})
+    `);
+    updated += batch.length;
+    if (updated % 2e3 === 0 || updated === mysqlUpdates.length) {
+      console.log(`[BulkSimilarity] Updated ${updated}/${mysqlUpdates.length} companies`);
+    }
+  }
+  const allScores = mysqlUpdates.map((u) => u.score);
+  const scoreRange = allScores.length > 0 ? {
+    min: Math.min(...allScores),
+    max: Math.max(...allScores),
+    avg: Math.round(allScores.reduce((a, s) => a + s, 0) / allScores.length)
+  } : { min: 0, max: 0, avg: 0 };
+  console.log(
+    `[BulkSimilarity] Done \u2014 scored: ${mysqlUpdates.length}, updated: ${updated}, range: ${scoreRange.min}\u2013${scoreRange.max} (avg ${scoreRange.avg})`
+  );
+  return {
+    scored: mysqlUpdates.length,
+    updated,
+    activeBrainId,
+    activeBrainName: brain.brainName,
+    scoreRange
+  };
+}
+var LT_NAMESPACE2, SUPABASE_PAGE_SIZE, MYSQL_BATCH;
+var init_bulkSimilarityService = __esm({
+  "server/bulkSimilarityService.ts"() {
+    "use strict";
+    init_db();
+    init_schema();
+    LT_NAMESPACE2 = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+    SUPABASE_PAGE_SIZE = 1e3;
+    MYSQL_BATCH = 200;
+  }
+});
+
+// server/bulkNewsUrgencyService.ts
+var bulkNewsUrgencyService_exports = {};
+__export(bulkNewsUrgencyService_exports, {
+  runBulkNewsUrgencyScoring: () => runBulkNewsUrgencyScoring
+});
+import { createClient as createClient3 } from "@supabase/supabase-js";
+import { isNull as isNull2, eq as eq4 } from "drizzle-orm";
+function cosineSimilarity2(a, b) {
+  let dot = 0, normA = 0, normB = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    normA += a[i] * a[i];
+    normB += b[i] * b[i];
+  }
+  if (normA === 0 || normB === 0) return 0;
+  return dot / (Math.sqrt(normA) * Math.sqrt(normB));
+}
+async function embedText(text2) {
+  const res = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({ model: "text-embedding-3-small", input: text2 })
+  });
+  if (!res.ok) throw new Error(`Embed failed: ${res.status}`);
+  const data = await res.json();
+  return data.data[0].embedding;
+}
+async function getABCCentroid() {
+  if (cachedCentroid) return cachedCentroid;
+  const sb = createClient3(SUPABASE_URL, SUPABASE_KEY, { auth: { persistSession: false } });
+  const { data, error } = await sb.from("lt_mns_trigger_references").select("embedding").eq("brain_id", ACTIVE_BRAIN_ID).eq("is_active", true).not("embedding", "is", null);
+  if (error) throw new Error(`Supabase centroid error: ${error.message}`);
+  if (!data || data.length === 0) throw new Error("No ABC scenario embeddings found");
+  const vecs = [];
+  for (const row of data) {
+    let vec = row.embedding;
+    if (typeof vec === "string") vec = JSON.parse(vec);
+    if (Array.isArray(vec) && vec.length === 1536) {
+      vecs.push(vec);
+    }
+  }
+  if (vecs.length === 0) throw new Error("No valid 1536-dim embeddings found");
+  const dim = 1536;
+  const centroid = new Array(dim).fill(0);
+  for (const v of vecs) {
+    for (let i = 0; i < dim; i++) centroid[i] += v[i];
+  }
+  for (let i = 0; i < dim; i++) centroid[i] /= vecs.length;
+  cachedCentroid = centroid;
+  console.log(`[NewsUrgency] ABC centroid built from ${vecs.length} scenarios`);
+  return centroid;
+}
+async function fetchNewsText(name, domain) {
+  const query = domain ? `${name}` : name;
+  try {
+    const res = await fetch("https://google.serper.dev/news", {
+      method: "POST",
+      headers: {
+        "X-API-KEY": SERPER_API_KEY,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({ q: query, num: 5, tbs: "qdr:y" })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    const items = data.news ?? [];
+    if (items.length === 0) return null;
+    return items.slice(0, 3).map((n) => `${n.title ?? ""}. ${n.snippet ?? ""}`).join(" ");
+  } catch {
+    return null;
+  }
+}
+async function runBulkNewsUrgencyScoring(opts) {
+  const limit = opts.limit ?? 500;
+  const centroid = await getABCCentroid();
+  const drizzleDb = await getDb();
+  if (!drizzleDb) throw new Error("Database connection unavailable");
+  const rows = await drizzleDb.select({ id: companies.id, name: companies.name, domain: companies.primaryDomain }).from(companies).where(opts.mode === "unscored" ? isNull2(companies.urgencyScoreNews) : void 0).orderBy(companies.id).limit(limit);
+  console.log(`[NewsUrgency] Scoring ${rows.length} companies (mode=${opts.mode})`);
+  let scored = 0, noNews = 0, errors = 0;
+  const scoreSum = [];
+  for (const company of rows) {
+    try {
+      const newsText = await fetchNewsText(company.name, company.domain ?? null);
+      if (!newsText) {
+        noNews++;
+        await new Promise((r) => setTimeout(r, SERPER_DELAY_MS));
+        continue;
+      }
+      const newsEmbed = await embedText(newsText);
+      const sim = cosineSimilarity2(newsEmbed, centroid);
+      const score = Math.round(sim * 100);
+      await drizzleDb.update(companies).set({ urgencyScoreNews: score, urgencyScoreNewsGeneratedAt: /* @__PURE__ */ new Date() }).where(eq4(companies.id, company.id));
+      scoreSum.push(score);
+      scored++;
+    } catch (err) {
+      errors++;
+      console.error(`[NewsUrgency] Error for ${company.name}: ${err.message}`);
+    }
+    await new Promise((r) => setTimeout(r, SERPER_DELAY_MS));
+  }
+  const avgScore = scoreSum.length > 0 ? Math.round(scoreSum.reduce((a, b) => a + b, 0) / scoreSum.length) : 0;
+  console.log(`[NewsUrgency] Done \u2014 scored: ${scored}, no-news: ${noNews}, errors: ${errors}, avg: ${avgScore}`);
+  return { total: rows.length, scored, noNews, errors, avgScore };
+}
+var SUPABASE_URL, SUPABASE_KEY, SERPER_API_KEY, OPENAI_API_KEY, ACTIVE_BRAIN_ID, SERPER_DELAY_MS, cachedCentroid;
+var init_bulkNewsUrgencyService = __esm({
+  "server/bulkNewsUrgencyService.ts"() {
+    "use strict";
+    init_db();
+    init_schema();
+    SUPABASE_URL = process.env.SUPABASE_URL;
+    SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    SERPER_API_KEY = process.env.SERPER_API_KEY;
+    OPENAI_API_KEY = process.env.OPENAI_API_KEY;
+    ACTIVE_BRAIN_ID = 210002;
+    SERPER_DELAY_MS = 1300;
+    cachedCentroid = null;
+  }
+});
+
+// server/supabaseEmbeddings.ts
+var supabaseEmbeddings_exports = {};
+__export(supabaseEmbeddings_exports, {
+  aggregateBrainScores: () => aggregateBrainScores,
+  persistBrainScores: () => persistBrainScores,
+  persistCompanyEmbeddings: () => persistCompanyEmbeddings,
+  scoreCompaniesAgainstAllBrains: () => scoreCompaniesAgainstAllBrains,
+  scoreCompaniesAgainstBrain: () => scoreCompaniesAgainstBrain,
+  toCompanyUUID: () => toCompanyUUID2
+});
+import { createClient as createClient4 } from "@supabase/supabase-js";
+import { v5 as uuidv53 } from "uuid";
+function toCompanyUUID2(mysqlId) {
+  return uuidv53(`company-${mysqlId}`, LT_NAMESPACE3);
+}
+function getSupabase2() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set");
+  return createClient4(url, key, { auth: { persistSession: false } });
+}
+function dotProduct2(a, b) {
+  let sum = 0;
+  for (let i = 0; i < a.length; i++) sum += a[i] * b[i];
+  return sum;
+}
+function magnitude2(v) {
+  return Math.sqrt(dotProduct2(v, v));
+}
+function cosineSimilarity3(a, b) {
+  const denom = magnitude2(a) * magnitude2(b);
+  if (denom === 0) return 0;
+  return dotProduct2(a, b) / denom;
+}
+async function persistCompanyEmbeddings(embeddings) {
+  if (embeddings.length === 0) return;
+  const sb = getSupabase2();
+  const BATCH = 100;
+  for (let i = 0; i < embeddings.length; i += BATCH) {
+    const batch = embeddings.slice(i, i + BATCH);
+    const rows = batch.map((e) => ({
+      watchlist_id: toCompanyUUID2(e.companyId),
+      embedding: e.embedding,
+      content_to_embed: e.text,
+      last_updated_at: (/* @__PURE__ */ new Date()).toISOString()
+    }));
+    const { error } = await sb.from("lt_mns_company_embeddings").upsert(rows, { onConflict: "watchlist_id" });
+    if (error) {
+      console.error(`[supabaseEmbeddings] Upsert error (batch ${i}\u2013${i + BATCH}):`, error.message);
+    } else {
+      console.log(`[supabaseEmbeddings] Persisted ${rows.length} embeddings (batch ${Math.floor(i / BATCH) + 1})`);
+    }
+  }
+}
+async function scoreCompaniesAgainstBrain(embeddings, brainId) {
+  if (embeddings.length === 0) return [];
+  const sb = getSupabase2();
+  const { data: brainRow, error } = await sb.from("lt_mns_brain_embeddings").select("brain_id, embedding").eq("brain_id", brainId).single();
+  if (error || !brainRow) {
+    console.warn(`[supabaseEmbeddings] Brain embedding not found for brain_id=${brainId}:`, error?.message);
+    return [];
+  }
+  const brainVector = typeof brainRow.embedding === "string" ? JSON.parse(brainRow.embedding) : brainRow.embedding;
+  console.log(`[supabaseEmbeddings] Scoring ${embeddings.length} companies against Brain ${brainId}`);
+  return embeddings.map((compEmb) => {
+    const similarity = cosineSimilarity3(compEmb.embedding, brainVector);
+    const score = Math.round((similarity + 1) / 2 * 100);
+    return {
+      companyId: compEmb.companyId,
+      companyUUID: toCompanyUUID2(compEmb.companyId),
+      brainId,
+      score
+    };
+  });
+}
+async function scoreCompaniesAgainstAllBrains(embeddings) {
+  if (embeddings.length === 0) return [];
+  const sb = getSupabase2();
+  const { data: brainRows, error } = await sb.from("lt_mns_brain_embeddings").select("brain_id, embedding");
+  if (error || !brainRows || brainRows.length === 0) {
+    console.warn("[supabaseEmbeddings] No Brain embeddings found:", error?.message);
+    return [];
+  }
+  console.log(`[supabaseEmbeddings] Scoring ${embeddings.length} companies against ${brainRows.length} Brains`);
+  const brains = brainRows.map((b) => ({
+    brainId: b.brain_id,
+    vector: typeof b.embedding === "string" ? JSON.parse(b.embedding) : b.embedding
+  }));
+  const results = [];
+  for (const compEmb of embeddings) {
+    for (const brain of brains) {
+      const similarity = cosineSimilarity3(compEmb.embedding, brain.vector);
+      const score = Math.round((similarity + 1) / 2 * 100);
+      results.push({
+        companyId: compEmb.companyId,
+        companyUUID: toCompanyUUID2(compEmb.companyId),
+        brainId: brain.brainId,
+        score
+      });
+    }
+  }
+  return results;
+}
+async function persistBrainScores(scores) {
+  if (scores.length === 0) return;
+  const sb = getSupabase2();
+  const BATCH = 500;
+  const now = (/* @__PURE__ */ new Date()).toISOString();
+  for (let i = 0; i < scores.length; i += BATCH) {
+    const batch = scores.slice(i, i + BATCH);
+    const rows = batch.map((s) => ({
+      company_id: s.companyUUID,
+      brain_id: s.brainId,
+      score: s.score,
+      scored_at: now,
+      method: "cosine-similarity-v1"
+    }));
+    const { error } = await sb.from("lt_mns_company_brain_scores").upsert(rows, { onConflict: "company_id,brain_id" });
+    if (error) {
+      console.error(`[supabaseEmbeddings] Brain scores upsert error (batch ${i}\u2013${i + BATCH}):`, error.message);
+    } else {
+      console.log(`[supabaseEmbeddings] Persisted ${rows.length} brain scores (batch ${Math.floor(i / BATCH) + 1})`);
+    }
+  }
+}
+function aggregateBrainScores(scores) {
+  const map = /* @__PURE__ */ new Map();
+  for (const s of scores) {
+    const existing = map.get(s.companyId);
+    if (!existing) {
+      map.set(s.companyId, {
+        bestScore: s.score,
+        bestBrainId: s.brainId,
+        allScores: { [s.brainId]: s.score }
+      });
+    } else {
+      existing.allScores[s.brainId] = s.score;
+      if (s.score > existing.bestScore) {
+        existing.bestScore = s.score;
+        existing.bestBrainId = s.brainId;
+      }
+    }
+  }
+  return map;
+}
+var LT_NAMESPACE3;
+var init_supabaseEmbeddings = __esm({
+  "server/supabaseEmbeddings.ts"() {
+    "use strict";
+    LT_NAMESPACE3 = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
+  }
+});
+
+// server/companySimilaritySearch.ts
+var companySimilaritySearch_exports = {};
+__export(companySimilaritySearch_exports, {
+  cosineSimilarityScore0to100: () => cosineSimilarityScore0to100,
+  fetchBrainEmbedding: () => fetchBrainEmbedding,
+  fetchSeedEmbedding: () => fetchSeedEmbedding,
+  getSupabaseClient: () => getSupabaseClient2,
+  mapRpcMatchesToMysqlCompanies: () => mapRpcMatchesToMysqlCompanies,
+  mapWatchlistIdsToMysqlCompanies: () => mapWatchlistIdsToMysqlCompanies,
+  matchCompaniesByEmbeddingRpc: () => matchCompaniesByEmbeddingRpc,
+  mergeLookalikeCampaignCompanyIds: () => mergeLookalikeCampaignCompanyIds,
+  minSim0to100ToRpcThreshold: () => minSim0to100ToRpcThreshold,
+  parseEmbedding: () => parseEmbedding,
+  prependSeedToLookalikeResults: () => prependSeedToLookalikeResults,
+  previewSimilarityByVector: () => previewSimilarityByVector,
+  rpcSimilarityToSim0to100: () => rpcSimilarityToSim0to100,
+  scoreAllEmbeddingsAgainstVector: () => scoreAllEmbeddingsAgainstVector
+});
+import { createClient as createClient5 } from "@supabase/supabase-js";
+import { inArray as inArray3 } from "drizzle-orm";
+function getSupabaseClient2() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set");
+  return createClient5(url, key, { auth: { persistSession: false } });
+}
+function parseEmbedding(raw) {
+  return typeof raw === "string" ? JSON.parse(raw) : raw;
+}
+function cosineSimilarityScore0to100(a, b) {
+  let dot = 0;
+  let ma = 0;
+  let mb = 0;
+  for (let i = 0; i < a.length; i++) {
+    dot += a[i] * b[i];
+    ma += a[i] ** 2;
+    mb += b[i] ** 2;
+  }
+  const sim = ma === 0 || mb === 0 ? 0 : dot / (Math.sqrt(ma) * Math.sqrt(mb));
+  return Math.round((sim + 1) / 2 * 100);
+}
+function minSim0to100ToRpcThreshold(minSim) {
+  return Math.max(0, Math.min(1, minSim / 100 * 2 - 1));
+}
+function rpcSimilarityToSim0to100(score) {
+  return Math.round((score + 1) / 2 * 100);
+}
+async function matchCompaniesByEmbeddingRpc(sb, queryVector, opts) {
+  const exclude = new Set(opts.excludeWatchlistIds ?? []);
+  const multiplier = opts.overfetchForFilters ? 3 : 1;
+  const pLimit = Math.min(500, opts.maxResults * multiplier);
+  const { data, error } = await sb.rpc("match_companies_to_embedding", {
+    p_embedding: queryVector,
+    p_limit: pLimit,
+    p_threshold: minSim0to100ToRpcThreshold(opts.minSim)
+  });
+  if (error) {
+    throw new Error(`Vector search RPC failed: ${error.message}`);
+  }
+  const raw = data ?? [];
+  const matches = raw.filter((r) => !exclude.has(String(r.company_id)));
+  return { matches, totalMatched: matches.length };
+}
+async function scoreAllEmbeddingsAgainstVector(sb, queryVector, opts) {
+  const exclude = new Set(opts.excludeWatchlistIds ?? []);
+  const scored = [];
+  let page = 0;
+  let hasMore = true;
+  while (hasMore) {
+    const { data: rows, error } = await sb.from("lt_mns_company_embeddings").select("watchlist_id, embedding").range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1);
+    if (error || !rows || rows.length === 0) {
+      hasMore = false;
+      break;
+    }
+    for (const row of rows) {
+      const watchlistId = String(row.watchlist_id);
+      if (exclude.has(watchlistId)) continue;
+      const vec = parseEmbedding(row.embedding);
+      const score = cosineSimilarityScore0to100(vec, queryVector);
+      if (score >= opts.minScore) {
+        scored.push({ watchlistId, score });
+      }
+    }
+    if (rows.length < PAGE_SIZE) hasMore = false;
+    else page++;
+  }
+  scored.sort((a, b) => b.score - a.score);
+  const top = scored.slice(0, opts.maxResults);
+  return { scored, top };
+}
+async function fetchSeedEmbedding(sb, seedCompanyId) {
+  const watchlistId = toCompanyUUID2(seedCompanyId);
+  const { data, error } = await sb.from("lt_mns_company_embeddings").select("embedding").eq("watchlist_id", watchlistId).maybeSingle();
+  if (error || !data?.embedding) return null;
+  return parseEmbedding(data.embedding);
+}
+function prependSeedToLookalikeResults(seed, peers) {
+  const seedRow = { ...seed, simScore: 100, isSeed: true };
+  return [seedRow, ...peers.filter((c) => c.id !== seed.id)];
+}
+function mergeLookalikeCampaignCompanyIds(seedCompanyId, companyIds) {
+  return [.../* @__PURE__ */ new Set([seedCompanyId, ...companyIds])];
+}
+async function mapWatchlistIdsToMysqlCompanies(top, filters) {
+  if (top.length === 0) return { companies: [], totalMatched: 0 };
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const allCompanyIds = await db.select({ id: companies.id }).from(companies);
+  const mysqlUuidMap = /* @__PURE__ */ new Map();
+  for (const { id } of allCompanyIds) {
+    mysqlUuidMap.set(toCompanyUUID2(id), id);
+  }
+  const topWithIds = top.map((t2) => ({ ...t2, mysqlId: mysqlUuidMap.get(t2.watchlistId) })).filter((t2) => t2.mysqlId !== void 0);
+  if (topWithIds.length === 0) return { companies: [], totalMatched: 0 };
+  const ids = topWithIds.map((t2) => t2.mysqlId);
+  const companyRows = await db.select({
+    id: companies.id,
+    name: companies.name,
+    websiteUrl: companies.websiteUrl,
+    primaryDomain: companies.primaryDomain,
+    city: companies.city,
+    country: companies.country,
+    sector: companies.sector,
+    fitScore: companies.fitScore,
+    searchId: companies.searchId,
+    generatedWithBrainName: companies.generatedWithBrainName
+  }).from(companies).where(inArray3(companies.id, ids));
+  const simMap = new Map(topWithIds.map((t2) => [t2.mysqlId, t2.score]));
+  let result = companyRows.map((c) => ({ ...c, simScore: simMap.get(c.id) ?? 0 })).sort((a, b) => b.simScore - a.simScore);
+  if (filters?.country) {
+    const countryLower = filters.country.toLowerCase();
+    result = result.filter((c) => c.country?.toLowerCase().includes(countryLower));
+  }
+  if (filters?.sector) {
+    const sectorLower = filters.sector.toLowerCase();
+    result = result.filter((c) => c.sector?.toLowerCase().includes(sectorLower));
+  }
+  return { companies: result, totalMatched: topWithIds.length };
+}
+async function mapRpcMatchesToMysqlCompanies(sb, matches, filters, maxResults) {
+  if (matches.length === 0) return { companies: [], totalMatched: 0 };
+  let filtered = [...matches];
+  if (filters?.country) {
+    const countryLower = filters.country.toLowerCase();
+    filtered = filtered.filter((r) => r.country?.toLowerCase().includes(countryLower));
+  }
+  if (filters?.sector) {
+    const sectorLower = filters.sector.toLowerCase();
+    filtered = filtered.filter((r) => r.sector?.toLowerCase().includes(sectorLower));
+  }
+  const totalMatched = filtered.length;
+  const capped = maxResults ? filtered.slice(0, maxResults) : filtered;
+  if (capped.length === 0) return { companies: [], totalMatched };
+  const db = await getDb();
+  if (!db) throw new Error("DB unavailable");
+  const watchlistIds = capped.map((m) => String(m.company_id));
+  const uuidToMysql = await resolveWatchlistIdsToMysqlIds(sb, db, watchlistIds);
+  const simByMysqlId = /* @__PURE__ */ new Map();
+  for (const m of capped) {
+    const mysqlId = uuidToMysql.get(String(m.company_id));
+    if (mysqlId !== void 0) {
+      simByMysqlId.set(mysqlId, rpcSimilarityToSim0to100(m.similarity_score));
+    }
+  }
+  const mysqlIds = [...simByMysqlId.keys()];
+  if (mysqlIds.length === 0) return { companies: [], totalMatched };
+  const companyRows = await db.select({
+    id: companies.id,
+    name: companies.name,
+    websiteUrl: companies.websiteUrl,
+    primaryDomain: companies.primaryDomain,
+    city: companies.city,
+    country: companies.country,
+    sector: companies.sector,
+    fitScore: companies.fitScore,
+    searchId: companies.searchId,
+    generatedWithBrainName: companies.generatedWithBrainName
+  }).from(companies).where(inArray3(companies.id, mysqlIds));
+  const result = companyRows.map((c) => ({ ...c, simScore: simByMysqlId.get(c.id) ?? 0 })).sort((a, b) => b.simScore - a.simScore);
+  return { companies: result, totalMatched };
+}
+async function resolveWatchlistIdsToMysqlIds(sb, db, watchlistIds) {
+  const map = /* @__PURE__ */ new Map();
+  const unresolved = new Set(watchlistIds);
+  const CHUNK = 100;
+  for (let i = 0; i < watchlistIds.length; i += CHUNK) {
+    const chunk = watchlistIds.slice(i, i + CHUNK);
+    const { data } = await sb.from("lt_mns_companies").select("id, mysql_id").in("id", chunk);
+    for (const row of data ?? []) {
+      const id = String(row.id);
+      const mysqlId = row.mysql_id != null ? Number(row.mysql_id) : void 0;
+      if (mysqlId && !Number.isNaN(mysqlId)) {
+        map.set(id, mysqlId);
+        unresolved.delete(id);
+      }
+    }
+  }
+  if (unresolved.size === 0) return map;
+  const BATCH = 5e3;
+  let offset = 0;
+  while (unresolved.size > 0) {
+    const rows = await db.select({ id: companies.id }).from(companies).limit(BATCH).offset(offset);
+    if (rows.length === 0) break;
+    for (const { id } of rows) {
+      const uuid = toCompanyUUID2(id);
+      if (unresolved.has(uuid)) {
+        map.set(uuid, id);
+        unresolved.delete(uuid);
+      }
+    }
+    if (unresolved.size === 0 || rows.length < BATCH) break;
+    offset += BATCH;
+  }
+  return map;
+}
+async function previewSimilarityByVector(sb, queryVector, opts) {
+  try {
+    const { matches } = await matchCompaniesByEmbeddingRpc(sb, queryVector, opts);
+    const { companies: result, totalMatched } = await mapRpcMatchesToMysqlCompanies(
+      sb,
+      matches,
+      opts.filters,
+      opts.maxResults
+    );
+    return { companies: result, totalMatched };
+  } catch (rpcErr) {
+    console.warn(
+      "[companySimilaritySearch] RPC failed, falling back to brute-force scan:",
+      rpcErr instanceof Error ? rpcErr.message : rpcErr
+    );
+    const { scored, top } = await scoreAllEmbeddingsAgainstVector(sb, queryVector, {
+      minScore: opts.minSim,
+      maxResults: opts.maxResults,
+      excludeWatchlistIds: opts.excludeWatchlistIds
+    });
+    const { companies: result } = await mapWatchlistIdsToMysqlCompanies(top, opts.filters);
+    return { companies: result, totalMatched: scored.length };
+  }
+}
+async function fetchBrainEmbedding(sb, brainId) {
+  const { data: brainRow, error: brainErr } = await sb.from("lt_mns_brain_embeddings").select("embedding").eq("brain_id", String(brainId)).single();
+  if (brainErr || !brainRow) {
+    throw new Error(`No embedding found for brain ${brainId}. Please generate the brain embedding first.`);
+  }
+  return parseEmbedding(brainRow.embedding);
+}
+var PAGE_SIZE;
+var init_companySimilaritySearch = __esm({
+  "server/companySimilaritySearch.ts"() {
+    "use strict";
+    init_schema();
+    init_db();
+    init_supabaseEmbeddings();
+    PAGE_SIZE = 1e3;
+  }
+});
+
+// server/embeddingService.ts
+import OpenAI from "openai";
+function getOpenAIClient() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
+  return new OpenAI({ apiKey, baseURL: "https://api.openai.com/v1" });
+}
+function buildEmbeddingText(company) {
+  const parts = [];
+  parts.push(`Company: ${company.name}`);
+  if (company.sliceMetadata) {
+    try {
+      const meta = JSON.parse(company.sliceMetadata);
+      if (meta.industry) parts.push(`Industry: ${meta.industry}`);
+      if (meta.keywords) parts.push(`Keywords: ${meta.keywords}`);
+      if (meta.description) parts.push(`Description: ${meta.description}`);
+      if (meta.employeeCount) parts.push(`Employees: ${meta.employeeCount}`);
+    } catch {
+    }
+  }
+  const location = [company.city, company.country].filter(Boolean).join(", ");
+  if (location) parts.push(`Location: ${location}`);
+  if (company.sicCodes) {
+    try {
+      const codes = JSON.parse(company.sicCodes);
+      if (codes.length > 0) parts.push(`SIC: ${codes.slice(0, 3).join(", ")}`);
+    } catch {
+    }
+  }
+  return parts.join(" | ");
+}
+async function generateEmbeddings(companies2) {
+  if (companies2.length === 0) return [];
+  const client = getOpenAIClient();
+  const results = [];
+  for (let i = 0; i < companies2.length; i += BATCH_SIZE) {
+    const batch = companies2.slice(i, i + BATCH_SIZE);
+    const texts = batch.map(buildEmbeddingText);
+    console.log(
+      `[Embeddings] Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(companies2.length / BATCH_SIZE)}: ${batch.length} companies`
+    );
+    const response = await client.embeddings.create({
+      model: OPENAI_EMBEDDING_MODEL,
+      input: texts
+    });
+    for (let j = 0; j < batch.length; j++) {
+      results.push({
+        companyId: batch[j].id,
+        embedding: response.data[j].embedding,
+        text: texts[j]
+      });
+    }
+  }
+  console.log(`[Embeddings] Done: ${results.length} embeddings generated`);
+  return results;
+}
+var OPENAI_EMBEDDING_MODEL, BATCH_SIZE;
+var init_embeddingService = __esm({
+  "server/embeddingService.ts"() {
+    "use strict";
+    OPENAI_EMBEDDING_MODEL = "text-embedding-3-small";
+    BATCH_SIZE = 50;
+  }
+});
+
+// server/embedOnImport.ts
+var embedOnImport_exports = {};
+__export(embedOnImport_exports, {
+  embedAndScoreCompany: () => embedAndScoreCompany
+});
+import OpenAI2 from "openai";
+import { createClient as createClient6 } from "@supabase/supabase-js";
+function getOpenAI() {
+  const apiKey = process.env.OPENAI_API_KEY;
+  if (!apiKey) throw new Error("OPENAI_API_KEY not configured");
+  return new OpenAI2({ apiKey, baseURL: "https://api.openai.com/v1" });
+}
+function getSupabase3() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured");
+  return createClient6(url, key);
+}
+function dotProduct4(a, b) {
+  let s = 0;
+  for (let i = 0; i < a.length; i++) s += a[i] * b[i];
+  return s;
+}
+function magnitude4(v) {
+  return Math.sqrt(dotProduct4(v, v));
+}
+function cosineSimilarity5(a, b) {
+  const denom = magnitude4(a) * magnitude4(b);
+  return denom === 0 ? 0 : dotProduct4(a, b) / denom;
+}
+async function embedAndScoreCompany(company) {
+  try {
+    const openai = getOpenAI();
+    const sb = getSupabase3();
+    const text2 = buildEmbeddingText(company);
+    const embResponse = await openai.embeddings.create({
+      model: EMBEDDING_MODEL,
+      input: [text2]
+    });
+    const vector = embResponse.data[0].embedding;
+    const uuid = toCompanyUUID2(company.id);
+    const { error: upsertErr } = await sb.from("lt_mns_company_embeddings").upsert(
+      [{
+        watchlist_id: uuid,
+        embedding: vector,
+        content_to_embed: text2,
+        last_updated_at: (/* @__PURE__ */ new Date()).toISOString()
+      }],
+      { onConflict: "watchlist_id" }
+    );
+    if (upsertErr) {
+      console.warn(`[EmbedOnImport] Supabase upsert failed for company ${company.id}: ${upsertErr.message}`);
+      return { embedded: false, similarityScore: null, activeBrainId: null, error: upsertErr.message };
+    }
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const { sql: sql8 } = await import("drizzle-orm");
+    const db = await getDb2();
+    if (!db) {
+      return { embedded: true, similarityScore: null, activeBrainId: null, error: "DB not available" };
+    }
+    const brainRows = await db.execute(sql8`
+      SELECT id, brainName FROM offering_brain
+      WHERE isActive = 1 AND show_on_leadtrigger = 1
+      ORDER BY updatedAt DESC LIMIT 1
+    `);
+    const brainArr = brainRows;
+    if (!brainArr || brainArr.length === 0) {
+      console.warn("[EmbedOnImport] No active Brain found \u2014 skipping FIT-SIM");
+      return { embedded: true, similarityScore: null, activeBrainId: null };
+    }
+    const activeBrainId = String(brainArr[0].id);
+    const { data: brainEmbRow, error: brainEmbErr } = await sb.from("lt_mns_brain_embeddings").select("embedding").eq("brain_id", activeBrainId).single();
+    if (brainEmbErr || !brainEmbRow) {
+      console.warn(`[EmbedOnImport] Brain embedding not found for brain_id=${activeBrainId}`);
+      return { embedded: true, similarityScore: null, activeBrainId };
+    }
+    const brainVector = typeof brainEmbRow.embedding === "string" ? JSON.parse(brainEmbRow.embedding) : brainEmbRow.embedding;
+    const sim = cosineSimilarity5(vector, brainVector);
+    const score = Math.round((sim + 1) / 2 * 100);
+    const now = /* @__PURE__ */ new Date();
+    await db.execute(sql8`
+      UPDATE companies
+      SET similarityScore = ${score},
+          similarityScoreGeneratedAt = ${now},
+          fitScore = ${score},
+          fitScoreGeneratedAt = ${now},
+          fitScoreSource = 'embed'
+      WHERE id = ${company.id}
+    `);
+    console.log(`[EmbedOnImport] \u2713 ${company.name} \u2192 FIT-SIM: ${score} (brain=${activeBrainId})`);
+    return { embedded: true, similarityScore: score, activeBrainId };
+  } catch (err) {
+    console.warn(`[EmbedOnImport] \u26A0 Failed for company ${company.id} (${company.name}): ${err.message}`);
+    return { embedded: false, similarityScore: null, activeBrainId: null, error: err.message };
+  }
+}
+var EMBEDDING_MODEL;
+var init_embedOnImport = __esm({
+  "server/embedOnImport.ts"() {
+    "use strict";
+    init_embeddingService();
+    init_supabaseEmbeddings();
+    EMBEDDING_MODEL = "text-embedding-3-small";
+  }
+});
+
 // server/_core/index.ts
 import "dotenv/config";
 import express2 from "express";
@@ -5393,8 +6961,6 @@ var createOAuthHttpClient = () => axios.create({
   timeout: AXIOS_TIMEOUT_MS
 });
 var SDKServer = class {
-  client;
-  oauthService;
   constructor(client = createOAuthHttpClient()) {
     this.client = client;
     this.oauthService = new OAuthService(this.client);
@@ -5711,8 +7277,22 @@ var protectedProcedure = t.procedure.use(requireUser);
 var adminProcedure = t.procedure.use(
   t.middleware(async (opts) => {
     const { ctx, next } = opts;
-    if (!ctx.user || ctx.user.role !== "admin") {
+    if (!ctx.user || ctx.user.role !== "admin" && ctx.user.role !== "super_admin") {
       throw new TRPCError2({ code: "FORBIDDEN", message: NOT_ADMIN_ERR_MSG });
+    }
+    return next({
+      ctx: {
+        ...ctx,
+        user: ctx.user
+      }
+    });
+  })
+);
+var superAdminProcedure = t.procedure.use(
+  t.middleware(async (opts) => {
+    const { ctx, next } = opts;
+    if (!ctx.user || ctx.user.role !== "super_admin") {
+      throw new TRPCError2({ code: "FORBIDDEN", message: "You do not have super admin permission (10003)" });
     }
     return next({
       ctx: {
@@ -5766,7 +7346,7 @@ async function callGrokWithWebSearch(input) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify({
-      model: "grok-4-1-fast-reasoning",
+      model: "grok-4.3",
       tools: [{ type: "web_search" }],
       input,
       response_format: { type: "json_object" }
@@ -5801,11 +7381,11 @@ function coerceToStringArray(arr) {
     if (typeof item === "string") return stripCitationTags(item);
     if (item && typeof item === "object") {
       const type = item.type ? stripCitationTags(String(item.type)) : "";
-      const desc4 = item.description ? stripCitationTags(String(item.description)) : "";
+      const desc5 = item.description ? stripCitationTags(String(item.description)) : "";
       const starter = item.conversationStarter ? stripCitationTags(String(item.conversationStarter)) : "";
       const opener = item.opener ? stripCitationTags(String(item.opener)) : "";
-      if (type && desc4) return `${type} \u2014 ${desc4}`;
-      if (desc4) return desc4;
+      if (type && desc5) return `${type} \u2014 ${desc5}`;
+      if (desc5) return desc5;
       if (starter) return starter;
       if (opener) return opener;
       if (type) return type;
@@ -6054,11 +7634,11 @@ Return JSON:
       if (typeof item === "string") return item;
       if (item && typeof item === "object") {
         const type = item.type ? String(item.type) : "";
-        const desc4 = item.description ? String(item.description) : "";
+        const desc5 = item.description ? String(item.description) : "";
         const starter = item.conversationStarter ? String(item.conversationStarter) : "";
         const opener = item.opener ? String(item.opener) : "";
-        if (type && desc4) return `${type} \u2014 ${desc4}`;
-        if (desc4) return desc4;
+        if (type && desc5) return `${type} \u2014 ${desc5}`;
+        if (desc5) return desc5;
         if (starter) return starter;
         if (opener) return opener;
         if (type) return type;
@@ -6157,7 +7737,7 @@ async function extractOffering(companyWebsite) {
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "grok-4-1-fast-reasoning",
+        model: "grok-4.3",
         tools: [{ type: "web_search" }],
         // Explicit web_search tool
         input: `${OFFERING_EXTRACTION_PROMPT}
@@ -6218,6 +7798,201 @@ Search for and browse the website to extract the structured data as JSON. Pay sp
 // server/companyFinder.ts
 init_apolloSearch();
 
+// server/companyPipeline.ts
+init_db();
+init_apolloSearch();
+function hasLlmFit(company, brainOutput, resolvedBrainId) {
+  if (resolvedBrainId) return brainOutput?.fitScore != null;
+  return company.fitScoreSource === "llm";
+}
+function hasBrief(company, brainOutput, resolvedBrainId) {
+  if (resolvedBrainId) return !!brainOutput?.briefGeneratedAt;
+  return !!company.briefGeneratedAt;
+}
+function hasApproach(company, brainOutput, resolvedBrainId) {
+  if (resolvedBrainId) return !!brainOutput?.salesApproachGeneratedAt;
+  return !!company.salesApproachGeneratedAt;
+}
+function companyNeedsPipelineWork(company, brainOutput, resolvedBrainId) {
+  if (company.enrichmentStatus === "pending" && !!company.apolloId) return true;
+  if (company.enrichmentStatus !== "enriched") return false;
+  if (!hasLlmFit(company, brainOutput, resolvedBrainId)) return true;
+  if (!hasBrief(company, brainOutput, resolvedBrainId)) return true;
+  if (!hasApproach(company, brainOutput, resolvedBrainId)) return true;
+  return false;
+}
+function buildPipelineQueue(all, brainOutputMap, resolvedBrainId, limit) {
+  const pending = all.filter((c) => c.enrichmentStatus === "pending" && !!c.apolloId);
+  const needsFit = all.filter((c) => {
+    if (c.enrichmentStatus !== "enriched") return false;
+    const out = brainOutputMap.get(c.id);
+    return !hasLlmFit(c, out, resolvedBrainId);
+  });
+  const needsBrief = all.filter((c) => {
+    if (c.enrichmentStatus !== "enriched") return false;
+    const out = brainOutputMap.get(c.id);
+    if (!hasLlmFit(c, out, resolvedBrainId)) return false;
+    return !hasBrief(c, out, resolvedBrainId);
+  });
+  const needsApproach = all.filter((c) => {
+    if (c.enrichmentStatus !== "enriched") return false;
+    const out = brainOutputMap.get(c.id);
+    if (!hasBrief(c, out, resolvedBrainId)) return false;
+    return !hasApproach(c, out, resolvedBrainId);
+  });
+  const full = [...pending, ...needsFit, ...needsBrief, ...needsApproach];
+  return limit !== void 0 ? full.slice(0, limit) : full;
+}
+function countPipelineRemaining(all, brainOutputMap, resolvedBrainId) {
+  return all.filter(
+    (c) => companyNeedsPipelineWork(c, brainOutputMap.get(c.id), resolvedBrainId)
+  ).length;
+}
+function computePipelineStats(companies2) {
+  const enriched = companies2.filter((c) => c.enrichmentStatus === "enriched").length;
+  const pending = companies2.filter((c) => c.enrichmentStatus === "pending").length;
+  const nameOnly = companies2.filter(
+    (c) => c.enrichmentStatus === "pending" && !c.apolloId && !c.primaryDomain
+  ).length;
+  const llmFitScored = companies2.filter((c) => {
+    if (c.enrichmentStatus !== "enriched") return false;
+    if (c.brainFitScore != null) return true;
+    return c.fitScoreSource === "llm";
+  }).length;
+  const needsFit = companies2.filter((c) => {
+    if (c.enrichmentStatus !== "enriched") return false;
+    if (c.brainFitScore != null) return false;
+    return c.fitScoreSource !== "llm";
+  }).length;
+  const needsUrgency = companies2.filter((c) => {
+    if (c.enrichmentStatus !== "enriched") return false;
+    const fitDone = c.brainFitScore != null || c.fitScoreSource === "llm";
+    return fitDone && !c.briefGeneratedAt;
+  }).length;
+  const needsOutreach = companies2.filter((c) => {
+    if (c.enrichmentStatus !== "enriched") return false;
+    return !!c.briefGeneratedAt && !c.salesApproachGeneratedAt;
+  }).length;
+  const urgencyScored = companies2.filter(
+    (c) => c.enrichmentStatus === "enriched" && !!c.briefGeneratedAt
+  ).length;
+  const outreachReady = companies2.filter(
+    (c) => c.enrichmentStatus === "enriched" && !!c.salesApproachGeneratedAt
+  ).length;
+  const pipelineComplete = companies2.filter((c) => {
+    if (c.enrichmentStatus !== "enriched") return false;
+    const fitDone = c.brainFitScore != null || c.fitScoreSource === "llm";
+    return fitDone && !!c.briefGeneratedAt && !!c.salesApproachGeneratedAt;
+  }).length;
+  const remaining = companies2.filter((c) => {
+    if (c.enrichmentStatus === "pending" && !!c.apolloId) return true;
+    if (c.enrichmentStatus !== "enriched") return false;
+    const fitDone = c.brainFitScore != null || c.fitScoreSource === "llm";
+    if (!fitDone) return true;
+    if (!c.briefGeneratedAt) return true;
+    if (!c.salesApproachGeneratedAt) return true;
+    return false;
+  }).length;
+  return {
+    total: companies2.length,
+    enriched,
+    pending,
+    nameOnly,
+    outreachReady,
+    llmFitScored,
+    needsFit,
+    needsUrgency,
+    needsOutreach,
+    urgencyScored,
+    pipelineComplete,
+    remaining
+  };
+}
+async function processCompanyPipeline(company, options) {
+  const counts = { enriched: 0, fitScored: 0, researched: 0, approached: 0 };
+  const { userId, brainId, angleId, resolvedBrainId, brainName, logPrefix = "[pipeline]" } = options;
+  const label = company.name ?? `id:${company.id}`;
+  let enrichmentStatus = company.enrichmentStatus;
+  if (enrichmentStatus === "pending" && company.apolloId) {
+    const details = await enrichCompanyDetails(company.apolloId);
+    await updateCompany(company.id, {
+      city: details.city || null,
+      state: details.state || null,
+      country: details.country || company.country || null,
+      streetAddress: details.street_address || null,
+      rawAddress: details.raw_address || null,
+      enrichmentStatus: "enriched"
+    });
+    enrichmentStatus = "enriched";
+    counts.enriched++;
+    console.log(`${logPrefix} \u2713 Enriched: ${label}`);
+  }
+  let brainOutput = resolvedBrainId ? await getCompanyBrainOutput(company.id, resolvedBrainId) : null;
+  const rowAfterEnrich = {
+    ...company,
+    enrichmentStatus,
+    fitScoreSource: company.fitScoreSource
+  };
+  if (enrichmentStatus === "enriched" && !hasLlmFit(rowAfterEnrich, brainOutput, resolvedBrainId)) {
+    const { scoreCompanyFit: scoreCompanyFit2 } = await Promise.resolve().then(() => (init_briefGenerator(), briefGenerator_exports));
+    const result = await scoreCompanyFit2(company.id, userId, brainId, angleId);
+    await updateCompany(company.id, {
+      fitScore: result.fitScore,
+      fitScoreData: JSON.stringify(result),
+      fitScoreGeneratedAt: /* @__PURE__ */ new Date(),
+      fitScoreSource: "llm"
+    });
+    if (resolvedBrainId) {
+      await upsertCompanyBrainOutput(company.id, resolvedBrainId, {
+        fitScore: result.fitScore,
+        fitScoreData: JSON.stringify(result)
+      });
+      brainOutput = await getCompanyBrainOutput(company.id, resolvedBrainId);
+    }
+    rowAfterEnrich.fitScoreSource = "llm";
+    counts.fitScored++;
+    console.log(`${logPrefix} \u2713 FIT scored: ${label} \u2192 ${result.fitScore}`);
+  }
+  if (enrichmentStatus === "enriched" && !hasBrief(rowAfterEnrich, brainOutput, resolvedBrainId)) {
+    const { generateSalesIntelligenceBrief: generateSalesIntelligenceBrief2 } = await Promise.resolve().then(() => (init_briefGenerator(), briefGenerator_exports));
+    const brief = await generateSalesIntelligenceBrief2(company.id, userId, brainId);
+    if (resolvedBrainId) {
+      await upsertCompanyBrainOutput(company.id, resolvedBrainId, {
+        urgencyScore: brief.urgencyScore,
+        briefData: JSON.stringify(brief),
+        briefGeneratedAt: /* @__PURE__ */ new Date()
+      });
+      brainOutput = await getCompanyBrainOutput(company.id, resolvedBrainId);
+    }
+    await updateCompany(company.id, {
+      urgencyScore: brief.urgencyScore,
+      briefData: JSON.stringify(brief),
+      briefGeneratedAt: /* @__PURE__ */ new Date(),
+      generatedWithBrainId: resolvedBrainId ?? null,
+      generatedWithBrainName: brainName ?? null
+    });
+    counts.researched++;
+    console.log(`${logPrefix} \u2713 Researched: ${label}`);
+  }
+  if (enrichmentStatus === "enriched" && !hasApproach(rowAfterEnrich, brainOutput, resolvedBrainId)) {
+    const { generateSalesApproach: generateSalesApproach2 } = await Promise.resolve().then(() => (init_salesApproachGenerator(), salesApproachGenerator_exports));
+    const approach = await generateSalesApproach2(company.id, userId, brainId, angleId);
+    if (resolvedBrainId) {
+      await upsertCompanyBrainOutput(company.id, resolvedBrainId, {
+        salesApproachData: JSON.stringify(approach),
+        salesApproachGeneratedAt: /* @__PURE__ */ new Date()
+      });
+    }
+    await updateCompany(company.id, {
+      salesApproachData: JSON.stringify(approach),
+      salesApproachGeneratedAt: /* @__PURE__ */ new Date()
+    });
+    counts.approached++;
+    console.log(`${logPrefix} \u2713 Approached: ${label}`);
+  }
+  return counts;
+}
+
 // shared/urlUtils.ts
 function normalizeWebsiteUrl(input) {
   if (!input || typeof input !== "string") {
@@ -6248,9 +8023,9 @@ function normalizeWebsiteUrl(input) {
 // server/companyFinder.ts
 init_codeSelectionService();
 init_naicsHierarchy();
-async function assertSearchAccess(searchId, userId) {
+async function assertSearchAccess(searchId, _userId) {
   const search = await getSearchById(searchId);
-  if (!search || search.userId !== userId && !search.sharedWithTeam) {
+  if (!search) {
     throw new TRPCError3({ code: "NOT_FOUND", message: "Search not found" });
   }
   return search;
@@ -6271,9 +8046,9 @@ async function assertCompanyAccess(companyId, userId) {
   }
   return company;
 }
-async function stampBrainOnCompany(companyId, userId) {
+async function stampBrainOnCompany(companyId, userId, resolvedBrain) {
   try {
-    const brain = await getActiveBrain(userId);
+    const brain = resolvedBrain ?? await getActiveBrain(userId);
     if (brain) {
       await updateCompany(companyId, {
         generatedWithBrainId: brain.id,
@@ -6339,7 +8114,115 @@ var companyFinderRouter = router({
     return { searchId };
   }),
   // Get search status and results (paginated — default 100 per page)
-  getSearch: protectedProcedure.input(z2.object({ searchId: z2.number(), page: z2.number().optional().default(0), pageSize: z2.number().optional().default(100), brainId: z2.number().optional() })).query(async ({ ctx, input }) => {
+  getSearchRaw: protectedProcedure.input(z2.object({
+    searchId: z2.number(),
+    page: z2.number().optional().default(0),
+    pageSize: z2.number().optional().default(100),
+    sortBy: z2.enum(["name", "country", "city", "id", "fitScore"]).optional().default("id"),
+    sortDir: z2.enum(["asc", "desc"]).optional().default("asc"),
+    search: z2.string().optional()
+  })).query(async ({ ctx, input }) => {
+    await assertSearchAccess(input.searchId, ctx.user.id);
+    const offset = input.page * input.pageSize;
+    const [rows, total] = await Promise.all([
+      getCompaniesBySearchIdRaw(input.searchId, input.pageSize, offset, input.sortBy, input.sortDir, input.search || void 0),
+      countCompaniesBySearchId(input.searchId, input.search || void 0)
+    ]);
+    return {
+      companies: rows,
+      pagination: {
+        page: input.page,
+        pageSize: input.pageSize,
+        total,
+        hasMore: offset + rows.length < total
+      }
+    };
+  }),
+  // ── Company Database view (cross-campaign, scored) ──────────────────────────
+  getCompanyDb: protectedProcedure.input(z2.object({
+    page: z2.number().optional().default(0),
+    pageSize: z2.number().optional().default(100),
+    sortBy: z2.enum(["name", "country", "city", "fitScore", "similarityScore", "urgencyScore", "urgencyScoreSynth", "urgencyScoreNews", "urgencyScoreLLM", "createdAt", "searchId", "briefGeneratedAt", "salesApproachGeneratedAt", "brainName"]).optional().default("fitScore"),
+    sortDir: z2.enum(["asc", "desc"]).optional().default("desc"),
+    search: z2.string().optional(),
+    searchId: z2.number().optional(),
+    searchIds: z2.array(z2.number()).optional(),
+    // multi-select campaign filter
+    country: z2.string().optional(),
+    countries: z2.array(z2.string()).optional(),
+    // region filter
+    sector: z2.string().optional(),
+    brainId: z2.number().optional(),
+    minFitScore: z2.number().optional(),
+    hasFitScore: z2.boolean().optional(),
+    articleFilter: z2.enum(["any", "brief", "approach", "both", "none"]).optional(),
+    cgBusinessUnit: z2.string().optional(),
+    cgLeadClass: z2.string().optional(),
+    cgLeadOrigin: z2.string().optional(),
+    crmFilter: z2.enum(["in", "not_in"]).optional()
+  })).query(async ({ input }) => {
+    const offset = input.page * input.pageSize;
+    const [rows, total] = await Promise.all([
+      getCompanyDatabase({
+        limit: input.pageSize,
+        offset,
+        sortBy: input.sortBy,
+        sortDir: input.sortDir,
+        search: input.search || void 0,
+        searchId: input.searchId,
+        searchIds: input.searchIds,
+        country: input.country || void 0,
+        countries: input.countries,
+        sector: input.sector || void 0,
+        brainId: input.brainId,
+        minFitScore: input.minFitScore,
+        hasFitScore: input.hasFitScore,
+        articleFilter: input.articleFilter,
+        cgBusinessUnit: input.cgBusinessUnit || void 0,
+        cgLeadClass: input.cgLeadClass || void 0,
+        cgLeadOrigin: input.cgLeadOrigin || void 0,
+        crmFilter: input.crmFilter
+      }),
+      countCompanyDatabase({
+        search: input.search || void 0,
+        searchId: input.searchId,
+        searchIds: input.searchIds,
+        country: input.country || void 0,
+        countries: input.countries,
+        sector: input.sector || void 0,
+        brainId: input.brainId,
+        minFitScore: input.minFitScore,
+        hasFitScore: input.hasFitScore,
+        articleFilter: input.articleFilter,
+        cgBusinessUnit: input.cgBusinessUnit || void 0,
+        cgLeadClass: input.cgLeadClass || void 0,
+        cgLeadOrigin: input.cgLeadOrigin || void 0,
+        crmFilter: input.crmFilter
+      })
+    ]);
+    return {
+      companies: rows,
+      pagination: {
+        page: input.page,
+        pageSize: input.pageSize,
+        total,
+        hasMore: offset + rows.length < total
+      }
+    };
+  }),
+  getCompanyDbMeta: protectedProcedure.query(async () => {
+    const [searches3, countries, sectors, brains, cgBusinessUnits, cgLeadClasses, cgLeadOrigins] = await Promise.all([
+      getCompanyDatabaseSearches(),
+      getCompanyDatabaseCountries(),
+      getCompanyDatabaseSectors(),
+      getCompanyDatabaseBrains(),
+      getCompanyDatabaseCgBusinessUnits(),
+      getCompanyDatabaseCgLeadClasses(),
+      getCompanyDatabaseCgLeadOrigins()
+    ]);
+    return { searches: searches3, countries, sectors, brains, cgBusinessUnits, cgLeadClasses, cgLeadOrigins };
+  }),
+  getSearch: protectedProcedure.input(z2.object({ searchId: z2.number(), page: z2.number().optional().default(0), pageSize: z2.number().optional().default(100), brainId: z2.union([z2.number(), z2.string()]).optional().transform((v) => v !== void 0 ? typeof v === "string" ? isNaN(Number(v)) ? void 0 : Number(v) : v : void 0) })).query(async ({ ctx, input }) => {
     const search = await assertSearchAccess(input.searchId, ctx.user.id);
     const offset = input.page * input.pageSize;
     const [companiesList, decisions, totalCount] = await Promise.all([
@@ -6368,14 +8251,19 @@ var companyFinderRouter = router({
         };
       });
     }
-    const enrichedCount = mergedCompanies.filter((c) => c.enrichmentStatus === "enriched").length;
-    const pendingCount = mergedCompanies.filter((c) => c.enrichmentStatus === "pending").length;
-    const nameOnlyCount = mergedCompanies.filter(
-      (c) => c.enrichmentStatus === "pending" && !c.apolloId && !c.primaryDomain
-    ).length;
-    const outreachReadyCount = mergedCompanies.filter(
-      (c) => c.enrichmentStatus === "enriched" && !!c.salesApproachGeneratedAt
-    ).length;
+    const pipelineStats = computePipelineStats(
+      mergedCompanies.map((c) => ({
+        id: c.id,
+        name: c.name,
+        apolloId: c.apolloId,
+        enrichmentStatus: c.enrichmentStatus,
+        briefGeneratedAt: c.briefGeneratedAt,
+        salesApproachGeneratedAt: c.salesApproachGeneratedAt,
+        fitScoreSource: c.fitScoreSource ?? null,
+        brainFitScore: c.brainFitScore ?? null,
+        primaryDomain: c.primaryDomain ?? null
+      }))
+    );
     return {
       search,
       companies: mergedCompanies,
@@ -6388,10 +8276,17 @@ var companyFinderRouter = router({
       },
       enrichmentStats: {
         total: totalCount,
-        enriched: enrichedCount,
-        pending: pendingCount,
-        nameOnly: nameOnlyCount,
-        outreachReady: outreachReadyCount
+        enriched: pipelineStats.enriched,
+        pending: pipelineStats.pending,
+        nameOnly: pipelineStats.nameOnly,
+        outreachReady: pipelineStats.outreachReady,
+        llmFitScored: pipelineStats.llmFitScored,
+        needsFit: pipelineStats.needsFit,
+        needsUrgency: pipelineStats.needsUrgency,
+        needsOutreach: pipelineStats.needsOutreach,
+        urgencyScored: pipelineStats.urgencyScored,
+        pipelineComplete: pipelineStats.pipelineComplete,
+        remaining: pipelineStats.remaining
       }
     };
   }),
@@ -6429,7 +8324,7 @@ var companyFinderRouter = router({
             await updateCompany(company.id, {
               city: details.city || null,
               state: details.state || null,
-              country: details.country || null,
+              country: details.country || company.country || null,
               streetAddress: details.street_address || null,
               rawAddress: details.raw_address || null,
               enrichmentStatus: "enriched"
@@ -6453,7 +8348,7 @@ var companyFinderRouter = router({
   // ---------------------------------------------------------------------------
   // fire-and-forget: returns jobId immediately, runs in background.
   // Job state is persisted to batch_jobs table so it survives server restarts.
-  doNext10: protectedProcedure.input(z2.object({ searchId: z2.number(), limit: z2.number().optional().default(10), brainId: z2.number().optional() })).mutation(async ({ ctx, input }) => {
+  doNext10: protectedProcedure.input(z2.object({ searchId: z2.number(), limit: z2.number().optional().default(10), brainId: z2.union([z2.number(), z2.string()]).optional().transform((v) => v !== void 0 ? typeof v === "string" ? isNaN(Number(v)) ? void 0 : Number(v) : v : void 0), angleId: z2.string().optional() })).mutation(async ({ ctx, input }) => {
     await assertSearchAccess(input.searchId, ctx.user.id);
     const jobId = randomUUID();
     await createBatchJob({
@@ -6465,6 +8360,7 @@ var companyFinderRouter = router({
       currentCompany: null,
       totalCompanies: 0,
       enriched: 0,
+      fitScored: 0,
       researched: 0,
       approached: 0,
       failed: 0,
@@ -6472,8 +8368,6 @@ var companyFinderRouter = router({
     });
     (async () => {
       try {
-        const { generateSalesIntelligenceBrief: generateSalesIntelligenceBrief2 } = await Promise.resolve().then(() => (init_briefGenerator(), briefGenerator_exports));
-        const { generateSalesApproach: generateSalesApproach2 } = await Promise.resolve().then(() => (init_salesApproachGenerator(), salesApproachGenerator_exports));
         const all = await getCompaniesBySearchId(input.searchId);
         const limit = input.limit;
         const brain = input.brainId ? await getOfferingBrainById(input.brainId, ctx.user.id) : await getActiveBrain(ctx.user.id);
@@ -6483,80 +8377,29 @@ var companyFinderRouter = router({
           const enrichedIds = all.filter((c) => c.enrichmentStatus === "enriched").map((c) => c.id);
           brainOutputMap = await getCompanyBrainOutputsForSearch(enrichedIds, resolvedBrainId);
         }
-        const pending = all.filter((c) => c.enrichmentStatus === "pending" && !!c.apolloId);
-        const needsBrief = all.filter((c) => {
-          if (c.enrichmentStatus !== "enriched") return false;
-          if (!resolvedBrainId) return !c.briefGeneratedAt;
-          const out = brainOutputMap.get(c.id);
-          return !out?.briefGeneratedAt;
-        });
-        const needsApproach = all.filter((c) => {
-          if (c.enrichmentStatus !== "enriched") return false;
-          if (!resolvedBrainId) return !!c.briefGeneratedAt && !c.salesApproachGeneratedAt;
-          const out = brainOutputMap.get(c.id);
-          return !!out?.briefGeneratedAt && !out?.salesApproachGeneratedAt;
-        });
-        const queue = [...pending, ...needsBrief, ...needsApproach].slice(0, limit);
+        const queue = buildPipelineQueue(all, brainOutputMap, resolvedBrainId, limit);
         await updateBatchJob(jobId, { totalCompanies: queue.length });
         console.log(`[doNext10] jobId=${jobId} searchId=${input.searchId} brainId=${resolvedBrainId} \u2014 ${queue.length} companies queued`);
-        let enriched = 0, researched = 0, approached = 0, failed = 0;
+        let enriched = 0, fitScored = 0, researched = 0, approached = 0, failed = 0;
         const PER_COMPANY_TIMEOUT_MS = 4 * 60 * 1e3;
         for (let i = 0; i < queue.length; i++) {
           const company = queue[i];
           const progress2 = Math.round(i / queue.length * 100);
-          await updateBatchJob(jobId, { currentCompany: company.name || null, progress: progress2, enriched, researched, approached, failed });
+          await updateBatchJob(jobId, { currentCompany: company.name || null, progress: progress2, enriched, fitScored, researched, approached, failed });
           try {
             const companyWork = async () => {
-              if (company.enrichmentStatus === "pending") {
-                const details = await enrichCompanyDetails(company.apolloId);
-                await updateCompany(company.id, {
-                  city: details.city || null,
-                  state: details.state || null,
-                  country: details.country || null,
-                  streetAddress: details.street_address || null,
-                  rawAddress: details.raw_address || null,
-                  enrichmentStatus: "enriched"
-                });
-                enriched++;
-                console.log(`[doNext10] \u2713 Enriched: ${company.name}`);
-              }
-              const existingOutput = resolvedBrainId ? await getCompanyBrainOutput(company.id, resolvedBrainId) : null;
-              const hasBrief = resolvedBrainId ? !!existingOutput?.briefGeneratedAt : !!company.briefGeneratedAt;
-              const hasApproach = resolvedBrainId ? !!existingOutput?.salesApproachGeneratedAt : !!company.salesApproachGeneratedAt;
-              if (!hasBrief) {
-                const brief = await generateSalesIntelligenceBrief2(company.id, ctx.user.id, input.brainId);
-                if (resolvedBrainId) {
-                  await upsertCompanyBrainOutput(company.id, resolvedBrainId, {
-                    urgencyScore: brief.urgencyScore,
-                    briefData: JSON.stringify(brief),
-                    briefGeneratedAt: /* @__PURE__ */ new Date()
-                  });
-                }
-                await updateCompany(company.id, {
-                  urgencyScore: brief.urgencyScore,
-                  briefData: JSON.stringify(brief),
-                  briefGeneratedAt: /* @__PURE__ */ new Date(),
-                  generatedWithBrainId: resolvedBrainId ?? null,
-                  generatedWithBrainName: brain?.brainName ?? null
-                });
-                researched++;
-                console.log(`[doNext10] \u2713 Researched: ${company.name}`);
-              }
-              if (!hasApproach) {
-                const approach = await generateSalesApproach2(company.id, ctx.user.id, input.brainId);
-                if (resolvedBrainId) {
-                  await upsertCompanyBrainOutput(company.id, resolvedBrainId, {
-                    salesApproachData: JSON.stringify(approach),
-                    salesApproachGeneratedAt: /* @__PURE__ */ new Date()
-                  });
-                }
-                await updateCompany(company.id, {
-                  salesApproachData: JSON.stringify(approach),
-                  salesApproachGeneratedAt: /* @__PURE__ */ new Date()
-                });
-                approached++;
-                console.log(`[doNext10] \u2713 Approached: ${company.name}`);
-              }
+              const stepCounts = await processCompanyPipeline(company, {
+                userId: ctx.user.id,
+                brainId: input.brainId,
+                angleId: input.angleId,
+                resolvedBrainId,
+                brainName: brain?.brainName ?? null,
+                logPrefix: "[doNext10]"
+              });
+              enriched += stepCounts.enriched;
+              fitScored += stepCounts.fitScored;
+              researched += stepCounts.researched;
+              approached += stepCounts.approached;
             };
             const timeoutGuard = new Promise(
               (_, reject) => setTimeout(() => reject(new Error(`Per-company timeout after ${PER_COMPANY_TIMEOUT_MS / 1e3}s`)), PER_COMPANY_TIMEOUT_MS)
@@ -6572,25 +8415,22 @@ var companyFinderRouter = router({
         if (resolvedBrainId) {
           const allIds = refreshed.filter((c) => c.enrichmentStatus === "enriched").map((c) => c.id);
           const refreshedMap = await getCompanyBrainOutputsForSearch(allIds, resolvedBrainId);
-          remaining = refreshed.filter(
-            (c) => c.enrichmentStatus === "pending" && !!c.apolloId || c.enrichmentStatus === "enriched" && !refreshedMap.get(c.id)?.salesApproachGeneratedAt
-          ).length;
+          remaining = countPipelineRemaining(refreshed, refreshedMap, resolvedBrainId);
         } else {
-          remaining = refreshed.filter(
-            (c) => c.enrichmentStatus === "pending" || !c.briefGeneratedAt || !c.salesApproachGeneratedAt
-          ).length;
+          remaining = countPipelineRemaining(refreshed, /* @__PURE__ */ new Map(), null);
         }
         await updateBatchJob(jobId, {
           status: "completed",
           progress: 100,
           currentCompany: null,
           enriched,
+          fitScored,
           researched,
           approached,
           failed,
           remaining
         });
-        console.log(`[doNext10] Done \u2014 enriched:${enriched} researched:${researched} approached:${approached} failed:${failed} remaining:${remaining}`);
+        console.log(`[doNext10] Done \u2014 enriched:${enriched} fitScored:${fitScored} researched:${researched} approached:${approached} failed:${failed} remaining:${remaining}`);
       } catch (err) {
         await updateBatchJob(jobId, { status: "failed", errorMessage: err.message }).catch(() => {
         });
@@ -6611,6 +8451,7 @@ var companyFinderRouter = router({
       progress: job.progress,
       stats: {
         enriched: job.enriched,
+        fitScored: job.fitScored ?? 0,
         researched: job.researched,
         approached: job.approached,
         failed: job.failed,
@@ -6640,7 +8481,7 @@ var companyFinderRouter = router({
   // doAll — process ALL remaining companies in a search in one background job
   // Same logic as doNext10 but no limit and checks for cancellation each step.
   // ---------------------------------------------------------------------------
-  doAll: protectedProcedure.input(z2.object({ searchId: z2.number(), brainId: z2.number().optional() })).mutation(async ({ ctx, input }) => {
+  doAll: protectedProcedure.input(z2.object({ searchId: z2.number(), brainId: z2.union([z2.number(), z2.string()]).optional().transform((v) => v !== void 0 ? typeof v === "string" ? isNaN(Number(v)) ? void 0 : Number(v) : v : void 0), angleId: z2.string().optional() })).mutation(async ({ ctx, input }) => {
     await assertSearchAccess(input.searchId, ctx.user.id);
     const jobId = randomUUID();
     await createBatchJob({
@@ -6653,6 +8494,7 @@ var companyFinderRouter = router({
       currentCompany: null,
       totalCompanies: 0,
       enriched: 0,
+      fitScored: 0,
       researched: 0,
       approached: 0,
       failed: 0,
@@ -6660,8 +8502,6 @@ var companyFinderRouter = router({
     });
     (async () => {
       try {
-        const { generateSalesIntelligenceBrief: generateSalesIntelligenceBrief2 } = await Promise.resolve().then(() => (init_briefGenerator(), briefGenerator_exports));
-        const { generateSalesApproach: generateSalesApproach2 } = await Promise.resolve().then(() => (init_salesApproachGenerator(), salesApproachGenerator_exports));
         const all = await getCompaniesBySearchId(input.searchId);
         const brain = input.brainId ? await getOfferingBrainById(input.brainId, ctx.user.id) : await getActiveBrain(ctx.user.id);
         const resolvedBrainId = brain?.id;
@@ -6670,72 +8510,27 @@ var companyFinderRouter = router({
           const enrichedIds = all.filter((c) => c.enrichmentStatus === "enriched").map((c) => c.id);
           brainOutputMap = await getCompanyBrainOutputsForSearch(enrichedIds, resolvedBrainId);
         }
-        const needsWork = all.filter((c) => {
-          if (c.enrichmentStatus === "pending" && !!c.apolloId) return true;
-          if (c.enrichmentStatus !== "enriched") return false;
-          if (!resolvedBrainId) return !c.briefGeneratedAt || !c.salesApproachGeneratedAt;
-          const out = brainOutputMap.get(c.id);
-          return !out?.salesApproachGeneratedAt;
-        });
-        const queue = needsWork;
+        const queue = buildPipelineQueue(all, brainOutputMap, resolvedBrainId);
         await updateBatchJob(jobId, { totalCompanies: queue.length });
         console.log(`[doAll] jobId=${jobId} searchId=${input.searchId} brainId=${resolvedBrainId} \u2014 ${queue.length} companies queued`);
         const CONCURRENCY2 = Math.max(1, parseInt(process.env.DOALL_CONCURRENCY || "5", 10));
         const PER_COMPANY_TIMEOUT_MS = 4 * 60 * 1e3;
-        let enriched = 0, researched = 0, approached = 0, failed = 0, completed = 0;
+        let enriched = 0, fitScored = 0, researched = 0, approached = 0, failed = 0, completed = 0;
         let cancelled = false;
         const processCompany = async (company) => {
           const companyWork = async () => {
-            if (company.enrichmentStatus === "pending") {
-              const details = await enrichCompanyDetails(company.apolloId);
-              await updateCompany(company.id, {
-                city: details.city || null,
-                state: details.state || null,
-                country: details.country || null,
-                streetAddress: details.street_address || null,
-                rawAddress: details.raw_address || null,
-                enrichmentStatus: "enriched"
-              });
-              enriched++;
-              console.log(`[doAll] \u2713 Enriched: ${company.name}`);
-            }
-            const existingOutput = resolvedBrainId ? await getCompanyBrainOutput(company.id, resolvedBrainId) : null;
-            const hasBrief = resolvedBrainId ? !!existingOutput?.briefGeneratedAt : !!company.briefGeneratedAt;
-            const hasApproach = resolvedBrainId ? !!existingOutput?.salesApproachGeneratedAt : !!company.salesApproachGeneratedAt;
-            if (!hasBrief) {
-              const brief = await generateSalesIntelligenceBrief2(company.id, ctx.user.id, input.brainId);
-              if (resolvedBrainId) {
-                await upsertCompanyBrainOutput(company.id, resolvedBrainId, {
-                  urgencyScore: brief.urgencyScore,
-                  briefData: JSON.stringify(brief),
-                  briefGeneratedAt: /* @__PURE__ */ new Date()
-                });
-              }
-              await updateCompany(company.id, {
-                urgencyScore: brief.urgencyScore,
-                briefData: JSON.stringify(brief),
-                briefGeneratedAt: /* @__PURE__ */ new Date(),
-                generatedWithBrainId: resolvedBrainId ?? null,
-                generatedWithBrainName: brain?.brainName ?? null
-              });
-              researched++;
-              console.log(`[doAll] \u2713 Researched: ${company.name}`);
-            }
-            if (!hasApproach) {
-              const approach = await generateSalesApproach2(company.id, ctx.user.id, input.brainId);
-              if (resolvedBrainId) {
-                await upsertCompanyBrainOutput(company.id, resolvedBrainId, {
-                  salesApproachData: JSON.stringify(approach),
-                  salesApproachGeneratedAt: /* @__PURE__ */ new Date()
-                });
-              }
-              await updateCompany(company.id, {
-                salesApproachData: JSON.stringify(approach),
-                salesApproachGeneratedAt: /* @__PURE__ */ new Date()
-              });
-              approached++;
-              console.log(`[doAll] \u2713 Approached: ${company.name}`);
-            }
+            const stepCounts = await processCompanyPipeline(company, {
+              userId: ctx.user.id,
+              brainId: input.brainId,
+              angleId: input.angleId,
+              resolvedBrainId,
+              brainName: brain?.brainName ?? null,
+              logPrefix: "[doAll]"
+            });
+            enriched += stepCounts.enriched;
+            fitScored += stepCounts.fitScored;
+            researched += stepCounts.researched;
+            approached += stepCounts.approached;
           };
           const timeoutGuard = new Promise(
             (_, reject) => setTimeout(() => reject(new Error(`Per-company timeout after ${PER_COMPANY_TIMEOUT_MS / 1e3}s`)), PER_COMPANY_TIMEOUT_MS)
@@ -6752,6 +8547,7 @@ var companyFinderRouter = router({
               currentCompany: company.name || null,
               progress: progress2,
               enriched,
+              fitScored,
               researched,
               approached,
               failed
@@ -6776,25 +8572,22 @@ var companyFinderRouter = router({
           if (resolvedBrainId) {
             const allIds = refreshed.filter((c) => c.enrichmentStatus === "enriched").map((c) => c.id);
             const refreshedMap = await getCompanyBrainOutputsForSearch(allIds, resolvedBrainId);
-            remaining = refreshed.filter(
-              (c) => c.enrichmentStatus === "pending" && !!c.apolloId || c.enrichmentStatus === "enriched" && !refreshedMap.get(c.id)?.salesApproachGeneratedAt
-            ).length;
+            remaining = countPipelineRemaining(refreshed, refreshedMap, resolvedBrainId);
           } else {
-            remaining = refreshed.filter(
-              (c) => c.enrichmentStatus === "pending" || !c.briefGeneratedAt || !c.salesApproachGeneratedAt
-            ).length;
+            remaining = countPipelineRemaining(refreshed, /* @__PURE__ */ new Map(), null);
           }
           await updateBatchJob(jobId, {
             status: "completed",
             progress: 100,
             currentCompany: null,
             enriched,
+            fitScored,
             researched,
             approached,
             failed,
             remaining
           });
-          console.log(`[doAll] Done \u2014 enriched:${enriched} researched:${researched} approached:${approached} failed:${failed} remaining:${remaining} (${CONCURRENCY2} workers)`);
+          console.log(`[doAll] Done \u2014 enriched:${enriched} fitScored:${fitScored} researched:${researched} approached:${approached} failed:${failed} remaining:${remaining} (${CONCURRENCY2} workers)`);
         }
       } catch (err) {
         await updateBatchJob(jobId, { status: "failed", errorMessage: err.message }).catch(() => {
@@ -6841,7 +8634,7 @@ var companyFinderRouter = router({
       await updateCompany(company.id, {
         city: details.city || null,
         state: details.state || null,
-        country: details.country || null,
+        country: details.country || company.country || null,
         streetAddress: details.street_address || null,
         rawAddress: details.raw_address || null,
         enrichmentStatus: "enriched"
@@ -7030,8 +8823,10 @@ var companyFinderRouter = router({
     companyId: z2.number(),
     force: z2.boolean().optional(),
     // If true, bypass cache and regenerate
-    brainId: z2.number().optional()
+    brainId: z2.number().optional(),
     // If provided, use this brain and write to company_brain_outputs
+    angleId: z2.string().optional()
+    // If provided, use this angle for scoring/content framing
   })).mutation(async ({ ctx, input }) => {
     const company = await assertCompanyAccess(input.companyId, ctx.user.id);
     console.log(`[generateBrief] Starting brief generation for company ${input.companyId} brainId=${input.brainId ?? "active"}`);
@@ -7072,7 +8867,8 @@ var companyFinderRouter = router({
         briefData: JSON.stringify(brief),
         briefGeneratedAt: /* @__PURE__ */ new Date()
       });
-      await stampBrainOnCompany(input.companyId, ctx.user.id);
+      const briefBrain = input.brainId ? await getOfferingBrainById(input.brainId, ctx.user.id) : null;
+      await stampBrainOnCompany(input.companyId, ctx.user.id, briefBrain);
       console.log(`[generateBrief] \u2713 Brief generated with urgency score: ${brief.urgencyScore}`);
       return {
         success: true,
@@ -7087,22 +8883,26 @@ var companyFinderRouter = router({
   // Generate personalized sales approach for a company (requires Deep Research first)
   generateSalesApproach: protectedProcedure.input(z2.object({
     companyId: z2.number(),
-    brainId: z2.number().optional()
+    brainId: z2.number().optional(),
     // If provided, use this brain and write to company_brain_outputs
+    angleId: z2.string().optional()
+    // If provided, use this angle for content framing
   })).mutation(async ({ ctx, input }) => {
     const company = await assertCompanyAccess(input.companyId, ctx.user.id);
     const brainOutput = input.brainId ? await getCompanyBrainOutput(input.companyId, input.brainId) : null;
-    const hasBrief = input.brainId ? !!brainOutput?.briefData : !!company.briefData;
-    if (!hasBrief) {
+    const hasBrief2 = input.brainId ? !!brainOutput?.briefData : !!company.briefData;
+    if (!hasBrief2) {
       throw new Error("Deep research not found for this brain. Please run Research first.");
     }
     console.log(`[generateSalesApproach] Starting sales approach generation for company ${input.companyId}`);
     if (company.salesApproachData && company.salesApproachGeneratedAt) {
       const cacheAge = Date.now() - new Date(company.salesApproachGeneratedAt).getTime();
       const sevenDaysMs = 7 * 24 * 60 * 60 * 1e3;
-      if (cacheAge < sevenDaysMs) {
-        console.log(`[generateSalesApproach] Using cached sales approach (age: ${Math.floor(cacheAge / (24 * 60 * 60 * 1e3))} days)`);
-        const cachedApproach = JSON.parse(company.salesApproachData);
+      const cachedApproach = JSON.parse(company.salesApproachData);
+      const cachedAngleId = cachedApproach?.angleId;
+      const angleChanged = input.angleId && cachedAngleId && input.angleId !== cachedAngleId;
+      if (cacheAge < sevenDaysMs && !angleChanged) {
+        console.log(`[generateSalesApproach] Using cached sales approach (age: ${Math.floor(cacheAge / (24 * 60 * 60 * 1e3))} days, angle: ${cachedAngleId ?? "default"})`);
         const { normaliseConversationStarters: normaliseConversationStarters2 } = await Promise.resolve().then(() => (init_salesApproachGenerator(), salesApproachGenerator_exports));
         if (cachedApproach && Array.isArray(cachedApproach.conversationStarters)) {
           cachedApproach.conversationStarters = normaliseConversationStarters2(cachedApproach.conversationStarters);
@@ -7114,13 +8914,15 @@ var companyFinderRouter = router({
           cacheAge: Math.floor(cacheAge / (24 * 60 * 60 * 1e3))
           // days
         };
+      } else if (angleChanged) {
+        console.log(`[generateSalesApproach] Angle changed (cached: ${cachedAngleId}, requested: ${input.angleId}), regenerating...`);
       } else {
         console.log(`[generateSalesApproach] Cached sales approach expired (age: ${Math.floor(cacheAge / (24 * 60 * 60 * 1e3))} days), regenerating...`);
       }
     }
     const { generateSalesApproach: generateSalesApproach2 } = await Promise.resolve().then(() => (init_salesApproachGenerator(), salesApproachGenerator_exports));
     try {
-      const salesApproach = await generateSalesApproach2(input.companyId, ctx.user.id, input.brainId);
+      const salesApproach = await generateSalesApproach2(input.companyId, ctx.user.id, input.brainId, input.angleId);
       const resolvedBrainId = input.brainId ?? (await getActiveBrain(ctx.user.id))?.id;
       if (resolvedBrainId) {
         await upsertCompanyBrainOutput(input.companyId, resolvedBrainId, {
@@ -7132,7 +8934,8 @@ var companyFinderRouter = router({
         salesApproachData: JSON.stringify(salesApproach),
         salesApproachGeneratedAt: /* @__PURE__ */ new Date()
       });
-      await stampBrainOnCompany(input.companyId, ctx.user.id);
+      const approachBrain = input.brainId ? await getOfferingBrainById(input.brainId, ctx.user.id) : null;
+      await stampBrainOnCompany(input.companyId, ctx.user.id, approachBrain);
       console.log(`[generateSalesApproach] \u2713 Sales approach generated for ${company.name}`);
       return {
         success: true,
@@ -7458,9 +9261,46 @@ var companyFinderRouter = router({
     const brain = await getActiveBrain(ctx.user.id);
     return { brain };
   }),
-  // Get brain history for the current user
+  // Get brain history — Supabase is single source of truth
   getBrainHistory: protectedProcedure.query(async ({ ctx }) => {
-    const history = await getBrainHistory(ctx.user.id);
+    try {
+      const { createClient: createClient9 } = await import("@supabase/supabase-js");
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (supabaseUrl && supabaseKey) {
+        const sb = createClient9(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+        const { data: sbBrains, error } = await sb.from("lt_mns_offering_brains").select("id, brain_name, company_name, status, show_on_leadtrigger, is_active, created_at, local_brain_id").eq("show_on_leadtrigger", true).order("created_at", { ascending: false });
+        if (!error && sbBrains) {
+          const history2 = sbBrains.map((b) => ({
+            id: String(b.id),
+            localId: b.local_brain_id ? Number(b.local_brain_id) : null,
+            brainName: b.brain_name ?? "Unnamed Brain",
+            companyName: b.company_name ?? "",
+            status: b.status ?? "completed",
+            isActive: b.is_active ? 1 : 0,
+            userId: ctx.user.id,
+            showOnLeadtrigger: b.show_on_leadtrigger ? 1 : 0,
+            createdAt: b.created_at ? new Date(b.created_at) : null
+          }));
+          return { history: history2 };
+        }
+      }
+    } catch (err) {
+      console.warn("[getBrainHistory] Supabase unavailable, falling back to local MySQL:", err);
+    }
+    const localHistory = await getBrainHistory(ctx.user.id);
+    const history = localHistory.map((b) => ({
+      id: String(b.id),
+      localId: typeof b.id === "number" ? b.id : null,
+      // local MySQL fallback uses numeric IDs
+      brainName: b.brainName,
+      companyName: b.companyName,
+      status: b.status,
+      isActive: b.isActive ?? 0,
+      userId: b.userId,
+      showOnLeadtrigger: b.showOnLeadtrigger ?? 1,
+      createdAt: b.createdAt ?? null
+    }));
     return { history };
   }),
   // Research a company offering to create/update the Brain
@@ -7580,8 +9420,10 @@ var companyFinderRouter = router({
       // JSON string
       fitCriteria: z2.string().optional(),
       // JSON string
-      urgencyTriggers: z2.string().optional()
+      urgencyTriggers: z2.string().optional(),
       // JSON string
+      geographyWeights: z2.string().optional()
+      // JSON string {eu, us, apac, china, other}
     })
   })).mutation(async ({ ctx, input }) => {
     const brain = await getActiveBrain(ctx.user.id);
@@ -7594,9 +9436,31 @@ var companyFinderRouter = router({
   }),
   // Set a brain as active
   setActiveBrain: protectedProcedure.input(z2.object({
-    brainId: z2.number()
+    brainId: z2.union([z2.number(), z2.string()])
   })).mutation(async ({ ctx, input }) => {
-    await setOfferingBrainActive(input.brainId, ctx.user.id);
+    const brainIdStr = String(input.brainId);
+    const brainIdNum = typeof input.brainId === "number" ? input.brainId : parseInt(input.brainId, 10);
+    try {
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (supabaseUrl && supabaseKey) {
+        const { createClient: createClient9 } = await import("@supabase/supabase-js");
+        const sb = createClient9(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+        await sb.from("lt_mns_offering_brains").update({ is_active: false }).neq("id", "__none__");
+        await sb.from("lt_mns_offering_brains").update({ is_active: true }).eq("id", brainIdStr);
+        if (!isNaN(brainIdNum)) {
+          await sb.from("lt_mns_offering_brains").update({ is_active: true }).eq("local_brain_id", brainIdNum);
+        }
+      }
+    } catch (err) {
+      console.warn("[setActiveBrain] Supabase update failed:", err);
+    }
+    if (!isNaN(brainIdNum)) {
+      try {
+        await setOfferingBrainActive(brainIdNum, ctx.user.id);
+      } catch {
+      }
+    }
     const brain = await getActiveBrain(ctx.user.id);
     return { brain };
   }),
@@ -7650,16 +9514,24 @@ var companyFinderRouter = router({
           urgencyScore: brainOutput.urgencyScore ?? company.urgencyScore,
           briefGeneratedAt: brainOutput.briefGeneratedAt ?? company.briefGeneratedAt,
           salesApproachGeneratedAt: brainOutput.salesApproachGeneratedAt ?? company.salesApproachGeneratedAt,
+          // Use brain-scoped fit score and full breakdown if available
+          fitScore: brainOutput.fitScore ?? company.fitScore,
+          fitScoreData: brainOutput.fitScoreData ?? company.fitScoreData,
           activeBrainId: input.brainId
         };
       }
+    }
+    let niche = null;
+    if (company.nicheId) {
+      niche = await getNicheById(company.nicheId);
     }
     return {
       company: companyWithBrainData,
       contacts: contacts3,
       decision: decision ?? null,
       search: search ?? null,
-      allBrainOutputs
+      allBrainOutputs,
+      niche: niche ?? null
     };
   }),
   // Get all contacts for a company
@@ -7819,7 +9691,7 @@ var companyFinderRouter = router({
     const drizzleDb = await db.getDb();
     if (!drizzleDb) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
     const { contacts: contactsTable } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq14 } = await import("drizzle-orm");
+    const { eq: eq21 } = await import("drizzle-orm");
     await drizzleDb.update(contactsTable).set({
       email: enriched.email || contact.email || null,
       phone: enriched.phone || contact.phone || null,
@@ -7827,7 +9699,7 @@ var companyFinderRouter = router({
       phonePending: enriched.phonePending ? 1 : 0,
       // Save Apollo person ID so webhook can match this contact when phone arrives
       ...enriched.apolloPersonId ? { apolloPersonId: enriched.apolloPersonId } : {}
-    }).where(eq14(contactsTable.id, contact.id));
+    }).where(eq21(contactsTable.id, contact.id));
     const updatedContact = await getContactById(contact.id);
     if (!updatedContact) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "Failed to fetch updated contact" });
     console.log(`[Enrich Contact] Completed: ${updatedContact.fullName} enriched. phonePending=${enriched.phonePending}`);
@@ -8100,7 +9972,9 @@ var companyFinderRouter = router({
       const result = await scoreCompanyFit2(input.companyId, ctx.user.id);
       await updateCompany(input.companyId, {
         fitScore: result.fitScore,
-        fitScoreData: JSON.stringify(result)
+        fitScoreData: JSON.stringify(result),
+        fitScoreGeneratedAt: /* @__PURE__ */ new Date(),
+        fitScoreSource: "llm"
       });
       await stampBrainOnCompany(input.companyId, ctx.user.id);
       console.log(`[Fit Score] \u2713 ${company.name} \u2192 ${result.fitScore}`);
@@ -8137,17 +10011,17 @@ var companyFinderRouter = router({
     await assertCompanyAccess(input.companyId, ctx.user.id);
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { callOutcomes: callOutcomes2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq14, desc: desc4 } = await import("drizzle-orm");
+    const { eq: eq21, desc: desc5 } = await import("drizzle-orm");
     const db = await getDb2();
     if (!db) return { outcomes: [] };
-    const outcomes = await db.select().from(callOutcomes2).where(eq14(callOutcomes2.companyId, input.companyId)).orderBy(desc4(callOutcomes2.createdAt));
+    const outcomes = await db.select().from(callOutcomes2).where(eq21(callOutcomes2.companyId, input.companyId)).orderBy(desc5(callOutcomes2.createdAt));
     return { outcomes };
   }),
   // Get all companies with follow-up dates set (nurture list)
   getNurtureList: protectedProcedure.query(async ({ ctx }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-    const { callOutcomes: callOutcomes2, companies: companies2, searches: searches2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq14, and: and10, isNotNull: isNotNull3, asc: asc2, desc: desc4, sql: sql7 } = await import("drizzle-orm");
+    const { callOutcomes: callOutcomes2, companies: companies2, searches: searches3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { eq: eq21, and: and14, isNotNull: isNotNull5, asc: asc2, desc: desc5, sql: sql8 } = await import("drizzle-orm");
     const db = await getDb2();
     if (!db) return { items: [] };
     const rows = await db.select({
@@ -8163,10 +10037,10 @@ var companyFinderRouter = router({
       companyCountry: companies2.country,
       urgencyScore: companies2.urgencyScore,
       searchId: companies2.searchId
-    }).from(callOutcomes2).innerJoin(companies2, eq14(callOutcomes2.companyId, companies2.id)).where(
-      and10(
-        eq14(callOutcomes2.userId, ctx.user.id),
-        isNotNull3(callOutcomes2.followUpDate)
+    }).from(callOutcomes2).innerJoin(companies2, eq21(callOutcomes2.companyId, companies2.id)).where(
+      and14(
+        eq21(callOutcomes2.userId, ctx.user.id),
+        isNotNull5(callOutcomes2.followUpDate)
       )
     ).orderBy(asc2(callOutcomes2.followUpDate));
     const seen = /* @__PURE__ */ new Set();
@@ -8222,10 +10096,10 @@ var companyFinderRouter = router({
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
       const { leadinfoVisits: leadinfoVisits2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq14, sql: sql7 } = await import("drizzle-orm");
+      const { eq: eq21, sql: sql8 } = await import("drizzle-orm");
       const db = await getDb2();
       if (db) {
-        const rows = await db.select().from(leadinfoVisits2).where(eq14(leadinfoVisits2.companyId, input.companyId)).orderBy(sql7`${leadinfoVisits2.importedAt} DESC`).limit(1);
+        const rows = await db.select().from(leadinfoVisits2).where(eq21(leadinfoVisits2.companyId, input.companyId)).orderBy(sql8`${leadinfoVisits2.importedAt} DESC`).limit(1);
         leadinfoVisit = rows[0] || null;
       }
     } catch {
@@ -8321,7 +10195,7 @@ FIT RATIONALE: ${fitData.overallRationale}`);
     const { WHY_CALL_TODAY: WHY_CALL_TODAY2 } = await Promise.resolve().then(() => (init_prompts(), prompts_exports));
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { leadinfoVisits: leadinfoVisits2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq14, sql: sql7 } = await import("drizzle-orm");
+    const { eq: eq21, sql: sql8 } = await import("drizzle-orm");
     const eligible = allCompanies.filter((c) => c.briefData && c.enrichmentStatus === "enriched");
     let brainOffering = "";
     try {
@@ -8333,7 +10207,7 @@ FIT RATIONALE: ${fitData.overallRationale}`);
     const leadinfoMap = /* @__PURE__ */ new Map();
     if (db) {
       try {
-        const allVisits = await db.select().from(leadinfoVisits2).where(eq14(leadinfoVisits2.searchId, input.searchId));
+        const allVisits = await db.select().from(leadinfoVisits2).where(eq21(leadinfoVisits2.searchId, input.searchId));
         for (const v of allVisits) {
           if (v.companyId) leadinfoMap.set(v.companyId, v);
         }
@@ -8569,12 +10443,12 @@ FIT RATIONALE: ${fitData.overallRationale}`);
     const companies2 = await getCompaniesBySearchId3(input.searchId);
     const enriched = companies2.filter((c) => c.enrichmentStatus === "enriched");
     const hasResearch = enriched.filter((c) => c.briefData != null);
-    const hasApproach = enriched.filter((c) => c.salesApproachData != null);
+    const hasApproach2 = enriched.filter((c) => c.salesApproachData != null);
     const missingApproach = hasResearch.filter((c) => c.salesApproachData == null);
     return {
       total: enriched.length,
       researched: hasResearch.length,
-      approached: hasApproach.length,
+      approached: hasApproach2.length,
       missingApproach: missingApproach.length,
       missingApproachIds: missingApproach.map((c) => c.id)
     };
@@ -8886,13 +10760,13 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
   // queries feed_items by matching the raw_content query field.
   // ---------------------------------------------------------------------------
   getCompanyFeedItems: protectedProcedure.input(z2.object({ companyId: z2.number(), limit: z2.number().default(20) })).query(async ({ input }) => {
-    const { createClient: createClient2 } = await import("@supabase/supabase-js");
+    const { createClient: createClient9 } = await import("@supabase/supabase-js");
     const supabaseUrl = process.env.SUPABASE_URL;
     const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (!supabaseUrl || !supabaseKey) return { items: [] };
     const company = await getCompanyById(input.companyId);
     if (!company) return { items: [] };
-    const supabase = createClient2(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+    const supabase = createClient9(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
     const { data, error } = await supabase.from("feed_items").select("id, title, link, description, author, published_at, created_at, raw_content").ilike("raw_content", `%${company.name}%`).order("created_at", { ascending: false }).limit(input.limit);
     if (error || !data) return { items: [] };
     const items = data.map((row) => {
@@ -9046,26 +10920,26 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
   // Sales Menu — list all campaigns with stats (company count + avg fit score)
   getSalesMenuCampaigns: protectedProcedure.query(async ({ ctx }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-    const { searches: searches2, companies: companies2, offeringBrain: offeringBrain2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq14, and: and10, or: or2, desc: desc4, sql: sql7, inArray: inArray9 } = await import("drizzle-orm");
+    const { searches: searches3, companies: companies2, offeringBrain: offeringBrain2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { eq: eq21, and: and14, or: or4, desc: desc5, sql: sql8, inArray: inArray13 } = await import("drizzle-orm");
     const db = await getDb2();
     if (!db) return [];
     const rows = await db.select({
-      search: searches2,
+      search: searches3,
       brainName: offeringBrain2.brainName
-    }).from(searches2).leftJoin(offeringBrain2, eq14(searches2.brainId, offeringBrain2.id)).where(
-      and10(
-        or2(eq14(searches2.userId, ctx.user.id), eq14(searches2.sharedWithTeam, 1)),
-        eq14(searches2.isArchived, 0)
+    }).from(searches3).leftJoin(offeringBrain2, eq21(searches3.brainId, offeringBrain2.id)).where(
+      and14(
+        or4(eq21(searches3.userId, ctx.user.id), eq21(searches3.sharedWithTeam, 1)),
+        eq21(searches3.isArchived, 0)
       )
-    ).orderBy(desc4(searches2.createdAt));
+    ).orderBy(desc5(searches3.createdAt));
     if (rows.length === 0) return [];
     const searchIds = rows.map((r) => r.search.id);
     const statsRows = await db.select({
       searchId: companies2.searchId,
-      companyCount: sql7`COUNT(*)`,
-      avgFit: sql7`ROUND(AVG(CASE WHEN ${companies2.fitScore} IS NOT NULL THEN ${companies2.fitScore} END), 0)`
-    }).from(companies2).where(inArray9(companies2.searchId, searchIds)).groupBy(companies2.searchId);
+      companyCount: sql8`COUNT(*)`,
+      avgFit: sql8`ROUND(AVG(CASE WHEN ${companies2.fitScore} IS NOT NULL THEN ${companies2.fitScore} END), 0)`
+    }).from(companies2).where(inArray13(companies2.searchId, searchIds)).groupBy(companies2.searchId);
     const statsMap = new Map(statsRows.map((s) => [s.searchId, s]));
     return rows.map((r) => {
       const stats = statsMap.get(r.search.id);
@@ -9081,27 +10955,83 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       };
     });
   }),
-  // Sync ALL researched companies to Supabase lt_mns_companies table
+  // DEPRECATED: syncAllCompanies previously wrote to lt_mns_companies which no longer exists.
+  // The live Supabase schema uses lt_companies (master registry) + lt_campaign_companies (enrichment).
+  // This procedure now returns a deprecation notice instead of running the broken sync.
+  // TODO: Replace with a procedure that syncs to lt_companies when needed.
   syncAllCompanies: protectedProcedure.mutation(async () => {
-    const { syncAllCompaniesToSupabase: syncAllCompaniesToSupabase2 } = await Promise.resolve().then(() => (init_supabaseSync(), supabaseSync_exports));
-    const result = await syncAllCompaniesToSupabase2();
-    return result;
+    return {
+      synced: 0,
+      errors: 0,
+      message: "\u26A0\uFE0F DEPRECATED: lt_mns_companies no longer exists. The live schema uses lt_companies + lt_campaign_companies. This sync has been disabled to prevent silent failures. See references/db-architecture.md."
+    };
   }),
-  // Get sync stats for lt_mns_companies table
+  // Get sync stats for lt_mns_companies (the real Supabase master registry for this project).
+  // lt_companies does NOT exist in this Supabase project.
   getCompaniesTableSyncStats: protectedProcedure.query(async () => {
-    const { getCompaniesTableSyncStats: getCompaniesTableSyncStats2 } = await Promise.resolve().then(() => (init_supabaseSync(), supabaseSync_exports));
-    return await getCompaniesTableSyncStats2();
+    try {
+      const { createClient: createClient9 } = await import("@supabase/supabase-js");
+      const supabase = createClient9(
+        process.env.SUPABASE_URL,
+        process.env.SUPABASE_SERVICE_ROLE_KEY,
+        { auth: { persistSession: false } }
+      );
+      const { count: count2, error } = await supabase.from("lt_mns_companies").select("*", { count: "exact", head: true });
+      if (error) throw error;
+      const { data: lastRow } = await supabase.from("lt_mns_companies").select("updated_at").order("updated_at", { ascending: false }).limit(1).single();
+      return {
+        count: count2 ?? 0,
+        lastSyncedAt: lastRow?.updated_at ?? null,
+        table: "lt_mns_companies",
+        note: "Master registry \u2014 85K+ companies imported from external pipeline"
+      };
+    } catch (e) {
+      console.warn("[getCompaniesTableSyncStats] Supabase unavailable:", e);
+      return { count: 0, lastSyncedAt: null, table: "lt_mns_companies", note: "Supabase unavailable" };
+    }
   }),
   // Sync all researched company pages to Supabase lt_mns_company_pages table
-  syncCompanyPages: protectedProcedure.input(z2.object({ appBaseUrl: z2.string().optional() }).optional()).mutation(async ({ ctx, input }) => {
-    const { syncCompanyPagesToSupabase: syncCompanyPagesToSupabase2 } = await Promise.resolve().then(() => (init_supabaseSync(), supabaseSync_exports));
-    const result = await syncCompanyPagesToSupabase2();
-    return result;
+  // Incremental (default): runs synchronously within the request — only syncs new companies since last sync.
+  //   Fast enough (typically <10s) to complete within Cloud Run's 180s request timeout.
+  // forceFullSync=true: fire-and-forget background loop for all 4,800+ companies.
+  syncCompanyPages: protectedProcedure.input(z2.object({ appBaseUrl: z2.string().optional(), forceFullSync: z2.boolean().optional() }).optional()).mutation(async ({ ctx, input }) => {
+    const forceFullSync = input?.forceFullSync ?? false;
+    const { syncCompanyPagesToSupabase: syncCompanyPagesToSupabase2, getLastSyncedCompanyId: getLastSyncedCompanyId2 } = await Promise.resolve().then(() => (init_supabaseSync(), supabaseSync_exports));
+    const BATCH_SIZE2 = 300;
+    if (!forceFullSync) {
+      const offsetId = await getLastSyncedCompanyId2();
+      console.log(`[SupabaseSync] syncCompanyPages INCREMENTAL \u2014 offsetId=${offsetId}`);
+      const result = await syncCompanyPagesToSupabase2(input?.appBaseUrl, BATCH_SIZE2, offsetId);
+      console.log(`[SupabaseSync] syncCompanyPages INCREMENTAL DONE: ${result.message}`);
+      return { synced: result.synced, errors: result.errors, message: result.synced === 0 ? "Already up to date \u2014 no new articles to sync" : `Synced ${result.synced} new articles to Supabase` };
+    }
+    (async () => {
+      try {
+        let offsetId = 0;
+        let totalSynced = 0;
+        let totalErrors = 0;
+        let batchNum = 0;
+        console.log(`[SupabaseSync] syncCompanyPages FULL starting`);
+        while (true) {
+          batchNum++;
+          const result = await syncCompanyPagesToSupabase2(input?.appBaseUrl, BATCH_SIZE2, offsetId);
+          totalSynced += result.synced;
+          totalErrors += result.errors;
+          console.log(`[SupabaseSync] syncCompanyPages FULL batch ${batchNum} (offsetId=${offsetId}): ${result.message}`);
+          if (result.nextOffsetId === void 0) break;
+          offsetId = result.nextOffsetId;
+        }
+        console.log(`[SupabaseSync] syncCompanyPages FULL DONE: ${totalSynced} synced, ${totalErrors} errors across ${batchNum} batches`);
+      } catch (e) {
+        console.error("[SupabaseSync] syncCompanyPages FULL error:", e instanceof Error ? e.message : String(e));
+      }
+    })();
+    return { synced: 0, errors: 0, message: "Full sync started in background \u2014 re-syncing all companies. Refresh stats in ~5 minutes" };
   }),
   // Get last sync stats for the company pages table
   getCompanyPagesSyncStats: protectedProcedure.query(async () => {
-    const { createClient: createClient2 } = await import("@supabase/supabase-js");
-    const supabase = createClient2(
+    const { createClient: createClient9 } = await import("@supabase/supabase-js");
+    const supabase = createClient9(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
       { auth: { persistSession: false } }
@@ -9119,13 +11049,17 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
   getIntelligenceCompanies: protectedProcedure.input(z2.object({
     search: z2.string().optional(),
     campaignId: z2.number().optional(),
+    campaignIds: z2.array(z2.number()).optional(),
     urgencyLabel: z2.enum(["HIGH", "MEDIUM", "LOW", "ALL"]).optional(),
     minFit: z2.number().optional(),
+    dateFrom: z2.string().optional(),
+    dateTo: z2.string().optional(),
     limit: z2.number().default(100),
-    offset: z2.number().default(0)
+    offset: z2.number().default(0),
+    brainName: z2.string().optional()
   })).query(async ({ input }) => {
-    const { createClient: createClient2 } = await import("@supabase/supabase-js");
-    const supabase = createClient2(
+    const { createClient: createClient9 } = await import("@supabase/supabase-js");
+    const supabase = createClient9(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
       { auth: { persistSession: false } }
@@ -9134,14 +11068,36 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
     if (input.search) {
       query = query.or(`company_name.ilike.%${input.search}%,domain.ilike.%${input.search}%,campaign_name.ilike.%${input.search}%`);
     }
-    if (input.campaignId) {
-      query = query.eq("campaign_id", input.campaignId);
+    const effectiveCampaignIds = input.campaignIds && input.campaignIds.length > 0 ? input.campaignIds : input.campaignId ? [input.campaignId] : [];
+    if (effectiveCampaignIds.length === 1) {
+      query = query.eq("campaign_id", effectiveCampaignIds[0]);
+    } else if (effectiveCampaignIds.length > 1) {
+      query = query.in("campaign_id", effectiveCampaignIds);
     }
     if (input.urgencyLabel && input.urgencyLabel !== "ALL") {
       query = query.eq("urgency_label", input.urgencyLabel);
     }
     if (input.minFit) {
       query = query.gte("fit_score", input.minFit);
+    }
+    if (input.brainName) {
+      const { getDb: getLocalDb } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const { offeringBrain: obSchema, searches: searchesSchema } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eqOp } = await import("drizzle-orm");
+      const localDb = await getLocalDb();
+      if (localDb) {
+        const brainRows = await localDb.select({ id: obSchema.id }).from(obSchema).where(eqOp(obSchema.brainName, input.brainName)).limit(1);
+        if (brainRows.length > 0) {
+          const brainId = brainRows[0].id;
+          const searchRows = await localDb.select({ id: searchesSchema.id }).from(searchesSchema).where(eqOp(searchesSchema.brainId, brainId));
+          const campaignIds = searchRows.map((r) => r.id);
+          if (campaignIds.length > 0) {
+            query = query.in("campaign_id", campaignIds);
+          } else {
+            query = query.eq("campaign_id", -1);
+          }
+        }
+      }
     }
     const { data, count: count2, error } = await query;
     if (error) throw new Error(error.message);
@@ -9151,31 +11107,44 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
     };
   }),
   // Get distinct campaigns from lt_mns_company_pages for the filter dropdown
-  getIntelligenceCampaigns: protectedProcedure.query(async () => {
-    const { createClient: createClient2 } = await import("@supabase/supabase-js");
-    const supabase = createClient2(
-      process.env.SUPABASE_URL,
-      process.env.SUPABASE_SERVICE_ROLE_KEY,
-      { auth: { persistSession: false } }
-    );
-    const { data, error } = await supabase.from("lt_mns_company_pages").select("campaign_id, campaign_name").not("campaign_id", "is", null);
-    if (error) throw new Error(error.message);
-    const seen = /* @__PURE__ */ new Set();
-    const campaigns = [];
-    for (const row of data ?? []) {
-      if (!seen.has(row.campaign_id)) {
-        seen.add(row.campaign_id);
-        campaigns.push({ id: row.campaign_id, name: row.campaign_name ?? `Campaign ${row.campaign_id}` });
-      }
+  getIntelligenceCampaigns: protectedProcedure.input(z2.object({
+    dateFrom: z2.string().optional(),
+    dateTo: z2.string().optional()
+  }).optional()).query(async ({ input }) => {
+    const { getDb: getLocalDb } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const { searches: searchesSchema, companies: companiesSchema } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { isNotNull: isNotNullOp, gte: gteOp, lte: lteOp, and: andOp, eq: eqOp2, desc: descOp } = await import("drizzle-orm");
+    const localDb = await getLocalDb();
+    if (!localDb) return [];
+    const conditions = [isNotNullOp(companiesSchema.briefData), isNotNullOp(companiesSchema.searchId)];
+    if (input?.dateFrom) conditions.push(gteOp(companiesSchema.briefGeneratedAt, new Date(input.dateFrom)));
+    if (input?.dateTo) {
+      const toDate = new Date(input.dateTo);
+      toDate.setDate(toDate.getDate() + 1);
+      conditions.push(lteOp(companiesSchema.briefGeneratedAt, toDate));
     }
-    return campaigns.sort((a, b) => a.name.localeCompare(b.name));
+    const rows = await localDb.selectDistinct({ campaignId: companiesSchema.searchId, campaignName: searchesSchema.offeringName }).from(companiesSchema).leftJoin(searchesSchema, eqOp2(companiesSchema.searchId, searchesSchema.id)).where(andOp(...conditions)).orderBy(descOp(companiesSchema.searchId));
+    return rows.filter((r) => r.campaignId !== null).map((r) => ({
+      id: r.campaignId,
+      name: r.campaignName ?? `Campaign ${r.campaignId}`
+    }));
+  }),
+  // Get distinct business units from the local offering_brain table (those that have at least one campaign)
+  getIntelligenceBusinessUnits: protectedProcedure.query(async () => {
+    const { getDb: getLocalDb } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const { offeringBrain: obSchema, searches: searchesSchema } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { eq: eqOp } = await import("drizzle-orm");
+    const localDb = await getLocalDb();
+    if (!localDb) return [];
+    const rows = await localDb.selectDistinct({ brainName: obSchema.brainName }).from(obSchema).innerJoin(searchesSchema, eqOp(searchesSchema.brainId, obSchema.id)).orderBy(obSchema.brainName);
+    return rows.map((r) => r.brainName).filter(Boolean);
   }),
   // Resolve a Supabase UUID to a local integer company ID
   // Used when Intelligence page navigates with UUID instead of local ID
   resolveCompanyUUID: protectedProcedure.input(z2.object({ uuid: z2.string() })).query(async ({ input }) => {
     try {
-      const { createClient: createClient2 } = await import("@supabase/supabase-js");
-      const supabase = createClient2(
+      const { createClient: createClient9 } = await import("@supabase/supabase-js");
+      const supabase = createClient9(
         process.env.SUPABASE_URL,
         process.env.SUPABASE_SERVICE_ROLE_KEY,
         { auth: { persistSession: false } }
@@ -9200,8 +11169,8 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
   // ---------------------------------------------------------------------------
   deduplicateSearch: protectedProcedure.input(z2.object({ searchId: z2.number() })).mutation(async ({ ctx, input }) => {
     await assertSearchAccess(input.searchId, ctx.user.id);
-    const mysql = await import("mysql2/promise");
-    const conn = await mysql.createConnection(process.env.DATABASE_URL);
+    const mysql2 = await import("mysql2/promise");
+    const conn = await mysql2.createConnection(process.env.DATABASE_URL);
     try {
       const [dups] = await conn.execute(
         `SELECT apolloId, COUNT(*) as cnt
@@ -9244,12 +11213,63 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
    * Admin-only: only the owner user can see all brains.
    */
   listAllBrainsAdmin: protectedProcedure.query(async () => {
+    try {
+      const { createClient: createClient9 } = await import("@supabase/supabase-js");
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (supabaseUrl && supabaseKey) {
+        const sb = createClient9(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+        const { data, error } = await sb.from("lt_mns_offering_brains").select("id, brain_name, company_name, status, is_active, show_on_leadtrigger, created_at, updated_at, local_brain_id").order("created_at", { ascending: false });
+        if (!error && data) {
+          let localActiveId = null;
+          try {
+            const { getDb: getDbLocal } = await Promise.resolve().then(() => (init_db(), db_exports));
+            const dbLocal = await getDbLocal();
+            if (dbLocal) {
+              const { offeringBrain: obSchema } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+              const { eq: eqOp } = await import("drizzle-orm");
+              const [activeRow] = await dbLocal.select({ id: obSchema.id }).from(obSchema).where(eqOp(obSchema.isActive, 1)).limit(1);
+              if (activeRow) localActiveId = activeRow.id;
+            }
+          } catch {
+          }
+          const brains2 = data.map((b) => {
+            let isActive = false;
+            if (localActiveId !== null) {
+              isActive = b.local_brain_id === localActiveId || String(b.id) === String(localActiveId);
+            } else {
+              isActive = !!b.is_active;
+            }
+            return {
+              id: String(b.id),
+              // Supabase string ID
+              localId: b.local_brain_id ? Number(b.local_brain_id) : null,
+              // local MySQL int (if synced)
+              brainName: b.brain_name ?? "Unnamed Brain",
+              companyName: b.company_name ?? "",
+              status: b.status ?? "completed",
+              isActive: isActive ? 1 : 0,
+              isShared: 0,
+              // not stored in Supabase, defaults to 0
+              showOnLeadtrigger: b.show_on_leadtrigger ? 1 : 0,
+              createdAt: b.created_at ?? null,
+              updatedAt: b.updated_at ?? null,
+              isSupabaseOnly: !b.local_brain_id
+              // true = no local MySQL record
+            };
+          });
+          return { brains: brains2 };
+        }
+      }
+    } catch (err) {
+      console.warn("[listAllBrainsAdmin] Supabase unavailable, falling back to local MySQL:", err);
+    }
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const db = await getDb2();
     if (!db) return { brains: [] };
     const { offeringBrain: offeringBrain2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { desc: desc4 } = await import("drizzle-orm");
-    const brains = await db.select({
+    const { desc: desc5 } = await import("drizzle-orm");
+    const rows = await db.select({
       id: offeringBrain2.id,
       brainName: offeringBrain2.brainName,
       companyName: offeringBrain2.companyName,
@@ -9259,23 +11279,1188 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       showOnLeadtrigger: offeringBrain2.showOnLeadtrigger,
       createdAt: offeringBrain2.createdAt,
       updatedAt: offeringBrain2.updatedAt
-    }).from(offeringBrain2).orderBy(desc4(offeringBrain2.createdAt));
+    }).from(offeringBrain2).orderBy(desc5(offeringBrain2.createdAt));
+    const brains = rows.map((b) => ({
+      id: String(b.id),
+      localId: b.id,
+      brainName: b.brainName,
+      companyName: b.companyName,
+      status: b.status,
+      isActive: b.isActive ?? 0,
+      isShared: b.isShared ?? 0,
+      showOnLeadtrigger: b.showOnLeadtrigger ?? 1,
+      createdAt: b.createdAt ?? null,
+      updatedAt: b.updatedAt ?? null,
+      isSupabaseOnly: false
+    }));
     return { brains };
   }),
   /**
    * Toggle show_on_leadtrigger for a single brain.
+   * Accepts either a Supabase string ID or a local MySQL int ID.
+   * Supabase is updated first (primary); local MySQL is updated as fallback/sync.
    */
-  toggleBrainVisibility: protectedProcedure.input(z2.object({
-    brainId: z2.number().int().positive(),
-    visible: z2.boolean()
+  toggleBrainVisibility: superAdminProcedure.input(z2.object({
+    brainId: z2.union([z2.string(), z2.number()]),
+    visible: z2.boolean(),
+    localId: z2.number().int().positive().optional()
+    // local MySQL id if available
+  })).mutation(async ({ input }) => {
+    const supabaseUrl = process.env.SUPABASE_URL;
+    const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (supabaseUrl && supabaseKey) {
+      try {
+        const { createClient: createClient9 } = await import("@supabase/supabase-js");
+        const sb = createClient9(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+        await sb.from("lt_mns_offering_brains").update({ show_on_leadtrigger: input.visible }).eq("id", String(input.brainId));
+      } catch (err) {
+        console.warn("[toggleBrainVisibility] Supabase update failed:", err);
+      }
+    }
+    const localId = input.localId ?? (typeof input.brainId === "number" ? input.brainId : null);
+    if (localId) {
+      try {
+        const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+        const db = await getDb2();
+        if (db) {
+          const { offeringBrain: offeringBrain2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+          const { eq: eq21 } = await import("drizzle-orm");
+          await db.update(offeringBrain2).set({ showOnLeadtrigger: input.visible ? 1 : 0 }).where(eq21(offeringBrain2.id, localId));
+        }
+      } catch (err) {
+        console.warn("[toggleBrainVisibility] Local MySQL update failed:", err);
+      }
+    }
+    return { success: true, brainId: input.brainId, visible: input.visible };
+  }),
+  /**
+   * Fetch all available angles from Supabase lt_mns_angles table.
+   */
+  getAngles: protectedProcedure.query(async () => {
+    try {
+      const { createClient: createClient9 } = await import("@supabase/supabase-js");
+      const supabaseUrl = process.env.SUPABASE_URL;
+      const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (supabaseUrl && supabaseKey) {
+        const sb = createClient9(supabaseUrl, supabaseKey, { auth: { persistSession: false } });
+        const { data, error } = await sb.from("lt_mns_angles").select("id, name, description").order("name", { ascending: true });
+        if (!error && data) {
+          return { angles: data.map((a) => ({ id: a.id, name: a.name, description: a.description })) };
+        }
+      }
+    } catch (err) {
+      console.warn("[getAngles] Supabase unavailable:", err);
+    }
+    return {
+      angles: [
+        { id: "default", name: "Potential Customer", description: "Direct end-user buyer" },
+        { id: "distributor", name: "Distributor", description: "Channel partner who resells to end customers" }
+      ]
+    };
+  }),
+  /**
+   * Bulk similarity scoring — computes cosine similarity for companies
+   * that don't yet have a similarityScore (or all companies in a campaign).
+   * No LLM calls — uses stored Supabase embeddings.
+   */
+  runSimilarityScoring: protectedProcedure.input(
+    z2.object({
+      mode: z2.enum(["ungraded", "all", "campaign"]).default("ungraded"),
+      searchId: z2.number().optional(),
+      // required when mode === "campaign"
+      brainId: z2.number().optional()
+      // optional: use a specific Brain instead of globally-active
+    })
+  ).mutation(async ({ input }) => {
+    const { runBulkSimilarityScoring: runBulkSimilarityScoring2 } = await Promise.resolve().then(() => (init_bulkSimilarityService(), bulkSimilarityService_exports));
+    const result = await runBulkSimilarityScoring2({
+      mode: input.mode,
+      searchId: input.searchId,
+      brainId: input.brainId
+    });
+    return result;
+  }),
+  /**
+   * Path D: Bulk News Urgency Scoring
+   * Fetches Google News snippets via Serper, embeds them, and scores cosine
+   * similarity against the ABC scenario centroid → writes to urgencyScoreNews
+   */
+  runNewsUrgencyScoring: protectedProcedure.input(
+    z2.object({
+      mode: z2.enum(["unscored", "all"]).default("unscored"),
+      limit: z2.number().min(1).max(2e3).default(500)
+    })
+  ).mutation(async ({ input }) => {
+    const { runBulkNewsUrgencyScoring: runBulkNewsUrgencyScoring2 } = await Promise.resolve().then(() => (init_bulkNewsUrgencyService(), bulkNewsUrgencyService_exports));
+    const result = await runBulkNewsUrgencyScoring2({
+      mode: input.mode,
+      limit: input.limit
+    });
+    return result;
+  }),
+  /**
+   * Database Health Check — aggregates KPI completeness and sync status
+   * across all pipeline stages for the admin dashboard.
+   */
+  getDatabaseHealth: protectedProcedure.query(async () => {
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const { count: count2, isNotNull: isNotNull5, sql: sql8, inArray: inArray13 } = await import("drizzle-orm");
+    const { companies: companies2, searches: searches3, offeringBrain: offeringBrain2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const db = await getDb2();
+    if (!db) return null;
+    const [totalCompaniesRow] = await db.select({ total: count2() }).from(companies2);
+    const total = totalCompaniesRow?.total ?? 0;
+    const [enrichedRow] = await db.select({ n: count2() }).from(companies2).where(sql8`enrichmentStatus = 'enriched'`);
+    const [failedRow] = await db.select({ n: count2() }).from(companies2).where(sql8`enrichmentStatus = 'failed'`);
+    const [pendingRow] = await db.select({ n: count2() }).from(companies2).where(sql8`enrichmentStatus = 'pending'`);
+    const [simRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.similarityScore));
+    const [fitRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.fitScore));
+    const [urgSynthRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.urgencyScoreSynth));
+    const [urgNewsRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.urgencyScoreNews));
+    const [urgLLMRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.urgencyScoreLLM));
+    const [urgHITLRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.urgencyScoreHITL));
+    const [fitHITLRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.fitScoreHITL));
+    const [briefRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.briefGeneratedAt));
+    const [salesRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.salesApproachGeneratedAt));
+    const [contactsRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.contactsFetchedAt));
+    const [cgRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull5(companies2.cgImportedAt));
+    const [lastEnrichedRow] = await db.select({ ts: sql8`MAX(createdAt)` }).from(companies2).where(sql8`enrichmentStatus = 'enriched'`);
+    const [lastFitRow] = await db.select({ ts: sql8`MAX(fitScoreGeneratedAt)` }).from(companies2);
+    const [lastUrgSynthRow] = await db.select({ ts: sql8`MAX(urgencyScoreSynthGeneratedAt)` }).from(companies2);
+    const [lastUrgNewsRow] = await db.select({ ts: sql8`MAX(urgencyScoreNewsGeneratedAt)` }).from(companies2);
+    const [lastUrgLLMRow] = await db.select({ ts: sql8`MAX(urgencyScoreLLMGeneratedAt)` }).from(companies2);
+    const [lastBriefRow] = await db.select({ ts: sql8`MAX(briefGeneratedAt)` }).from(companies2);
+    const [lastSalesRow] = await db.select({ ts: sql8`MAX(salesApproachGeneratedAt)` }).from(companies2);
+    const [totalSearchesRow] = await db.select({ total: count2() }).from(searches3);
+    const [completedSearchesRow] = await db.select({ n: count2() }).from(searches3).where(sql8`status = 'completed'`);
+    const [failedSearchesRow] = await db.select({ n: count2() }).from(searches3).where(sql8`status = 'failed'`);
+    const [lastSearchRow] = await db.select({ ts: sql8`MAX(updatedAt)` }).from(searches3);
+    const [totalBrainsRow] = await db.select({ total: count2() }).from(offeringBrain2);
+    const [activeBrainsRow] = await db.select({ n: count2() }).from(offeringBrain2).where(sql8`isActive = 1`);
+    const campaignRows = await db.select({
+      searchId: companies2.searchId,
+      total: count2(),
+      enriched: sql8`SUM(CASE WHEN enrichmentStatus = 'enriched' THEN 1 ELSE 0 END)`,
+      withSimilarity: sql8`SUM(CASE WHEN similarityScore IS NOT NULL THEN 1 ELSE 0 END)`,
+      withFit: sql8`SUM(CASE WHEN fitScore IS NOT NULL THEN 1 ELSE 0 END)`,
+      withUrgSynth: sql8`SUM(CASE WHEN urgencyScoreSynth IS NOT NULL THEN 1 ELSE 0 END)`,
+      withUrgNews: sql8`SUM(CASE WHEN urgencyScoreNews IS NOT NULL THEN 1 ELSE 0 END)`,
+      withUrgLLM: sql8`SUM(CASE WHEN urgencyScoreLLM IS NOT NULL THEN 1 ELSE 0 END)`,
+      withBrief: sql8`SUM(CASE WHEN briefGeneratedAt IS NOT NULL THEN 1 ELSE 0 END)`,
+      withSales: sql8`SUM(CASE WHEN salesApproachGeneratedAt IS NOT NULL THEN 1 ELSE 0 END)`,
+      withContacts: sql8`SUM(CASE WHEN contactsFetchedAt IS NOT NULL THEN 1 ELSE 0 END)`,
+      lastActivity: sql8`MAX(createdAt)`
+    }).from(companies2).groupBy(companies2.searchId).orderBy(sql8`MAX(createdAt) DESC`).limit(20);
+    const searchIds = campaignRows.map((r) => r.searchId).filter(Boolean);
+    let searchNames = {};
+    if (searchIds.length > 0) {
+      const searchRows = await db.select({ id: searches3.id, offeringName: searches3.offeringName, companyWebsite: searches3.companyWebsite }).from(searches3).where(inArray13(searches3.id, searchIds));
+      searchNames = Object.fromEntries(
+        searchRows.map((s) => [s.id, s.offeringName || s.companyWebsite || `Campaign ${s.id}`])
+      );
+    }
+    let supabaseSyncStats = {
+      // lt_mns_companies — master company registry (imported externally)
+      companiesCount: 0,
+      lastSyncedAt: null,
+      // lt_mns_company_pages — enriched pages with fit/urgency scores
+      pagesCount: 0,
+      pagesLastSyncedAt: null,
+      // lt_mns_company_embeddings — vector embeddings for similarity search
+      embeddingsCount: 0,
+      // MySQL coverage: how many Supabase companies are also in MySQL
+      mysqlCoverage: 0,
+      mysqlCoveragePct: 0
+    };
+    try {
+      const { createClient: createClient9 } = await import("@supabase/supabase-js");
+      const supabase = createClient9(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, { auth: { persistSession: false } });
+      const { count: mnsCoCount } = await supabase.from("lt_mns_companies").select("*", { count: "exact", head: true });
+      const { data: mnsCoLast } = await supabase.from("lt_mns_companies").select("updated_at").order("updated_at", { ascending: false }).limit(1).single();
+      const { count: pagesCount } = await supabase.from("lt_mns_company_pages").select("*", { count: "exact", head: true });
+      const { data: latestPage } = await supabase.from("lt_mns_company_pages").select("synced_at").order("synced_at", { ascending: false }).limit(1).single();
+      const { count: embCount } = await supabase.from("lt_mns_company_embeddings").select("*", { count: "exact", head: true });
+      supabaseSyncStats.companiesCount = mnsCoCount ?? 0;
+      supabaseSyncStats.lastSyncedAt = mnsCoLast?.updated_at ?? null;
+      supabaseSyncStats.pagesCount = pagesCount ?? 0;
+      supabaseSyncStats.pagesLastSyncedAt = latestPage?.synced_at ?? null;
+      supabaseSyncStats.embeddingsCount = embCount ?? 0;
+      supabaseSyncStats.mysqlCoverage = total;
+      supabaseSyncStats.mysqlCoveragePct = mnsCoCount && mnsCoCount > 0 ? Math.round(total / mnsCoCount * 100) : 0;
+    } catch (e) {
+      console.warn("[DatabaseHealth] Supabase stats unavailable:", e);
+    }
+    const pct = (n) => total > 0 ? Math.round(n / total * 100) : 0;
+    return {
+      generatedAt: /* @__PURE__ */ new Date(),
+      totals: {
+        companies: total,
+        searches: totalSearchesRow?.total ?? 0,
+        completedSearches: completedSearchesRow?.n ?? 0,
+        failedSearches: failedSearchesRow?.n ?? 0,
+        brains: totalBrainsRow?.total ?? 0,
+        activeBrains: activeBrainsRow?.n ?? 0,
+        lastSearchActivity: lastSearchRow?.ts ?? null
+      },
+      enrichment: {
+        enriched: enrichedRow?.n ?? 0,
+        pending: pendingRow?.n ?? 0,
+        failed: failedRow?.n ?? 0,
+        enrichedPct: pct(enrichedRow?.n ?? 0),
+        lastEnrichedAt: lastEnrichedRow?.ts ?? null
+      },
+      scoring: {
+        similarityScore: { count: simRow?.n ?? 0, pct: pct(simRow?.n ?? 0) },
+        fitScore: { count: fitRow?.n ?? 0, pct: pct(fitRow?.n ?? 0), lastAt: lastFitRow?.ts ?? null },
+        urgencyScoreSynth: { count: urgSynthRow?.n ?? 0, pct: pct(urgSynthRow?.n ?? 0), lastAt: lastUrgSynthRow?.ts ?? null },
+        urgencyScoreNews: { count: urgNewsRow?.n ?? 0, pct: pct(urgNewsRow?.n ?? 0), lastAt: lastUrgNewsRow?.ts ?? null },
+        urgencyScoreLLM: { count: urgLLMRow?.n ?? 0, pct: pct(urgLLMRow?.n ?? 0), lastAt: lastUrgLLMRow?.ts ?? null },
+        urgencyScoreHITL: { count: urgHITLRow?.n ?? 0, pct: pct(urgHITLRow?.n ?? 0) },
+        fitScoreHITL: { count: fitHITLRow?.n ?? 0, pct: pct(fitHITLRow?.n ?? 0) }
+      },
+      content: {
+        brief: { count: briefRow?.n ?? 0, pct: pct(briefRow?.n ?? 0), lastAt: lastBriefRow?.ts ?? null },
+        salesApproach: { count: salesRow?.n ?? 0, pct: pct(salesRow?.n ?? 0), lastAt: lastSalesRow?.ts ?? null },
+        contactsFetched: { count: contactsRow?.n ?? 0, pct: pct(contactsRow?.n ?? 0) },
+        cgImported: { count: cgRow?.n ?? 0, pct: pct(cgRow?.n ?? 0) }
+      },
+      supabaseSync: supabaseSyncStats,
+      campaigns: campaignRows.map((r) => ({
+        searchId: r.searchId,
+        name: r.searchId ? searchNames[r.searchId] ?? `Campaign ${r.searchId}` : "Unknown",
+        total: r.total,
+        enriched: Number(r.enriched),
+        enrichedPct: r.total > 0 ? Math.round(Number(r.enriched) / r.total * 100) : 0,
+        withSimilarity: Number(r.withSimilarity),
+        withFit: Number(r.withFit),
+        withUrgSynth: Number(r.withUrgSynth),
+        withUrgNews: Number(r.withUrgNews),
+        withUrgLLM: Number(r.withUrgLLM),
+        withBrief: Number(r.withBrief),
+        withSales: Number(r.withSales),
+        withContacts: Number(r.withContacts),
+        lastActivity: r.lastActivity
+      }))
+    };
+  }),
+  // ─── LLM Country Backfill ────────────────────────────────────────────────────
+  // Infer country (ISO-2) from briefData for a single company that has no country
+  // set by Apollo. Uses the executive summary, urgency signal snippets, website
+  // domain TLD, and company name as signals — no external API call needed.
+  inferCountryFromBrief: protectedProcedure.input(z2.object({ companyId: z2.number() })).mutation(async ({ input }) => {
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const { eq: eq21 } = await import("drizzle-orm");
+    const { companies: companies2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const db = await getDb2();
+    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    const [company] = await db.select({
+      id: companies2.id,
+      name: companies2.name,
+      websiteUrl: companies2.websiteUrl,
+      country: companies2.country,
+      city: companies2.city,
+      briefData: companies2.briefData,
+      fitScoreData: companies2.fitScoreData
+    }).from(companies2).where(eq21(companies2.id, input.companyId)).limit(1);
+    if (!company) throw new TRPCError3({ code: "NOT_FOUND", message: "Company not found" });
+    const hasAnyData = company.briefData || company.fitScoreData;
+    if (!hasAnyData) throw new TRPCError3({ code: "BAD_REQUEST", message: "No research data available for this company" });
+    let brief = {};
+    try {
+      if (company.briefData) brief = JSON.parse(company.briefData);
+    } catch {
+    }
+    const execSummary = typeof brief.executiveSummary === "string" ? brief.executiveSummary.substring(0, 600) : typeof brief.executiveSummary === "object" && brief.executiveSummary !== null ? JSON.stringify(brief.executiveSummary).substring(0, 600) : "";
+    const signals = Array.isArray(brief.urgencySignals) ? brief.urgencySignals.slice(0, 3).map((s) => s.snippet || s.description || "").filter(Boolean).join(" | ") : "";
+    let fitSummary = "";
+    try {
+      if (company.fitScoreData) {
+        const fitData = JSON.parse(company.fitScoreData);
+        if (typeof fitData === "string") {
+          fitSummary = fitData.substring(0, 500);
+        } else if (typeof fitData?.summary === "string") {
+          fitSummary = fitData.summary.substring(0, 500);
+        } else if (typeof fitData?.rationale === "string") {
+          fitSummary = fitData.rationale.substring(0, 500);
+        } else if (typeof fitData?.overallRationale === "string") {
+          fitSummary = fitData.overallRationale.substring(0, 500);
+        } else if (Array.isArray(fitData) && typeof fitData[0]?.rationale === "string") {
+          fitSummary = fitData[0].rationale.substring(0, 500);
+        } else {
+          fitSummary = JSON.stringify(fitData).substring(0, 500);
+        }
+      }
+    } catch {
+    }
+    const domainHints = [];
+    let hasCcTld = false;
+    if (company.websiteUrl) {
+      try {
+        const rawUrl = company.websiteUrl.startsWith("http") ? company.websiteUrl : `https://${company.websiteUrl}`;
+        const url = new URL(rawUrl);
+        const host = url.hostname.toLowerCase().replace(/^www\./, "");
+        const ccTlds = [
+          [".co.uk", "GB"],
+          [".com.vn", "VN"],
+          [".com.br", "BR"],
+          [".com.au", "AU"],
+          [".de", "DE"],
+          [".nl", "NL"],
+          [".fr", "FR"],
+          [".it", "IT"],
+          [".es", "ES"],
+          [".pl", "PL"],
+          [".se", "SE"],
+          [".no", "NO"],
+          [".dk", "DK"],
+          [".fi", "FI"],
+          [".be", "BE"],
+          [".ch", "CH"],
+          [".at", "AT"],
+          [".pt", "PT"],
+          [".cz", "CZ"],
+          [".hu", "HU"],
+          [".ro", "RO"],
+          [".sk", "SK"],
+          [".uk", "GB"],
+          [".cn", "CN"],
+          [".jp", "JP"],
+          [".kr", "KR"],
+          [".tw", "TW"],
+          [".hk", "HK"],
+          [".sg", "SG"],
+          [".in", "IN"],
+          [".vn", "VN"],
+          [".br", "BR"],
+          [".mx", "MX"],
+          [".ca", "CA"],
+          [".za", "ZA"],
+          [".nz", "NZ"]
+        ];
+        for (const [tld, code] of ccTlds) {
+          if (host.endsWith(tld)) {
+            domainHints.push(`STRONG SIGNAL: Domain TLD '${tld}' \u2192 headquarters country is ${code}`);
+            hasCcTld = true;
+            break;
+          }
+        }
+        if (!hasCcTld) {
+          const subMap = [
+            ["usa.", "US"],
+            ["us.", "US"],
+            ["uk.", "GB"],
+            ["de.", "DE"],
+            ["fr.", "FR"],
+            ["nl.", "NL"],
+            ["it.", "IT"],
+            ["es.", "ES"],
+            ["cn.", "CN"],
+            ["jp.", "JP"],
+            ["au.", "AU"],
+            ["ca.", "CA"],
+            ["in.", "IN"],
+            ["sg.", "SG"],
+            ["br.", "BR"]
+          ];
+          for (const [sub, code] of subMap) {
+            if (host.startsWith(sub)) {
+              domainHints.push(`STRONG SIGNAL: Subdomain '${sub}' \u2192 headquarters country is ${code}`);
+              hasCcTld = true;
+              break;
+            }
+          }
+        }
+      } catch {
+      }
+    }
+    const context = [
+      `Company name: ${company.name}`,
+      company.websiteUrl ? `Website: ${company.websiteUrl}` : "",
+      domainHints.length > 0 ? `Domain signals: ${domainHints.join("; ")}` : "",
+      execSummary ? `Executive summary: ${execSummary}` : "",
+      fitSummary ? `Fit analysis: ${fitSummary}` : "",
+      signals ? `News signals: ${signals.substring(0, 400)}` : ""
+    ].filter(Boolean).join("\n");
+    const { invokeLLM: invokeLLM2 } = await Promise.resolve().then(() => (init_llm(), llm_exports));
+    const response = await invokeLLM2({
+      messages: [
+        {
+          role: "system",
+          content: `You are a company HEADQUARTERS location expert. Identify the country of the company's HEADQUARTERS only \u2014 not where it sells, operates, or has customers.
+Priority rules (apply in strict order):
+1. If 'Domain signals: STRONG SIGNAL' is present, that IS the answer. Return it with confidence 'high'. Do not override it with text content.
+2. Country-code TLDs (.de, .nl, .co.uk, .com.vn, etc.) are definitive.
+3. For .com / .org / .net / .io domains with NO domain signals: infer from text if ANY field EXPLICITLY states the HQ country or city. Examples that qualify: 'US-based company', 'headquartered in Indiana', 'Chinese robotics integrator', 'founded in Shenzhen'. Use confidence 'high' for direct HQ statements, 'medium' for strong contextual clues (e.g. US state names, city names). Do NOT infer from: the language of the brief alone, countries mentioned only as customers or markets.
+4. If unsure, return null with confidence 'low'. Never guess.
+Return ONLY: {"country": "XX" or null, "confidence": "high" | "medium" | "low"}`
+        },
+        { role: "user", content: context }
+      ],
+      response_format: {
+        type: "json_schema",
+        json_schema: {
+          name: "country_inference",
+          strict: true,
+          schema: {
+            type: "object",
+            properties: {
+              country: { type: ["string", "null"], description: "ISO 3166-1 alpha-2 country code or null" },
+              confidence: { type: "string", enum: ["high", "medium", "low"] }
+            },
+            required: ["country", "confidence"],
+            additionalProperties: false
+          }
+        }
+      }
+    });
+    let result = { country: null, confidence: "low" };
+    try {
+      const raw = response?.choices?.[0]?.message?.content;
+      if (raw) result = JSON.parse(typeof raw === "string" ? raw : JSON.stringify(raw));
+    } catch {
+    }
+    if (result.country && (result.confidence === "high" || result.confidence === "medium")) {
+      const { eq: eq22 } = await import("drizzle-orm");
+      const { companies: co2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      await db.update(co2).set({ country: result.country.toUpperCase() }).where(eq22(co2.id, input.companyId));
+    }
+    return {
+      companyId: input.companyId,
+      companyName: company.name,
+      inferredCountry: result.country,
+      confidence: result.confidence,
+      written: !!(result.country && (result.confidence === "high" || result.confidence === "medium"))
+    };
+  }),
+  // Bulk backfill: process up to `limit` companies with briefData but no country.
+  // Runs sequentially with a small delay to avoid LLM rate limits.
+  // Returns a summary of how many were written vs skipped (low confidence).
+  bulkInferCountry: protectedProcedure.input(z2.object({
+    limit: z2.number().min(1).max(500).default(50),
+    dryRun: z2.boolean().default(false),
+    // preview mode — infer but do NOT write to DB
+    searchId: z2.number().optional()
+    // optional: restrict to a specific campaign/run
   })).mutation(async ({ input }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const { eq: eq21, and: and14, or: or4, isNull: isNull7, isNotNull: isNotNull5 } = await import("drizzle-orm");
+    const { companies: companies2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const db = await getDb2();
-    if (!db) throw new Error("Database not available");
-    const { offeringBrain: offeringBrain2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq14 } = await import("drizzle-orm");
-    await db.update(offeringBrain2).set({ showOnLeadtrigger: input.visible ? 1 : 0 }).where(eq14(offeringBrain2.id, input.brainId));
-    return { success: true, brainId: input.brainId, visible: input.visible };
+    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    const whereClause = and14(
+      or4(isNull7(companies2.country), eq21(companies2.country, "")),
+      isNotNull5(companies2.briefData),
+      input.searchId !== void 0 ? eq21(companies2.searchId, input.searchId) : void 0
+    );
+    const batch = await db.select({ id: companies2.id, name: companies2.name, websiteUrl: companies2.websiteUrl, briefData: companies2.briefData, fitScoreData: companies2.fitScoreData, city: companies2.city, state: companies2.state, rawAddress: companies2.rawAddress, sourceCountryCode: companies2.sourceCountryCode }).from(companies2).where(whereClause).limit(input.limit);
+    if (batch.length === 0) return { processed: 0, written: 0, skipped: 0, errors: 0, dryRun: input.dryRun, results: [] };
+    const { invokeLLM: invokeLLM2 } = await Promise.resolve().then(() => (init_llm(), llm_exports));
+    let written = 0;
+    let skipped = 0;
+    let errors = 0;
+    const results = [];
+    function resolveCountryDeterministically(name, apolloCity, apolloState, apolloRawAddress, apolloSourceCountryCode) {
+      if (apolloSourceCountryCode && /^[A-Z]{2}$/.test(apolloSourceCountryCode.trim())) {
+        return { country: apolloSourceCountryCode.trim().toUpperCase(), confidence: "high" };
+      }
+      const suffixMap = [
+        [/\b(Inc\.?|Incorporated|Corp\.?|Corporation|LLC|L\.L\.C\.?|LLP|L\.L\.P\.?|PLLC|LLLP)\b/i, "US"],
+        [/\bGmbH\b/i, "DE"],
+        [/\bAG\b(?!\s*&)/i, "DE"],
+        // AG alone (not AG & Co)
+        [/\bGmbH\s*&\s*Co\.?\s*KG\b/i, "DE"],
+        [/\bKG\b/i, "DE"],
+        [/\bOHG\b/i, "DE"],
+        [/\bB\.?V\.?\b/i, "NL"],
+        [/\bN\.?V\.?\b/i, "NL"],
+        [/\bS\.?A\.?S\.?\b/i, "FR"],
+        [/\bS\.?A\.?R\.?L\.?\b/i, "FR"],
+        [/\bS\.?A\.?\b(?!\s*S)/i, "FR"],
+        [/\bPte\.?\s*Ltd\.?\b/i, "SG"],
+        [/\bS\.?R\.?L\.?\b/i, "IT"],
+        [/\bS\.?p\.?A\.?\b/i, "IT"],
+        [/\bAB\b/i, "SE"],
+        [/\bAS\b/i, "NO"],
+        [/\bA\/S\b/i, "DK"],
+        [/\bOy\b/i, "FI"],
+        [/\bSp\.?\s*z\.?\s*o\.?\s*o\.?\b/i, "PL"],
+        [/\bS\.?A\.?\s*de\s*C\.?V\.?\b/i, "MX"],
+        [/\bLtda?\.?\b/i, "BR"],
+        [/\bPty\.?\s*Ltd\.?\b/i, "AU"]
+      ];
+      for (const [re, code] of suffixMap) {
+        if (re.test(name)) return { country: code, confidence: "high" };
+      }
+      const addressText = [apolloCity, apolloState, apolloRawAddress].filter(Boolean).join(" ");
+      if (addressText) {
+        const usStates = /\b(AL|AK|AZ|AR|CA|CO|CT|DE|FL|GA|HI|ID|IL|IN|IA|KS|KY|LA|ME|MD|MA|MI|MN|MS|MO|MT|NE|NV|NH|NJ|NM|NY|NC|ND|OH|OK|OR|PA|RI|SC|SD|TN|TX|UT|VT|VA|WA|WV|WI|WY)\b/;
+        if (usStates.test(addressText)) return { country: "US", confidence: "high" };
+        const deKeywords = /\b(Bayern|Berlin|Hamburg|München|Frankfurt|Stuttgart|Düsseldorf|Köln|Dresden|Leipzig|Hannover|Bremen|Nürnberg)\b/i;
+        if (deKeywords.test(addressText)) return { country: "DE", confidence: "high" };
+        const nlKeywords = /\b(Amsterdam|Rotterdam|Den Haag|Utrecht|Eindhoven|Noord|Zuid|Noord-Holland|Zuid-Holland)\b/i;
+        if (nlKeywords.test(addressText)) return { country: "NL", confidence: "high" };
+      }
+      return null;
+    }
+    function extractDomainSignals(websiteUrl) {
+      if (!websiteUrl) return { hints: [], isDefinitive: false };
+      try {
+        const rawUrl = websiteUrl.startsWith("http") ? websiteUrl : `https://${websiteUrl}`;
+        const url = new URL(rawUrl);
+        const host = url.hostname.toLowerCase().replace(/^www\./, "");
+        const ccTlds = [
+          [".co.uk", "GB"],
+          [".com.vn", "VN"],
+          [".com.br", "BR"],
+          [".com.au", "AU"],
+          [".de", "DE"],
+          [".nl", "NL"],
+          [".fr", "FR"],
+          [".it", "IT"],
+          [".es", "ES"],
+          [".pl", "PL"],
+          [".se", "SE"],
+          [".no", "NO"],
+          [".dk", "DK"],
+          [".fi", "FI"],
+          [".be", "BE"],
+          [".ch", "CH"],
+          [".at", "AT"],
+          [".pt", "PT"],
+          [".cz", "CZ"],
+          [".hu", "HU"],
+          [".ro", "RO"],
+          [".sk", "SK"],
+          [".uk", "GB"],
+          [".cn", "CN"],
+          [".jp", "JP"],
+          [".kr", "KR"],
+          [".tw", "TW"],
+          [".hk", "HK"],
+          [".sg", "SG"],
+          [".in", "IN"],
+          [".vn", "VN"],
+          [".br", "BR"],
+          [".mx", "MX"],
+          [".ca", "CA"],
+          [".za", "ZA"],
+          [".nz", "NZ"]
+        ];
+        for (const [tld, code] of ccTlds) {
+          if (host.endsWith(tld)) return { hints: [`STRONG SIGNAL: Domain TLD '${tld}' \u2192 headquarters country is ${code}`], isDefinitive: true };
+        }
+        const subMap = [
+          ["usa.", "US"],
+          ["us.", "US"],
+          ["uk.", "GB"],
+          ["de.", "DE"],
+          ["fr.", "FR"],
+          ["nl.", "NL"],
+          ["it.", "IT"],
+          ["es.", "ES"],
+          ["cn.", "CN"],
+          ["jp.", "JP"],
+          ["au.", "AU"],
+          ["ca.", "CA"],
+          ["in.", "IN"],
+          ["sg.", "SG"],
+          ["br.", "BR"]
+        ];
+        for (const [sub, code] of subMap) {
+          if (host.startsWith(sub)) return { hints: [`STRONG SIGNAL: Subdomain '${sub}' \u2192 headquarters country is ${code}`], isDefinitive: true };
+        }
+      } catch {
+      }
+      return { hints: [], isDefinitive: false };
+    }
+    for (const co of batch) {
+      try {
+        let brief = {};
+        try {
+          brief = JSON.parse(co.briefData);
+        } catch {
+        }
+        let execSummaryText = "";
+        if (typeof brief.executiveSummary === "string") {
+          execSummaryText = brief.executiveSummary.substring(0, 600);
+        } else if (typeof brief.executiveSummary === "object" && brief.executiveSummary !== null) {
+          const es = brief.executiveSummary;
+          const parts = [];
+          if (es.company) parts.push(`Company: ${es.company}`);
+          if (es.industry && es.industry !== "Unknown") parts.push(`Industry: ${es.industry}`);
+          if (es.employees && es.employees !== "Unknown") parts.push(`Employees: ${es.employees}`);
+          if (es.revenue && es.revenue !== "Unknown") parts.push(`Revenue: ${es.revenue}`);
+          if (es.headquarters) parts.push(`Headquarters: ${es.headquarters}`);
+          if (es.location) parts.push(`Location: ${es.location}`);
+          execSummaryText = parts.join("; ");
+        }
+        const prodDesc = Array.isArray(brief.productsServices) ? brief.productsServices.slice(0, 2).map((p) => [p.category, p.description].filter(Boolean).join(": ")).join(" | ").substring(0, 400) : "";
+        const devText = Array.isArray(brief.recentDevelopments) ? brief.recentDevelopments.slice(0, 2).map((d) => d.text || "").filter(Boolean).join(" | ").substring(0, 400) : "";
+        let fitNarrative = "";
+        try {
+          const fsd = JSON.parse(co.fitScoreData || "{}");
+          const narrative = fsd.narrative || fsd.summary || fsd.overallAssessment || fsd.executiveSummary || fsd.reasoning || fsd.assessment || fsd.companyProfile || "";
+          if (typeof narrative === "string") {
+            fitNarrative = narrative.substring(0, 600);
+          } else if (typeof narrative === "object" && narrative !== null) {
+            fitNarrative = JSON.stringify(narrative).substring(0, 600);
+          }
+          if (!fitNarrative) {
+            for (const v of Object.values(fsd)) {
+              if (typeof v === "string" && v.length > 80 && /based|headquarter|located|founded/i.test(v)) {
+                fitNarrative = v.substring(0, 600);
+                break;
+              }
+            }
+          }
+        } catch {
+        }
+        const deterministicResult = resolveCountryDeterministically(
+          co.name,
+          co.city ?? null,
+          co.state ?? null,
+          co.rawAddress ?? null,
+          co.sourceCountryCode ?? null
+        );
+        if (deterministicResult) {
+          const shouldWrite2 = !input.dryRun;
+          if (shouldWrite2) {
+            const { eq: eqUpd } = await import("drizzle-orm");
+            const { companies: coUpd } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+            await db.update(coUpd).set({ country: deterministicResult.country }).where(eqUpd(coUpd.id, co.id));
+            written++;
+          } else {
+            written++;
+          }
+          results.push({
+            id: co.id,
+            name: co.name,
+            websiteUrl: co.websiteUrl ?? null,
+            country: deterministicResult.country,
+            confidence: deterministicResult.confidence,
+            written: true,
+            domainSignal: "deterministic (suffix/address)"
+          });
+          continue;
+        }
+        const linkedinUrl = co.linkedinUrl ?? null;
+        if (linkedinUrl && linkedinUrl.includes("linkedin.com/company/")) {
+          try {
+            const liRes = await fetch(linkedinUrl, {
+              headers: { "User-Agent": "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)" },
+              signal: AbortSignal.timeout(8e3)
+            });
+            if (liRes.ok) {
+              const html = await liRes.text();
+              const htmlFlat = html.replace(/\r?\n/g, " ");
+              const ldRe = /<script[^>]+type=["']application\/ld\+json["'][^>]*>(.*?)<\/script>/gi;
+              let ldMatch;
+              let liCountryFound = false;
+              while ((ldMatch = ldRe.exec(htmlFlat)) !== null && !liCountryFound) {
+                try {
+                  const parsed = JSON.parse(ldMatch[1]);
+                  const orgs = Array.isArray(parsed) ? parsed : [parsed];
+                  for (const org of orgs) {
+                    const o = org;
+                    const countryCode = o?.address?.addressCountry ?? o?.location?.addressCountry ?? null;
+                    if (countryCode && typeof countryCode === "string" && /^[A-Z]{2}$/.test(countryCode.trim())) {
+                      const country = countryCode.trim().toUpperCase();
+                      if (!input.dryRun) {
+                        const { eq: eqUpd } = await import("drizzle-orm");
+                        const { companies: coUpd } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+                        await db.update(coUpd).set({ country }).where(eqUpd(coUpd.id, co.id));
+                        written++;
+                      } else {
+                        written++;
+                      }
+                      results.push({ id: co.id, name: co.name, websiteUrl: co.websiteUrl ?? null, country, confidence: "high", written: true, domainSignal: "linkedin-jsonld" });
+                      liCountryFound = true;
+                      break;
+                    }
+                  }
+                } catch {
+                }
+              }
+            }
+          } catch {
+          }
+        }
+        const { hints: domainHints } = extractDomainSignals(co.websiteUrl ?? null);
+        const context = [
+          `Company name: ${co.name}`,
+          co.websiteUrl ? `Website: ${co.websiteUrl}` : "",
+          domainHints.length > 0 ? `Domain signals: ${domainHints.join("; ")}` : "",
+          fitNarrative ? `Company profile (fit assessment): ${fitNarrative}` : "",
+          execSummaryText ? `Company metadata: ${execSummaryText}` : "",
+          prodDesc ? `Products/services: ${prodDesc}` : "",
+          devText ? `Recent developments: ${devText}` : ""
+        ].filter(Boolean).join("\n");
+        const response = await invokeLLM2({
+          messages: [
+            {
+              role: "system",
+              content: `You are a company HEADQUARTERS location expert. Identify the ISO-2 country code of the company's HEADQUARTERS only.
+CRITICAL: Do NOT infer from trade show locations, event cities, customer countries, or markets served.
+Priority rules (apply in strict order):
+1. If 'Domain signals: STRONG SIGNAL' is present, that IS the answer \u2014 return it with confidence 'high'.
+2. Country-code TLDs (.de, .nl, .co.uk, .com.vn, .cn, .sg, etc.) are definitive.
+3. For generic TLDs (.com/.org/.net/.io): infer ONLY if the text EXPLICITLY states the HQ city/country (e.g. 'Singapore-based', 'headquartered in Ningbo, China', 'Pte. Ltd.' \u2192 SG).
+4. Legal entity suffixes are strong signals: 'Pte. Ltd.' \u2192 SG, 'GmbH/AG' \u2192 DE/CH/AT, 'BV/NV' \u2192 NL/BE, 'Ltd.' alone \u2192 ambiguous.
+5. If unsure, return null with confidence 'low'. Never guess from event or customer locations.
+Return ONLY: {"country": "XX" or null, "confidence": "high" | "medium" | "low"}`
+            },
+            { role: "user", content: context }
+          ],
+          response_format: {
+            type: "json_schema",
+            json_schema: {
+              name: "country_inference",
+              strict: true,
+              schema: {
+                type: "object",
+                properties: {
+                  country: { type: ["string", "null"], description: "ISO 3166-1 alpha-2 country code or null" },
+                  confidence: { type: "string", enum: ["high", "medium", "low"] }
+                },
+                required: ["country", "confidence"],
+                additionalProperties: false
+              }
+            }
+          }
+        });
+        let result = { country: null, confidence: "low" };
+        try {
+          const raw = response?.choices?.[0]?.message?.content;
+          if (raw) result = JSON.parse(typeof raw === "string" ? raw : JSON.stringify(raw));
+        } catch {
+        }
+        const shouldWrite = !!(result.country && (result.confidence === "high" || result.confidence === "medium"));
+        if (shouldWrite && !input.dryRun) {
+          const { eq: eqUpd } = await import("drizzle-orm");
+          const { companies: coUpd } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+          await db.update(coUpd).set({ country: result.country.toUpperCase() }).where(eqUpd(coUpd.id, co.id));
+          written++;
+        } else if (shouldWrite && input.dryRun) {
+          written++;
+        } else {
+          skipped++;
+        }
+        results.push({
+          id: co.id,
+          name: co.name,
+          websiteUrl: co.websiteUrl ?? null,
+          country: result.country,
+          confidence: result.confidence,
+          written: shouldWrite,
+          domainSignal: domainHints.length > 0 ? domainHints[0] : null
+        });
+      } catch (e) {
+        errors++;
+        results.push({ id: co.id, name: co.name, websiteUrl: co.websiteUrl ?? null, country: null, confidence: "error", written: false, domainSignal: null });
+      }
+    }
+    return { processed: batch.length, written, skipped, errors, dryRun: input.dryRun, results };
+  }),
+  // Count companies eligible for country backfill (no country, has briefData)
+  getCountryBackfillStats: protectedProcedure.input(z2.object({ searchId: z2.number().optional() })).query(async ({ input }) => {
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const { count: count2, sql: sql8, eq: eq21, and: and14 } = await import("drizzle-orm");
+    const { companies: companies2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const db = await getDb2();
+    if (!db) return { eligible: 0, total: 0, missingCountry: 0 };
+    const whereClause = input.searchId !== void 0 ? eq21(companies2.searchId, input.searchId) : void 0;
+    const [stats] = await db.select({
+      total: count2(),
+      missingCountry: count2(sql8`CASE WHEN (${companies2.country} IS NULL OR ${companies2.country} = '') THEN 1 END`),
+      eligible: count2(sql8`CASE WHEN (${companies2.country} IS NULL OR ${companies2.country} = '') AND ${companies2.briefData} IS NOT NULL THEN 1 END`)
+    }).from(companies2).where(whereClause);
+    return {
+      total: Number(stats.total),
+      missingCountry: Number(stats.missingCountry),
+      eligible: Number(stats.eligible)
+    };
+  }),
+  // ── Ghost Duplicate Deduplication ──────────────────────────────────────────
+  // A "ghost duplicate" is a company row that shares a domain with another row
+  // that has actual data (briefData / fitScoreData), but is itself empty.
+  // These accumulate when Apollo returns the same company across multiple searches.
+  getDuplicateStats: protectedProcedure.query(async () => {
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const db = await getDb2();
+    if (!db) return { totalGhosts: 0, affectedDomains: 0 };
+    const rawResult = await db.execute(`
+      SELECT
+        COUNT(*) AS totalGhosts,
+        COUNT(DISTINCT c.primaryDomain) AS affectedDomains
+      FROM companies c
+      WHERE
+        c.primaryDomain IS NOT NULL
+        AND c.primaryDomain != ''
+        AND (c.briefData IS NULL OR c.briefData = '{}' OR c.briefData = '')
+        AND (c.fitScoreData IS NULL OR c.fitScoreData = '{}' OR c.fitScoreData = '')
+        AND EXISTS (
+          SELECT 1 FROM companies c2
+          WHERE c2.primaryDomain = c.primaryDomain
+            AND c2.id != c.id
+            AND c2.briefData IS NOT NULL
+            AND c2.briefData != '{}'
+            AND c2.briefData != ''
+        )
+    `);
+    const resultRows = Array.isArray(rawResult) ? Array.isArray(rawResult[0]) ? rawResult[0] : rawResult : [];
+    const firstRow = resultRows[0] ?? {};
+    return {
+      totalGhosts: Number(firstRow?.totalGhosts ?? 0),
+      affectedDomains: Number(firstRow?.affectedDomains ?? 0)
+    };
+  }),
+  previewDuplicates: protectedProcedure.input(z2.object({ limit: z2.number().min(1).max(200).default(50) })).query(async ({ input }) => {
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const db = await getDb2();
+    if (!db) return { rows: [] };
+    const rawRows = await db.execute(`
+        SELECT
+          c.id,
+          c.name,
+          c.primaryDomain,
+          c.websiteUrl,
+          c.searchId,
+          c.country,
+          c.createdAt,
+          keeper.id AS keeperId,
+          keeper.name AS keeperName,
+          keeper.country AS keeperCountry
+        FROM companies c
+        JOIN (
+          SELECT primaryDomain, MIN(id) AS id
+          FROM companies
+          WHERE briefData IS NOT NULL AND briefData != '{}' AND briefData != ''
+          GROUP BY primaryDomain
+        ) best ON best.primaryDomain = c.primaryDomain
+        JOIN companies keeper ON keeper.id = best.id
+        WHERE
+          c.primaryDomain IS NOT NULL
+          AND c.primaryDomain != ''
+          AND (c.briefData IS NULL OR c.briefData = '{}' OR c.briefData = '')
+          AND (c.fitScoreData IS NULL OR c.fitScoreData = '{}' OR c.fitScoreData = '')
+          AND c.id != best.id
+        ORDER BY c.primaryDomain, c.id
+        LIMIT ${input.limit}
+      `);
+    const previewRows = Array.isArray(rawRows) ? Array.isArray(rawRows[0]) ? rawRows[0] : rawRows : [];
+    return { rows: previewRows };
+  }),
+  purgeDuplicates: protectedProcedure.input(z2.object({ dryRun: z2.boolean().default(true) })).mutation(async ({ input }) => {
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const db = await getDb2();
+    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    const rawGhostRows = await db.execute(`
+        SELECT c.id
+        FROM companies c
+        WHERE
+          c.primaryDomain IS NOT NULL
+          AND c.primaryDomain != ''
+          AND (c.briefData IS NULL OR c.briefData = '{}' OR c.briefData = '')
+          AND (c.fitScoreData IS NULL OR c.fitScoreData = '{}' OR c.fitScoreData = '')
+          AND EXISTS (
+            SELECT 1 FROM companies c2
+            WHERE c2.primaryDomain = c.primaryDomain
+              AND c2.id != c.id
+              AND c2.briefData IS NOT NULL
+              AND c2.briefData != '{}'
+              AND c2.briefData != ''
+          )
+      `);
+    const ghostRowsArr = Array.isArray(rawGhostRows) ? Array.isArray(rawGhostRows[0]) ? rawGhostRows[0] : rawGhostRows : [];
+    const ghostIds = ghostRowsArr.map((r) => r.id);
+    if (ghostIds.length === 0) return { deleted: 0, dryRun: input.dryRun };
+    if (!input.dryRun) {
+      const batchSize = 500;
+      let deleted = 0;
+      for (let i = 0; i < ghostIds.length; i += batchSize) {
+        const batch = ghostIds.slice(i, i + batchSize);
+        const placeholders = batch.map(() => "?").join(",");
+        const mysql2 = await import("mysql2/promise");
+        const conn = await mysql2.createConnection(process.env.DATABASE_URL);
+        await conn.execute(`DELETE FROM companies WHERE id IN (${placeholders})`, batch);
+        await conn.end();
+        deleted += batch.length;
+      }
+      return { deleted, dryRun: false };
+    }
+    return { deleted: ghostIds.length, dryRun: true };
+  }),
+  // ── Similarity-Based Campaign Creation ──────────────────────────────────────
+  /**
+   * Preview the top N companies from the existing DB ranked by cosine similarity
+   * against a given Brain — no writes, no Apollo calls.
+   */
+  previewSimilaritySearch: protectedProcedure.input(z2.object({
+    brainId: z2.number(),
+    minSim: z2.number().min(0).max(100).default(55),
+    maxResults: z2.number().min(1).max(500).default(200)
+  })).query(async ({ input }) => {
+    const {
+      getSupabaseClient: getSupabaseClient3,
+      fetchBrainEmbedding: fetchBrainEmbedding2,
+      previewSimilarityByVector: previewSimilarityByVector2
+    } = await Promise.resolve().then(() => (init_companySimilaritySearch(), companySimilaritySearch_exports));
+    const sb = getSupabaseClient3();
+    let brainVec;
+    try {
+      brainVec = await fetchBrainEmbedding2(sb, input.brainId);
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e);
+      throw new TRPCError3({ code: "NOT_FOUND", message: msg });
+    }
+    const { companies: result, totalMatched } = await previewSimilarityByVector2(sb, brainVec, {
+      minSim: input.minSim,
+      maxResults: input.maxResults
+    });
+    return { companies: result, brainId: input.brainId, totalMatched };
+  }),
+  /**
+   * Preview companies similar to a seed company (company lookalike search).
+   */
+  previewLookalikeSearch: protectedProcedure.input(z2.object({
+    seedCompanyId: z2.number(),
+    minSim: z2.number().min(0).max(100).default(55),
+    maxResults: z2.number().min(1).max(500).default(200),
+    country: z2.string().optional(),
+    sector: z2.string().optional()
+  })).query(async ({ input }) => {
+    const { eq: eq21 } = await import("drizzle-orm");
+    const { companies: companies2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const {
+      getSupabaseClient: getSupabaseClient3,
+      fetchSeedEmbedding: fetchSeedEmbedding2,
+      previewSimilarityByVector: previewSimilarityByVector2,
+      prependSeedToLookalikeResults: prependSeedToLookalikeResults2
+    } = await Promise.resolve().then(() => (init_companySimilaritySearch(), companySimilaritySearch_exports));
+    const { toCompanyUUID: toCompanyUUID3 } = await Promise.resolve().then(() => (init_supabaseEmbeddings(), supabaseEmbeddings_exports));
+    const db = await getDb2();
+    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    const [seedRow] = await db.select({
+      id: companies2.id,
+      name: companies2.name,
+      websiteUrl: companies2.websiteUrl,
+      primaryDomain: companies2.primaryDomain,
+      city: companies2.city,
+      country: companies2.country,
+      sector: companies2.sector,
+      fitScore: companies2.fitScore,
+      searchId: companies2.searchId,
+      generatedWithBrainName: companies2.generatedWithBrainName
+    }).from(companies2).where(eq21(companies2.id, input.seedCompanyId)).limit(1);
+    if (!seedRow) {
+      throw new TRPCError3({ code: "NOT_FOUND", message: `Company ${input.seedCompanyId} not found` });
+    }
+    const sb = getSupabaseClient3();
+    const seedVector = await fetchSeedEmbedding2(sb, input.seedCompanyId);
+    if (!seedVector) {
+      throw new TRPCError3({
+        code: "NOT_FOUND",
+        message: `No embedding found for "${seedRow.name}". Run FIT-SIM on this company's campaign or re-import to embed it first.`
+      });
+    }
+    const seedWatchlistId = toCompanyUUID3(input.seedCompanyId);
+    const hasFilters = !!(input.country || input.sector);
+    const { companies: result, totalMatched } = await previewSimilarityByVector2(sb, seedVector, {
+      minSim: input.minSim,
+      maxResults: input.maxResults,
+      excludeWatchlistIds: [seedWatchlistId],
+      overfetchForFilters: hasFilters,
+      filters: {
+        country: input.country,
+        sector: input.sector
+      }
+    });
+    return {
+      seedCompany: seedRow,
+      companies: prependSeedToLookalikeResults2(seedRow, result),
+      totalMatched
+    };
+  }),
+  /**
+   * Create a new campaign from a similarity search result — no Apollo calls.
+   * Clones matching companies into a new search row and queues score_only FIT jobs.
+   */
+  createCampaignFromSimilarity: protectedProcedure.input(z2.object({
+    brainId: z2.number(),
+    campaignName: z2.string().min(1).max(255),
+    companyIds: z2.array(z2.number()).min(1).max(500)
+  })).mutation(async ({ ctx, input }) => {
+    const { inArray: inArr, sql: sqlRaw } = await import("drizzle-orm");
+    const { companies: companies2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { getDb: _getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const db = await _getDb2();
+    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    const brainRows = await db.execute(
+      sqlRaw`SELECT id, brainName, companyWebsite FROM offering_brain WHERE id = ${input.brainId} LIMIT 1`
+    );
+    const brainArr = Array.isArray(brainRows[0]) ? brainRows[0] : brainRows;
+    if (!brainArr || brainArr.length === 0) {
+      throw new TRPCError3({ code: "NOT_FOUND", message: `Brain ${input.brainId} not found` });
+    }
+    const brain = brainArr[0];
+    const searchId = await createSearch({
+      userId: ctx.user.id,
+      companyWebsite: brain.companyWebsite || "similarity-search",
+      location: input.campaignName,
+      offeringName: `[SIM] ${input.campaignName}`,
+      brainId: input.brainId,
+      status: "completed",
+      sharedWithTeam: 0,
+      isArchived: 0
+    });
+    const sourceCompanies = await db.select().from(companies2).where(inArr(companies2.id, input.companyIds));
+    const toInsert = sourceCompanies.map((c) => ({
+      searchId,
+      name: c.name,
+      apolloId: c.apolloId,
+      websiteUrl: c.websiteUrl,
+      primaryDomain: c.primaryDomain,
+      linkedinUrl: c.linkedinUrl,
+      twitterUrl: c.twitterUrl,
+      facebookUrl: c.facebookUrl,
+      phone: c.phone,
+      foundedYear: c.foundedYear,
+      revenue: c.revenue,
+      headcountGrowth: c.headcountGrowth,
+      parentCompanyName: c.parentCompanyName,
+      parentCompanyId: c.parentCompanyId,
+      searchLocation: c.searchLocation,
+      city: c.city,
+      state: c.state,
+      country: c.country,
+      streetAddress: c.streetAddress,
+      rawAddress: c.rawAddress,
+      sicCodes: c.sicCodes,
+      naicsCodes: c.naicsCodes,
+      sector: c.sector,
+      sliceMetadata: c.sliceMetadata,
+      similarityScore: c.similarityScore,
+      enrichmentStatus: c.enrichmentStatus,
+      generatedWithBrainId: input.brainId,
+      generatedWithBrainName: brain.brainName
+    }));
+    if (toInsert.length > 0) {
+      await createCompanies(toInsert);
+    }
+    const newCompanies = await db.select({ id: companies2.id, name: companies2.name }).from(companies2).where(sqlRaw`${companies2.searchId} = ${searchId}`);
+    if (newCompanies.length > 0) {
+      const { campaignQueue: campaignQueue2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      await db.insert(campaignQueue2).values(
+        newCompanies.map((c) => ({
+          searchId,
+          companyId: c.id,
+          userId: ctx.user.id,
+          companyName: c.name,
+          jobType: "score_only",
+          status: "pending"
+        }))
+      );
+    }
+    return { searchId, companiesCreated: newCompanies.length };
+  }),
+  /**
+   * Create a campaign from company lookalike search results.
+   */
+  createCampaignFromLookalike: protectedProcedure.input(z2.object({
+    seedCompanyId: z2.number(),
+    brainId: z2.number(),
+    campaignName: z2.string().min(1).max(255),
+    companyIds: z2.array(z2.number()).min(1).max(500),
+    similarityScores: z2.record(z2.string(), z2.number()).optional()
+  })).mutation(async ({ ctx, input }) => {
+    const { eq: eq21, inArray: inArr, sql: sqlRaw } = await import("drizzle-orm");
+    const { companies: companies2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const db = await getDb2();
+    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    const [seedRow] = await db.select({ id: companies2.id, name: companies2.name }).from(companies2).where(eq21(companies2.id, input.seedCompanyId)).limit(1);
+    if (!seedRow) {
+      throw new TRPCError3({ code: "NOT_FOUND", message: `Seed company ${input.seedCompanyId} not found` });
+    }
+    const brainRows = await db.execute(
+      sqlRaw`SELECT id, brainName, companyWebsite FROM offering_brain WHERE id = ${input.brainId} LIMIT 1`
+    );
+    const brainArr = Array.isArray(brainRows[0]) ? brainRows[0] : brainRows;
+    if (!brainArr || brainArr.length === 0) {
+      throw new TRPCError3({ code: "NOT_FOUND", message: `Brain ${input.brainId} not found` });
+    }
+    const brain = brainArr[0];
+    const searchId = await createSearch({
+      userId: ctx.user.id,
+      companyWebsite: brain.companyWebsite || "lookalike-search",
+      location: `Lookalike: ${seedRow.name} (id=${input.seedCompanyId})`,
+      offeringName: `[LIKE] ${input.campaignName}`,
+      brainId: input.brainId,
+      status: "completed",
+      sharedWithTeam: 0,
+      isArchived: 0
+    });
+    const scoreMap = /* @__PURE__ */ new Map();
+    if (input.similarityScores) {
+      for (const [idStr, score] of Object.entries(input.similarityScores)) {
+        scoreMap.set(Number(idStr), score);
+      }
+    }
+    if (!scoreMap.has(input.seedCompanyId)) {
+      scoreMap.set(input.seedCompanyId, 100);
+    }
+    const { mergeLookalikeCampaignCompanyIds: mergeLookalikeCampaignCompanyIds2 } = await Promise.resolve().then(() => (init_companySimilaritySearch(), companySimilaritySearch_exports));
+    const companyIds = mergeLookalikeCampaignCompanyIds2(input.seedCompanyId, input.companyIds);
+    const sourceCompanies = await db.select().from(companies2).where(inArr(companies2.id, companyIds));
+    const toInsert = sourceCompanies.map((c) => ({
+      searchId,
+      name: c.name,
+      apolloId: c.apolloId,
+      websiteUrl: c.websiteUrl,
+      primaryDomain: c.primaryDomain,
+      linkedinUrl: c.linkedinUrl,
+      twitterUrl: c.twitterUrl,
+      facebookUrl: c.facebookUrl,
+      phone: c.phone,
+      foundedYear: c.foundedYear,
+      revenue: c.revenue,
+      headcountGrowth: c.headcountGrowth,
+      parentCompanyName: c.parentCompanyName,
+      parentCompanyId: c.parentCompanyId,
+      searchLocation: c.searchLocation,
+      city: c.city,
+      state: c.state,
+      country: c.country,
+      streetAddress: c.streetAddress,
+      rawAddress: c.rawAddress,
+      sicCodes: c.sicCodes,
+      naicsCodes: c.naicsCodes,
+      sector: c.sector,
+      sliceMetadata: c.sliceMetadata,
+      similarityScore: scoreMap.get(c.id) ?? c.similarityScore,
+      enrichmentStatus: c.enrichmentStatus,
+      generatedWithBrainId: input.brainId,
+      generatedWithBrainName: brain.brainName
+    }));
+    if (toInsert.length > 0) {
+      await createCompanies(toInsert);
+    }
+    const newCompanies = await db.select({ id: companies2.id, name: companies2.name }).from(companies2).where(sqlRaw`${companies2.searchId} = ${searchId}`);
+    if (newCompanies.length > 0) {
+      const { campaignQueue: campaignQueue2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      await db.insert(campaignQueue2).values(
+        newCompanies.map((c) => ({
+          searchId,
+          companyId: c.id,
+          userId: ctx.user.id,
+          companyName: c.name,
+          jobType: "score_only",
+          status: "pending"
+        }))
+      );
+    }
+    return { searchId, companiesCreated: newCompanies.length };
   })
 });
 
@@ -9285,7 +12470,7 @@ import { z as z3 } from "zod";
 // server/codeDescriptionDb.ts
 init_db();
 init_schema();
-import { eq as eq3, and as and2, inArray as inArray2, sql } from "drizzle-orm";
+import { eq as eq5, and as and2, inArray as inArray4, sql as sql2 } from "drizzle-orm";
 
 // server/codeDescriptionLookup.ts
 async function fetchSicDescription(code) {
@@ -9385,8 +12570,8 @@ async function batchGetSicDescriptions(codes) {
     return results;
   }
   const cached = await db.select().from(codeDescriptions).where(and2(
-    inArray2(codeDescriptions.code, codes),
-    eq3(codeDescriptions.codeType, "SIC")
+    inArray4(codeDescriptions.code, codes),
+    eq5(codeDescriptions.codeType, "SIC")
   ));
   const cachedMap = new Map(cached.map((c) => [c.code, c.description]));
   const uncachedCodes = codes.filter((code) => !cachedMap.has(code));
@@ -9400,7 +12585,7 @@ async function batchGetSicDescriptions(codes) {
     if (toInsert.length > 0) {
       try {
         await db.insert(codeDescriptions).values(toInsert).onDuplicateKeyUpdate({
-          set: { description: sql`VALUES(description)` }
+          set: { description: sql2`VALUES(description)` }
         });
       } catch (error) {
         console.error("[Code Cache] Failed to batch cache SIC codes:", error);
@@ -9422,8 +12607,8 @@ async function batchGetNaicsDescriptions(codes) {
     return results;
   }
   const cached = await db.select().from(codeDescriptions).where(and2(
-    inArray2(codeDescriptions.code, codes),
-    eq3(codeDescriptions.codeType, "NAICS")
+    inArray4(codeDescriptions.code, codes),
+    eq5(codeDescriptions.codeType, "NAICS")
   ));
   const cachedMap = new Map(cached.map((c) => [c.code, c.description]));
   const uncachedCodes = codes.filter((code) => !cachedMap.has(code));
@@ -9437,7 +12622,7 @@ async function batchGetNaicsDescriptions(codes) {
     if (toInsert.length > 0) {
       try {
         await db.insert(codeDescriptions).values(toInsert).onDuplicateKeyUpdate({
-          set: { description: sql`VALUES(description)` }
+          set: { description: sql2`VALUES(description)` }
         });
       } catch (error) {
         console.error("[Code Cache] Failed to batch cache NAICS codes:", error);
@@ -9489,18 +12674,38 @@ import { TRPCError as TRPCError4 } from "@trpc/server";
 // server/nicheFitScorer.ts
 init_llm();
 init_db();
-async function scoreNicheFit(niche, userId) {
-  const brain = await getActiveBrain(userId);
+function safeParseStringArray(value) {
+  if (!value || !value.trim()) return [];
+  const trimmed = value.trim();
+  if (trimmed.startsWith("[")) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+    }
+  }
+  return trimmed.split(",").map((s) => s.trim()).filter(Boolean);
+}
+function safeParseBrainField(value, fallback) {
+  if (!value || !value.trim()) return fallback;
+  const trimmed = value.trim();
+  try {
+    return JSON.parse(trimmed);
+  } catch {
+    return fallback;
+  }
+}
+async function scoreNicheFit(niche, userId, brainId, angleName) {
+  const brain = brainId ? await getOfferingBrainById(brainId, userId) : await getActiveBrain(userId);
   if (!brain || brain.status !== "completed") {
     throw new Error("No active Offering Brain found \u2014 cannot score niche fit without ICP criteria");
   }
   const offeringSummary = brain.offeringSummary || "";
-  const coreCapabilities = brain.coreCapabilities ? JSON.parse(brain.coreCapabilities) : [];
-  const icpIndustries = brain.icpIndustries ? JSON.parse(brain.icpIndustries) : [];
-  const icpPainPoints = brain.icpPainPoints ? JSON.parse(brain.icpPainPoints) : [];
-  const icpBuyingSignals = brain.icpBuyingSignals ? JSON.parse(brain.icpBuyingSignals) : [];
-  const fitCriteria = brain.fitCriteria ? JSON.parse(brain.fitCriteria) : { mustHave: [], niceToHave: [], disqualifiers: [] };
-  const valuePropositions = brain.valuePropositions ? JSON.parse(brain.valuePropositions) : [];
+  const coreCapabilities = safeParseStringArray(brain.coreCapabilities);
+  const icpIndustries = safeParseStringArray(brain.icpIndustries);
+  const icpPainPoints = safeParseStringArray(brain.icpPainPoints);
+  const icpBuyingSignals = safeParseStringArray(brain.icpBuyingSignals);
+  const fitCriteria = safeParseBrainField(brain.fitCriteria, { mustHave: [], niceToHave: [], disqualifiers: [] });
+  const valuePropositions = safeParseBrainField(brain.valuePropositions, []);
   const nicheProfile = [
     `Niche Name: ${niche.name}`,
     niche.description ? `Description: ${niche.description}` : null,
@@ -9521,10 +12726,14 @@ async function scoreNicheFit(niche, userId) {
     fitCriteria.mustHave?.length ? `Must-Have Criteria: ${fitCriteria.mustHave.join("; ")}` : null,
     fitCriteria.disqualifiers?.length ? `Disqualifiers: ${fitCriteria.disqualifiers.join("; ")}` : null
   ].filter(Boolean).join("\n");
+  const angleSection = angleName ? `
+
+## SCORING ANGLE
+Evaluate this niche specifically from the perspective of a **${angleName}** relationship. Tailor your scoring dimensions and reasoning to reflect what matters most when approaching this niche as a ${angleName}. For example: if Potential Customer, prioritise buying likelihood and pain-point fit; if Strategic Partner, prioritise complementary capabilities and co-sell potential; if Potential Target, prioritise acquisition attractiveness and strategic value.` : "";
   const prompt = `You are a B2B sales qualification analyst scoring a niche cluster of companies against a seller's Offering Brain.
 
 ## OFFERING BRAIN
-${brainContext}
+${brainContext}${angleSection}
 
 ## NICHE CLUSTER TO SCORE
 ${nicheProfile}
@@ -9562,7 +12771,7 @@ Rules:
 - dimension names must be specific to the offering (e.g. "Manufacturing Complexity Fit", "Industrial Supply Chain Alignment") \u2014 NOT generic names like "Industry Fit" or "Size Fit"
 - reasoning must reference specific keywords or signals from the niche cluster`;
   console.log(`[Niche Fit Scorer] Scoring niche "${niche.name}" against brain "${brain.brainName}"...`);
-  const raw = await invokeLLM({
+  const llmPayload = {
     messages: [
       { role: "system", content: "You are a B2B sales qualification analyst. Return only valid JSON." },
       { role: "user", content: prompt }
@@ -9598,7 +12807,24 @@ Rules:
         }
       }
     }
-  });
+  };
+  let raw;
+  const MAX_RETRIES = 4;
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    try {
+      raw = await invokeLLM(llmPayload);
+      break;
+    } catch (err) {
+      const is429 = err?.status === 429 || typeof err?.message === "string" && err.message.includes("429") || typeof err?.message === "string" && err.message.toLowerCase().includes("too many");
+      if (is429 && attempt < MAX_RETRIES) {
+        const delayMs = Math.pow(2, attempt + 1) * 1e3 + Math.random() * 500;
+        console.warn(`[Niche Fit Scorer] 429 rate limit \u2014 retrying in ${Math.round(delayMs / 1e3)}s (attempt ${attempt + 1}/${MAX_RETRIES})`);
+        await new Promise((r) => setTimeout(r, delayMs));
+      } else {
+        throw err;
+      }
+    }
+  }
   const rawContent = raw.choices?.[0]?.message?.content;
   if (!rawContent) throw new Error("LLM returned empty response for niche fit scoring");
   const contentStr = typeof rawContent === "string" ? rawContent : rawContent.map((p) => p.type === "text" ? p.text : "").join("");
@@ -9608,8 +12834,33 @@ Rules:
   } catch {
     const firstBrace = contentStr.indexOf("{");
     const lastBrace = contentStr.lastIndexOf("}");
-    if (firstBrace === -1 || lastBrace === -1) throw new Error("No valid JSON in LLM response");
-    parsed = JSON.parse(contentStr.slice(firstBrace, lastBrace + 1));
+    if (firstBrace !== -1 && lastBrace !== -1 && lastBrace > firstBrace) {
+      try {
+        parsed = JSON.parse(contentStr.slice(firstBrace, lastBrace + 1));
+      } catch {
+        console.warn(`[Niche Fit Scorer] LLM returned non-JSON for "${niche.name}": ${contentStr.slice(0, 80)}`);
+        return {
+          fitScore: 0,
+          fitReasoning: `Scoring failed: LLM returned an unexpected response. Please retry.`,
+          scoreBreakdown: [],
+          scoredAt: (/* @__PURE__ */ new Date()).toISOString(),
+          brainName: brain.brainName,
+          brainId: brain.id,
+          nicheName: niche.name
+        };
+      }
+    } else {
+      console.warn(`[Niche Fit Scorer] LLM returned plain text for "${niche.name}": ${contentStr.slice(0, 80)}`);
+      return {
+        fitScore: 0,
+        fitReasoning: `Scoring failed: LLM returned an unexpected response. Please retry.`,
+        scoreBreakdown: [],
+        scoredAt: (/* @__PURE__ */ new Date()).toISOString(),
+        brainName: brain.brainName,
+        brainId: brain.id,
+        nicheName: niche.name
+      };
+    }
   }
   const breakdown = (parsed.scoreBreakdown || []).map((d) => ({
     dimension: String(d.dimension || "Unknown"),
@@ -9632,64 +12883,8 @@ Rules:
   };
 }
 
-// server/embeddingService.ts
-import OpenAI from "openai";
-var OPENAI_EMBEDDING_MODEL = "text-embedding-3-small";
-var BATCH_SIZE = 50;
-function getOpenAIClient() {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) throw new Error("OPENAI_API_KEY is not configured");
-  return new OpenAI({ apiKey, baseURL: "https://api.openai.com/v1" });
-}
-function buildEmbeddingText(company) {
-  const parts = [];
-  parts.push(`Company: ${company.name}`);
-  if (company.sliceMetadata) {
-    try {
-      const meta = JSON.parse(company.sliceMetadata);
-      if (meta.industry) parts.push(`Industry: ${meta.industry}`);
-      if (meta.keywords) parts.push(`Keywords: ${meta.keywords}`);
-      if (meta.description) parts.push(`Description: ${meta.description}`);
-      if (meta.employeeCount) parts.push(`Employees: ${meta.employeeCount}`);
-    } catch {
-    }
-  }
-  const location = [company.city, company.country].filter(Boolean).join(", ");
-  if (location) parts.push(`Location: ${location}`);
-  if (company.sicCodes) {
-    try {
-      const codes = JSON.parse(company.sicCodes);
-      if (codes.length > 0) parts.push(`SIC: ${codes.slice(0, 3).join(", ")}`);
-    } catch {
-    }
-  }
-  return parts.join(" | ");
-}
-async function generateEmbeddings(companies2) {
-  if (companies2.length === 0) return [];
-  const client = getOpenAIClient();
-  const results = [];
-  for (let i = 0; i < companies2.length; i += BATCH_SIZE) {
-    const batch = companies2.slice(i, i + BATCH_SIZE);
-    const texts = batch.map(buildEmbeddingText);
-    console.log(
-      `[Embeddings] Batch ${Math.floor(i / BATCH_SIZE) + 1}/${Math.ceil(companies2.length / BATCH_SIZE)}: ${batch.length} companies`
-    );
-    const response = await client.embeddings.create({
-      model: OPENAI_EMBEDDING_MODEL,
-      input: texts
-    });
-    for (let j = 0; j < batch.length; j++) {
-      results.push({
-        companyId: batch[j].id,
-        embedding: response.data[j].embedding,
-        text: texts[j]
-      });
-    }
-  }
-  console.log(`[Embeddings] Done: ${results.length} embeddings generated`);
-  return results;
-}
+// server/nicheRouter.ts
+init_embeddingService();
 
 // server/clusteringService.ts
 init_llm();
@@ -9698,21 +12893,21 @@ var MIN_K = 3;
 var MAX_K = 12;
 var MIN_COMPANIES_PER_CLUSTER = 3;
 var KMEANS_MAX_ITERATIONS = 100;
-function dotProduct(a, b) {
+function dotProduct3(a, b) {
   let sum = 0;
   for (let i = 0; i < a.length; i++) sum += a[i] * b[i];
   return sum;
 }
-function magnitude(v) {
-  return Math.sqrt(dotProduct(v, v));
+function magnitude3(v) {
+  return Math.sqrt(dotProduct3(v, v));
 }
-function cosineSimilarity(a, b) {
-  const denom = magnitude(a) * magnitude(b);
+function cosineSimilarity4(a, b) {
+  const denom = magnitude3(a) * magnitude3(b);
   if (denom === 0) return 0;
-  return dotProduct(a, b) / denom;
+  return dotProduct3(a, b) / denom;
 }
 function cosineDistance(a, b) {
-  return 1 - cosineSimilarity(a, b);
+  return 1 - cosineSimilarity4(a, b);
 }
 function meanVector(vectors) {
   if (vectors.length === 0) return [];
@@ -10011,7 +13206,7 @@ async function expandWithDiscovery(batchEmbeddings, allCompanies, nicheCentroids
     let bestSim = -Infinity;
     let bestIdx = 0;
     for (let i = 0; i < centroids.length; i++) {
-      const sim = cosineSimilarity(ce.embedding, centroids[i]);
+      const sim = cosineSimilarity4(ce.embedding, centroids[i]);
       if (sim > bestSim) {
         bestSim = sim;
         bestIdx = i;
@@ -10211,7 +13406,18 @@ function splitByCompanyType(allCompanies) {
 // server/nicheRouter.ts
 init_schema();
 init_db();
-import { eq as eq4, inArray as inArray3 } from "drizzle-orm";
+import { eq as eq6, inArray as inArray5 } from "drizzle-orm";
+function safeParseStringArray2(value) {
+  if (!value) return [];
+  const trimmed = value.trim();
+  if (trimmed.startsWith("[")) {
+    try {
+      return JSON.parse(trimmed);
+    } catch {
+    }
+  }
+  return trimmed.split(",").map((s) => s.trim()).filter(Boolean);
+}
 var nicheRouter = router({
   /**
    * Full pipeline: pre-split (Manufacturing vs Service) → generate embeddings → k-means clustering → save niches → score against Brain.
@@ -10232,7 +13438,7 @@ var nicheRouter = router({
     const userId = ctx.user.id;
     const db = await getDb();
     if (!db) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-    const allCompanies = await db.select().from(companies).where(eq4(companies.searchId, input.searchId));
+    const allCompanies = await db.select().from(companies).where(eq6(companies.searchId, input.searchId));
     if (allCompanies.length < 9) {
       throw new TRPCError4({
         code: "BAD_REQUEST",
@@ -10253,7 +13459,9 @@ var nicheRouter = router({
       const groupEmbeddings = await generateEmbeddings(groupCompanies);
       console.log(`[nicheRouter] [${groupLabel}] Running k-means clustering (targetGroupSize=${input.targetGroupSize ?? "auto"})...`);
       const groupClusters = await clusterCompanies(groupEmbeddings, groupCompanies, {
-        targetGroupSize: input.targetGroupSize
+        targetGroupSize: input.targetGroupSize,
+        seedSampleSize: groupCompanies.length
+        // full-corpus: use ALL companies, no stratified sampling
       });
       console.log(`[nicheRouter] [${groupLabel}] Saving ${groupClusters.length} niches...`);
       const groupNicheIds = [];
@@ -10292,7 +13500,11 @@ var nicheRouter = router({
     if (manufacturing.length < 9 && service.length < 9) {
       console.log(`[nicheRouter] Both groups too small for independent clustering \u2014 clustering all together`);
       const embeddings = await generateEmbeddings(allCompanies);
-      const clusters = await clusterCompanies(embeddings, allCompanies, { targetGroupSize: input.targetGroupSize });
+      const clusters = await clusterCompanies(embeddings, allCompanies, {
+        targetGroupSize: input.targetGroupSize,
+        seedSampleSize: allCompanies.length
+        // full-corpus: use ALL companies, no stratified sampling
+      });
       const nicheIds = [];
       for (const cluster of clusters) {
         const id = await createNiche({
@@ -10336,8 +13548,8 @@ var nicheRouter = router({
           const clusterInput = {
             name: niche.name,
             description: niche.description,
-            topKeywords: niche.topKeywords ? JSON.parse(niche.topKeywords) : [],
-            sampleCompanies: niche.sampleCompanies ? JSON.parse(niche.sampleCompanies) : [],
+            topKeywords: safeParseStringArray2(niche.topKeywords),
+            sampleCompanies: safeParseStringArray2(niche.sampleCompanies),
             rationale: niche.rationale,
             companyCount: niche.companyCount
           };
@@ -10415,8 +13627,11 @@ var nicheRouter = router({
   scoreNiches: adminProcedure.input(
     z4.object({
       searchId: z4.number(),
-      force: z4.boolean().default(false)
+      force: z4.boolean().default(false),
       // force re-score even if already scored
+      brainId: z4.union([z4.number(), z4.string()]).optional().transform((v) => v !== void 0 ? typeof v === "string" ? isNaN(Number(v)) ? void 0 : Number(v) : v : void 0),
+      angleId: z4.string().optional(),
+      angleName: z4.string().optional()
     })
   ).mutation(async ({ ctx, input }) => {
     const userId = ctx.user.id;
@@ -10433,12 +13648,12 @@ var nicheRouter = router({
         const clusterInput = {
           name: niche.name,
           description: niche.description,
-          topKeywords: niche.topKeywords ? JSON.parse(niche.topKeywords) : [],
-          sampleCompanies: niche.sampleCompanies ? JSON.parse(niche.sampleCompanies) : [],
+          topKeywords: safeParseStringArray2(niche.topKeywords),
+          sampleCompanies: safeParseStringArray2(niche.sampleCompanies),
           rationale: niche.rationale,
           companyCount: niche.companyCount
         };
-        const result = await scoreNicheFit(clusterInput, userId);
+        const result = await scoreNicheFit(clusterInput, userId, input.brainId, input.angleName);
         await updateNiche(niche.id, {
           fitScore: result.fitScore,
           fitReasoning: result.fitReasoning,
@@ -10478,21 +13693,29 @@ var nicheRouter = router({
   /**
    * Re-score a single niche against the active Offering Brain.
    */
-  rescoreNiche: adminProcedure.input(z4.object({ nicheId: z4.number() })).mutation(async ({ ctx, input }) => {
+  rescoreNiche: adminProcedure.input(z4.object({ nicheId: z4.number(), brainId: z4.union([z4.number(), z4.string()]).optional().transform((v) => v !== void 0 ? typeof v === "string" ? isNaN(Number(v)) ? void 0 : Number(v) : v : void 0), angleId: z4.string().optional(), angleName: z4.string().optional() })).mutation(async ({ ctx, input }) => {
     const userId = ctx.user.id;
     const niche = await getNicheById(input.nicheId);
-    if (!niche || niche.userId !== userId) {
+    const isSuperAdmin = ctx.user.role === "super_admin";
+    if (!niche || !isSuperAdmin && niche.userId !== userId) {
       throw new TRPCError4({ code: "NOT_FOUND", message: "Niche not found" });
     }
+    const effectiveUserId = niche.userId;
     const clusterInput = {
       name: niche.name,
       description: niche.description,
-      topKeywords: niche.topKeywords ? JSON.parse(niche.topKeywords) : [],
-      sampleCompanies: niche.sampleCompanies ? JSON.parse(niche.sampleCompanies) : [],
+      topKeywords: safeParseStringArray2(niche.topKeywords),
+      sampleCompanies: safeParseStringArray2(niche.sampleCompanies),
       rationale: niche.rationale,
       companyCount: niche.companyCount
     };
-    const result = await scoreNicheFit(clusterInput, userId);
+    let result;
+    try {
+      result = await scoreNicheFit(clusterInput, effectiveUserId, input.brainId, input.angleName);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: `Scoring failed: ${msg}` });
+    }
     await updateNiche(niche.id, {
       fitScore: result.fitScore,
       fitReasoning: result.fitReasoning,
@@ -10515,14 +13738,20 @@ var nicheRouter = router({
    * Parses JSON fields for the frontend.
    */
   getNiches: protectedProcedure.input(z4.object({ searchId: z4.number() })).query(async ({ ctx, input }) => {
-    const niches2 = await getNichesBySearchId(input.searchId);
+    const niches2 = await getNichesLightBySearchId(input.searchId);
     return niches2.map(parseNicheFields);
   }),
   /**
    * Get all niches for the current user (across all searches).
+   * Admins always see niches from the owner account (userId=1) to handle
+   * the case where an admin logs in via a secondary account.
+   * Uses lightweight query (excludes centroid/companyIds) to reduce payload from ~6MB to ~0.5MB.
    */
   getAllNiches: protectedProcedure.query(async ({ ctx }) => {
-    const niches2 = await getNichesByUserId(ctx.user.id);
+    let niches2 = await getNichesLightByUserId(ctx.user.id);
+    if (niches2.length === 0 && (ctx.user.role === "admin" || ctx.user.role === "super_admin")) {
+      niches2 = await getNichesLightByUserId(1);
+    }
     return niches2.map(parseNicheFields);
   }),
   /**
@@ -10543,7 +13772,7 @@ var nicheRouter = router({
   getUnassignedCount: protectedProcedure.input(z4.object({ searchId: z4.number() })).query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) return { unassigned: 0, total: 0 };
-    const allCompanies = await db.select({ id: companies.id, nicheId: companies.nicheId }).from(companies).where(eq4(companies.searchId, input.searchId));
+    const allCompanies = await db.select({ id: companies.id, nicheId: companies.nicheId }).from(companies).where(eq6(companies.searchId, input.searchId));
     const total = allCompanies.length;
     const unassigned = allCompanies.filter((c) => c.nicheId === null || c.nicheId === void 0).length;
     return { unassigned, total, assigned: total - unassigned };
@@ -10580,7 +13809,7 @@ var nicheRouter = router({
       });
     }
     const hasTypeSplit = mfgCentroids.length > 0 && svcCentroids.length > 0;
-    const allCompanies = await db.select().from(companies).where(eq4(companies.searchId, input.searchId));
+    const allCompanies = await db.select().from(companies).where(eq6(companies.searchId, input.searchId));
     const unassigned = allCompanies.filter((c) => c.nicheId === null || c.nicheId === void 0);
     if (unassigned.length === 0) {
       return { assigned: 0, message: "All companies are already assigned to niches." };
@@ -10627,7 +13856,7 @@ var nicheRouter = router({
         assigned++;
       }
     }
-    const updatedCompanies = await db.select().from(companies).where(eq4(companies.searchId, input.searchId));
+    const updatedCompanies = await db.select().from(companies).where(eq6(companies.searchId, input.searchId));
     const nicheCounts = /* @__PURE__ */ new Map();
     for (const company of updatedCompanies) {
       if (company.nicheId) nicheCounts.set(company.nicheId, (nicheCounts.get(company.nicheId) ?? 0) + 1);
@@ -10678,7 +13907,7 @@ var nicheRouter = router({
       });
     }
     const hasTypeSplit = mfgCentroids.length > 0 && svcCentroids.length > 0;
-    const allCompanies = await db.select().from(companies).where(eq4(companies.searchId, input.searchId));
+    const allCompanies = await db.select().from(companies).where(eq6(companies.searchId, input.searchId));
     const unassigned = allCompanies.filter((c) => c.nicheId === null || c.nicheId === void 0).slice(0, input.batchSize);
     if (unassigned.length === 0) {
       return {
@@ -10748,7 +13977,7 @@ var nicheRouter = router({
       }
     }
     const nicheCounts = /* @__PURE__ */ new Map();
-    const updatedAllCompanies = await db.select().from(companies).where(eq4(companies.searchId, input.searchId));
+    const updatedAllCompanies = await db.select().from(companies).where(eq6(companies.searchId, input.searchId));
     for (const company of updatedAllCompanies) {
       if (company.nicheId) nicheCounts.set(company.nicheId, (nicheCounts.get(company.nicheId) ?? 0) + 1);
     }
@@ -10786,7 +14015,7 @@ var nicheRouter = router({
     const parentNiche = await getNicheById(input.parentNicheId);
     if (!parentNiche) throw new TRPCError4({ code: "NOT_FOUND", message: "Parent segment not found" });
     if (parentNiche.userId !== userId) throw new TRPCError4({ code: "FORBIDDEN", message: "Not your segment" });
-    const allCompanies = await db.select().from(companies).where(eq4(companies.nicheId, input.parentNicheId));
+    const allCompanies = await db.select().from(companies).where(eq6(companies.nicheId, input.parentNicheId));
     if (allCompanies.length < 9) {
       throw new TRPCError4({
         code: "BAD_REQUEST",
@@ -10840,8 +14069,8 @@ var nicheRouter = router({
             const nicheInput = {
               name: childNiche.name,
               description: childNiche.description ?? "",
-              sampleCompanies: childNiche.sampleCompanies ? JSON.parse(childNiche.sampleCompanies) : [],
-              topKeywords: childNiche.topKeywords ? JSON.parse(childNiche.topKeywords) : [],
+              sampleCompanies: safeParseStringArray2(childNiche.sampleCompanies),
+              topKeywords: safeParseStringArray2(childNiche.topKeywords),
               companyCount: childNiche.companyCount
             };
             const score = await scoreNicheFit(nicheInput, userId);
@@ -10878,9 +14107,10 @@ var nicheRouter = router({
   }),
   /**
    * Get child niches for a given parent niche ID.
+   * Uses lightweight query (excludes centroid/companyIds).
    */
   getChildNiches: protectedProcedure.input(z4.object({ parentNicheId: z4.number() })).query(async ({ ctx, input }) => {
-    const children = await getNichesByParentId(input.parentNicheId);
+    const children = await getNichesLightByParentId(input.parentNicheId);
     return children.map(parseNicheFields);
   }),
   /**
@@ -10917,9 +14147,10 @@ var nicheRouter = router({
       targetMarket: parentSearch?.targetMarket ?? null,
       valueProposition: parentSearch?.valueProposition ?? null,
       keywords: parentSearch?.keywords ?? null,
-      status: "completed"
+      status: "completed",
+      brainId: niche.brainId ?? parentSearch?.brainId ?? void 0
     });
-    let nicheCompanies = await db.select().from(companies).where(eq4(companies.nicheId, input.nicheId));
+    let nicheCompanies = await db.select().from(companies).where(eq6(companies.nicheId, input.nicheId));
     if (nicheCompanies.length === 0 && niche.companyIds) {
       let ids = [];
       try {
@@ -10930,7 +14161,7 @@ var nicheRouter = router({
         const CHUNK = 1e3;
         for (let i = 0; i < ids.length; i += CHUNK) {
           const chunk = ids.slice(i, i + CHUNK);
-          const rows = await db.select().from(companies).where(inArray3(companies.id, chunk));
+          const rows = await db.select().from(companies).where(inArray5(companies.id, chunk));
           nicheCompanies = nicheCompanies.concat(rows);
         }
       }
@@ -10959,7 +14190,7 @@ var nicheRouter = router({
       }
     } catch (copyErr) {
       try {
-        await db.delete(searches).where(eq4(searches.id, newSearchId));
+        await db.delete(searches).where(eq6(searches.id, newSearchId));
       } catch {
       }
       throw new TRPCError4({
@@ -10969,7 +14200,7 @@ var nicheRouter = router({
     }
     if (copied === 0) {
       try {
-        await db.delete(searches).where(eq4(searches.id, newSearchId));
+        await db.delete(searches).where(eq6(searches.id, newSearchId));
       } catch {
       }
       throw new TRPCError4({
@@ -10979,7 +14210,7 @@ var nicheRouter = router({
     }
     const db2 = await getDb();
     if (db2) {
-      await db2.update(searches).set({ sourceNicheId: input.nicheId, sharedWithTeam: 1 }).where(eq4(searches.id, newSearchId));
+      await db2.update(searches).set({ sourceNicheId: input.nicheId, sharedWithTeam: 1 }).where(eq6(searches.id, newSearchId));
     }
     console.log(`[nicheRouter] Created campaign "${campaignName}" (searchId=${newSearchId}) with ${copied} companies from niche ${input.nicheId}`);
     return {
@@ -11018,6 +14249,7 @@ function parseNicheFields(niche) {
     topKeywords: niche.topKeywords ? tryParse(niche.topKeywords, []) : [],
     sampleCompanies: niche.sampleCompanies ? tryParse(niche.sampleCompanies, []) : [],
     companyIds: niche.companyIds ? tryParse(niche.companyIds, []) : [],
+    // may be undefined from lightweight queries
     scoreBreakdown: niche.scoreBreakdown ? tryParse(niche.scoreBreakdown, []) : []
   };
 }
@@ -11089,7 +14321,7 @@ async function storagePut(relKey, data, contentType = "application/octet-stream"
 init_llm();
 init_db();
 init_schema();
-import { eq as eq5, desc as desc2 } from "drizzle-orm";
+import { eq as eq7, desc as desc2 } from "drizzle-orm";
 async function extractProductFromImages(imageUrls, productUrl, brainContext) {
   console.log(`[Prototype] Analyzing ${imageUrls.length} image(s)...`);
   const content = [];
@@ -11183,13 +14415,13 @@ async function createPrototypeRequest(data) {
 async function getPrototypeRequestById(id) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const rows = await db.select().from(prototypeRequests).where(eq5(prototypeRequests.id, id)).limit(1);
+  const rows = await db.select().from(prototypeRequests).where(eq7(prototypeRequests.id, id)).limit(1);
   return rows[0] ?? null;
 }
 async function getPrototypeRequestsByUser(userId) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(prototypeRequests).where(eq5(prototypeRequests.userId, userId)).orderBy(desc2(prototypeRequests.createdAt));
+  return db.select().from(prototypeRequests).where(eq7(prototypeRequests.userId, userId)).orderBy(desc2(prototypeRequests.createdAt));
 }
 async function getAllPrototypeRequests() {
   const db = await getDb();
@@ -11199,7 +14431,7 @@ async function getAllPrototypeRequests() {
 async function updatePrototypeRequest(id, data) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(prototypeRequests).set(data).where(eq5(prototypeRequests.id, id));
+  await db.update(prototypeRequests).set(data).where(eq7(prototypeRequests.id, id));
 }
 
 // server/prototypeRouter.ts
@@ -11667,7 +14899,7 @@ PRODUCT CONTEXT: ${input.productContext}` : "") + "\n\nReturn a JSON object: { c
 import { z as z6 } from "zod";
 init_db();
 init_schema();
-import { eq as eq6, and as and3 } from "drizzle-orm";
+import { eq as eq8, and as and3 } from "drizzle-orm";
 var bomRouter = router({
   /**
    * List all BOM items for a prototype request
@@ -11675,7 +14907,7 @@ var bomRouter = router({
   list: protectedProcedure.input(z6.object({ prototypeRequestId: z6.number().int().positive() })).query(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new Error("DB unavailable");
-    return db.select().from(bomItems).where(eq6(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
+    return db.select().from(bomItems).where(eq8(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
   }),
   /**
    * Add a BOM line item
@@ -11700,7 +14932,7 @@ var bomRouter = router({
       currency: input.currency,
       notes: input.notes ?? null
     });
-    return db.select().from(bomItems).where(eq6(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
+    return db.select().from(bomItems).where(eq8(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
   }),
   /**
    * Update a BOM line item
@@ -11727,12 +14959,12 @@ var bomRouter = router({
     if (Object.keys(updates).length > 0) {
       await db.update(bomItems).set(updates).where(
         and3(
-          eq6(bomItems.id, input.id),
-          eq6(bomItems.prototypeRequestId, input.prototypeRequestId)
+          eq8(bomItems.id, input.id),
+          eq8(bomItems.prototypeRequestId, input.prototypeRequestId)
         )
       );
     }
-    return db.select().from(bomItems).where(eq6(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
+    return db.select().from(bomItems).where(eq8(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
   }),
   /**
    * Delete a BOM line item
@@ -11747,11 +14979,11 @@ var bomRouter = router({
     if (!db) throw new Error("DB unavailable");
     await db.delete(bomItems).where(
       and3(
-        eq6(bomItems.id, input.id),
-        eq6(bomItems.prototypeRequestId, input.prototypeRequestId)
+        eq8(bomItems.id, input.id),
+        eq8(bomItems.prototypeRequestId, input.prototypeRequestId)
       )
     );
-    return db.select().from(bomItems).where(eq6(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
+    return db.select().from(bomItems).where(eq8(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
   })
 });
 
@@ -11763,11 +14995,11 @@ import { z as z7 } from "zod";
 init_db();
 init_schema();
 import { TRPCError as TRPCError6 } from "@trpc/server";
-import { eq as eq8, and as and5, inArray as inArray4, count, sql as sql3 } from "drizzle-orm";
+import { eq as eq10, and as and5, inArray as inArray6, count, sql as sql4 } from "drizzle-orm";
 
 // server/campaignQueueWorker.ts
 init_schema();
-import { eq as eq7, sql as sql2 } from "drizzle-orm";
+import { eq as eq9, asc, sql as sql3 } from "drizzle-orm";
 var POLL_INTERVAL_MS = 2e3;
 var CONCURRENCY = 5;
 var SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1e3;
@@ -11777,18 +15009,17 @@ async function claimNextJob() {
   const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
   const db = await getDb2();
   if (!db) return null;
+  const [candidate] = await db.select({ id: campaignQueue.id }).from(campaignQueue).where(eq9(campaignQueue.status, "pending")).orderBy(asc(campaignQueue.createdAt)).limit(1);
+  if (!candidate) return null;
   const result = await db.execute(
-    sql2`UPDATE campaign_queue
-        SET status = 'running',
-            startedAt = NOW(),
-            id = LAST_INSERT_ID(id)
-        WHERE status = 'pending'
-        ORDER BY createdAt ASC
+    sql3`UPDATE campaign_queue
+        SET status = 'running', startedAt = NOW()
+        WHERE id = ${candidate.id} AND status = 'pending'
         LIMIT 1`
   );
   const affectedRows = result?.[0]?.affectedRows ?? result?.rowsAffected ?? 0;
   if (affectedRows === 0) return null;
-  const [job] = await db.select().from(campaignQueue).where(sql2`${campaignQueue.id} = LAST_INSERT_ID()`).limit(1);
+  const [job] = await db.select().from(campaignQueue).where(eq9(campaignQueue.id, candidate.id)).limit(1);
   return job ?? null;
 }
 async function processJob() {
@@ -11817,7 +15048,7 @@ async function processJob() {
         status: "failed",
         errorMessage: "Company not found in DB",
         completedAt: /* @__PURE__ */ new Date()
-      }).where(eq7(campaignQueue.id, job.id));
+      }).where(eq9(campaignQueue.id, job.id));
       return true;
     }
     if (company.enrichmentStatus === "pending") {
@@ -11832,7 +15063,7 @@ async function processJob() {
           await updateCompany2(job.companyId, {
             city: details.city,
             state: details.state,
-            country: details.country,
+            country: details.country || company.country || null,
             streetAddress: details.street_address,
             rawAddress: details.raw_address,
             enrichmentStatus: "enriched"
@@ -11847,20 +15078,91 @@ async function processJob() {
     } else {
       console.log(`[CampaignQueue] \u21A9 Already enriched: ${company.name}`);
     }
-    if (job.jobType === "full" && !company.fitScore) {
+    if (!company.similarityScore) {
+      try {
+        const { embedAndScoreCompany: embedAndScoreCompany2 } = await Promise.resolve().then(() => (init_embedOnImport(), embedOnImport_exports));
+        const embedResult = await embedAndScoreCompany2(company);
+        if (embedResult.similarityScore != null) {
+          company = await getCompanyById2(job.companyId) ?? company;
+        }
+      } catch (err) {
+        console.warn(`[CampaignQueue] \u26A0 Embed-on-import failed for ${company.name}: ${err.message}`);
+      }
+    } else {
+      console.log(`[CampaignQueue] \u21A9 FIT-SIM cached: ${company.name} (${company.similarityScore})`);
+    }
+    const alreadyLlmScored = company.fitScore && company.fitScoreSource === "llm";
+    const needsFitScore = job.jobType === "full" && !alreadyLlmScored || job.jobType === "score_only";
+    if (needsFitScore) {
       try {
         const { scoreCompanyFit: scoreCompanyFit2 } = await Promise.resolve().then(() => (init_briefGenerator(), briefGenerator_exports));
         const result = await scoreCompanyFit2(job.companyId, job.userId);
         await updateCompany2(job.companyId, {
           fitScore: result.fitScore,
-          fitScoreData: JSON.stringify(result)
+          fitScoreData: JSON.stringify(result),
+          fitScoreGeneratedAt: /* @__PURE__ */ new Date(),
+          fitScoreSource: "llm"
         });
-        console.log(`[CampaignQueue] \u2713 Fit score: ${company.name} \u2192 ${result.fitScore}`);
+        console.log(
+          `[CampaignQueue] \u2713 Fit score (LLM): ${company.name} \u2192 LLM:${result.rawLlmScore} \xD7 geo(${result.breakdown.geographyMultiplier?.region}) = ${result.fitScore}`
+        );
       } catch (err) {
         console.warn(`[CampaignQueue] \u26A0 Fit score failed for ${company.name}: ${err.message}`);
       }
     } else if (company.fitScore) {
-      console.log(`[CampaignQueue] \u21A9 Fit score cached: ${company.name} (${company.fitScore})`);
+      console.log(`[CampaignQueue] \u21A9 Fit score cached (${company.fitScoreSource ?? "embed"}): ${company.name} (${company.fitScore})`);
+    }
+    if (job.jobType === "score_only") {
+      await stampBrain();
+      await db.update(campaignQueue).set({
+        status: "completed",
+        completedAt: /* @__PURE__ */ new Date()
+      }).where(eq9(campaignQueue.id, job.id));
+      console.log(`[CampaignQueue] \u2705 Score-only job ${job.id} complete \u2014 ${company.name}`);
+      return true;
+    }
+    if (job.jobType === "score_urgency_only") {
+      try {
+        const { generateSalesIntelligenceBrief: generateSalesIntelligenceBrief2 } = await Promise.resolve().then(() => (init_briefGenerator(), briefGenerator_exports));
+        const brief = await generateSalesIntelligenceBrief2(job.companyId, job.userId);
+        await updateCompany2(job.companyId, {
+          urgencyScore: brief.urgencyScore,
+          urgencyScoreLLM: brief.urgencyScore,
+          urgencyScoreLLMGeneratedAt: /* @__PURE__ */ new Date(),
+          briefData: JSON.stringify(brief),
+          briefGeneratedAt: /* @__PURE__ */ new Date()
+        });
+        console.log(`[CampaignQueue] \u2713 Urgency scored: ${company.name} \u2192 ${brief.urgencyScore}`);
+      } catch (err) {
+        console.warn(`[CampaignQueue] \u26A0 Urgency scoring failed for ${company.name}: ${err.message}`);
+      }
+      await stampBrain();
+      await db.update(campaignQueue).set({
+        status: "completed",
+        completedAt: /* @__PURE__ */ new Date()
+      }).where(eq9(campaignQueue.id, job.id));
+      console.log(`[CampaignQueue] \u2705 Score-urgency job ${job.id} complete \u2014 ${company.name}`);
+      return true;
+    }
+    if (job.jobType === "outreach_only") {
+      try {
+        const { generateSalesApproach: generateSalesApproach2 } = await Promise.resolve().then(() => (init_salesApproachGenerator(), salesApproachGenerator_exports));
+        const salesApproach = await generateSalesApproach2(job.companyId, job.userId);
+        await updateCompany2(job.companyId, {
+          salesApproachData: JSON.stringify(salesApproach),
+          salesApproachGeneratedAt: /* @__PURE__ */ new Date()
+        });
+        console.log(`[CampaignQueue] \u2713 Outreach created: ${company.name}`);
+      } catch (err) {
+        console.warn(`[CampaignQueue] \u26A0 Outreach creation failed for ${company.name}: ${err.message}`);
+      }
+      await stampBrain();
+      await db.update(campaignQueue).set({
+        status: "completed",
+        completedAt: /* @__PURE__ */ new Date()
+      }).where(eq9(campaignQueue.id, job.id));
+      console.log(`[CampaignQueue] \u2705 Outreach job ${job.id} complete \u2014 ${company.name}`);
+      return true;
     }
     const freshCompany = await getCompanyById2(job.companyId) ?? company;
     const needsBrief = !freshCompany.briefData || !freshCompany.briefGeneratedAt || Date.now() - new Date(freshCompany.briefGeneratedAt).getTime() >= SEVEN_DAYS_MS;
@@ -11873,6 +15175,8 @@ async function processJob() {
           const brief = await generateSalesIntelligenceBrief2(job.companyId, job.userId);
           await updateCompany2(job.companyId, {
             urgencyScore: brief.urgencyScore,
+            urgencyScoreLLM: brief.urgencyScore,
+            urgencyScoreLLMGeneratedAt: /* @__PURE__ */ new Date(),
             briefData: JSON.stringify(brief),
             briefGeneratedAt: /* @__PURE__ */ new Date()
           });
@@ -11928,7 +15232,7 @@ async function processJob() {
     await db.update(campaignQueue).set({
       status: "completed",
       completedAt: /* @__PURE__ */ new Date()
-    }).where(eq7(campaignQueue.id, job.id));
+    }).where(eq9(campaignQueue.id, job.id));
     console.log(`[CampaignQueue] \u2705 Job ${job.id} complete \u2014 ${company.name}`);
     return true;
   } catch (err) {
@@ -11941,7 +15245,7 @@ async function processJob() {
           status: "failed",
           errorMessage: (err.message ?? "Unknown error").slice(0, 512),
           completedAt: /* @__PURE__ */ new Date()
-        }).where(eq7(campaignQueue.id, job.id));
+        }).where(eq9(campaignQueue.id, job.id));
       }
     } catch (dbErr) {
       console.error(`[CampaignQueue] Could not mark job as failed:`, dbErr);
@@ -11993,9 +15297,11 @@ var campaignQueueRouter = router({
    */
   enqueueSearch: protectedProcedure.input(z7.object({
     searchId: z7.number(),
-    jobType: z7.enum(["full", "brief_only"]).default("full"),
+    jobType: z7.enum(["full", "brief_only", "score_only", "score_urgency_only", "outreach_only"]).default("full"),
     // If true, re-enqueue companies that already have a brief (force refresh)
-    forceRefresh: z7.boolean().default(false)
+    forceRefresh: z7.boolean().default(false),
+    // If true, re-enqueue companies that already have a fit score (force rescore)
+    forceRescore: z7.boolean().default(false)
   })).mutation(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError6({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
@@ -12004,9 +15310,11 @@ var campaignQueueRouter = router({
       name: companies.name,
       briefData: companies.briefData,
       salesApproachData: companies.salesApproachData,
-      enrichmentStatus: companies.enrichmentStatus
+      enrichmentStatus: companies.enrichmentStatus,
+      fitScore: companies.fitScore,
+      fitScoreSource: companies.fitScoreSource
     }).from(companies).where(and5(
-      eq8(companies.searchId, input.searchId)
+      eq10(companies.searchId, input.searchId)
     ));
     const processable = allCompanies.filter(
       (c) => c.enrichmentStatus !== "failed" || c.salesApproachData
@@ -12015,12 +15323,24 @@ var campaignQueueRouter = router({
       return { enqueued: 0, skipped: 0, total: 0, message: "No processable companies found in this campaign." };
     }
     const existingJobs = await db.select({ companyId: campaignQueue.companyId }).from(campaignQueue).where(and5(
-      eq8(campaignQueue.searchId, input.searchId),
-      inArray4(campaignQueue.status, ["pending", "running"])
+      eq10(campaignQueue.searchId, input.searchId),
+      inArray6(campaignQueue.status, ["pending", "running"])
     ));
     const alreadyQueued = new Set(existingJobs.map((j) => j.companyId));
     const toEnqueue = processable.filter((c) => {
       if (alreadyQueued.has(c.id)) return false;
+      if (input.jobType === "score_only") {
+        if (!input.forceRescore && c.fitScoreSource === "llm") return false;
+        return true;
+      }
+      if (input.jobType === "score_urgency_only") {
+        if (!input.forceRefresh && c.briefData) return false;
+        return true;
+      }
+      if (input.jobType === "outreach_only") {
+        if (!input.forceRefresh && c.salesApproachData) return false;
+        return true;
+      }
       if (!input.forceRefresh && c.briefData && c.salesApproachData) return false;
       return true;
     });
@@ -12057,7 +15377,7 @@ var campaignQueueRouter = router({
   })).query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) throw new TRPCError6({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-    const baseWhere = input.searchId ? and5(eq8(campaignQueue.userId, ctx.user.id), eq8(campaignQueue.searchId, input.searchId)) : eq8(campaignQueue.userId, ctx.user.id);
+    const baseWhere = input.searchId ? and5(eq10(campaignQueue.userId, ctx.user.id), eq10(campaignQueue.searchId, input.searchId)) : eq10(campaignQueue.userId, ctx.user.id);
     const rows = await db.select({
       status: campaignQueue.status,
       cnt: count()
@@ -12067,9 +15387,9 @@ var campaignQueueRouter = router({
       statusMap[row.status] = Number(row.cnt);
     }
     const [runningJob] = await db.select({ companyName: campaignQueue.companyName, startedAt: campaignQueue.startedAt }).from(campaignQueue).where(and5(
-      eq8(campaignQueue.userId, ctx.user.id),
-      eq8(campaignQueue.status, "running"),
-      ...input.searchId ? [eq8(campaignQueue.searchId, input.searchId)] : []
+      eq10(campaignQueue.userId, ctx.user.id),
+      eq10(campaignQueue.status, "running"),
+      ...input.searchId ? [eq10(campaignQueue.searchId, input.searchId)] : []
     )).limit(1);
     const worker = getWorkerStatus();
     return {
@@ -12093,9 +15413,9 @@ var campaignQueueRouter = router({
     const db = await getDb();
     if (!db) throw new TRPCError6({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
     const result = await db.update(campaignQueue).set({ status: "failed", errorMessage: "Cancelled by user", completedAt: /* @__PURE__ */ new Date() }).where(and5(
-      eq8(campaignQueue.searchId, input.searchId),
-      eq8(campaignQueue.userId, ctx.user.id),
-      eq8(campaignQueue.status, "pending")
+      eq10(campaignQueue.searchId, input.searchId),
+      eq10(campaignQueue.userId, ctx.user.id),
+      eq10(campaignQueue.status, "pending")
     ));
     return { cancelled: result.affectedRows ?? 0 };
   }),
@@ -12106,10 +15426,10 @@ var campaignQueueRouter = router({
     const db = await getDb();
     if (!db) throw new TRPCError6({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
     const jobs = await db.select().from(campaignQueue).where(and5(
-      eq8(campaignQueue.searchId, input.searchId),
-      eq8(campaignQueue.userId, ctx.user.id),
-      inArray4(campaignQueue.status, ["completed", "failed"])
-    )).orderBy(sql3`${campaignQueue.completedAt} DESC`).limit(50);
+      eq10(campaignQueue.searchId, input.searchId),
+      eq10(campaignQueue.userId, ctx.user.id),
+      inArray6(campaignQueue.status, ["completed", "failed"])
+    )).orderBy(sql4`${campaignQueue.completedAt} DESC`).limit(50);
     return jobs;
   })
 });
@@ -12118,7 +15438,7 @@ var campaignQueueRouter = router({
 import { z as z8 } from "zod";
 init_db();
 init_schema();
-import { eq as eq9, and as and6, sql as sql4 } from "drizzle-orm";
+import { eq as eq11, and as and6, isNotNull as isNotNull2, sql as sql5 } from "drizzle-orm";
 
 // server/leadinfoService.ts
 import * as XLSX2 from "xlsx";
@@ -12348,7 +15668,7 @@ var leadinfoRouter = router({
       name: companies.name,
       primaryDomain: companies.primaryDomain,
       websiteUrl: companies.websiteUrl
-    }).from(companies).where(eq9(companies.searchId, input.searchId));
+    }).from(companies).where(eq11(companies.searchId, input.searchId));
     const matches = matchCompaniesToCampaign(enriched, campaignCompanies);
     const matched = matches.filter((m) => m.matchType !== "unmatched");
     const unmatched = matches.filter((m) => m.matchType === "unmatched");
@@ -12394,7 +15714,7 @@ var leadinfoRouter = router({
       name: companies.name,
       primaryDomain: companies.primaryDomain,
       websiteUrl: companies.websiteUrl
-    }).from(companies).where(eq9(companies.searchId, input.searchId));
+    }).from(companies).where(eq11(companies.searchId, input.searchId));
     const matches = matchCompaniesToCampaign(enriched, campaignCompanies);
     const batchId = randomUUID2();
     let savedCount = 0;
@@ -12439,12 +15759,20 @@ var leadinfoRouter = router({
   }),
   /**
    * Get Leadinfo visit data for a specific company.
+   * First tries direct companyId match; falls back to domain matching across all campaigns.
    */
   getByCompany: protectedProcedure.input(z8.object({ companyId: z8.number() })).query(async ({ input }) => {
     const db = await getDb();
     if (!db) return null;
-    const rows = await db.select().from(leadinfoVisits).where(eq9(leadinfoVisits.companyId, input.companyId)).orderBy(sql4`${leadinfoVisits.importedAt} DESC`).limit(1);
-    return rows[0] || null;
+    const direct = await db.select().from(leadinfoVisits).where(eq11(leadinfoVisits.companyId, input.companyId)).orderBy(sql5`${leadinfoVisits.importedAt} DESC`).limit(1);
+    if (direct[0]) return direct[0];
+    const companyRow = await db.select({ websiteUrl: companies.websiteUrl, primaryDomain: companies.primaryDomain }).from(companies).where(eq11(companies.id, input.companyId)).limit(1);
+    if (!companyRow[0]) return null;
+    const rawDomain = companyRow[0].primaryDomain || companyRow[0].websiteUrl || "";
+    const domain = normaliseDomain(rawDomain);
+    if (!domain) return null;
+    const byDomain = await db.select().from(leadinfoVisits).where(eq11(leadinfoVisits.domain, domain)).orderBy(sql5`${leadinfoVisits.engagementScore} DESC, ${leadinfoVisits.importedAt} DESC`).limit(1);
+    return byDomain[0] || null;
   }),
   /**
    * Get all Leadinfo visits for a campaign (search).
@@ -12452,22 +15780,41 @@ var leadinfoRouter = router({
   getByCampaign: protectedProcedure.input(z8.object({ searchId: z8.number() })).query(async ({ input }) => {
     const db = await getDb();
     if (!db) return [];
-    return db.select().from(leadinfoVisits).where(eq9(leadinfoVisits.searchId, input.searchId)).orderBy(sql4`${leadinfoVisits.engagementScore} DESC`);
+    return db.select().from(leadinfoVisits).where(eq11(leadinfoVisits.searchId, input.searchId)).orderBy(sql5`${leadinfoVisits.engagementScore} DESC`);
   }),
   /**
    * Get company IDs that have Leadinfo data for a given campaign.
-   * Used for badge rendering on SearchResults without loading full data.
+   * Combines direct companyId matches (same campaign) with domain-based cross-campaign matches.
    */
   getMatchedCompanyIds: protectedProcedure.input(z8.object({ searchId: z8.number() })).query(async ({ input }) => {
     const db = await getDb();
     if (!db) return [];
-    const rows = await db.select({ companyId: leadinfoVisits.companyId }).from(leadinfoVisits).where(
+    const directRows = await db.select({ companyId: leadinfoVisits.companyId }).from(leadinfoVisits).where(
       and6(
-        eq9(leadinfoVisits.searchId, input.searchId),
-        sql4`${leadinfoVisits.companyId} IS NOT NULL`
+        eq11(leadinfoVisits.searchId, input.searchId),
+        isNotNull2(leadinfoVisits.companyId)
       )
     );
-    return rows.map((r) => r.companyId);
+    const directIds = new Set(directRows.map((r) => r.companyId));
+    const allLeadinfoDomains = await db.select({ domain: leadinfoVisits.domain }).from(leadinfoVisits).where(isNotNull2(leadinfoVisits.domain)).groupBy(leadinfoVisits.domain);
+    const leadinfoDomainSet = new Set(
+      allLeadinfoDomains.map((r) => r.domain).filter(Boolean)
+    );
+    if (leadinfoDomainSet.size === 0) return Array.from(directIds);
+    const campaignCompanies = await db.select({
+      id: companies.id,
+      websiteUrl: companies.websiteUrl,
+      primaryDomain: companies.primaryDomain
+    }).from(companies).where(eq11(companies.searchId, input.searchId));
+    const crossIds = /* @__PURE__ */ new Set();
+    for (const c of campaignCompanies) {
+      if (directIds.has(c.id)) continue;
+      const domain = normaliseDomain(c.primaryDomain || c.websiteUrl || "");
+      if (domain && leadinfoDomainSet.has(domain)) {
+        crossIds.add(c.id);
+      }
+    }
+    return [...Array.from(directIds), ...Array.from(crossIds)];
   }),
   /**
    * Get import history — list of past imports grouped by batch.
@@ -12478,10 +15825,10 @@ var leadinfoRouter = router({
     const rows = await db.select({
       importBatchId: leadinfoVisits.importBatchId,
       searchId: leadinfoVisits.searchId,
-      count: sql4`COUNT(*)`,
-      matchedCount: sql4`SUM(CASE WHEN ${leadinfoVisits.companyId} IS NOT NULL THEN 1 ELSE 0 END)`,
-      importedAt: sql4`MIN(${leadinfoVisits.importedAt})`
-    }).from(leadinfoVisits).where(eq9(leadinfoVisits.userId, ctx.user.id)).groupBy(leadinfoVisits.importBatchId, leadinfoVisits.searchId).orderBy(sql4`MIN(${leadinfoVisits.importedAt}) DESC`);
+      count: sql5`COUNT(*)`,
+      matchedCount: sql5`SUM(CASE WHEN ${leadinfoVisits.companyId} IS NOT NULL THEN 1 ELSE 0 END)`,
+      importedAt: sql5`MIN(${leadinfoVisits.importedAt})`
+    }).from(leadinfoVisits).where(eq11(leadinfoVisits.userId, ctx.user.id)).groupBy(leadinfoVisits.importBatchId, leadinfoVisits.searchId).orderBy(sql5`MIN(${leadinfoVisits.importedAt}) DESC`);
     return rows;
   })
 });
@@ -12565,8 +15912,8 @@ function escapeHtml(str) {
 }
 async function markSentInSupabase(companyId) {
   try {
-    const { createClient: createClient2 } = await import("@supabase/supabase-js");
-    const supabase = createClient2(
+    const { createClient: createClient9 } = await import("@supabase/supabase-js");
+    const supabase = createClient9(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
       { auth: { persistSession: false } }
@@ -12612,8 +15959,8 @@ var telegramRouter = router({
    * Respects optional campaignId filter. Rate-limited to 1 msg/sec to avoid Telegram flood limits.
    */
   sendAllHigh: protectedProcedure.input(z9.object({ campaignId: z9.number().optional() })).mutation(async ({ input }) => {
-    const { createClient: createClient2 } = await import("@supabase/supabase-js");
-    const supabase = createClient2(
+    const { createClient: createClient9 } = await import("@supabase/supabase-js");
+    const supabase = createClient9(
       process.env.SUPABASE_URL,
       process.env.SUPABASE_SERVICE_ROLE_KEY,
       { auth: { persistSession: false } }
@@ -12687,6 +16034,1689 @@ var webhookLogRouter = router({
   })
 });
 
+// server/salesMaterialsRouter.ts
+import { z as z11 } from "zod";
+import { TRPCError as TRPCError7 } from "@trpc/server";
+function randomSuffix2() {
+  return Math.random().toString(36).substring(2, 10);
+}
+var salesMaterialsRouter = router({
+  /**
+   * List all sales materials (all authenticated users).
+   */
+  list: protectedProcedure.query(async () => {
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const db = await getDb2();
+    if (!db) return { materials: [] };
+    const { salesMaterials: salesMaterials2, users: users3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { asc: asc2 } = await import("drizzle-orm");
+    const rows = await db.select({
+      id: salesMaterials2.id,
+      title: salesMaterials2.title,
+      description: salesMaterials2.description,
+      fileName: salesMaterials2.fileName,
+      fileUrl: salesMaterials2.fileUrl,
+      fileSize: salesMaterials2.fileSize,
+      mimeType: salesMaterials2.mimeType,
+      category: salesMaterials2.category,
+      sortOrder: salesMaterials2.sortOrder,
+      createdAt: salesMaterials2.createdAt,
+      uploaderName: users3.name
+    }).from(salesMaterials2).leftJoin(users3, (t2) => {
+      const { eq: eq21 } = __require("drizzle-orm");
+      return eq21(salesMaterials2.uploadedBy, users3.id);
+    }).orderBy(asc2(salesMaterials2.sortOrder), asc2(salesMaterials2.createdAt));
+    return { materials: rows };
+  }),
+  /**
+   * Upload a file (admin only). Accepts base64-encoded file content.
+   */
+  upload: protectedProcedure.input(
+    z11.object({
+      title: z11.string().min(1).max(256),
+      description: z11.string().optional(),
+      category: z11.string().optional(),
+      fileName: z11.string().min(1),
+      mimeType: z11.string().min(1),
+      fileSize: z11.number().int().positive(),
+      base64: z11.string().min(1)
+    })
+  ).mutation(async ({ ctx, input }) => {
+    if (ctx.user.role !== "admin") {
+      throw new TRPCError7({ code: "FORBIDDEN", message: "Admin only" });
+    }
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const db = await getDb2();
+    if (!db) throw new TRPCError7({ code: "INTERNAL_SERVER_ERROR" });
+    const { salesMaterials: salesMaterials2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const buffer = Buffer.from(input.base64, "base64");
+    const key = `sales-materials/${Date.now()}-${randomSuffix2()}-${input.fileName}`;
+    const { url } = await storagePut(key, buffer, input.mimeType);
+    await db.insert(salesMaterials2).values({
+      uploadedBy: ctx.user.id,
+      title: input.title,
+      description: input.description ?? null,
+      fileName: input.fileName,
+      fileKey: key,
+      fileUrl: url,
+      fileSize: input.fileSize,
+      mimeType: input.mimeType,
+      category: input.category ?? null,
+      sortOrder: 0
+    });
+    return { success: true, url };
+  }),
+  /**
+   * Delete a material (admin only).
+   */
+  delete: protectedProcedure.input(z11.object({ id: z11.number().int().positive() })).mutation(async ({ ctx, input }) => {
+    if (ctx.user.role !== "admin") {
+      throw new TRPCError7({ code: "FORBIDDEN", message: "Admin only" });
+    }
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const db = await getDb2();
+    if (!db) throw new TRPCError7({ code: "INTERNAL_SERVER_ERROR" });
+    const { salesMaterials: salesMaterials2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { eq: eq21 } = await import("drizzle-orm");
+    await db.delete(salesMaterials2).where(eq21(salesMaterials2.id, input.id));
+    return { success: true };
+  }),
+  /**
+   * Update title / description / category (admin only).
+   */
+  update: protectedProcedure.input(
+    z11.object({
+      id: z11.number().int().positive(),
+      title: z11.string().min(1).max(256).optional(),
+      description: z11.string().optional(),
+      category: z11.string().optional()
+    })
+  ).mutation(async ({ ctx, input }) => {
+    if (ctx.user.role !== "admin") {
+      throw new TRPCError7({ code: "FORBIDDEN", message: "Admin only" });
+    }
+    const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const db = await getDb2();
+    if (!db) throw new TRPCError7({ code: "INTERNAL_SERVER_ERROR" });
+    const { salesMaterials: salesMaterials2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const { eq: eq21 } = await import("drizzle-orm");
+    const updates = {};
+    if (input.title !== void 0) updates.title = input.title;
+    if (input.description !== void 0) updates.description = input.description;
+    if (input.category !== void 0) updates.category = input.category;
+    await db.update(salesMaterials2).set(updates).where(eq21(salesMaterials2.id, input.id));
+    return { success: true };
+  })
+});
+
+// server/shareRouter.ts
+import { z as z12 } from "zod";
+import { eq as eq12, and as and7, or as or2, desc as desc3 } from "drizzle-orm";
+import crypto from "crypto";
+init_db();
+init_db();
+import { inArray as inArray7 } from "drizzle-orm";
+
+// server/shareCache.ts
+var CACHE_TTL_MS = 24 * 60 * 60 * 1e3;
+var tokenCache = /* @__PURE__ */ new Map();
+var listCache = /* @__PURE__ */ new Map();
+function getCachedToken(token) {
+  const entry = tokenCache.get(token);
+  if (!entry) return null;
+  if (Date.now() - entry.cachedAt > CACHE_TTL_MS) {
+    tokenCache.delete(token);
+    return null;
+  }
+  return entry.data;
+}
+function setCachedToken(token, data) {
+  tokenCache.set(token, { data, cachedAt: Date.now() });
+}
+function getCachedList(listToken) {
+  const entry = listCache.get(listToken);
+  if (!entry) return null;
+  if (Date.now() - entry.cachedAt > CACHE_TTL_MS) {
+    listCache.delete(listToken);
+    return null;
+  }
+  return entry.data;
+}
+function setCachedList(listToken, data) {
+  listCache.set(listToken, { data, cachedAt: Date.now() });
+}
+function invalidateToken(token) {
+  tokenCache.delete(token);
+}
+
+// server/shareRouter.ts
+init_apolloPeopleSearch();
+init_schema();
+function generateToken() {
+  return crypto.randomBytes(16).toString("hex");
+}
+async function logShareContactRetrieval(db, params) {
+  const domain = params.visitorEmail.split("@")[1]?.toLowerCase() ?? "";
+  await db.insert(shareContactRetrievalLog).values({
+    visitorEmail: params.visitorEmail.toLowerCase(),
+    domain,
+    shareToken: params.shareToken,
+    companyId: params.companyId,
+    companyName: params.companyName,
+    actionType: params.actionType,
+    contactsReturned: params.contactsReturned
+  });
+}
+var shareRouter = router({
+  /**
+   * Create share tokens for a list of (companyId, brainId) pairs.
+   * Returns the generated tokens. Protected — only logged-in users.
+   */
+  createShareList: protectedProcedure.input(
+    z12.object({
+      items: z12.array(
+        z12.object({
+          companyId: z12.number(),
+          brainId: z12.number()
+        })
+      ),
+      shareListName: z12.string().optional()
+    })
+  ).mutation(async ({ ctx, input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const userId = ctx.user.id;
+    const results = [];
+    for (const item of input.items) {
+      const existing = await db.select().from(shareTokens).where(
+        and7(
+          eq12(shareTokens.companyId, item.companyId),
+          eq12(shareTokens.brainId, item.brainId),
+          eq12(shareTokens.createdBy, userId)
+        )
+      ).limit(1);
+      if (existing.length > 0) {
+        results.push({ companyId: item.companyId, brainId: item.brainId, token: existing[0].token });
+      } else {
+        const token = generateToken();
+        await db.insert(shareTokens).values({
+          token,
+          companyId: item.companyId,
+          brainId: item.brainId,
+          createdBy: userId,
+          shareListName: input.shareListName ?? null
+        });
+        results.push({ companyId: item.companyId, brainId: item.brainId, token });
+      }
+    }
+    return results;
+  }),
+  /**
+   * Public endpoint — resolves a share token and returns all data needed
+   * to render the read-only company+brain page. No authentication required.
+   */
+  resolveToken: publicProcedure.input(z12.object({ token: z12.string() })).query(async ({ input }) => {
+    const cached = getCachedToken(input.token);
+    if (cached && cached.leadinfo !== null) return cached;
+    if (cached) {
+      invalidateToken(input.token);
+    }
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const tokenRows = await db.select().from(shareTokens).where(eq12(shareTokens.token, input.token)).limit(1);
+    if (tokenRows.length === 0) throw new Error("Invalid or expired share link");
+    const tokenRow = tokenRows[0];
+    const companyRows = await db.select().from(companies).where(eq12(companies.id, tokenRow.companyId)).limit(1);
+    if (companyRows.length === 0) throw new Error("Company not found");
+    const company = companyRows[0];
+    const brainRows = await db.select().from(offeringBrain).where(eq12(offeringBrain.id, tokenRow.brainId)).limit(1);
+    const brain = brainRows[0] ?? null;
+    const brainOutputRows = await db.select().from(companyBrainOutputs).where(
+      and7(
+        eq12(companyBrainOutputs.companyId, tokenRow.companyId),
+        eq12(companyBrainOutputs.brainId, tokenRow.brainId)
+      )
+    ).limit(1);
+    const brainOutput = brainOutputRows[0] ?? null;
+    const contactRows = await db.select().from(contacts).where(eq12(contacts.companyId, tokenRow.companyId));
+    let leadinfoRows = await db.select().from(leadinfoVisits).where(eq12(leadinfoVisits.companyId, tokenRow.companyId));
+    if (leadinfoRows.length === 0 && company.websiteUrl) {
+      const normDomain = (url) => url.toLowerCase().replace(/^https?:\/\//, "").replace(/^\/\//, "").replace(/^www\./, "").split("/")[0].split("?")[0].replace(/\/$/, "");
+      const companyDomain = normDomain(company.websiteUrl);
+      if (companyDomain) {
+        const domainCompanies = await db.select({ id: companies.id }).from(companies).where(or2(
+          eq12(companies.websiteUrl, company.websiteUrl),
+          eq12(companies.websiteUrl, `https://${companyDomain}`),
+          eq12(companies.websiteUrl, `http://${companyDomain}`),
+          eq12(companies.websiteUrl, `https://www.${companyDomain}`),
+          eq12(companies.websiteUrl, `http://www.${companyDomain}`)
+        ));
+        const domainIds = domainCompanies.map((c) => c.id);
+        if (domainIds.length > 0) {
+          leadinfoRows = await db.select().from(leadinfoVisits).where(inArray7(leadinfoVisits.companyId, domainIds));
+        }
+      }
+    }
+    const leadinfoData = leadinfoRows.length > 0 ? {
+      totalSessions: leadinfoRows.reduce((s, r) => s + (r.totalSessions ?? 0), 0),
+      totalPages: leadinfoRows.reduce((s, r) => s + (r.totalPages ?? 0), 0),
+      totalDuration: leadinfoRows.reduce((s, r) => s + (r.totalDuration ?? 0), 0),
+      engagementScore: Math.max(...leadinfoRows.map((r) => r.engagementScore ?? 0)),
+      avgPagesPerSession: (() => {
+        const sessions = leadinfoRows.reduce((s, r) => s + (r.totalSessions ?? 0), 0);
+        const pages = leadinfoRows.reduce((s, r) => s + (r.totalPages ?? 0), 0);
+        return sessions > 0 ? Math.round(pages / sessions * 10) / 10 : 0;
+      })(),
+      intentSignals: (() => {
+        const all = [];
+        for (const r of leadinfoRows) {
+          try {
+            all.push(...JSON.parse(r.intentSignals ?? "[]"));
+          } catch {
+          }
+        }
+        return Array.from(new Set(all));
+      })(),
+      topPages: (() => {
+        const all = [];
+        for (const r of leadinfoRows) {
+          try {
+            all.push(...JSON.parse(r.topPages ?? "[]"));
+          } catch {
+          }
+        }
+        return Array.from(new Set(all)).slice(0, 5);
+      })()
+    } : null;
+    let companyImages = [];
+    if (tokenRow.cachedImages) {
+      try {
+        companyImages = JSON.parse(tokenRow.cachedImages);
+      } catch {
+      }
+    }
+    if (companyImages.length === 0) {
+      try {
+        const serperKey = process.env.SERPER_API_KEY;
+        if (serperKey && company.name) {
+          const searchQuery = `${company.name} company office headquarters`;
+          const serperRes = await fetch("https://google.serper.dev/images", {
+            method: "POST",
+            headers: { "X-API-KEY": serperKey, "Content-Type": "application/json" },
+            body: JSON.stringify({ q: searchQuery, num: 5 })
+          });
+          if (serperRes.ok) {
+            const serperData = await serperRes.json();
+            const images = serperData.images ?? [];
+            companyImages = images.map((img) => img.imageUrl ?? img.thumbnailUrl ?? "").filter((url) => url && url.startsWith("http")).slice(0, 2);
+            if (companyImages.length > 0) {
+              await db.update(shareTokens).set({ cachedImages: JSON.stringify(companyImages), cachedAt: /* @__PURE__ */ new Date() }).where(eq12(shareTokens.id, tokenRow.id));
+            }
+          }
+        }
+      } catch {
+      }
+    }
+    const result = {
+      company,
+      brain,
+      brainOutput,
+      contacts: contactRows,
+      contactsFetchedAt: company.contactsFetchedAt ?? null,
+      leadinfo: leadinfoData,
+      shareListName: tokenRow.shareListName,
+      companyImages
+    };
+    setCachedToken(input.token, result);
+    return result;
+  }),
+  /**
+   * Get export data for a share list — returns all columns for Excel export.
+   * Protected — only logged-in users.
+   */
+  getShareListExport: protectedProcedure.input(
+    z12.object({
+      items: z12.array(
+        z12.object({
+          companyId: z12.number(),
+          brainId: z12.number(),
+          token: z12.string()
+        })
+      ),
+      baseUrl: z12.string()
+    })
+  ).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const rows = [];
+    for (const item of input.items) {
+      const companyRows = await db.select().from(companies).where(eq12(companies.id, item.companyId)).limit(1);
+      const company = companyRows[0];
+      if (!company) continue;
+      const brainRows = await db.select().from(offeringBrain).where(eq12(offeringBrain.id, item.brainId)).limit(1);
+      const brain = brainRows[0] ?? null;
+      const brainOutputRows = await db.select().from(companyBrainOutputs).where(
+        and7(
+          eq12(companyBrainOutputs.companyId, item.companyId),
+          eq12(companyBrainOutputs.brainId, item.brainId)
+        )
+      ).limit(1);
+      const brainOutput = brainOutputRows[0] ?? null;
+      const contactRows = await db.select().from(contacts).where(eq12(contacts.companyId, item.companyId)).limit(1);
+      const firstContact = contactRows[0] ?? null;
+      let keySignal = "";
+      const briefStr = brainOutput?.briefData ?? company.briefData;
+      if (briefStr) {
+        try {
+          const brief = JSON.parse(briefStr);
+          keySignal = brief?.urgencySignals?.[0]?.signal ?? brief?.signals?.[0]?.signal ?? brief?.keySignal ?? "";
+        } catch {
+        }
+      }
+      const empCount = company.employeeCount ?? company.headcount ?? "";
+      let sector = "";
+      if (company.sliceMetadata) {
+        try {
+          const meta = JSON.parse(company.sliceMetadata);
+          sector = meta?.industry ?? "";
+        } catch {
+        }
+      }
+      rows.push({
+        companyName: company.name,
+        website: company.websiteUrl ?? "",
+        country: company.country ?? "",
+        employeeCount: String(empCount),
+        sector,
+        brainName: brain?.brainName ?? "",
+        fitScore: brainOutput?.fitScore ?? company.fitScore ?? null,
+        urgencyScore: brainOutput?.urgencyScore ?? company.urgencyScore ?? null,
+        keySignal,
+        contactName: firstContact?.fullName ?? "",
+        shareLink: `${input.baseUrl}/share/${item.token}`
+      });
+    }
+    return rows;
+  }),
+  /**
+   * Create a list-level share token that groups all company tokens.
+   * Returns a single listToken URL for the public overview page.
+   */
+  createShareListWithToken: protectedProcedure.input(
+    z12.object({
+      items: z12.array(
+        z12.object({
+          companyId: z12.number(),
+          brainId: z12.number()
+        })
+      ),
+      shareListName: z12.string().optional()
+    })
+  ).mutation(async ({ ctx, input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const userId = ctx.user.id;
+    const tokenResults = [];
+    for (const item of input.items) {
+      const existing = await db.select().from(shareTokens).where(and7(eq12(shareTokens.companyId, item.companyId), eq12(shareTokens.brainId, item.brainId), eq12(shareTokens.createdBy, userId))).limit(1);
+      if (existing.length > 0) {
+        tokenResults.push({ companyId: item.companyId, brainId: item.brainId, token: existing[0].token, tokenId: existing[0].id });
+      } else {
+        const token = generateToken();
+        await db.insert(shareTokens).values({ token, companyId: item.companyId, brainId: item.brainId, createdBy: userId, shareListName: input.shareListName ?? null });
+        const inserted = await db.select().from(shareTokens).where(eq12(shareTokens.token, token)).limit(1);
+        tokenResults.push({ companyId: item.companyId, brainId: item.brainId, token, tokenId: inserted[0].id });
+      }
+    }
+    const brainFreq2 = /* @__PURE__ */ new Map();
+    for (const t2 of tokenResults) {
+      brainFreq2.set(t2.brainId, (brainFreq2.get(t2.brainId) ?? 0) + 1);
+    }
+    const dominantBrainId2 = Array.from(brainFreq2.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    const listToken = generateToken();
+    await db.insert(shareLists).values({ listToken, shareListName: input.shareListName ?? null, createdBy: userId, brainId: dominantBrainId2 ?? void 0 });
+    const listRows = await db.select().from(shareLists).where(eq12(shareLists.listToken, listToken)).limit(1);
+    const shareListId = listRows[0].id;
+    for (const t2 of tokenResults) {
+      await db.insert(shareListItems).values({ shareListId, shareTokenId: t2.tokenId });
+    }
+    return { listToken, tokens: tokenResults };
+  }),
+  /**
+   * Public endpoint — resolves a list token and returns all companies with their data.
+   */
+  resolveListToken: publicProcedure.input(z12.object({ listToken: z12.string() })).query(async ({ input }) => {
+    const cached = getCachedList(input.listToken);
+    if (cached) return cached;
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const listRows = await db.select().from(shareLists).where(eq12(shareLists.listToken, input.listToken)).limit(1);
+    if (listRows.length === 0) throw new Error("Invalid or expired share list link");
+    const shareList = listRows[0];
+    const db2 = await getDb();
+    if (!db2) throw new Error("Database unavailable");
+    const viewRows = await db2.execute(
+      `SELECT * FROM share_list_company_view WHERE shareListId = ${shareList.id}`
+    );
+    const rawRows = Array.isArray(viewRows[0]) ? viewRows[0] : viewRows;
+    const companyRows = rawRows.map((row) => {
+      let keySignal = "";
+      const briefStr = row.outputBriefData ?? row.briefData;
+      if (briefStr) {
+        try {
+          const brief = JSON.parse(briefStr);
+          keySignal = brief?.urgencySignals?.[0]?.signal ?? brief?.signals?.[0]?.signal ?? brief?.keySignal ?? "";
+        } catch {
+        }
+      }
+      let sector = "";
+      if (row.sliceMetadata) {
+        try {
+          const meta = JSON.parse(row.sliceMetadata);
+          sector = meta?.industry ?? "";
+        } catch {
+        }
+      }
+      return {
+        companyId: Number(row.companyId),
+        brainId: Number(row.brainId),
+        token: String(row.token ?? ""),
+        companyName: String(row.companyName ?? ""),
+        website: String(row.websiteUrl ?? ""),
+        country: String(row.country ?? ""),
+        city: String(row.city ?? ""),
+        employeeCount: "",
+        sector,
+        brainName: String(row.brainName ?? ""),
+        fitScore: row.outputFitScore != null ? Number(row.outputFitScore) : row.fitScore != null ? Number(row.fitScore) : null,
+        urgencyScore: row.outputUrgencyScore != null ? Number(row.outputUrgencyScore) : row.urgencyScore != null ? Number(row.urgencyScore) : null,
+        keySignal,
+        contactName: String(row.contactName ?? ""),
+        contactTitle: String(row.contactTitle ?? ""),
+        contactEmail: String(row.contactEmail ?? "")
+      };
+    });
+    const result = {
+      shareListName: shareList.shareListName,
+      createdAt: shareList.createdAt,
+      companies: companyRows
+    };
+    setCachedList(input.listToken, result);
+    return result;
+  }),
+  /**
+   * Returns all share lists — public, no login required.
+   */
+  getShareLists: publicProcedure.query(async () => {
+    const mysql2 = await import("mysql2/promise");
+    const conn = await mysql2.createConnection(process.env.DATABASE_URL);
+    try {
+      const [rows] = await conn.execute(
+        `SELECT sl.id, sl.listToken, sl.shareListName, sl.createdAt, sl.brainId,
+                ob.brainName,
+                COUNT(sli.id) AS companyCount
+         FROM share_lists sl
+         LEFT JOIN share_list_items sli ON sli.shareListId = sl.id
+         LEFT JOIN offering_brain ob ON ob.id = sl.brainId
+         GROUP BY sl.id, ob.brainName
+         ORDER BY sl.createdAt DESC`
+      );
+      const lists = rows.map((r) => ({
+        id: Number(r.id),
+        listToken: String(r.listToken),
+        shareListName: r.shareListName ? String(r.shareListName) : null,
+        createdAt: new Date(r.createdAt),
+        companyCount: Number(r.companyCount),
+        brainId: r.brainId ? Number(r.brainId) : null,
+        brainName: r.brainName ? String(r.brainName) : null
+      }));
+      return { lists };
+    } finally {
+      await conn.end();
+    }
+  }),
+  /**
+   * Delete a share list (and cascade-delete its items via FK).
+   * Only the owner can delete their own list.
+   */
+  deleteShareList: protectedProcedure.input(z12.object({ listId: z12.number() })).mutation(async ({ ctx, input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const userId = ctx.user.id;
+    const [existing] = await db.select({ id: shareLists.id }).from(shareLists).where(and7(eq12(shareLists.id, input.listId), eq12(shareLists.createdBy, userId))).limit(1);
+    if (!existing) throw new Error("Share list not found or access denied");
+    await db.delete(shareLists).where(eq12(shareLists.id, input.listId));
+    return { ok: true };
+  }),
+  /**
+   * Rename a share list. Only the owner can rename their own list.
+   */
+  renameShareList: protectedProcedure.input(z12.object({ listId: z12.number(), name: z12.string().max(200) })).mutation(async ({ ctx, input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const userId = ctx.user.id;
+    const [existing] = await db.select({ id: shareLists.id }).from(shareLists).where(and7(eq12(shareLists.id, input.listId), eq12(shareLists.createdBy, userId))).limit(1);
+    if (!existing) throw new Error("Share list not found or access denied");
+    await db.update(shareLists).set({ shareListName: input.name.trim() || null }).where(eq12(shareLists.id, input.listId));
+    return { ok: true };
+  })
+});
+var shareExtRouter = router({
+  /**
+   * Public — verify an email address against the domain allowlist.
+   * Logs the access attempt and returns whether access is granted.
+   */
+  verifyShareAccess: publicProcedure.input(z12.object({
+    email: z12.string().email(),
+    tokenType: z12.enum(["company", "list", "brain"]),
+    tokenValue: z12.string()
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const domain = input.email.split("@")[1]?.toLowerCase() ?? "";
+    const allowed = await db.select().from(shareAllowedDomains).where(eq12(shareAllowedDomains.domain, domain)).limit(1);
+    const accessGranted = allowed.length > 0;
+    await db.insert(shareAccessLog).values({
+      email: input.email.toLowerCase(),
+      domain,
+      tokenType: input.tokenType,
+      tokenValue: input.tokenValue,
+      accessGranted: accessGranted ? 1 : 0,
+      ipAddress: null
+    });
+    if (accessGranted) {
+      const normalizedEmail = input.email.toLowerCase();
+      const existing = await db.select().from(shareVisitors).where(eq12(shareVisitors.email, normalizedEmail)).limit(1);
+      if (existing.length > 0) {
+        await db.update(shareVisitors).set({ accessCount: existing[0].accessCount + 1 }).where(eq12(shareVisitors.email, normalizedEmail));
+      } else {
+        await db.insert(shareVisitors).values({ email: normalizedEmail, accessCount: 1 });
+      }
+    }
+    return { accessGranted, domain };
+  }),
+  /** Admin — get all allowed domains */
+  getShareAllowedDomains: protectedProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    return db.select().from(shareAllowedDomains).orderBy(shareAllowedDomains.createdAt);
+  }),
+  /** Admin — add a domain to the allowlist */
+  addShareAllowedDomain: protectedProcedure.input(z12.object({ domain: z12.string().min(3) })).mutation(async ({ ctx, input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const domain = input.domain.toLowerCase().trim().replace(/^@/, "");
+    await db.insert(shareAllowedDomains).values({ domain, addedBy: ctx.user.id });
+    return { domain };
+  }),
+  /** Admin — remove a domain from the allowlist */
+  removeShareAllowedDomain: protectedProcedure.input(z12.object({ domain: z12.string() })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    await db.delete(shareAllowedDomains).where(eq12(shareAllowedDomains.domain, input.domain));
+    return { ok: true };
+  }),
+  /** Admin — get access log entries */
+  getShareAccessLog: protectedProcedure.input(z12.object({ limit: z12.number().default(200) })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const { desc: desc5 } = await import("drizzle-orm");
+    return db.select().from(shareAccessLog).orderBy(desc5(shareAccessLog.createdAt)).limit(input.limit);
+  }),
+  /** Admin — get all unique visitors */
+  getShareVisitors: protectedProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const { desc: desc5 } = await import("drizzle-orm");
+    return db.select().from(shareVisitors).orderBy(desc5(shareVisitors.lastSeen));
+  }),
+  /** Admin — who retrieved contact details on share pages */
+  getShareContactRetrievalLog: protectedProcedure.input(z12.object({ limit: z12.number().default(200) })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    return db.select().from(shareContactRetrievalLog).orderBy(desc3(shareContactRetrievalLog.createdAt)).limit(input.limit);
+  }),
+  /** Protected — create or reuse a brain share token */
+  createBrainShareToken: protectedProcedure.input(z12.object({ brainId: z12.number() })).mutation(async ({ ctx, input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const existing = await db.select().from(brainShareTokens).where(and7(eq12(brainShareTokens.brainId, input.brainId), eq12(brainShareTokens.createdBy, ctx.user.id))).limit(1);
+    if (existing.length > 0) return { token: existing[0].token };
+    const token = crypto.randomBytes(16).toString("hex");
+    await db.insert(brainShareTokens).values({ token, brainId: input.brainId, createdBy: ctx.user.id });
+    return { token };
+  }),
+  /** Public — resolve a brain share token */
+  resolveBrainToken: publicProcedure.input(z12.object({ token: z12.string() })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const rows = await db.select().from(brainShareTokens).where(eq12(brainShareTokens.token, input.token)).limit(1);
+    if (rows.length === 0) throw new Error("Invalid or expired brain share link");
+    const brainRows = await db.select().from(offeringBrain).where(eq12(offeringBrain.id, rows[0].brainId)).limit(1);
+    if (brainRows.length === 0) throw new Error("Brain not found");
+    return { brain: brainRows[0] };
+  }),
+  /**
+   * Protected — create a shareable intelligence list.
+   * Fetches all researched companies with fit > 50 from Supabase,
+   * auto-generates share tokens for each, and returns a list token URL.
+   */
+  shareIntelligenceList: protectedProcedure.input(z12.object({
+    origin: z12.string(),
+    dateFrom: z12.string().optional(),
+    dateTo: z12.string().optional(),
+    campaignIds: z12.array(z12.number()).optional(),
+    urgencyLabel: z12.string().optional(),
+    minFit: z12.number().optional()
+  })).mutation(async ({ ctx, input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const userId = ctx.user.id;
+    const { isNotNull: isNotNull5, gte: gteOp, inArray: inArrayOp } = await import("drizzle-orm");
+    const { searches: searches3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    const conditions = [isNotNull5(companies.briefData)];
+    if (input.campaignIds && input.campaignIds.length > 0) {
+      conditions.push(inArrayOp(companies.searchId, input.campaignIds));
+    }
+    if (input.urgencyLabel) {
+      if (input.urgencyLabel === "HIGH") conditions.push(gteOp(companies.urgencyScore, 70));
+      else if (input.urgencyLabel === "MEDIUM") {
+        const { between } = await import("drizzle-orm");
+        conditions.push(between(companies.urgencyScore, 40, 69));
+      } else if (input.urgencyLabel === "LOW") {
+        const { lt: ltOp } = await import("drizzle-orm");
+        conditions.push(ltOp(companies.urgencyScore, 40));
+      }
+    }
+    if (input.minFit) {
+      conditions.push(gteOp(companies.fitScore, input.minFit));
+    }
+    const mysqlRows = await db.select({ company: companies, search: searches3 }).from(companies).leftJoin(searches3, eq12(companies.searchId, searches3.id)).where(and7(...conditions)).orderBy(companies.urgencyScore).limit(2e3);
+    if (mysqlRows.length === 0) throw new Error("No companies match the active filters");
+    const searchCache = /* @__PURE__ */ new Map();
+    const tokenResults = [];
+    for (const { company: row, search } of mysqlRows) {
+      const companyId = row.id;
+      let brainId = null;
+      const campaignId = row.searchId;
+      if (campaignId) {
+        if (searchCache.has(campaignId)) {
+          brainId = searchCache.get(campaignId) ?? null;
+        } else {
+          brainId = search?.brainId ?? null;
+          searchCache.set(campaignId, brainId);
+        }
+      }
+      if (!brainId) {
+        const { getActiveBrain: getActiveBrain2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+        const active = await getActiveBrain2(userId);
+        brainId = active?.id ?? null;
+      }
+      if (!brainId) continue;
+      const existing = await db.select().from(shareTokens).where(and7(eq12(shareTokens.companyId, companyId), eq12(shareTokens.brainId, brainId), eq12(shareTokens.createdBy, userId))).limit(1);
+      if (existing.length > 0) {
+        tokenResults.push({ companyId, brainId, token: existing[0].token, tokenId: existing[0].id });
+      } else {
+        const token = generateToken();
+        await db.insert(shareTokens).values({ token, companyId, brainId, createdBy: userId, shareListName: "Intelligence Share" });
+        const inserted = await db.select().from(shareTokens).where(eq12(shareTokens.token, token)).limit(1);
+        tokenResults.push({ companyId, brainId, token, tokenId: inserted[0].id });
+      }
+    }
+    if (tokenResults.length === 0) throw new Error("No companies could be shared (missing brain links)");
+    const brainFreq = /* @__PURE__ */ new Map();
+    for (const t2 of tokenResults) {
+      brainFreq.set(t2.brainId, (brainFreq.get(t2.brainId) ?? 0) + 1);
+    }
+    const dominantBrainId = Array.from(brainFreq.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
+    const listToken = generateToken();
+    const listName = `Intelligence \u2014 ${(/* @__PURE__ */ new Date()).toLocaleDateString()} (${tokenResults.length} companies)`;
+    await db.insert(shareLists).values({ listToken, shareListName: listName, createdBy: userId, brainId: dominantBrainId ?? void 0 });
+    ;
+    const listRows = await db.select().from(shareLists).where(eq12(shareLists.listToken, listToken)).limit(1);
+    const shareListId = listRows[0].id;
+    for (const t2 of tokenResults) {
+      await db.insert(shareListItems).values({ shareListId, shareTokenId: t2.tokenId });
+    }
+    const listUrl = `${input.origin}/share/list/${listToken}`;
+    return { listToken, listUrl, count: tokenResults.length };
+  }),
+  /**
+   * Public — Find Decision-Makers at a company via share token.
+   * Requires email verification (checked via shareAllowedDomains).
+   * Saves found contacts to DB and returns them.
+   */
+  findDecisionMakers: publicProcedure.input(z12.object({
+    token: z12.string(),
+    visitorEmail: z12.string().email()
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const domain = input.visitorEmail.split("@")[1]?.toLowerCase() ?? "";
+    const allowed = await db.select().from(shareAllowedDomains).where(eq12(shareAllowedDomains.domain, domain)).limit(1);
+    if (allowed.length === 0) throw new Error("Access denied: email domain not on allowlist");
+    const tokenRows = await db.select().from(shareTokens).where(eq12(shareTokens.token, input.token)).limit(1);
+    if (tokenRows.length === 0) throw new Error("Invalid share token");
+    const { companyId } = tokenRows[0];
+    const companyRows = await db.select().from(companies).where(eq12(companies.id, companyId)).limit(1);
+    if (companyRows.length === 0) throw new Error("Company not found");
+    const company = companyRows[0];
+    const companyDomain = company.websiteUrl ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "") : company.primaryDomain ?? null;
+    if (!companyDomain) throw new Error("Company has no domain");
+    const result = await trickleDownSearch(companyDomain, company.name ?? "", 5, false);
+    const savedContacts = [];
+    const existingContacts = await getContactsByCompanyId(companyId);
+    const existingEmails = new Set(existingContacts.map((c) => c.email?.toLowerCase()).filter(Boolean));
+    const existingNames = new Set(existingContacts.map((c) => c.fullName?.toLowerCase()).filter(Boolean));
+    for (const contact of result.contacts) {
+      const emailKey = contact.email?.toLowerCase();
+      const nameKey = contact.name?.toLowerCase();
+      if (emailKey && existingEmails.has(emailKey) || nameKey && existingNames.has(nameKey)) {
+        savedContacts.push(existingContacts.find((c) => c.email?.toLowerCase() === emailKey || c.fullName?.toLowerCase() === nameKey));
+        continue;
+      }
+      try {
+        const saved = await createContact({
+          companyId,
+          apolloPersonId: contact.id ?? null,
+          firstName: contact.firstName ?? null,
+          lastName: contact.lastName ?? null,
+          fullName: contact.name ?? null,
+          title: contact.title ?? null,
+          email: contact.email ?? null,
+          phone: contact.phone ?? null,
+          linkedinUrl: contact.linkedinUrl ?? null,
+          searchedTitle: "Decision Maker"
+        });
+        savedContacts.push(saved);
+        if (emailKey) existingEmails.add(emailKey);
+        if (nameKey) existingNames.add(nameKey);
+      } catch {
+      }
+    }
+    const returned = savedContacts.filter(Boolean);
+    await logShareContactRetrieval(db, {
+      visitorEmail: input.visitorEmail,
+      shareToken: input.token,
+      companyId,
+      companyName: company.name ?? null,
+      actionType: "decision_makers",
+      contactsReturned: returned.length
+    });
+    return { contacts: returned, tierLabel: result.tierLabel, tiersSearched: result.tiersSearched };
+  }),
+  /**
+   * Public — Get All Personnel at a company via share token.
+   * Requires email verification. Saves contacts to DB and returns them.
+   */
+  getAllPersonnelForShare: publicProcedure.input(z12.object({
+    token: z12.string(),
+    visitorEmail: z12.string().email()
+  })).mutation(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const domain = input.visitorEmail.split("@")[1]?.toLowerCase() ?? "";
+    const allowed = await db.select().from(shareAllowedDomains).where(eq12(shareAllowedDomains.domain, domain)).limit(1);
+    if (allowed.length === 0) throw new Error("Access denied: email domain not on allowlist");
+    const tokenRows = await db.select().from(shareTokens).where(eq12(shareTokens.token, input.token)).limit(1);
+    if (tokenRows.length === 0) throw new Error("Invalid share token");
+    const { companyId } = tokenRows[0];
+    const companyRows = await db.select().from(companies).where(eq12(companies.id, companyId)).limit(1);
+    if (companyRows.length === 0) throw new Error("Company not found");
+    const company = companyRows[0];
+    const companyDomain = company.websiteUrl ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "") : company.primaryDomain ?? null;
+    if (!companyDomain) throw new Error("Company has no domain");
+    const result = await getAllPersonnel(companyDomain, company.name ?? "", 500);
+    const existingContacts = await getContactsByCompanyId(companyId);
+    const existingEmails = new Set(existingContacts.map((c) => c.email?.toLowerCase()).filter(Boolean));
+    const existingNames = new Set(existingContacts.map((c) => c.fullName?.toLowerCase()).filter(Boolean));
+    for (const contact of result.contacts) {
+      const emailKey = contact.email?.toLowerCase();
+      const nameKey = contact.name?.toLowerCase();
+      if (emailKey && existingEmails.has(emailKey) || nameKey && existingNames.has(nameKey)) continue;
+      try {
+        await createContact({
+          companyId,
+          apolloPersonId: contact.id ?? null,
+          firstName: contact.firstName ?? null,
+          lastName: contact.lastName ?? null,
+          fullName: contact.name ?? null,
+          title: contact.title ?? null,
+          email: contact.email ?? null,
+          phone: contact.phone ?? null,
+          linkedinUrl: contact.linkedinUrl ?? null,
+          searchedTitle: "All Personnel"
+        });
+        if (emailKey) existingEmails.add(emailKey);
+        if (nameKey) existingNames.add(nameKey);
+      } catch {
+      }
+    }
+    await db.update(companies).set({ contactsFetchedAt: /* @__PURE__ */ new Date() }).where(eq12(companies.id, companyId));
+    const allContacts = await getContactsByCompanyId(companyId);
+    await logShareContactRetrieval(db, {
+      visitorEmail: input.visitorEmail,
+      shareToken: input.token,
+      companyId,
+      companyName: company.name ?? null,
+      actionType: "all_personnel",
+      contactsReturned: allContacts.length
+    });
+    return { contacts: allContacts, total: result.totalFound, fetchedAt: /* @__PURE__ */ new Date() };
+  }),
+  /** Public -- get stored contacts for a company via share token (no Apollo call) */
+  getStoredContacts: publicProcedure.input(z12.object({ token: z12.string() })).query(async ({ input }) => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const tokenRows = await db.select().from(shareTokens).where(eq12(shareTokens.token, input.token)).limit(1);
+    if (tokenRows.length === 0) throw new Error("Invalid share token");
+    const { companyId } = tokenRows[0];
+    const companyRows = await db.select({ contactsFetchedAt: companies.contactsFetchedAt }).from(companies).where(eq12(companies.id, companyId)).limit(1);
+    const fetchedAt = companyRows[0]?.contactsFetchedAt ?? null;
+    const storedContacts = await getContactsByCompanyId(companyId);
+    return { contacts: storedContacts, fetchedAt };
+  }),
+  /**
+   * Admin: fetch all feedback rows from MySQL share_feedback.
+   * Protected — only logged-in users.
+   */
+  getFeedback: protectedProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const rows = await db.select().from(shareFeedback).orderBy(desc3(shareFeedback.submittedAt)).limit(500);
+    return {
+      rows: rows.map((r) => ({
+        id: r.id,
+        shareToken: r.shareToken,
+        companyId: r.companyId ?? null,
+        companyName: r.companyName ?? null,
+        rating: r.rating ?? null,
+        comment: r.comment ?? null,
+        submitterName: r.submitterName ?? null,
+        submitterEmail: r.submitterEmail ?? null,
+        submittedAt: r.submittedAt instanceof Date ? r.submittedAt.toISOString() : String(r.submittedAt)
+      }))
+    };
+  }),
+  /** Public -- list ALL brains with their share tokens (if any) for the overview page */
+  listSharedBrains: publicProcedure.query(async () => {
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const brainRows = await db.select().from(offeringBrain);
+    const tokenRows = await db.select().from(brainShareTokens);
+    const tokenMap = /* @__PURE__ */ new Map();
+    for (const t2 of tokenRows) {
+      if (!tokenMap.has(t2.brainId)) tokenMap.set(t2.brainId, t2.token);
+    }
+    const brains = brainRows.map((b) => ({
+      id: b.id,
+      brainName: b.brainName,
+      companyName: b.companyName,
+      companyWebsite: b.companyWebsite,
+      offeringSummary: b.offeringSummary,
+      isActive: b.isActive,
+      showOnLeadtrigger: b.showOnLeadtrigger,
+      token: tokenMap.get(b.id) ?? ""
+    }));
+    return { brains };
+  })
+});
+
+// server/campaignBrainRouter.ts
+import { z as z13 } from "zod";
+init_db();
+init_schema();
+import { TRPCError as TRPCError8 } from "@trpc/server";
+import { createClient as createClient7 } from "@supabase/supabase-js";
+import { eq as eq13 } from "drizzle-orm";
+function getSupabase4() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set");
+  return createClient7(url, key, { auth: { persistSession: false } });
+}
+function getFitTier(score) {
+  if (score >= 0.65) return "A";
+  if (score >= 0.55) return "B";
+  if (score >= 0.45) return "C";
+  return "D";
+}
+var campaignBrainRouter = router({
+  /**
+   * Get all brains with their embedding status (for brain picker UI)
+   */
+  listBrains: superAdminProcedure.query(async () => {
+    const sb = getSupabase4();
+    const { data: brains, error } = await sb.from("lt_mns_offering_brains").select("id, brain_name, company_name, offering_summary, target_sectors, status, is_active, show_on_leadtrigger").eq("status", "completed");
+    if (error) {
+      console.error("[CampaignBrain] Failed to fetch brains:", error.message);
+      return [];
+    }
+    const { data: embRows } = await sb.from("lt_mns_brain_embeddings").select("brain_id");
+    const embeddedBrainIds = new Set((embRows ?? []).map((r) => String(r.brain_id)));
+    return (brains ?? []).map((b) => ({
+      id: b.id,
+      brainName: b.brain_name,
+      companyName: b.company_name,
+      offeringSummary: b.offering_summary,
+      icpIndustries: b.target_sectors ?? [],
+      status: b.status,
+      isActive: b.is_active,
+      hasEmbedding: embeddedBrainIds.has(String(b.id))
+    }));
+  }),
+  /**
+   * Find companies by Brain similarity.
+   * Fetches the brain's embedding from Supabase, then calls the RPC.
+   */
+  findByBrain: superAdminProcedure.input(
+    z13.object({
+      brainId: z13.string(),
+      limit: z13.number().min(1).max(500).default(100),
+      threshold: z13.number().min(0).max(1).default(0.4),
+      // Optional filters
+      sector: z13.string().optional(),
+      excludeSectors: z13.array(z13.string()).optional(),
+      country: z13.string().optional(),
+      minEmployees: z13.number().optional()
+    })
+  ).query(async ({ input }) => {
+    const sb = getSupabase4();
+    const { data: brainEmb, error: embErr } = await sb.from("lt_mns_brain_embeddings").select("embedding").eq("brain_id", input.brainId).single();
+    if (embErr || !brainEmb) {
+      throw new TRPCError8({
+        code: "NOT_FOUND",
+        message: `No embedding found for brain ${input.brainId}. Run the embedding job first.`
+      });
+    }
+    const embedding = typeof brainEmb.embedding === "string" ? JSON.parse(brainEmb.embedding) : brainEmb.embedding;
+    const { data: matches, error: rpcErr } = await sb.rpc(
+      "match_companies_to_embedding",
+      {
+        p_embedding: embedding,
+        p_limit: input.limit,
+        p_threshold: input.threshold
+      }
+    );
+    if (rpcErr) {
+      throw new TRPCError8({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Vector search failed: ${rpcErr.message}`
+      });
+    }
+    let results = matches ?? [];
+    if (input.sector) {
+      results = results.filter(
+        (r) => r.sector?.toLowerCase().includes(input.sector.toLowerCase())
+      );
+    }
+    if (input.excludeSectors && input.excludeSectors.length > 0) {
+      const excluded = new Set(input.excludeSectors.map((s) => s.toLowerCase()));
+      results = results.filter(
+        (r) => !r.sector || !excluded.has(r.sector.toLowerCase())
+      );
+    }
+    if (input.country) {
+      results = results.filter(
+        (r) => r.country?.toLowerCase().includes(input.country.toLowerCase())
+      );
+    }
+    if (input.minEmployees) {
+      results = results.filter(
+        (r) => (r.employee_count ?? 0) >= input.minEmployees
+      );
+    }
+    return results.map((r) => ({
+      companyId: r.company_id,
+      companyName: r.company_name,
+      domain: r.domain,
+      sector: r.sector,
+      country: r.country,
+      employeeCount: r.employee_count,
+      similarityScore: r.similarity_score,
+      fitTier: getFitTier(r.similarity_score)
+    }));
+  }),
+  /**
+   * Get available filter options (sectors, countries) from the matched companies
+   */
+  getFilterOptions: superAdminProcedure.input(z13.object({ brainId: z13.string() })).query(async ({ input }) => {
+    const sb = getSupabase4();
+    const { data: brainEmb } = await sb.from("lt_mns_brain_embeddings").select("embedding").eq("brain_id", input.brainId).single();
+    if (!brainEmb) return { sectors: [], countries: [] };
+    const embedding = typeof brainEmb.embedding === "string" ? JSON.parse(brainEmb.embedding) : brainEmb.embedding;
+    const { data: matches } = await sb.rpc("match_companies_to_embedding", {
+      p_embedding: embedding,
+      p_limit: 500,
+      p_threshold: 0.35
+    });
+    const sectors = /* @__PURE__ */ new Map();
+    const countries = /* @__PURE__ */ new Map();
+    for (const m of matches ?? []) {
+      if (m.sector) sectors.set(m.sector, (sectors.get(m.sector) ?? 0) + 1);
+      if (m.country) countries.set(m.country, (countries.get(m.country) ?? 0) + 1);
+    }
+    return {
+      sectors: Array.from(sectors.entries()).sort((a, b) => b[1] - a[1]).map(([name, count2]) => ({ name, count: count2 })),
+      countries: Array.from(countries.entries()).sort((a, b) => b[1] - a[1]).map(([name, count2]) => ({ name, count: count2 }))
+    };
+  }),
+  /**
+   * Create a campaign from Brain similarity results.
+   * Imports matched companies from Supabase into the local DB and creates a search record.
+   */
+  createCampaignFromBrain: superAdminProcedure.input(
+    z13.object({
+      brainId: z13.string(),
+      campaignName: z13.string().min(1).max(255),
+      companyIds: z13.array(z13.string()),
+      // Supabase UUIDs
+      autoEnqueue: z13.boolean().default(true),
+      angleId: z13.string().optional()
+      // Optional angle override (e.g. Distributor)
+    })
+  ).mutation(async ({ ctx, input }) => {
+    const sb = getSupabase4();
+    const db = await getDb();
+    if (!db) throw new TRPCError8({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    const CHUNK = 50;
+    let allCompanyData = [];
+    for (let i = 0; i < input.companyIds.length; i += CHUNK) {
+      const chunk = input.companyIds.slice(i, i + CHUNK);
+      const { data, error } = await sb.from("lt_mns_companies").select("*").in("id", chunk);
+      if (error) {
+        throw new TRPCError8({
+          code: "INTERNAL_SERVER_ERROR",
+          message: `Failed to fetch companies: ${error.message}`
+        });
+      }
+      allCompanyData = allCompanyData.concat(data ?? []);
+    }
+    if (allCompanyData.length === 0) {
+      throw new TRPCError8({
+        code: "BAD_REQUEST",
+        message: "No companies found for the selected IDs."
+      });
+    }
+    const parsedBrainId = parseInt(input.brainId, 10);
+    const isLocalBrain = !isNaN(parsedBrainId);
+    let brainInfo = {
+      companyWebsite: "",
+      offeringSummary: null,
+      icpIndustries: null,
+      valuePropositions: null,
+      brainName: null
+    };
+    if (isLocalBrain) {
+      const [localBrain] = await db.select().from(offeringBrain).where(eq13(offeringBrain.id, parsedBrainId)).limit(1);
+      if (localBrain) {
+        brainInfo = {
+          companyWebsite: localBrain.companyWebsite ?? "",
+          offeringSummary: localBrain.offeringSummary ?? null,
+          icpIndustries: localBrain.icpIndustries ?? null,
+          valuePropositions: localBrain.valuePropositions ?? null,
+          brainName: localBrain.brainName ?? null
+        };
+      }
+    }
+    if (!isLocalBrain || !brainInfo.brainName) {
+      const { data: sbBrain } = await sb.from("lt_mns_offering_brains").select("brain_name, company_name, offering_summary, target_sectors, icp_description").eq("id", input.brainId).single();
+      if (sbBrain) {
+        brainInfo = {
+          companyWebsite: "",
+          offeringSummary: sbBrain.offering_summary ?? null,
+          icpIndustries: sbBrain.target_sectors ?? null,
+          valuePropositions: sbBrain.icp_description ?? null,
+          brainName: sbBrain.brain_name ?? null
+        };
+      }
+    }
+    const searchId = await createSearch({
+      userId: ctx.user.id,
+      companyWebsite: brainInfo.companyWebsite,
+      location: "Global (Brain Similarity)",
+      offeringName: input.campaignName,
+      offeringDescription: brainInfo.offeringSummary,
+      targetMarket: brainInfo.icpIndustries,
+      valueProposition: brainInfo.valuePropositions,
+      keywords: null,
+      status: "completed",
+      brainId: isLocalBrain ? parsedBrainId : null,
+      sharedWithTeam: 1
+    });
+    const companyRecords = allCompanyData.map((c) => ({
+      searchId,
+      apolloId: c.apollo_id ?? null,
+      name: c.company_name,
+      websiteUrl: c.domain ?? null,
+      primaryDomain: c.domain?.replace(/^https?:\/\//, "").replace(/\/$/, "") ?? null,
+      linkedinUrl: c.linkedin_url ?? null,
+      twitterUrl: c.twitter_url ?? null,
+      facebookUrl: c.facebook_url ?? null,
+      phone: c.phone ?? null,
+      city: c.city ?? null,
+      country: c.country ?? null,
+      sicCodes: c.sic_codes ? JSON.stringify(c.sic_codes) : null,
+      naicsCodes: c.nace_codes ? JSON.stringify(c.nace_codes) : null,
+      fitScore: c.fit_score ? Math.round(c.fit_score) : null,
+      enrichmentStatus: c.apollo_id ? "enriched" : "pending",
+      generatedWithBrainId: isLocalBrain ? parsedBrainId : null,
+      generatedWithBrainName: brainInfo.brainName ?? null,
+      searchLocation: "Global (Brain Similarity)"
+    }));
+    const BATCH = 100;
+    for (let i = 0; i < companyRecords.length; i += BATCH) {
+      const batch = companyRecords.slice(i, i + BATCH);
+      await createCompanies(batch);
+    }
+    if (input.autoEnqueue) {
+      const inserted = await db.select({ id: companies.id, name: companies.name }).from(companies).where(eq13(companies.searchId, searchId));
+      if (inserted.length > 0) {
+        await db.insert(campaignQueue).values(
+          inserted.map((c) => ({
+            searchId,
+            companyId: c.id,
+            userId: ctx.user.id,
+            companyName: c.name ?? "Unknown",
+            jobType: "full",
+            status: "pending"
+          }))
+        );
+      }
+    }
+    console.log(
+      `[CampaignBrain] Created campaign "${input.campaignName}" (searchId=${searchId}) with ${allCompanyData.length} companies from Brain ${input.brainId}`
+    );
+    return {
+      searchId,
+      campaignName: input.campaignName,
+      companiesImported: allCompanyData.length,
+      autoEnqueued: input.autoEnqueue
+    };
+  }),
+  /**
+   * Find companies by free text query.
+   * Embeds the text using OpenAI, then runs vector similarity.
+   */
+  findByText: superAdminProcedure.input(
+    z13.object({
+      query: z13.string().min(3).max(1e3),
+      limit: z13.number().min(1).max(500).default(50),
+      threshold: z13.number().min(0).max(1).default(0.4)
+    })
+  ).query(async ({ input }) => {
+    const response = await fetch("https://api.openai.com/v1/embeddings", {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify({
+        model: "text-embedding-3-small",
+        input: input.query
+      })
+    });
+    if (!response.ok) {
+      throw new TRPCError8({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Embedding API failed: ${response.statusText}`
+      });
+    }
+    const embResult = await response.json();
+    const embedding = embResult.data[0].embedding;
+    const sb = getSupabase4();
+    const { data: matches, error: rpcErr } = await sb.rpc(
+      "match_companies_to_embedding",
+      {
+        p_embedding: embedding,
+        p_limit: input.limit,
+        p_threshold: input.threshold
+      }
+    );
+    if (rpcErr) {
+      throw new TRPCError8({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Vector search failed: ${rpcErr.message}`
+      });
+    }
+    return (matches ?? []).map((r) => ({
+      companyId: r.company_id,
+      companyName: r.company_name,
+      domain: r.domain,
+      sector: r.sector,
+      country: r.country,
+      employeeCount: r.employee_count,
+      similarityScore: r.similarity_score,
+      fitTier: getFitTier(r.similarity_score)
+    }));
+  })
+});
+
+// server/triggerRouter.ts
+import { z as z14 } from "zod";
+init_llm();
+import { TRPCError as TRPCError9 } from "@trpc/server";
+import { createClient as createClient8 } from "@supabase/supabase-js";
+function getSupabase5() {
+  const url = process.env.SUPABASE_URL;
+  const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!url || !key) throw new Error("SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY must be set");
+  return createClient8(url, key, { auth: { persistSession: false } });
+}
+async function embedText2(text2) {
+  const response = await fetch("https://api.openai.com/v1/embeddings", {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
+      "Content-Type": "application/json"
+    },
+    body: JSON.stringify({
+      model: "text-embedding-3-small",
+      input: text2
+    })
+  });
+  if (!response.ok) {
+    throw new Error(`Embedding API failed: ${response.statusText}`);
+  }
+  const result = await response.json();
+  return result.data[0].embedding;
+}
+var triggerRouter = router({
+  /**
+   * Get trigger reference items (synthetic + approved) with optional brain filter
+   */
+  listTriggerReferences: superAdminProcedure.input(
+    z14.object({
+      brainId: z14.string().optional(),
+      limit: z14.number().min(1).max(500).default(100)
+    })
+  ).query(async ({ input }) => {
+    const sb = getSupabase5();
+    let query = sb.from("lt_mns_trigger_references").select("*").eq("is_active", true).order("quality_score", { ascending: false }).limit(input.limit);
+    if (input.brainId) {
+      query = query.eq("brain_id", input.brainId);
+    }
+    const { data, error } = await query;
+    if (error) {
+      console.error("[Trigger] Failed to fetch references:", error.message);
+      return [];
+    }
+    return data ?? [];
+  }),
+  /**
+   * Get recent feed items with their trigger match status.
+   * Matches feed items against the trigger reference set using embeddings.
+   */
+  getMatchedFeedItems: superAdminProcedure.input(
+    z14.object({
+      limit: z14.number().min(1).max(200).default(50),
+      minSimilarity: z14.number().min(0).max(1).default(0.5),
+      brainFilter: z14.string().optional(),
+      statusFilter: z14.enum(["all", "pending", "approved", "dismissed"]).default("all")
+    })
+  ).query(async ({ input }) => {
+    const sb = getSupabase5();
+    const { data: rpcMatches, error: rpcErr } = await sb.rpc(
+      "match_feed_items_to_triggers_top3",
+      {
+        p_min_similarity: input.minSimilarity,
+        p_limit: input.limit
+      }
+    );
+    if (rpcErr || !rpcMatches || rpcMatches.length === 0) {
+      console.error("[Trigger] RPC match error:", rpcErr?.message);
+      return [];
+    }
+    const matchesByFeedItem = /* @__PURE__ */ new Map();
+    for (const m of rpcMatches) {
+      const arr = matchesByFeedItem.get(m.feed_item_id) ?? [];
+      arr.push({
+        triggerRefId: m.trigger_ref_id,
+        similarity: m.similarity_score,
+        rank: m.match_rank
+      });
+      matchesByFeedItem.set(m.feed_item_id, arr);
+    }
+    const feedItemIds = Array.from(matchesByFeedItem.keys());
+    if (feedItemIds.length === 0) return [];
+    const { data: feedItems } = await sb.from("feed_items").select("id, title, description, link, published_at, raw_content").in("id", feedItemIds);
+    const feedMap = /* @__PURE__ */ new Map();
+    for (const f of feedItems ?? []) {
+      feedMap.set(f.id, f);
+    }
+    const triggerRefIds = Array.from(new Set(rpcMatches.map((m) => m.trigger_ref_id)));
+    const { data: triggerRefs } = await sb.from("lt_mns_trigger_references").select("id, brain_id, brain_name, headline, signal_type, trigger_type, angle_template, a_event, b_challenge, brain_connection").in("id", triggerRefIds);
+    const refMap = /* @__PURE__ */ new Map();
+    for (const r of triggerRefs ?? []) {
+      refMap.set(r.id, r);
+    }
+    const { data: existingMatches } = await sb.from("lt_mns_trigger_matches").select("feed_item_id, status, approved_brain_id").in("feed_item_id", feedItemIds);
+    const matchStatusMap = /* @__PURE__ */ new Map();
+    for (const m of existingMatches ?? []) {
+      matchStatusMap.set(m.feed_item_id, { status: m.status, approvedBrainId: m.approved_brain_id });
+    }
+    const results = [];
+    for (const feedItemId of feedItemIds) {
+      const item = feedMap.get(feedItemId);
+      if (!item) continue;
+      const matches = matchesByFeedItem.get(feedItemId) ?? [];
+      matches.sort((a, b) => a.rank - b.rank);
+      const bestMatch = matches[0];
+      if (!bestMatch) continue;
+      const bestRef = refMap.get(bestMatch.triggerRefId);
+      if (input.brainFilter && bestRef?.brain_id?.toString() !== input.brainFilter) continue;
+      const existingStatus = matchStatusMap.get(feedItemId);
+      const status = existingStatus?.status ?? "pending";
+      if (input.statusFilter !== "all" && status !== input.statusFilter) continue;
+      let newsQuery = "";
+      let newsDate = "";
+      try {
+        const raw = typeof item.raw_content === "string" ? JSON.parse(item.raw_content) : item.raw_content;
+        newsQuery = raw?.query ?? "";
+        newsDate = raw?.item?.date ?? "";
+      } catch {
+      }
+      results.push({
+        feedItemId: item.id,
+        title: item.title,
+        description: item.description,
+        link: item.link,
+        source: item.source,
+        publishedAt: item.published_at || newsDate,
+        newsQuery,
+        bestSimilarity: bestMatch.similarity,
+        bestTrigger: bestRef ? {
+          id: bestRef.id,
+          brainId: bestRef.brain_id,
+          brainName: bestRef.brain_name,
+          headline: bestRef.headline,
+          signalType: bestRef.signal_type,
+          triggerType: bestRef.trigger_type,
+          angleTemplate: bestRef.angle_template,
+          aEvent: bestRef.a_event,
+          bChallenge: bestRef.b_challenge,
+          brainConnection: bestRef.brain_connection
+        } : null,
+        top3Triggers: matches.slice(0, 3).map((m) => {
+          const ref = refMap.get(m.triggerRefId);
+          return {
+            similarity: m.similarity,
+            brainName: ref?.brain_name ?? "Unknown",
+            brainId: ref?.brain_id,
+            headline: ref?.headline ?? "",
+            triggerType: ref?.trigger_type ?? ""
+          };
+        }),
+        status
+      });
+    }
+    results.sort((a, b) => b.bestSimilarity - a.bestSimilarity);
+    return results;
+  }),
+  /**
+   * Embed feed items that don't have embeddings yet (batch job)
+   */
+  embedFeedItems: superAdminProcedure.input(z14.object({ batchSize: z14.number().min(1).max(100).default(50) })).mutation(async ({ input }) => {
+    const sb = getSupabase5();
+    const { data: feedItems } = await sb.from("feed_items").select("id, title, description").eq("feed_id", "25799a81-dfae-4476-a6c7-65974893737e").order("created_at", { ascending: false }).limit(input.batchSize * 2);
+    if (!feedItems || feedItems.length === 0) return { embedded: 0, skipped: 0 };
+    const { data: existingEmbs } = await sb.from("lt_mns_feed_item_embeddings").select("feed_item_id").in("feed_item_id", feedItems.map((f) => f.id));
+    const embeddedIds = new Set((existingEmbs ?? []).map((e) => e.feed_item_id));
+    const toEmbed = feedItems.filter((f) => !embeddedIds.has(f.id)).slice(0, input.batchSize);
+    if (toEmbed.length === 0) return { embedded: 0, skipped: feedItems.length };
+    let embedded = 0;
+    for (const item of toEmbed) {
+      const text2 = `${item.title || ""} ${item.description || ""}`.trim();
+      if (!text2 || text2.length < 10) continue;
+      try {
+        const emb = await embedText2(text2);
+        const { error } = await sb.from("lt_mns_feed_item_embeddings").upsert({
+          feed_item_id: item.id,
+          content_text: text2.slice(0, 1e3),
+          embedding: emb
+        });
+        if (!error) embedded++;
+      } catch (e) {
+        console.error(`[Trigger] Failed to embed feed item ${item.id}:`, e.message);
+      }
+    }
+    console.log(`[Trigger] Embedded ${embedded}/${toEmbed.length} feed items`);
+    return { embedded, skipped: feedItems.length - toEmbed.length };
+  }),
+  /**
+   * Update trigger match status (approve/dismiss)
+   */
+  updateMatchStatus: superAdminProcedure.input(
+    z14.object({
+      feedItemId: z14.string(),
+      status: z14.enum(["approved", "dismissed"]),
+      approvedBrainId: z14.string().optional(),
+      notes: z14.string().optional()
+    })
+  ).mutation(async ({ ctx, input }) => {
+    const sb = getSupabase5();
+    const { error } = await sb.from("lt_mns_trigger_matches").upsert({
+      feed_item_id: input.feedItemId,
+      status: input.status,
+      approved_brain_id: input.approvedBrainId ?? null,
+      notes: input.notes ?? null,
+      reviewed_by: ctx.user.name ?? ctx.user.openId,
+      reviewed_at: (/* @__PURE__ */ new Date()).toISOString()
+    }, { onConflict: "feed_item_id" });
+    if (error) {
+      throw new TRPCError9({
+        code: "INTERNAL_SERVER_ERROR",
+        message: `Failed to update match status: ${error.message}`
+      });
+    }
+    return { success: true };
+  }),
+  /**
+   * Get trigger stats (counts by status, by brain)
+   */
+  getStats: superAdminProcedure.query(async () => {
+    const sb = getSupabase5();
+    const { data: refs } = await sb.from("lt_mns_trigger_references").select("brain_name, source_type").eq("is_active", true);
+    const { count: feedCountVal } = await sb.from("feed_items").select("id", { count: "exact", head: true }).eq("feed_id", "25799a81-dfae-4476-a6c7-65974893737e");
+    const { count: embCountVal } = await sb.from("lt_mns_feed_item_embeddings").select("feed_item_id", { count: "exact", head: true });
+    const { data: matches } = await sb.from("lt_mns_trigger_matches").select("status");
+    const matchStats = { pending: 0, approved: 0, dismissed: 0 };
+    for (const m of matches ?? []) {
+      if (m.status in matchStats) matchStats[m.status]++;
+    }
+    const brainCounts = /* @__PURE__ */ new Map();
+    for (const r of refs ?? []) {
+      brainCounts.set(r.brain_name, (brainCounts.get(r.brain_name) ?? 0) + 1);
+    }
+    return {
+      totalReferences: refs?.length ?? 0,
+      totalFeedItems: feedCountVal ?? 0,
+      embeddedFeedItems: embCountVal ?? 0,
+      matchStats,
+      referencesByBrain: Array.from(brainCounts.entries()).sort((a, b) => b[1] - a[1]).map(([brain, count2]) => ({ brain, count: count2 }))
+    };
+  }),
+  /**
+   * Upload synthetic triggers to Supabase as reference set
+   */
+  uploadSyntheticTriggers: superAdminProcedure.input(
+    z14.object({
+      triggers: z14.array(
+        z14.object({
+          brainId: z14.number(),
+          brainName: z14.string(),
+          headline: z14.string(),
+          snippet: z14.string(),
+          triggerType: z14.string(),
+          signalType: z14.string(),
+          aEvent: z14.string(),
+          bChallenge: z14.string(),
+          brainConnection: z14.string(),
+          angleTemplate: z14.string()
+        })
+      )
+    })
+  ).mutation(async ({ input }) => {
+    const sb = getSupabase5();
+    let uploaded = 0;
+    for (const t2 of input.triggers) {
+      const text2 = `${t2.headline}. ${t2.snippet}`;
+      try {
+        const emb = await embedText2(text2);
+        const { error } = await sb.from("lt_mns_trigger_references").insert({
+          brain_id: t2.brainId,
+          brain_name: t2.brainName,
+          headline: t2.headline,
+          snippet: t2.snippet,
+          trigger_type: t2.triggerType,
+          signal_type: t2.signalType,
+          a_event: t2.aEvent,
+          b_challenge: t2.bChallenge,
+          brain_connection: t2.brainConnection,
+          angle_template: t2.angleTemplate,
+          embedding: emb,
+          source_type: "synthetic",
+          quality_score: 0.7,
+          is_active: true
+        });
+        if (!error) uploaded++;
+      } catch (e) {
+        console.error(`[Trigger] Failed to upload trigger "${t2.headline}":`, e.message);
+      }
+    }
+    console.log(`[Trigger] Uploaded ${uploaded}/${input.triggers.length} synthetic triggers`);
+    return { uploaded, total: input.triggers.length };
+  }),
+  /**
+   * Generate synthetic news triggers for a given brain using LLM
+   * Reads brain data from Supabase, generates realistic news scenarios,
+   * then stores them as trigger references.
+   */
+  generateSyntheticTriggers: superAdminProcedure.input(
+    z14.object({
+      brainId: z14.string(),
+      // Supabase brain ID (string)
+      count: z14.number().min(5).max(50).default(20)
+    })
+  ).mutation(async ({ input }) => {
+    const sb = getSupabase5();
+    const { data: brain, error: brainErr } = await sb.from("lt_mns_offering_brains").select("id, brain_name, company_name, offering_summary, core_capabilities, icp_description, icp_pain_points, value_propositions, urgency_triggers, strong_fit_signals, local_brain_id").eq("id", input.brainId).single();
+    if (brainErr || !brain) {
+      throw new TRPCError9({ code: "NOT_FOUND", message: `Brain not found: ${input.brainId}` });
+    }
+    let numericBrainId;
+    if (brain.local_brain_id) {
+      numericBrainId = Number(brain.local_brain_id);
+    } else {
+      let hash = 9e5;
+      for (let i = 0; i < brain.id.length; i++) {
+        hash = (hash << 5) - hash + brain.id.charCodeAt(i);
+        hash |= 0;
+      }
+      numericBrainId = Math.abs(hash) % 99999 + 9e5;
+    }
+    const systemPrompt = `You are a B2B sales intelligence expert. Generate synthetic news trigger references for a sales team.
+
+A "trigger reference" is a realistic news headline + scenario that, when a prospect company experiences it, signals they urgently need the offering described below.
+
+Each trigger must follow this exact JSON structure:
+{
+  "headline": "Short realistic news headline (max 15 words)",
+  "snippet": "1-2 sentence news snippet expanding on the headline",
+  "triggerType": "one of: product_launch | funding | expansion | leadership_change | technology_adoption | regulatory | market_shift | pain_point",
+  "signalType": "one of: Product Launch | Financial | Expansion | Leadership Change | Technology | Regulatory | Market Shift",
+  "aEvent": "The observable trigger event at the prospect company (1 sentence)",
+  "bChallenge": "The business challenge this creates for them (1 sentence)",
+  "brainConnection": "Why this makes them a hot prospect for the offering (1 sentence)",
+  "angleTemplate": "Opening line for a sales email referencing this trigger (1 sentence)"
+}
+
+Return ONLY a JSON array of ${input.count} trigger objects. No markdown, no explanation.`;
+    const userPrompt = `OFFERING: ${brain.offering_summary || brain.company_name}
+CORE CAPABILITIES: ${brain.core_capabilities || ""}
+ICP: ${brain.icp_description || ""}
+ICP PAIN POINTS: ${brain.icp_pain_points || ""}
+URGENCY TRIGGERS: ${brain.urgency_triggers || ""}
+STRONG FIT SIGNALS: ${brain.strong_fit_signals || ""}
+
+Generate ${input.count} diverse, realistic synthetic trigger references. Cover different signal types and industries within the ICP.`;
+    const llmResponse = await invokeLLM({
+      messages: [
+        { role: "system", content: systemPrompt },
+        { role: "user", content: userPrompt }
+      ],
+      response_format: { type: "json_object" }
+    });
+    const rawMsg = llmResponse?.choices?.[0]?.message?.content;
+    const rawContent = typeof rawMsg === "string" ? rawMsg : "[]";
+    let triggers;
+    try {
+      const parsed = JSON.parse(rawContent);
+      triggers = Array.isArray(parsed) ? parsed : parsed.triggers ?? parsed.data ?? [];
+    } catch {
+      throw new TRPCError9({ code: "INTERNAL_SERVER_ERROR", message: "LLM returned invalid JSON" });
+    }
+    let uploaded = 0;
+    for (const t2 of triggers) {
+      const text2 = `${t2.headline}. ${t2.snippet}`;
+      try {
+        const emb = await embedText2(text2);
+        const { error } = await sb.from("lt_mns_trigger_references").insert({
+          brain_id: numericBrainId,
+          brain_name: brain.brain_name,
+          headline: t2.headline,
+          snippet: t2.snippet,
+          trigger_type: t2.triggerType ?? "market_shift",
+          signal_type: t2.signalType ?? "Market Shift",
+          a_event: t2.aEvent ?? "",
+          b_challenge: t2.bChallenge ?? "",
+          brain_connection: t2.brainConnection ?? "",
+          angle_template: t2.angleTemplate ?? "",
+          embedding: emb,
+          source_type: "synthetic",
+          quality_score: 0.75,
+          is_active: true
+        });
+        if (!error) uploaded++;
+        else console.error(`[GenerateTriggers] Insert error:`, error.message);
+      } catch (e) {
+        console.error(`[GenerateTriggers] Failed for "${t2.headline}":`, e.message);
+      }
+    }
+    console.log(`[GenerateTriggers] Stored ${uploaded}/${triggers.length} triggers for brain "${brain.brain_name}"`);
+    return { count: uploaded, total: triggers.length, brainName: brain.brain_name };
+  })
+});
+
+// server/cgLeadRouter.ts
+import { z as z15 } from "zod";
+init_db();
+var cgLeadRouter = router({
+  lookup: publicProcedure.input(z15.object({
+    domain: z15.string().optional(),
+    companyName: z15.string().optional(),
+    websiteUrl: z15.string().optional(),
+    sharepointId: z15.union([z15.string(), z15.number()]).optional()
+  })).query(async ({ input }) => {
+    let domain = input.domain;
+    if (!domain && input.websiteUrl) {
+      try {
+        const url = new URL(
+          input.websiteUrl.startsWith("http") ? input.websiteUrl : `https://${input.websiteUrl}`
+        );
+        domain = url.hostname.replace(/^www\./, "");
+      } catch {
+      }
+    }
+    const lead = await findCgLead({
+      domain,
+      companyName: input.companyName,
+      sharepointId: input.sharepointId
+    });
+    return { lead };
+  })
+});
+
 // server/routers.ts
 var appRouter = router({
   // if you need to use socket.io, read and register route in server/_core/index.ts, all api should start with '/api/' so that the gateway can route correctly
@@ -12710,6 +17740,12 @@ var appRouter = router({
   leadinfo: leadinfoRouter,
   telegram: telegramRouter,
   webhookLog: webhookLogRouter,
+  salesMaterials: salesMaterialsRouter,
+  share: shareRouter,
+  shareExt: shareExtRouter,
+  campaignBrain: campaignBrainRouter,
+  trigger: triggerRouter,
+  cgLead: cgLeadRouter,
   // Prompt Repository — exposes the full prompt catalogue for transparency
   prompts: router({
     list: protectedProcedure.query(() => ALL_PROMPTS)
@@ -12739,7 +17775,7 @@ init_apolloSearch();
 init_briefGenerator();
 import { Router } from "express";
 import multer from "multer";
-import { eq as eq10, desc as desc3 } from "drizzle-orm";
+import { eq as eq14, desc as desc4 } from "drizzle-orm";
 var router2 = Router();
 function apiKeyAuth(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -12772,14 +17808,14 @@ router2.get("/companies", async (req, res) => {
     }
     let query = db.select().from(companies);
     if (searchId) {
-      query = query.where(eq10(companies.searchId, searchId));
+      query = query.where(eq14(companies.searchId, searchId));
     }
-    const results = await query.orderBy(desc3(companies.createdAt)).limit(limit).offset(offset);
+    const results = await query.orderBy(desc4(companies.createdAt)).limit(limit).offset(offset);
     const dbInstance = await getDb();
     if (!dbInstance) {
       return res.status(503).json({ error: "Service Unavailable", message: "Database not available" });
     }
-    const countQuery = searchId ? dbInstance.select().from(companies).where(eq10(companies.searchId, searchId)) : dbInstance.select().from(companies);
+    const countQuery = searchId ? dbInstance.select().from(companies).where(eq14(companies.searchId, searchId)) : dbInstance.select().from(companies);
     const total = (await countQuery).length;
     res.json({
       data: results,
@@ -12810,7 +17846,7 @@ router2.get("/companies/:id", async (req, res) => {
         message: "Invalid company ID"
       });
     }
-    const result = await db.select().from(companies).where(eq10(companies.id, id)).limit(1);
+    const result = await db.select().from(companies).where(eq14(companies.id, id)).limit(1);
     if (result.length === 0) {
       return res.status(404).json({
         error: "Not Found",
@@ -12834,7 +17870,7 @@ router2.get("/searches", async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
     const offset = (page - 1) * limit;
-    const results = await db.select().from(searches).orderBy(desc3(searches.createdAt)).limit(limit).offset(offset);
+    const results = await db.select().from(searches).orderBy(desc4(searches.createdAt)).limit(limit).offset(offset);
     const dbInstance = await getDb();
     if (!dbInstance) {
       return res.status(503).json({ error: "Service Unavailable", message: "Database not available" });
@@ -12869,7 +17905,7 @@ router2.get("/searches/:id", async (req, res) => {
         message: "Invalid search ID"
       });
     }
-    const result = await db.select().from(searches).where(eq10(searches.id, id)).limit(1);
+    const result = await db.select().from(searches).where(eq14(searches.id, id)).limit(1);
     if (result.length === 0) {
       return res.status(404).json({
         error: "Not Found",
@@ -12900,12 +17936,12 @@ router2.get("/searches/:id/companies", async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
     const offset = (page - 1) * limit;
-    const results = await db.select().from(companies).where(eq10(companies.searchId, searchId)).orderBy(desc3(companies.createdAt)).limit(limit).offset(offset);
+    const results = await db.select().from(companies).where(eq14(companies.searchId, searchId)).orderBy(desc4(companies.createdAt)).limit(limit).offset(offset);
     const dbInstance = await getDb();
     if (!dbInstance) {
       return res.status(503).json({ error: "Service Unavailable", message: "Database not available" });
     }
-    const total = (await dbInstance.select().from(companies).where(eq10(companies.searchId, searchId))).length;
+    const total = (await dbInstance.select().from(companies).where(eq14(companies.searchId, searchId))).length;
     res.json({
       data: results,
       pagination: {
@@ -13017,7 +18053,7 @@ router2.post("/enrich-campaign", async (req, res) => {
             await updateCompany(company.id, {
               city: details.city || null,
               state: details.state || null,
-              country: details.country || null,
+              country: details.country || company.country || null,
               streetAddress: details.street_address || null,
               rawAddress: details.raw_address || null,
               enrichmentStatus: "enriched"
@@ -13624,9 +18660,9 @@ router3.post("/", async (req, res) => {
     }
     const db = await getDb();
     if (db) {
-      const { searches: searches2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq14 } = await import("drizzle-orm");
-      await db.update(searches2).set({ status: "completed", codesSearched: exhibitors.length }).where(eq14(searches2.id, searchId));
+      const { searches: searches3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq21 } = await import("drizzle-orm");
+      await db.update(searches3).set({ status: "completed", codesSearched: exhibitors.length }).where(eq21(searches3.id, searchId));
     }
     send({
       status: "done",
@@ -13650,6 +18686,8 @@ import { Router as Router3 } from "express";
 import multer2 from "multer";
 import * as XLSX3 from "xlsx";
 init_db();
+init_embeddingService();
+init_supabaseEmbeddings();
 var router4 = Router3();
 var upload2 = multer2({
   storage: multer2.memoryStorage(),
@@ -13676,7 +18714,7 @@ var COL_MAP = {
   employees: ["# employees", "employees", "headcount", "employee count", "aantal medewerkers"],
   city: ["company city", "city", "stad"],
   state: ["company state", "state", "provincie"],
-  country: ["company country", "country", "land"],
+  country: ["company country", "country", "land", "hq country", "headquarters country", "organization country"],
   street: ["company street", "street", "address", "straat"],
   address: ["company address", "full address", "volledig adres"],
   keywords: ["keywords", "trefwoorden"],
@@ -13729,16 +18767,18 @@ function mapRowToCompany(row, idx, searchId) {
   const sicCodes = sicRaw ? sicRaw.split(",").map((c) => c.trim()).filter(Boolean) : [];
   const employeeRaw = cell(row, idx.employees);
   const employeeCount = employeeRaw ? parseInt(employeeRaw.replace(/[^0-9]/g, "")) || null : null;
+  const industryVal = cell(row, idx.industry);
+  const stateVal = cell(row, idx.state);
+  const countryVal = cell(row, idx.country);
   const sliceMetadata = {
     employeeCount,
-    industry: cell(row, idx.industry),
+    industry: industryVal,
+    country: countryVal,
     keywords: cell(row, idx.keywords),
     description: cell(row, idx.description),
     lists: cell(row, idx.lists),
     logoUrl: cell(row, idx.logoUrl)
   };
-  const stateVal = cell(row, idx.state);
-  const countryVal = cell(row, idx.country);
   return {
     searchId,
     apolloId: cell(row, idx.apolloId),
@@ -13762,13 +18802,17 @@ function mapRowToCompany(row, idx, searchId) {
     rawAddress: cell(row, idx.address),
     sicCodes: JSON.stringify(sicCodes),
     naicsCodes: null,
+    sector: industryVal,
     sliceMetadata: JSON.stringify(sliceMetadata),
     urgencyScore: null,
     briefData: null,
     briefGeneratedAt: null,
     salesApproachData: null,
     salesApproachGeneratedAt: null,
-    enrichmentStatus: "pending"
+    // Apollo CSV exports already contain enriched data (revenue, SIC codes, description,
+    // employees, etc.) — mark as enriched immediately so the scoring pipeline
+    // can process these companies without a separate Apollo API enrichment step.
+    enrichmentStatus: "enriched"
   };
 }
 router4.post("/", upload2.single("file"), async (req, res) => {
@@ -13866,9 +18910,9 @@ router4.post("/", upload2.single("file"), async (req, res) => {
     }
     const db = await getDb();
     if (db) {
-      const { searches: searches2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq14 } = await import("drizzle-orm");
-      await db.update(searches2).set({ status: "completed", codesSearched: companyRows.length }).where(eq14(searches2.id, searchId));
+      const { searches: searches3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+      const { eq: eq21 } = await import("drizzle-orm");
+      await db.update(searches3).set({ status: "completed", codesSearched: companyRows.length }).where(eq21(searches3.id, searchId));
     }
     send({
       status: "done",
@@ -13877,6 +18921,40 @@ router4.post("/", upload2.single("file"), async (req, res) => {
       skipped,
       isApolloExport,
       message: `Import complete. ${companyRows.length} companies saved directly from file \u2014 no Apollo API calls used.`
+    });
+    setImmediate(async () => {
+      try {
+        console.log(`[ExcelImport] Starting background embedding+scoring for search ${searchId}`);
+        const allCompanies = await getCompaniesBySearchId(searchId);
+        if (allCompanies.length === 0) return;
+        const activeBrain = await getActiveBrain(1);
+        if (!activeBrain) {
+          console.warn(`[ExcelImport] No active Brain found \u2014 skipping scoring for search ${searchId}`);
+          return;
+        }
+        const activeBrainId = String(activeBrain.id);
+        console.log(`[ExcelImport] Active Brain: ${activeBrain.brainName} (id=${activeBrainId})`);
+        const embeddings = await generateEmbeddings(allCompanies);
+        await persistCompanyEmbeddings(embeddings);
+        const brainScores = await scoreCompaniesAgainstBrain(embeddings, activeBrainId);
+        await persistBrainScores(brainScores);
+        const scoreMap = aggregateBrainScores(brainScores);
+        const dbConn = await getDb();
+        if (dbConn && scoreMap.size > 0) {
+          const { companies: companiesTable } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+          const { eq: eq21 } = await import("drizzle-orm");
+          const now = /* @__PURE__ */ new Date();
+          for (const [companyId, { bestScore }] of Array.from(scoreMap.entries())) {
+            await dbConn.update(companiesTable).set({
+              similarityScore: bestScore,
+              similarityScoreGeneratedAt: now
+            }).where(eq21(companiesTable.id, companyId));
+          }
+          console.log(`[ExcelImport] Similarity scores written for ${scoreMap.size} companies against Brain ${activeBrainId} (search ${searchId})`);
+        }
+      } catch (bgErr) {
+        console.error(`[ExcelImport] Background embedding/scoring error for search ${searchId}:`, bgErr.message);
+      }
     });
   } catch (err) {
     console.error("[Excel Import] Fatal error:", err.message);
@@ -13891,7 +18969,7 @@ init_db();
 init_schema();
 import { Router as Router4 } from "express";
 import * as XLSX4 from "xlsx";
-import { eq as eq11, and as and8, inArray as inArray6, isNotNull as isNotNull2 } from "drizzle-orm";
+import { eq as eq15, and as and10, inArray as inArray9, isNotNull as isNotNull3 } from "drizzle-orm";
 var router5 = Router4();
 router5.get("/", async (req, res) => {
   try {
@@ -13904,12 +18982,12 @@ router5.get("/", async (req, res) => {
     let rows;
     if (companyIdsParam) {
       const ids = companyIdsParam.split(",").map(Number).filter(Boolean);
-      rows = await dbInstance.select().from(companies).where(inArray6(companies.id, ids));
+      rows = await dbInstance.select().from(companies).where(inArray9(companies.id, ids));
     } else if (searchId) {
       rows = await dbInstance.select().from(companies).where(
-        and8(
-          eq11(companies.searchId, Number(searchId)),
-          isNotNull2(companies.urgencyScore)
+        and10(
+          eq15(companies.searchId, Number(searchId)),
+          isNotNull3(companies.urgencyScore)
         )
       ).orderBy(companies.urgencyScore);
     } else {
@@ -13917,7 +18995,7 @@ router5.get("/", async (req, res) => {
       return;
     }
     const companyIdList = rows.map((c) => c.id);
-    const allContacts = companyIdList.length > 0 ? await dbInstance.select().from(contacts).where(inArray6(contacts.companyId, companyIdList)) : [];
+    const allContacts = companyIdList.length > 0 ? await dbInstance.select().from(contacts).where(inArray9(contacts.companyId, companyIdList)) : [];
     const topContactMap = /* @__PURE__ */ new Map();
     for (const c of allContacts) {
       if (!topContactMap.has(c.companyId)) {
@@ -14032,6 +19110,141 @@ router5.get("/", async (req, res) => {
   }
 });
 var exportExcel_default = router5;
+
+// server/routes/shareListExport.ts
+init_db();
+init_schema();
+import { Router as Router5 } from "express";
+import * as XLSX5 from "xlsx";
+import { eq as eq16, and as and11, inArray as inArray10 } from "drizzle-orm";
+var router6 = Router5();
+router6.get("/", async (req, res) => {
+  try {
+    let user = null;
+    try {
+      user = await sdk.authenticateRequest(req);
+    } catch {
+      res.status(401).json({ error: "Unauthorized. Please sign in." });
+      return;
+    }
+    const { tokens: tokensParam, listUrl: listUrlParam, origin: originParam } = req.query;
+    if (!tokensParam) {
+      res.status(400).json({ error: "Provide tokens as comma-separated list" });
+      return;
+    }
+    const tokenList = tokensParam.split(",").map((t2) => t2.trim()).filter(Boolean);
+    if (!tokenList.length) {
+      res.status(400).json({ error: "No tokens provided" });
+      return;
+    }
+    const db = await getDb();
+    if (!db) {
+      res.status(500).json({ error: "Database unavailable" });
+      return;
+    }
+    const tokenRows = await db.select().from(shareTokens).where(inArray10(shareTokens.token, tokenList));
+    if (!tokenRows.length) {
+      res.status(404).json({ error: "No valid tokens found" });
+      return;
+    }
+    const proto = req.headers["x-forwarded-proto"] ?? "https";
+    const host = req.headers["x-forwarded-host"] ?? req.headers.host ?? "localhost:3000";
+    const baseUrl = originParam ?? `${proto}://${host}`;
+    const wsRows = [];
+    for (const tokenRow of tokenRows) {
+      const companyRows = await db.select().from(companies).where(eq16(companies.id, tokenRow.companyId)).limit(1);
+      const company = companyRows[0];
+      if (!company) continue;
+      const brainRows = await db.select().from(offeringBrain).where(eq16(offeringBrain.id, tokenRow.brainId)).limit(1);
+      const brain = brainRows[0] ?? null;
+      const outputRows = await db.select().from(companyBrainOutputs).where(and11(eq16(companyBrainOutputs.companyId, tokenRow.companyId), eq16(companyBrainOutputs.brainId, tokenRow.brainId))).limit(1);
+      const output = outputRows[0] ?? null;
+      const contactRows = await db.select().from(contacts).where(eq16(contacts.companyId, tokenRow.companyId)).limit(1);
+      const contact = contactRows[0] ?? null;
+      let sector = "";
+      try {
+        if (company.sliceMetadata) {
+          const meta = JSON.parse(company.sliceMetadata);
+          sector = meta?.industry ?? "";
+        }
+      } catch {
+      }
+      let keySignal = "";
+      try {
+        const briefStr = output?.briefData ?? company.briefData;
+        if (briefStr) {
+          const brief = JSON.parse(briefStr);
+          keySignal = brief?.urgencySignals?.[0]?.description ?? brief?.urgencySignals?.[0]?.signal ?? brief?.signals?.[0]?.signal ?? brief?.keySignal ?? "";
+        }
+      } catch {
+      }
+      const fitScore = output?.fitScore ?? company.fitScore ?? "";
+      const urgencyScore = output?.urgencyScore ?? company.urgencyScore ?? "";
+      const employeeCount = company.employeeCount ?? company.headcount ?? "";
+      const contactName = contact?.fullName ?? [contact?.firstName, contact?.lastName].filter(Boolean).join(" ") ?? "";
+      wsRows.push({
+        "Company Name": company.name ?? "",
+        "Website": company.websiteUrl ?? company.primaryDomain ?? "",
+        "Country": company.country ?? "",
+        "Employee Count": employeeCount,
+        "Sector": sector,
+        "Brain": brain?.brainName ?? "",
+        "Fit Score": fitScore,
+        "Urgency Score": urgencyScore,
+        "Key Signal": keySignal,
+        "Contact Name": contactName,
+        "Contact Title": contact?.title ?? "",
+        "Contact Email": contact?.email ?? "",
+        "Share Link": `${baseUrl}/share/${tokenRow.token}`,
+        ...listUrlParam ? { "Share List URL": listUrlParam } : {}
+      });
+    }
+    wsRows.sort((a, b) => Number(b["Urgency Score"] || 0) - Number(a["Urgency Score"] || 0));
+    const wb = XLSX5.utils.book_new();
+    const ws = XLSX5.utils.json_to_sheet(wsRows);
+    ws["!cols"] = [
+      { wch: 30 },
+      // Company Name
+      { wch: 28 },
+      // Website
+      { wch: 14 },
+      // Country
+      { wch: 14 },
+      // Employee Count
+      { wch: 22 },
+      // Sector
+      { wch: 22 },
+      // Brain
+      { wch: 10 },
+      // Fit Score
+      { wch: 14 },
+      // Urgency Score
+      { wch: 55 },
+      // Key Signal
+      { wch: 28 },
+      // Contact Name
+      { wch: 32 },
+      // Contact Title
+      { wch: 36 },
+      // Contact Email
+      { wch: 60 },
+      // Share Link
+      { wch: 70 }
+      // Share List URL (optional)
+    ];
+    ws["!freeze"] = { xSplit: 0, ySplit: 1 };
+    XLSX5.utils.book_append_sheet(wb, ws, "Share List");
+    const buf = XLSX5.write(wb, { type: "buffer", bookType: "xlsx" });
+    const filename = `share-list-${(/* @__PURE__ */ new Date()).toISOString().slice(0, 10)}.xlsx`;
+    res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+    res.setHeader("Content-Type", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+    res.send(buf);
+  } catch (err) {
+    console.error("[shareListExport] Error:", err);
+    res.status(500).json({ error: "Export failed" });
+  }
+});
+var shareListExport_default = router6;
 
 // server/_core/vite.ts
 import express from "express";
@@ -14206,6 +19419,9 @@ async function setupVite(app, server) {
   app.use(vite.middlewares);
   app.use("*", async (req, res, next) => {
     const url = req.originalUrl;
+    if (url.startsWith("/api/")) {
+      return next();
+    }
     try {
       const clientTemplate = path2.resolve(
         import.meta.dirname,
@@ -14234,15 +19450,18 @@ function serveStatic(app) {
     );
   }
   app.use(express.static(distPath));
-  app.use("*", (_req, res) => {
+  app.use("*", (req, res, next) => {
+    if (req.originalUrl.startsWith("/api/")) {
+      return next();
+    }
     res.sendFile(path2.resolve(distPath, "index.html"));
   });
 }
 
 // server/routes/apolloWebhook.ts
 init_db();
-import { Router as Router5 } from "express";
-var apolloWebhookRouter = Router5();
+import { Router as Router6 } from "express";
+var apolloWebhookRouter = Router6();
 apolloWebhookRouter.post("/", async (req, res) => {
   const body = req.body;
   const rawPayload = JSON.stringify(body);
@@ -14389,9 +19608,564 @@ apolloWebhookRouter.post("/", async (req, res) => {
 });
 var apolloWebhook_default = apolloWebhookRouter;
 
+// server/routes/cgLeadImport.ts
+import { Router as Router7 } from "express";
+import multer3 from "multer";
+init_db();
+init_schema();
+import { eq as eq17, and as and12 } from "drizzle-orm";
+var router7 = Router7();
+var upload3 = multer3({
+  storage: multer3.memoryStorage(),
+  limits: { fileSize: 50 * 1024 * 1024 },
+  fileFilter: (_req, file, cb) => {
+    if (file.originalname.match(/\.csv$/i) || file.mimetype.includes("csv") || file.mimetype.includes("text")) {
+      cb(null, true);
+    } else {
+      cb(new Error("Only .csv files are supported."));
+    }
+  }
+});
+var ISO2_TO_COUNTRY = {
+  AT: "Austria",
+  BE: "Belgium",
+  BG: "Bulgaria",
+  CH: "Switzerland",
+  CZ: "Czech Republic",
+  DE: "Germany",
+  DK: "Denmark",
+  ES: "Spain",
+  FR: "France",
+  GB: "United Kingdom",
+  GE: "Georgia",
+  HR: "Croatia",
+  HU: "Hungary",
+  IT: "Italy",
+  MX: "Mexico",
+  NL: "Netherlands",
+  PL: "Poland",
+  PT: "Portugal",
+  RO: "Romania",
+  SE: "Sweden",
+  SK: "Slovakia",
+  US: "United States",
+  CN: "China"
+};
+var COUNTRY_VARIANTS = {
+  "czechia": "Czech Republic",
+  "czech rep": "Czech Republic",
+  "be": "Belgium",
+  "de": "Germany",
+  "nl": "Netherlands",
+  "fr": "France",
+  "ch": "Switzerland",
+  "at": "Austria",
+  "cz": "Czech Republic",
+  "dk": "Denmark",
+  "ge": "Georgia",
+  "g\xE9": "Georgia",
+  "usa": "United States",
+  "uk": "United Kingdom"
+};
+function normaliseCountry(raw) {
+  if (!raw) return raw;
+  const trimmed = raw.trim();
+  const upper = trimmed.toUpperCase();
+  if (ISO2_TO_COUNTRY[upper]) return ISO2_TO_COUNTRY[upper];
+  const lower = trimmed.toLowerCase();
+  if (COUNTRY_VARIANTS[lower]) return COUNTRY_VARIANTS[lower];
+  return trimmed;
+}
+function extractDomain3(url) {
+  if (!url || !url.trim()) return null;
+  try {
+    const u = url.startsWith("http") ? url : `https://${url}`;
+    const hostname = new URL(u).hostname.replace(/^www\./, "").toLowerCase().trim();
+    if (!hostname || hostname === "localhost" || hostname === "www.https") return null;
+    return hostname;
+  } catch {
+    return null;
+  }
+}
+function parseSharePointCsv(buffer) {
+  const text2 = buffer.toString("utf-8");
+  const lines = text2.split(/\r?\n/);
+  const headerLine = lines[1];
+  if (!headerLine) return [];
+  function parseCsvLine(line) {
+    const result = [];
+    let current = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') {
+        if (inQuotes && line[i + 1] === '"') {
+          current += '"';
+          i++;
+        } else inQuotes = !inQuotes;
+      } else if (ch === "," && !inQuotes) {
+        result.push(current.trim());
+        current = "";
+      } else {
+        current += ch;
+      }
+    }
+    result.push(current.trim());
+    return result;
+  }
+  const headers = parseCsvLine(headerLine);
+  const rows = [];
+  for (let i = 2; i < lines.length; i++) {
+    const line = lines[i].trim();
+    if (!line) continue;
+    const cells = parseCsvLine(line);
+    const row = {};
+    headers.forEach((h, idx) => {
+      row[h] = (cells[idx] || "").trim();
+    });
+    rows.push(row);
+  }
+  return rows;
+}
+function normaliseLeadClass(raw) {
+  if (!raw) return "Lead";
+  const lower = raw.toLowerCase().trim();
+  if (lower === "suspect") return "Suspect";
+  if (lower === "customer") return "Customer";
+  return "Lead";
+}
+router7.post("/", upload3.single("file"), async (req, res) => {
+  let user = null;
+  try {
+    user = await sdk.authenticateRequest(req);
+  } catch {
+    return res.status(401).json({ error: "Unauthorized. Please sign in." });
+  }
+  if (!req.file) {
+    return res.status(400).json({ error: "No file uploaded." });
+  }
+  res.setHeader("Content-Type", "application/x-ndjson");
+  res.setHeader("Transfer-Encoding", "chunked");
+  res.setHeader("Cache-Control", "no-cache");
+  res.flushHeaders();
+  const send = (obj) => {
+    try {
+      res.write(JSON.stringify(obj) + "\n");
+    } catch {
+    }
+  };
+  try {
+    send({ status: "parsing", message: "Parsing CG lead list CSV..." });
+    const rows = parseSharePointCsv(req.file.buffer);
+    if (rows.length === 0) {
+      send({ error: "File appears empty or could not be parsed." });
+      return res.end();
+    }
+    const firstRow = rows[0];
+    if (!("Company" in firstRow) && !("company" in firstRow)) {
+      send({ error: `Expected a 'Company' column. Found: ${Object.keys(firstRow).join(", ")}` });
+      return res.end();
+    }
+    send({ status: "parsed", total: rows.length, message: `Parsed ${rows.length} rows` });
+    const importDate = (/* @__PURE__ */ new Date()).toISOString().split("T")[0];
+    const searchId = await createSearch({
+      userId: user.id,
+      companyWebsite: "",
+      location: "CG Lead List Import",
+      offeringName: `CG Lead List \u2014 ${importDate}`,
+      offeringDescription: `Connect Group SharePoint lead list import: ${rows.length} rows from "${req.file.originalname}"`,
+      targetMarket: null,
+      valueProposition: null,
+      keywords: null,
+      crossBorderIndicators: null,
+      keywordTagsUsed: JSON.stringify(["cg-lead-import"]),
+      selectedSicCodes: null,
+      selectedNaicsCodes: null,
+      codeSelectionReasoning: null,
+      excludedSectors: null,
+      codesSearched: 0,
+      codesTotal: rows.length,
+      status: "searching"
+    });
+    send({ status: "campaign_created", searchId, message: `Campaign created (id=${searchId})` });
+    const db = await getDb();
+    if (!db) {
+      send({ error: "Database connection failed." });
+      return res.end();
+    }
+    const now = /* @__PURE__ */ new Date();
+    let inserted = 0;
+    let updated = 0;
+    let contactsCreated = 0;
+    let skipped = 0;
+    const BATCH = 50;
+    for (let i = 0; i < rows.length; i += BATCH) {
+      const batch = rows.slice(i, i + BATCH);
+      for (const row of batch) {
+        const companyName = (row["Company"] || "").trim();
+        if (!companyName) {
+          skipped++;
+          continue;
+        }
+        const websiteRaw = (row["Website"] || "").trim();
+        const domain = extractDomain3(websiteRaw);
+        const country = normaliseCountry(row["Country"] || "");
+        const cgFields = {
+          cgBusinessUnit: row["BU"] || null,
+          cgSalesManager: row["SalesManager"] || null,
+          cgLeadClass: normaliseLeadClass(row["Class"]),
+          cgLeadOrigin: (row["Origin"] || "").substring(0, 256) || null,
+          cgMarket: row["Market"] || null,
+          cgComment: row["Comment"] || null,
+          cgRemarks: row["Remarks"] || null,
+          cgSharepointId: row["ID"] || null,
+          cgImportedAt: now
+        };
+        let existingId = null;
+        if (domain) {
+          const byDomain = await db.select({ id: companies.id }).from(companies).where(eq17(companies.primaryDomain, domain)).limit(1);
+          if (byDomain.length > 0) existingId = byDomain[0].id;
+        }
+        if (!existingId) {
+          const byName = await db.select({ id: companies.id }).from(companies).where(eq17(companies.name, companyName)).limit(1);
+          if (byName.length > 0) existingId = byName[0].id;
+        }
+        if (existingId) {
+          await db.update(companies).set(cgFields).where(eq17(companies.id, existingId));
+          updated++;
+          const contactEmail = (row["Email"] || "").trim();
+          const contactFirstName = (row["Contact Name"] || "").trim();
+          const contactLastName = (row["Contact Surname"] || "").trim();
+          if (contactFirstName || contactEmail) {
+            if (contactEmail) {
+              const existing = await db.select({ id: contacts.id }).from(contacts).where(and12(eq17(contacts.companyId, existingId), eq17(contacts.email, contactEmail))).limit(1);
+              if (existing.length === 0) {
+                await db.insert(contacts).values({
+                  companyId: existingId,
+                  firstName: contactFirstName || null,
+                  lastName: contactLastName || null,
+                  fullName: [contactFirstName, contactLastName].filter(Boolean).join(" ") || null,
+                  title: row["Position"] || null,
+                  email: contactEmail || null,
+                  phone: row["Phone"] || null,
+                  linkedinUrl: null,
+                  searchedTitle: row["Position"] || null
+                });
+                contactsCreated++;
+              }
+            } else if (contactFirstName) {
+              const existing = await db.select({ id: contacts.id }).from(contacts).where(and12(
+                eq17(contacts.companyId, existingId),
+                eq17(contacts.firstName, contactFirstName),
+                eq17(contacts.lastName, contactLastName || "")
+              )).limit(1);
+              if (existing.length === 0) {
+                await db.insert(contacts).values({
+                  companyId: existingId,
+                  firstName: contactFirstName,
+                  lastName: contactLastName || null,
+                  fullName: [contactFirstName, contactLastName].filter(Boolean).join(" ") || null,
+                  title: row["Position"] || null,
+                  email: null,
+                  phone: row["Phone"] || null,
+                  linkedinUrl: null,
+                  searchedTitle: row["Position"] || null
+                });
+                contactsCreated++;
+              }
+            }
+          }
+        } else {
+          await db.insert(companies).values({
+            searchId,
+            name: companyName,
+            websiteUrl: websiteRaw || null,
+            primaryDomain: domain,
+            country,
+            city: row["City"] || null,
+            streetAddress: row["HQ Address"] || null,
+            parentCompanyName: row["Parent"] && row["Parent"] !== companyName ? row["Parent"] : null,
+            enrichmentStatus: "pending",
+            sector: row["Market"] || null,
+            ...cgFields
+          });
+          const newRow = await db.select({ id: companies.id }).from(companies).where(and12(
+            eq17(companies.searchId, searchId),
+            eq17(companies.name, companyName)
+          )).orderBy(companies.id).limit(1);
+          if (newRow.length > 0) {
+            const newId = newRow[0].id;
+            const contactEmail = (row["Email"] || "").trim();
+            const contactFirstName = (row["Contact Name"] || "").trim();
+            const contactLastName = (row["Contact Surname"] || "").trim();
+            if (contactFirstName || contactEmail) {
+              await db.insert(contacts).values({
+                companyId: newId,
+                firstName: contactFirstName || null,
+                lastName: contactLastName || null,
+                fullName: [contactFirstName, contactLastName].filter(Boolean).join(" ") || null,
+                title: row["Position"] || null,
+                email: contactEmail || null,
+                phone: row["Phone"] || null,
+                linkedinUrl: null,
+                searchedTitle: row["Position"] || null
+              });
+              contactsCreated++;
+            }
+          }
+          inserted++;
+        }
+      }
+      send({
+        status: "progress",
+        done: Math.min(i + BATCH, rows.length),
+        total: rows.length,
+        inserted,
+        updated,
+        contactsCreated,
+        message: `Processed ${Math.min(i + BATCH, rows.length)} / ${rows.length} rows (${inserted} new, ${updated} updated)...`
+      });
+    }
+    const { searches: searches3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
+    await db.update(searches3).set({ status: "completed", codesSearched: rows.length }).where(eq17(searches3.id, searchId));
+    send({
+      status: "done",
+      searchId,
+      total: rows.length,
+      inserted,
+      updated,
+      contactsCreated,
+      skipped,
+      message: `Import complete. ${inserted} new companies, ${updated} updated, ${contactsCreated} contacts created, ${skipped} skipped.`
+    });
+  } catch (err) {
+    console.error("[CG Lead Import] Fatal error:", err.message, err.stack);
+    send({ error: err.message });
+  }
+  res.end();
+});
+var cgLeadImport_default = router7;
+
+// server/routes/publicShareListApi.ts
+init_db();
+init_schema();
+import { Router as Router8 } from "express";
+import mysql from "mysql2/promise";
+var router8 = Router8();
+function toCsv(companies2) {
+  if (!companies2.length) return "id,name,websiteUrl,country,city,fitScore,urgencyScore,brainName,contactName,contactTitle,contactEmail,shareUrl\n";
+  const headers = [
+    "id",
+    "name",
+    "websiteUrl",
+    "country",
+    "city",
+    "fitScore",
+    "urgencyScore",
+    "brainName",
+    "contactName",
+    "contactTitle",
+    "contactEmail",
+    "shareUrl"
+  ];
+  const escape = (v) => {
+    if (v === null || v === void 0) return "";
+    const s = String(v);
+    if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  };
+  const rows = companies2.map((c) => [
+    c.id,
+    c.name,
+    c.websiteUrl,
+    c.country,
+    c.city,
+    c.fitScore,
+    c.urgencyScore,
+    c.brainName,
+    c.contact?.name,
+    c.contact?.title,
+    c.contact?.email,
+    c.shareUrl
+  ].map(escape).join(","));
+  return [headers.join(","), ...rows].join("\r\n") + "\r\n";
+}
+router8.get("/", async (req, res) => {
+  const brainId = req.query.brainId ? Number(req.query.brainId) : null;
+  try {
+    const conn = await mysql.createConnection(process.env.DATABASE_URL);
+    let query;
+    let params;
+    if (brainId) {
+      query = `
+        SELECT
+          sl.id,
+          sl.listToken,
+          sl.shareListName AS name,
+          sl.createdAt,
+          COUNT(DISTINCT v.companyId) AS companyCount,
+          MAX(ob.id)       AS brainId,
+          MAX(ob.brainName) AS brainName
+        FROM share_lists sl
+        LEFT JOIN share_list_company_view v ON v.shareListId = sl.id
+        LEFT JOIN offering_brain ob ON ob.id = v.brainId
+        WHERE v.brainId = ?
+        GROUP BY sl.id, sl.listToken, sl.shareListName, sl.createdAt
+        ORDER BY sl.createdAt DESC
+      `;
+      params = [brainId];
+    } else {
+      query = `
+        SELECT
+          sl.id,
+          sl.listToken,
+          sl.shareListName AS name,
+          sl.createdAt,
+          COUNT(DISTINCT v.companyId) AS companyCount,
+          MAX(ob.id)        AS brainId,
+          MAX(ob.brainName) AS brainName
+        FROM share_lists sl
+        LEFT JOIN share_list_company_view v ON v.shareListId = sl.id
+        LEFT JOIN offering_brain ob ON ob.id = v.brainId
+        GROUP BY sl.id, sl.listToken, sl.shareListName, sl.createdAt
+        ORDER BY sl.createdAt DESC
+      `;
+      params = [];
+    }
+    const [rows] = await conn.query(query, params);
+    await conn.end();
+    const lists = rows.map((r) => ({
+      id: r.id,
+      listToken: r.listToken,
+      name: r.name ?? null,
+      createdAt: r.createdAt,
+      companyCount: Number(r.companyCount ?? 0),
+      brainId: r.brainId ? Number(r.brainId) : null,
+      brainName: r.brainName ?? null,
+      url: `https://leadtrigger-connectgroup.com/share/list/${r.listToken}`,
+      apiUrl: `https://leadtrigger-connectgroup.com/api/public/share-lists/${r.listToken}`,
+      csvUrl: `https://leadtrigger-connectgroup.com/api/public/share-lists/${r.listToken}?format=csv`
+    }));
+    return res.json({
+      ok: true,
+      totalCount: lists.length,
+      filteredByBrainId: brainId ?? void 0,
+      lists
+    });
+  } catch (err) {
+    console.error("[PublicShareListApi] GET /share-lists error:", err);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+router8.get("/:listToken", async (req, res) => {
+  const { listToken } = req.params;
+  const format = req.query.format?.toLowerCase();
+  if (!listToken || !/^[a-f0-9]{32}$/.test(listToken)) {
+    return res.status(400).json({ ok: false, error: "Invalid listToken format" });
+  }
+  try {
+    const conn = await mysql.createConnection(process.env.DATABASE_URL);
+    const [listRows] = await conn.query(
+      "SELECT id, listToken, shareListName, createdAt FROM share_lists WHERE listToken = ? LIMIT 1",
+      [listToken]
+    );
+    if (!listRows.length) {
+      await conn.end();
+      return res.status(404).json({ ok: false, error: "Share list not found" });
+    }
+    const list = listRows[0];
+    const [companyRows] = await conn.query(`
+      SELECT
+        v.companyId        AS id,
+        v.token            AS shareToken,
+        v.companyName      AS name,
+        v.websiteUrl,
+        v.country,
+        v.city,
+        COALESCE(v.outputFitScore,     v.fitScore)     AS fitScore,
+        COALESCE(v.outputUrgencyScore, v.urgencyScore) AS urgencyScore,
+        v.brainName,
+        v.contactName,
+        v.contactTitle,
+        v.contactEmail
+      FROM share_list_company_view v
+      WHERE v.shareListId = ?
+      ORDER BY COALESCE(v.outputFitScore,     v.fitScore)     DESC,
+               COALESCE(v.outputUrgencyScore, v.urgencyScore) DESC
+    `, [list.id]);
+    await conn.end();
+    const companies2 = companyRows.map((r) => ({
+      id: r.id,
+      shareToken: r.shareToken,
+      name: r.name ?? null,
+      websiteUrl: r.websiteUrl ?? null,
+      country: r.country ?? null,
+      city: r.city ?? null,
+      fitScore: r.fitScore !== null ? Number(r.fitScore) : null,
+      urgencyScore: r.urgencyScore !== null ? Number(r.urgencyScore) : null,
+      brainName: r.brainName ?? null,
+      contact: {
+        name: r.contactName ?? null,
+        title: r.contactTitle ?? null,
+        email: r.contactEmail ?? null
+      },
+      shareUrl: `https://leadtrigger-connectgroup.com/share/${r.shareToken}`
+    }));
+    if (format === "csv") {
+      const safeName = (list.shareListName ?? listToken).replace(/[^a-z0-9_-]/gi, "_");
+      const filename = `share-list-${safeName}.csv`;
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+      return res.send(toCsv(companies2));
+    }
+    return res.json({
+      ok: true,
+      list: {
+        id: list.id,
+        listToken: list.listToken,
+        name: list.shareListName ?? null,
+        createdAt: list.createdAt,
+        url: `https://leadtrigger-connectgroup.com/share/list/${list.listToken}`,
+        csvUrl: `https://leadtrigger-connectgroup.com/api/public/share-lists/${list.listToken}?format=csv`
+      },
+      totalCount: companies2.length,
+      generatedAt: (/* @__PURE__ */ new Date()).toISOString(),
+      companies: companies2
+    });
+  } catch (err) {
+    console.error("[PublicShareListApi] GET /share-lists/:token error:", err);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+router8.post("/feedback", async (req, res) => {
+  try {
+    const { shareToken, companyId, companyName, rating, comment, submitterName, submitterEmail } = req.body ?? {};
+    if (!shareToken) return res.status(400).json({ ok: false, error: "shareToken required" });
+    const db = await getDb();
+    if (!db) return res.status(500).json({ ok: false, error: "Database not available" });
+    const validRatings = ["thumbs_up", "thumbs_down", "neutral"];
+    await db.insert(shareFeedback).values({
+      shareToken: String(shareToken).slice(0, 200),
+      companyId: companyId ? Number(companyId) : null,
+      companyName: companyName ? String(companyName).slice(0, 300) : null,
+      rating: validRatings.includes(rating) ? rating : null,
+      comment: comment ? String(comment).slice(0, 2e3) : null,
+      submitterName: submitterName ? String(submitterName).slice(0, 200) : null,
+      submitterEmail: submitterEmail ? String(submitterEmail).slice(0, 200) : null
+    });
+    return res.json({ ok: true });
+  } catch (err) {
+    console.error("[ShareFeedback] POST error:", err);
+    return res.status(500).json({ ok: false, error: "Internal server error" });
+  }
+});
+var publicShareListApi_default = router8;
+
 // server/batchContactsAndReps.ts
 init_schema();
-import { inArray as inArray7 } from "drizzle-orm";
+import { inArray as inArray11 } from "drizzle-orm";
 var CONTACTS_DELAY_MS = 1e3;
 var REP_DELAY_MS = 500;
 var CONCURRENCY_CONTACTS = 3;
@@ -14544,7 +20318,7 @@ async function runBatchContactsAndReps(searchIds, userId = 1) {
       primaryDomain: companies.primaryDomain,
       websiteUrl: companies.websiteUrl,
       salesRepProfile: companies.salesRepProfile
-    }).from(companies).where(inArray7(companies.searchId, searchIds));
+    }).from(companies).where(inArray11(companies.searchId, searchIds));
     console.log(`[BatchCR] Starting for ${allCompanies.length} companies across searches ${searchIds.join(", ")}`);
     progress = {
       phase: "contacts",
@@ -14614,7 +20388,7 @@ async function runBatchContactsAndReps(searchIds, userId = 1) {
 init_db();
 init_schema();
 init_llm();
-import { eq as eq13, sql as sql6 } from "drizzle-orm";
+import { eq as eq19, sql as sql7 } from "drizzle-orm";
 var batchSignalProgress = {
   running: false,
   phase: "idle",
@@ -14665,7 +20439,7 @@ async function runBatchSignalOpeners() {
     const db = await getDb();
     if (!db) throw new Error("Database not available");
     const { offeringBrain: offeringBrain2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const brains = await db.select().from(offeringBrain2).where(eq13(offeringBrain2.status, "completed")).limit(1);
+    const brains = await db.select().from(offeringBrain2).where(eq19(offeringBrain2.status, "completed")).limit(1);
     let brainContext = "";
     let sellerName = "Your Company";
     if (brains.length > 0) {
@@ -14689,7 +20463,7 @@ Pain Points We Solve: ${painPoints.join("; ")}
       signalOpeners: companies.signalOpeners,
       searchId: companies.searchId
     }).from(companies).where(
-      sql6`${companies.searchId} IN (1500002, 1500003) AND ${companies.briefData} IS NOT NULL AND ${companies.signalOpeners} IS NULL`
+      sql7`${companies.searchId} IN (1500002, 1500003) AND ${companies.briefData} IS NOT NULL AND ${companies.signalOpeners} IS NULL`
     );
     batchSignalProgress.totalCompanies = allCompanies.length;
     batchSignalProgress.processedCompanies = 0;
@@ -14716,7 +20490,7 @@ Pain Points We Solve: ${painPoints.join("; ")}
             await db.update(companies).set({
               signalOpeners: JSON.stringify([]),
               signalOpenersGeneratedAt: /* @__PURE__ */ new Date()
-            }).where(eq13(companies.id, company.id));
+            }).where(eq19(companies.id, company.id));
             batchSignalProgress.processedCompanies++;
             return;
           }
@@ -14757,7 +20531,7 @@ Pain Points We Solve: ${painPoints.join("; ")}
           await db.update(companies).set({
             signalOpeners: JSON.stringify(openers),
             signalOpenersGeneratedAt: /* @__PURE__ */ new Date()
-          }).where(eq13(companies.id, company.id));
+          }).where(eq19(companies.id, company.id));
           batchSignalProgress.processedCompanies++;
           console.log(`[BatchSignalOpeners] \u2713 ${company.name} (${openers.length} openers) [${batchSignalProgress.processedCompanies}/${batchSignalProgress.totalCompanies}]`);
         } catch (err) {
@@ -14776,6 +20550,86 @@ Pain Points We Solve: ${painPoints.join("; ")}
     batchSignalProgress.running = false;
   }
 }
+
+// server/scheduledRefreshShares.ts
+init_db();
+init_schema();
+import { Router as Router9 } from "express";
+import { eq as eq20, isNull as isNull6 } from "drizzle-orm";
+var router9 = Router9();
+router9.post("/", async (req, res) => {
+  try {
+    await sdk.authenticateRequest(req);
+  } catch {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+  const db = await getDb();
+  if (!db) return res.status(500).json({ error: "Database unavailable" });
+  const uncachedTokens = await db.select({
+    id: shareTokens.id,
+    token: shareTokens.token,
+    companyId: shareTokens.companyId
+  }).from(shareTokens).where(isNull6(shareTokens.cachedImages));
+  const serperKey = process.env.SERPER_API_KEY;
+  if (!serperKey) {
+    return res.status(500).json({ error: "SERPER_API_KEY not configured" });
+  }
+  let cached = 0;
+  let failed = 0;
+  let skipped = 0;
+  for (let i = 0; i < uncachedTokens.length; i += 10) {
+    const batch = uncachedTokens.slice(i, i + 10);
+    await Promise.all(batch.map(async (token) => {
+      try {
+        const companyRows = await db.select({ name: companies.name }).from(companies).where(eq20(companies.id, token.companyId)).limit(1);
+        const companyName = companyRows[0]?.name;
+        if (!companyName) {
+          skipped++;
+          return;
+        }
+        const searchQuery = `${companyName} company office headquarters`;
+        const serperRes = await fetch("https://google.serper.dev/images", {
+          method: "POST",
+          headers: { "X-API-KEY": serperKey, "Content-Type": "application/json" },
+          body: JSON.stringify({ q: searchQuery, num: 5 })
+        });
+        if (serperRes.ok) {
+          const serperData = await serperRes.json();
+          const images = serperData.images ?? [];
+          const imageUrls = images.map((img) => img.imageUrl ?? img.thumbnailUrl ?? "").filter((url) => url && url.startsWith("http")).slice(0, 2);
+          if (imageUrls.length > 0) {
+            await db.update(shareTokens).set({ cachedImages: JSON.stringify(imageUrls), cachedAt: /* @__PURE__ */ new Date() }).where(eq20(shareTokens.id, token.id));
+            cached++;
+          } else {
+            await db.update(shareTokens).set({ cachedImages: "[]", cachedAt: /* @__PURE__ */ new Date() }).where(eq20(shareTokens.id, token.id));
+            skipped++;
+          }
+        } else {
+          failed++;
+        }
+      } catch {
+        failed++;
+      }
+    }));
+    if (i + 10 < uncachedTokens.length) {
+      await new Promise((r) => setTimeout(r, 500));
+    }
+  }
+  const totalTokens = await db.select({ id: shareTokens.id }).from(shareTokens);
+  const totalLists = await db.select({ id: shareLists.id }).from(shareLists);
+  return res.json({
+    success: true,
+    stats: {
+      totalTokens: totalTokens.length,
+      totalLists: totalLists.length,
+      newlyCached: cached,
+      failed,
+      skipped,
+      alreadyCached: totalTokens.length - uncachedTokens.length
+    }
+  });
+});
+var scheduledRefreshSharesRouter = router9;
 
 // server/_core/index.ts
 function isPortAvailable(port) {
@@ -14805,7 +20659,11 @@ async function startServer() {
   app.use("/api/conference-import", conferenceImport_default);
   app.use("/api/excel-import", excelImport_default);
   app.use("/api/export-excel", exportExcel_default);
+  app.use("/api/share-list-export", shareListExport_default);
   app.use("/api/apollo-webhook", apolloWebhook_default);
+  app.use("/api/cg-lead-import", cgLeadImport_default);
+  app.use("/api/public/share-lists", publicShareListApi_default);
+  app.use("/api/scheduled/refresh-shares", scheduledRefreshSharesRouter);
   app.post("/api/batch-contacts-reps", (req, res) => {
     const { searchIds, userId } = req.body || {};
     if (!searchIds || !Array.isArray(searchIds)) {

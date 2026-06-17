@@ -369,7 +369,6 @@ See full details, rationale, strengths, problems, and context in `ELON-REVIEW.md
 - [x] Remove hover effect from close button (×)
 - [x] Ensure all text remains static with no color changes on hover
 
-<<<<<<< Updated upstream
 ## Feature: Dedicated Offering Details Page
 - [x] Create OfferingDetails page component with offering name, description, target markets, and keywords
 - [x] Add navigation from Home to OfferingDetails page
@@ -1712,7 +1711,6 @@ See full details, rationale, strengths, problems, and context in `ELON-REVIEW.md
 - [x] Remove old index/fuzzy matching logic from CompanyDetail.tsx
 - [x] Cache generated openers in component state so they don't re-fire on re-render
 
-<<<<<<< Updated upstream
 ## Fix: Parallel Brief Generation (Phase 1 + Phase 2 concurrent)
 - [x] Run urgency phase and intelligence phase with Promise.all() in briefGenerator.ts
 - [x] Verify no data dependency between the two phases
@@ -1727,11 +1725,10 @@ See full details, rationale, strengths, problems, and context in `ELON-REVIEW.md
 - [x] Fix refetchInterval to keep polling at 1s after terminal status so useEffect always fires
 - [x] Verify Direx (previously stuck company) now completes in ~43s with new timeout code
 - [x] Confirm full DO 10 batch: 10 researched, 10 approached, 0 failed, 387 remaining
-=======
+
 ## Feature: Fourth Pillar — Right Sales Rep
 - [x] Add "RIGHT SALES REP" fourth box to hero grid in Brain.tsx (change grid-cols-3 to grid-cols-4)
 - [x] Label: "RIGHT SALES REP", title: "Decision-Maker Match", description: matching the right contact to the right message
->>>>>>> Stashed changes
 
 ## Feature: Best Suitable Sales Rep Profile (Approach Tab)
 - [x] Add tRPC procedure generateSalesRepProfile: takes companyId, returns LLM-generated ideal rep description

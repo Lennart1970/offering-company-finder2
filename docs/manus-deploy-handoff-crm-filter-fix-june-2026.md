@@ -16,8 +16,9 @@ Implementation guide for Manus WebDev engineer.
 ### What's in this release
 
 1. **Bug fix — Company Database CRM filter** — **In CRM** and **Not in CRM** both returned zero rows after the initial CRM filter shipped in `03ae54c`.
-2. **Root cause** — Raw nested `sql` `EXISTS` fragments did not compose correctly with Drizzle `and()` in the `WHERE` clause; the query failed at runtime and the UI showed an empty list.
-3. **Fix** — Rewrote CRM presence filtering with Drizzle `exists()` / `not()` and aligned match rules with `findCgLead` (SharePoint ID, domain, website host, company-name prefix).
+2. **Root cause (correctness)** — Raw nested `sql` `EXISTS` fragments did not compose correctly with Drizzle `and()` in the `WHERE` clause.
+3. **Performance — `normalizedDomain` column** — Pre-materialised lowercase hostname on `companies` with indexes on `companies.normalizedDomain` and `lt_mns_cg_leads.domain`. CRM filter uses index-scannable `cg.domain = companies.normalizedDomain` instead of per-row string surgery.
+4. **Fix** — Drizzle `exists()` / `not()` + indexed domain equality; SharePoint ID branch retained for rows with `cgSharepointId`.
 
 **No UI changes.** Filter dropdown and CRM column badges are unchanged.
 
@@ -44,16 +45,38 @@ Then:
 
 ## Step 2 — Database migrations (MySQL / TiDB)
 
-**No new migration required.** This is a server-side query fix only.
+**Migration required** for CRM filter performance: `0066_companies_normalized_domain.sql`
 
-### Verify CRM data still present
+### Verify current state
+
+```sql
+SHOW COLUMNS FROM companies LIKE 'normalizedDomain';
+SHOW INDEX FROM companies WHERE Key_name = 'companies_normalized_domain_idx';
+SHOW INDEX FROM lt_mns_cg_leads WHERE Key_name = 'lt_mns_cg_leads_domain_idx';
+SELECT COUNT(*) AS with_domain FROM companies WHERE normalizedDomain IS NOT NULL AND normalizedDomain != '';
+```
+
+### Apply migration
+
+```bash
+npm run db:push
+```
+
+Or run SQL from `drizzle/0066_companies_normalized_domain.sql` manually, then confirm:
+
+```sql
+SELECT COUNT(*) AS crm_rows FROM lt_mns_cg_leads;
+SELECT COUNT(*) AS normalized FROM companies WHERE normalizedDomain IS NOT NULL;
+```
+
+Expected: `normalized` close to companies with `primaryDomain` or `websiteUrl` populated.
+
+### CRM data (unchanged)
 
 ```sql
 SHOW TABLES LIKE 'lt_mns_cg_leads';
 SELECT COUNT(*) AS crm_rows FROM lt_mns_cg_leads;
 ```
-
-Expected: table exists, **~2,500+ rows** (imported from `docs/link to item.csv` via `scripts/import-sharepoint-leads.mjs`).
 
 If count is 0, re-run import before smoke-testing the filter:
 
@@ -103,14 +126,14 @@ Existing requirements unchanged:
 | Badge lookup API | `trpc.cgLead.lookup` → `findCgLead()` |
 | CRM filter API | `trpc.companyFinder.getCompanyDb` → `getCompanyDatabase()` / `countCompanyDatabase()` |
 
-**Filter match order (after fix):**
+**Filter match (after fix):**
 
-1. `companies.cgSharepointId` → `lt_mns_cg_leads.id`
-2. `companies.primaryDomain` → `lt_mns_cg_leads.domain`
-3. Host extracted from `companies.websiteUrl` → `lt_mns_cg_leads.domain`
-4. Company name prefix (`LIKE` first 20 chars) → `lt_mns_cg_leads.company_name`
+1. `companies.normalizedDomain` → `lt_mns_cg_leads.domain` (indexed — primary path)
+2. `companies.cgSharepointId` → `lt_mns_cg_leads.id` (numeric SharePoint IDs only)
 
-Badge `findCgLead` also does fuzzy normalized name equality in JS after prefix filter; filter may still include a few extra name-prefix matches vs badge — acceptable.
+`normalizedDomain` is set on insert/update via `normalizeCompanyDomain()` and backfilled in migration `0066`.
+
+Badge `findCgLead` still uses per-row API lookup (domain + fuzzy name). Filter may miss rare name-only badge matches — acceptable trade-off for speed.
 
 ---
 
@@ -128,7 +151,10 @@ Badge `findCgLead` also does fuzzy normalized name equality in JS after prefix f
 
 | File | Change |
 |------|--------|
-| `server/db.ts` | `companyCrmPresenceCondition()` using `exists()` / `not()`; `companyCrmMatchWhere()` aligned with `findCgLead` |
+| `server/db.ts` | `companyCrmPresenceCondition()` using indexed `normalizedDomain` |
+| `server/normalizeCompanyDomain.ts` | Shared domain normalisation for insert/update/backfill |
+| `drizzle/0066_companies_normalized_domain.sql` | Column + indexes + backfill |
+| `drizzle/schema.ts` | `companies.normalizedDomain` |
 | `docs/manus-deploy-handoff-crm-filter-fix-june-2026.md` | This handoff |
 
 ---
@@ -138,7 +164,8 @@ Badge `findCgLead` also does fuzzy normalized name equality in JS after prefix f
 Reply to product owner with:
 
 - [ ] Git commit deployed: `________`
-- [ ] `lt_mns_cg_leads` row count: `________`
+- [ ] Migration `0066` applied (`normalizedDomain` column + indexes)
+- [ ] `companies.normalizedDomain` backfill count: `________`
 - [ ] Smoke test A (CRM filter In / Not in / All) passed
 - [ ] Smoke test B (CRM column badges) passed
 - [ ] Build / `tsc --noEmit`: 0 errors
@@ -149,10 +176,10 @@ Reply to product owner with:
 
 | Symptom | Likely cause |
 |---------|----------------|
-| Both filter options still return 0 | Old build deployed — confirm `git log -1` includes CRM filter fix commit |
-| **In CRM** returns 0 but green badges visible | `lt_mns_cg_leads` empty — run import script |
-| **In CRM** count lower than green badge count | Name-only badge match (fuzzy normalize) not fully replicated in SQL — expected for edge cases |
-| **Not in CRM** returns 0 | Filter fix not deployed, or all companies match CRM (unlikely) |
+| Both filter options still return 0 | Migration `0066` not applied, or old build deployed |
+| Filter very slow | `companies_normalized_domain_idx` / `lt_mns_cg_leads_domain_idx` missing — re-run migration |
+| **In CRM** returns 0 but green badges visible | `lt_mns_cg_leads` empty, or `normalizedDomain` not backfilled — run migration |
+| **In CRM** count lower than green badge count | Name-only badge match (fuzzy normalize) not in SQL filter — expected |
 
 ---
 

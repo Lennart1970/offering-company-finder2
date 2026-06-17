@@ -69,6 +69,8 @@ export const companies = mysqlTable("companies", {
   name: varchar("name", { length: 512 }).notNull(),
   websiteUrl: varchar("websiteUrl", { length: 512 }),
   primaryDomain: varchar("primaryDomain", { length: 256 }),
+  /** Lowercase hostname for CRM domain match — set from primaryDomain or websiteUrl */
+  normalizedDomain: varchar("normalizedDomain", { length: 256 }),
   linkedinUrl: varchar("linkedinUrl", { length: 512 }),
   twitterUrl: varchar("twitterUrl", { length: 512 }),
   facebookUrl: varchar("facebookUrl", { length: 512 }),

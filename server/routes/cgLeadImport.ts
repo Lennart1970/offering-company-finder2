@@ -260,7 +260,10 @@ router.post("/", upload.single("file"), async (req: any, res: any) => {
           // Update CG fields on existing company
           await db
             .update(companies)
-            .set(cgFields)
+            .set({
+              ...cgFields,
+              ...(domain ? { normalizedDomain: domain } : {}),
+            })
             .where(eq(companies.id, existingId));
           updated++;
 
@@ -324,6 +327,7 @@ router.post("/", upload.single("file"), async (req: any, res: any) => {
             name: companyName,
             websiteUrl: websiteRaw || null,
             primaryDomain: domain,
+            normalizedDomain: domain,
             country,
             city: row["City"] || null,
             streetAddress: row["HQ Address"] || null,

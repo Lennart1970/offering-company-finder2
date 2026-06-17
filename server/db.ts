@@ -2,6 +2,7 @@ import { eq, and, or, desc, sql, exists, not, ne, isNotNull } from "drizzle-orm"
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob, bomCalculations, BomCalculation, InsertBomCalculation, apolloWebhookLogs, ApolloWebhookLog, InsertApolloWebhookLog, companyBrainOutputs, CompanyBrainOutput, InsertCompanyBrainOutput, offeringBrain, cgLeads } from "../drizzle/schema";
 import { ENV } from './_core/env';
+import { normalizeCompanyDomain } from "./normalizeCompanyDomain";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -180,7 +181,16 @@ export async function createCompanies(companyList: InsertCompany[]) {
   if (!db) throw new Error("Database not available");
   
   if (companyList.length === 0) return;
-  await db.insert(companies).values(companyList);
+  const stamped = companyList.map((c) => ({
+    ...c,
+    normalizedDomain:
+      c.normalizedDomain ??
+      normalizeCompanyDomain({
+        primaryDomain: c.primaryDomain,
+        websiteUrl: c.websiteUrl,
+      }),
+  }));
+  await db.insert(companies).values(stamped);
 }
 
 export async function getCompaniesBySearchId(searchId: number) {
@@ -347,8 +357,25 @@ export async function getCompanyById(id: number) {
 export async function updateCompany(id: number, updates: Partial<InsertCompany>) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  
-  await db.update(companies).set(updates).where(eq(companies.id, id));
+
+  let patch: Partial<InsertCompany> = updates;
+  if ("primaryDomain" in updates || "websiteUrl" in updates) {
+    let primaryDomain = updates.primaryDomain;
+    let websiteUrl = updates.websiteUrl;
+    if (primaryDomain === undefined || websiteUrl === undefined) {
+      const existing = await getCompanyById(id);
+      if (existing) {
+        if (primaryDomain === undefined) primaryDomain = existing.primaryDomain;
+        if (websiteUrl === undefined) websiteUrl = existing.websiteUrl;
+      }
+    }
+    patch = {
+      ...updates,
+      normalizedDomain: normalizeCompanyDomain({ primaryDomain, websiteUrl }),
+    };
+  }
+
+  await db.update(companies).set(patch).where(eq(companies.id, id));
 }
 
 export async function getPendingCompaniesBySearchId(searchId: number) {
@@ -1099,44 +1126,21 @@ export async function getAllBrainOutputsForCompany(
 
 export type CompanyDbCrmFilter = "in" | "not_in";
 
-/** Hostname from companies.websiteUrl — mirrors cgLeadRouter URL parsing. */
-function companyWebsiteHostSql() {
-  return sql`LOWER(
-    SUBSTRING_INDEX(
-      SUBSTRING_INDEX(
-        REPLACE(REPLACE(REPLACE(TRIM(${companies.websiteUrl}), 'https://', ''), 'http://', ''), 'www.', ''),
-        '/', 1
-      ),
-      ':', 1
-    )
-  )`;
-}
-
-/** WHERE clause matching one company row to lt_mns_cg_leads (mirrors findCgLead). */
+/**
+ * Index-scannable CRM match: companies.normalizedDomain = lt_mns_cg_leads.domain,
+ * plus SharePoint ID when cgSharepointId is numeric.
+ */
 function companyCrmMatchWhere() {
   return or(
+    and(
+      isNotNull(companies.normalizedDomain),
+      ne(companies.normalizedDomain, ""),
+      eq(cgLeads.domain, companies.normalizedDomain),
+    ),
     and(
       isNotNull(companies.cgSharepointId),
       sql`${companies.cgSharepointId} REGEXP '^[0-9]+$'`,
       eq(cgLeads.id, sql`CAST(${companies.cgSharepointId} AS UNSIGNED)`),
-    ),
-    and(
-      isNotNull(companies.primaryDomain),
-      ne(companies.primaryDomain, ""),
-      eq(cgLeads.domain, sql`LOWER(REPLACE(TRIM(${companies.primaryDomain}), 'www.', ''))`),
-    ),
-    and(
-      isNotNull(companies.websiteUrl),
-      ne(companies.websiteUrl, ""),
-      isNotNull(cgLeads.domain),
-      eq(cgLeads.domain, companyWebsiteHostSql()),
-    ),
-    // Name prefix match — same first step as findCgLead fuzzy name lookup
-    and(
-      isNotNull(companies.name),
-      sql`CHAR_LENGTH(TRIM(${companies.name})) >= 3`,
-      isNotNull(cgLeads.companyName),
-      sql`LOWER(TRIM(${cgLeads.companyName})) LIKE CONCAT(LOWER(LEFT(TRIM(${companies.name}), 20)), '%')`,
     ),
   );
 }

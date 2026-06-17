@@ -185,6 +185,53 @@ This could be a 9.5/10 tool for its users. Right now the UI is adding cognitive 
 
 ---
 
+## Strategic Decision: Pure Supabase + Railway Path (leadtriggerv2) — 2026-06-05
+
+**User directive (this session):** "I have a v2 that runs 100% in supabase and deploys via railway. I want to go the supabase route. it is a big change, but i want to get out of the claws of manus."
+
+**Response:** Fully aligned. The dual-DB drift, MySQL/TiDB (Manus) dependency, god modules, and agent fragility we diagnosed earlier are exactly why a clean Supabase-only future makes sense.
+
+### What was found in the sibling `leadtriggerv2` (c:\Users\lenbol\leadtriggerv2, separate git remote https://github.com/Lennart1970/leadtriggerv2.git)
+- Explicit retirement of MySQL: `package.json` `"db:push": "echo 'MySQL database retired — no migrations to run'"`.
+- All modern flows use direct `@supabase/supabase-js` `createClient` (researchPipeline, trigger/news-signal matching, Apollo + bucket imports + embeddings, article generation, distribution). There is `companyFinder.supabase.ts` + `leadtriggerRouter.ts` as the forward paths.
+- Deployment story is already Railway: README documents the exact env var set (Supabase URL/service role, PUBLIC_APP_URL, Telegram, LLM keys). No MySQL connection string on the happy path.
+- Product model evolved: Brain → Campaign matches → Research articles → Shareable lists → NanoClaw/Telegram distribution. Legacy finder terminology acknowledged and being pruned (see `documentation/module-map.md` and `todo.md`).
+- Active cleanup + tests: Many server tests focused on the new news/trigger flows. Pruning of "hunt" lane, old UIs, Python, etc. already done in prior steps.
+- Remaining reality (honest): Still some legacy (`companyFinder.ts`, parts of share, external group .mjs for NanoClaw). The Manus vite plugin and .manus/ folders are still present (easy to excise). Explicit open item in `todo.md`: "Clarify Supabase-only vs legacy MySQL search path; refactor or gate if Railway should not depend on MySQL for post-approve flows."
+- Supabase schema: Managed via `supabase/migrations/` (SQL) + Supabase CLI.
+
+This is not a throwaway prototype — it is the continuation and cleanup of the same lineage, with the DB simplification and deployment modernization already in motion.
+
+### Immediate Artifact Created
+I created and committed (in the v2 repo) a living cutover plan:
+
+**`RAILWAY-SUPABASE-ONLY-CUTOVER-PLAN.md`** (at root of leadtriggerv2, committed on main as 1791e84)
+
+It includes:
+- First-principles rationale + why this directly solves the brittleness diagnosed in the rest of this review.
+- Current v2 state snapshot.
+- Safety principles (parallel run of old v1, public surfaces sacred, visible reality checks, remove Manus from critical path).
+- 4-phase plan: Baseline & Safety → Make 100% Supabase-runnable on Railway → Data migration & continuity (the real scary part, with options) → Feature parity → Cutover & decommission.
+- Concrete quick wins (Manus plugin removal, startup "Reality Guard", full MySQL surface audit in v2, parity matrix, migration script skeleton).
+- Open questions to sharpen execution (target Supabase project, current traffic on v2 Railway instance, share link continuity tolerance, must-keep v1 features, repo branding preference, timeline appetite).
+
+The plan treats the old v1 workspace (this one) as the current brittle prod that stays running untouched while we harden and validate the future in the v2 tree.
+
+### Recommended Immediate Way of Working
+- From now on, when you want changes toward the future, work in / point the agent at the `leadtriggerv2` folder (sibling to this "Leadtrigger v1").
+- v1 folder stays as the "current prod snapshot + historical record" until the data cutover and DNS switch are complete and validated.
+- We will use the plan as the single source of truth for the migration and keep it updated.
+
+I can start executing pieces right away (e.g. the Manus plugin removal + reality guard in v2, a full remaining-MySQL grep report committed to v2, the parity matrix, or the first version of a dry-run migration script).
+
+Just say the word (or answer any of the open questions in the plan) and the next artifact or diff appears in the v2 repo.
+
+This is the way out. Big change, but the right one, and now we have a visible, phased, safety-first map instead of a scary leap. 
+
+(Plan also cross-references the earlier design + code review sections for context.)
+
+---
+
 ## Code & Databases Review — 2026-06-05 (Grok/Elon First-Principles Addendum)
 
 **Scope:** Static + architectural review of server/, drizzle/, references/db-architecture.md, key services (embedding, bulk sim/urgency, supabase*, campaign queue), companyFinder (the 5k LOC router), db.ts (1.3k LOC query layer), schema evolution (59 migrations), dual-DB usage patterns, test surface, and cross-cutting concerns. Performed immediately after the design review and the docs commit/push.

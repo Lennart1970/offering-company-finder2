@@ -1,0 +1,393 @@
+# SharePoint CRM Lead Lookup — Implementation Guide
+
+This guide explains how to import a SharePoint lead list from Excel into a Manus WebDev project and display a CRM presence badge on every company card. The badge shows a green **View in CRM →** button (opens the SharePoint item in a new tab) or a grey **Not in CRM database** indicator.
+
+---
+
+## Prerequisites
+
+- A Manus WebDev project with the `web-db-user` feature (MySQL database)
+- An Excel file exported from SharePoint with at least three columns: **Company**, **Website**, and **ID**
+- The SharePoint DispForm base URL for your list, e.g.:
+  ```
+  https://yourorg.sharepoint.com/sites/YourSite/Lists/YourList/DispForm.aspx?ID=
+  ```
+
+---
+
+## Step 1 — Import the Excel File into MySQL
+
+Run this Python script from the sandbox. It auto-detects the column names, creates the `lt_mns_cg_leads` table if it does not exist, and upserts all rows.
+
+```python
+#!/usr/bin/env python3
+"""
+Import SharePoint lead list from Excel into MySQL lt_mns_cg_leads.
+
+Usage:
+    SHAREPOINT_LEADS_BASE_URL="https://yourorg.sharepoint.com/.../DispForm.aspx?ID=" \
+    python import_sharepoint_leads.py /path/to/leads.xlsx
+
+Options:
+    --table   MySQL table name (default: lt_mns_cg_leads)
+    --sheet   Sheet index or name (default: 0)
+    --base-url  Overrides SHAREPOINT_LEADS_BASE_URL env var
+"""
+import argparse, os, re, sys
+
+def extract_domain(url):
+    if not url: return None
+    url = re.sub(r'^https?://', '', str(url).strip())
+    url = re.sub(r'^www\.', '', url)
+    domain = url.split('/')[0].split(':')[0].strip()
+    return domain.lower() if domain else None
+
+def find_col(headers, *candidates):
+    lower = [h.lower() if h else '' for h in headers]
+    for c in candidates:
+        if c.lower() in lower:
+            return lower.index(c.lower())
+    return None
+
+parser = argparse.ArgumentParser()
+parser.add_argument('excel_file')
+parser.add_argument('--table', default='lt_mns_cg_leads')
+parser.add_argument('--sheet', default=0)
+parser.add_argument('--base-url')
+args = parser.parse_args()
+
+base_url = args.base_url or os.environ.get('SHAREPOINT_LEADS_BASE_URL', '')
+db_url   = os.environ.get('DATABASE_URL', '')
+if not base_url: sys.exit("ERROR: Set SHAREPOINT_LEADS_BASE_URL or pass --base-url")
+if not db_url:   sys.exit("ERROR: DATABASE_URL not set")
+
+import openpyxl
+wb = openpyxl.load_workbook(args.excel_file)
+ws = wb[args.sheet] if isinstance(args.sheet, str) else wb.worksheets[int(args.sheet)]
+headers = [ws.cell(1, c).value for c in range(1, ws.max_column + 1)]
+
+col_company = find_col(headers, 'company', 'company name', 'naam', 'bedrijf')
+col_website = find_col(headers, 'website', 'url', 'web', 'site')
+col_id      = find_col(headers, 'id', 'item id', 'sharepoint id')
+if col_company is None: sys.exit(f"ERROR: No Company column. Headers: {headers}")
+if col_id      is None: sys.exit(f"ERROR: No ID column. Headers: {headers}")
+
+rows, skipped = [], 0
+for r in range(2, ws.max_row + 1):
+    company = ws.cell(r, col_company + 1).value
+    id_val  = ws.cell(r, col_id      + 1).value
+    website = ws.cell(r, col_website + 1).value if col_website is not None else None
+    if not company or not id_val:
+        skipped += 1; continue
+    try: id_int = int(id_val)
+    except: skipped += 1; continue
+    website_str   = str(website).strip() if website else None
+    sharepoint_url = f"{base_url.rstrip('=')}{id_int}" if '=' in base_url else f"{base_url}{id_int}"
+    rows.append((id_int, str(company).strip(), website_str, extract_domain(website_str), sharepoint_url))
+
+print(f"Loaded {len(rows)} rows ({skipped} skipped)")
+
+import mysql.connector
+from urllib.parse import urlparse
+p = urlparse(db_url)
+conn = mysql.connector.connect(host=p.hostname, port=p.port or 3306,
+    user=p.username, password=p.password, database=p.path.lstrip('/'))
+cur = conn.cursor()
+
+cur.execute(f"""
+    CREATE TABLE IF NOT EXISTS `{args.table}` (
+        id INT PRIMARY KEY,
+        company_name TEXT NOT NULL,
+        website TEXT,
+        domain TEXT,
+        sharepoint_url TEXT NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+""")
+conn.commit()
+
+for i in range(0, len(rows), 500):
+    batch = rows[i:i+500]
+    cur.executemany(
+        f"INSERT INTO `{args.table}` (id,company_name,website,domain,sharepoint_url) "
+        f"VALUES (%s,%s,%s,%s,%s) ON DUPLICATE KEY UPDATE "
+        f"company_name=VALUES(company_name),website=VALUES(website),"
+        f"domain=VALUES(domain),sharepoint_url=VALUES(sharepoint_url)",
+        batch)
+    conn.commit()
+    print(f"  Inserted {min(i+500, len(rows))}/{len(rows)}...")
+
+cur.close(); conn.close()
+print("Done.")
+```
+
+---
+
+## Step 2 — Add the Drizzle Schema
+
+Append to `drizzle/schema.ts`:
+
+```ts
+// SharePoint CRM lead database
+export const cgLeads = mysqlTable("lt_mns_cg_leads", {
+  id: int("id").primaryKey(),
+  companyName: text("company_name").notNull(),
+  website: text("website"),
+  domain: text("domain"),
+  sharepointUrl: text("sharepoint_url").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type CgLead = typeof cgLeads.$inferSelect;
+```
+
+> No migration needed — the table was already created by the import script in Step 1.
+
+---
+
+## Step 3 — Add the `findCgLead` DB Helper
+
+Append to `server/db.ts` (ensure `cgLeads` is imported from schema):
+
+```ts
+export async function findCgLead(opts: {
+  domain?: string | null;
+  companyName?: string | null;
+}): Promise<{ id: number; companyName: string; sharepointUrl: string } | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  // 1. Exact domain match
+  if (opts.domain) {
+    const clean = opts.domain.replace(/^www\./, '').toLowerCase();
+    const rows = await db.select({
+      id: cgLeads.id,
+      companyName: cgLeads.companyName,
+      sharepointUrl: cgLeads.sharepointUrl,
+    }).from(cgLeads).where(eq(cgLeads.domain, clean)).limit(1);
+    if (rows.length) return rows[0];
+  }
+
+  // 2. Fuzzy company name match (strips BV, GmbH, Ltd, etc.)
+  if (opts.companyName) {
+    const normalize = (s: string) => s.toLowerCase()
+      .replace(/\b(bv|b\.v\.|nv|n\.v\.|gmbh|ag|ltd|limited|inc|corp|sa|sas|srl|llc|plc|pty)\b/g, '')
+      .replace(/[^a-z0-9]/g, ' ').replace(/\s+/g, ' ').trim();
+    const needle = normalize(opts.companyName);
+    if (needle.length >= 3) {
+      const prefix = needle.slice(0, 20).replace(/[%_]/g, '\\$&');
+      const { like } = await import("drizzle-orm");
+      const candidates = await db.select({
+        id: cgLeads.id,
+        companyName: cgLeads.companyName,
+        sharepointUrl: cgLeads.sharepointUrl,
+      }).from(cgLeads).where(like(cgLeads.companyName, `${prefix}%`)).limit(10);
+      const match = candidates.find(c => normalize(c.companyName) === needle);
+      if (match) return match;
+    }
+  }
+
+  return null;
+}
+```
+
+---
+
+## Step 4 — Add the tRPC Procedure
+
+In `server/routers.ts`, add to imports:
+
+```ts
+import { findCgLead } from "./db";
+import { z } from "zod";
+```
+
+Add to `appRouter`:
+
+```ts
+cgLead: router({
+  lookup: publicProcedure
+    .input(z.object({
+      domain:      z.string().optional(),
+      companyName: z.string().optional(),
+      websiteUrl:  z.string().optional(),
+    }))
+    .query(async ({ input }) => {
+      // Extract domain from websiteUrl if not provided directly
+      let domain = input.domain;
+      if (!domain && input.websiteUrl) {
+        try {
+          const url = new URL(
+            input.websiteUrl.startsWith('http') ? input.websiteUrl : `https://${input.websiteUrl}`
+          );
+          domain = url.hostname.replace(/^www\./, '');
+        } catch {}
+      }
+      const lead = await findCgLead({ domain, companyName: input.companyName });
+      return { lead };
+    }),
+}),
+```
+
+---
+
+## Step 5 — Add the `CgLeadBadge` React Component
+
+Create `client/src/components/CgLeadBadge.tsx`:
+
+```tsx
+/**
+ * CgLeadBadge — shows a "View in CRM" button or "Not in CRM database" badge.
+ *
+ * Props:
+ *   domain       — clean domain (e.g. "thalesgroup.com")
+ *   websiteUrl   — full URL; domain extracted automatically if domain not given
+ *   companyName  — used for fuzzy name match fallback
+ *   compact      — icon-only mode for table rows (default: false = full button)
+ */
+import { trpc } from "@/lib/trpc";
+import { ExternalLink, Database } from "lucide-react";
+
+interface CgLeadBadgeProps {
+  domain?: string | null;
+  websiteUrl?: string | null;
+  companyName?: string | null;
+  compact?: boolean;
+}
+
+export function CgLeadBadge({
+  domain, websiteUrl, companyName, compact = false,
+}: CgLeadBadgeProps) {
+  const { data, isLoading } = trpc.cgLead.lookup.useQuery(
+    {
+      domain:      domain      ?? undefined,
+      websiteUrl:  websiteUrl  ?? undefined,
+      companyName: companyName ?? undefined,
+    },
+    {
+      enabled: !!(domain || websiteUrl || companyName),
+      staleTime: 5 * 60 * 1000, // cache 5 minutes
+      retry: false,
+    }
+  );
+
+  if (isLoading) return null;
+
+  if (data?.lead) {
+    // ── Found in CRM ────────────────────────────────────────────────────────
+    if (compact) {
+      return (
+        <a
+          href={data.lead.sharepointUrl}
+          target="_blank"
+          rel="noreferrer"
+          title="View in CRM"
+          className="inline-flex items-center justify-center w-7 h-7 rounded border border-green-600 bg-green-50 text-green-700 hover:bg-green-100 transition-colors"
+          onClick={e => e.stopPropagation()}
+        >
+          <ExternalLink className="w-3.5 h-3.5" />
+        </a>
+      );
+    }
+    return (
+      <a
+        href={data.lead.sharepointUrl}
+        target="_blank"
+        rel="noreferrer"
+        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-green-600 bg-green-50 text-green-700 text-xs font-semibold hover:bg-green-100 transition-colors"
+        onClick={e => e.stopPropagation()}
+      >
+        <ExternalLink className="w-3 h-3" />
+        View in CRM
+      </a>
+    );
+  }
+
+  // ── Not found ──────────────────────────────────────────────────────────────
+  if (compact) {
+    return (
+      <span
+        title="Not in CRM database"
+        className="inline-flex items-center justify-center w-7 h-7 rounded border border-gray-300 bg-gray-50 text-gray-400"
+      >
+        <Database className="w-3.5 h-3.5" />
+      </span>
+    );
+  }
+  return (
+    <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded border border-gray-300 bg-gray-50 text-gray-400 text-xs font-medium">
+      <Database className="w-3 h-3" />
+      Not in CRM database
+    </span>
+  );
+}
+```
+
+---
+
+## Step 6 — Use the Badge in Pages
+
+### Search Results — company card badge row (compact)
+
+```tsx
+import { CgLeadBadge } from "@/components/CgLeadBadge";
+
+// Inside the badge row of CompanyCard:
+<CgLeadBadge
+  websiteUrl={company.websiteUrl}
+  domain={company.primaryDomain}
+  companyName={company.name}
+  compact
+/>
+```
+
+### Company Detail — header (full button)
+
+```tsx
+import { CgLeadBadge } from "@/components/CgLeadBadge";
+
+// Below the website link in the company header:
+<div className="mt-2">
+  <CgLeadBadge
+    websiteUrl={company.websiteUrl}
+    domain={company.primaryDomain}
+    companyName={company.name}
+  />
+</div>
+```
+
+### Share List Page — table row (compact)
+
+```tsx
+import { CgLeadBadge } from "@/components/CgLeadBadge";
+
+// Inside the company name cell:
+<div className="mt-1">
+  <CgLeadBadge
+    websiteUrl={c.website}
+    companyName={c.companyName}
+    compact
+  />
+</div>
+```
+
+---
+
+## Matching Logic
+
+| Priority | Method | How |
+|---|---|---|
+| 1 | **Exact domain** | Strips `www.`, matches `lt_mns_cg_leads.domain` |
+| 2 | **Fuzzy name** | Lowercases, strips BV/GmbH/Ltd/Inc etc., SQL `LIKE` prefix filter + exact JS comparison |
+
+---
+
+## Customisation
+
+| What | Where |
+|---|---|
+| Button label "View in CRM" | `CgLeadBadge.tsx` — change the text |
+| Green / grey colours | `CgLeadBadge.tsx` — change Tailwind classes |
+| Table name | `--table` flag in import script + schema table name |
+| Cache duration | `staleTime` in `CgLeadBadge.tsx` |
+| Additional match fields | Extend `findCgLead()` in `server/db.ts` |

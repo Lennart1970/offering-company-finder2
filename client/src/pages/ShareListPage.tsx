@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { useState, useMemo } from "react";
 import * as XLSX from "xlsx";
 import { ShareGate } from "@/components/ShareGate";
+import { CgLeadBadge } from "@/components/CgLeadBadge";
 
 // ── ISO-2 country label helper ───────────────────────────────────────────────────
 const ISO2_TO_NAME_SL: Record<string, string> = {
@@ -498,6 +499,13 @@ export default function ShareListPage() {
                           {c.website.replace(/^https?:\/\//, "")}
                         </a>
                       )}
+                      <div className="mt-1">
+                        <CgLeadBadge
+                          websiteUrl={c.website}
+                          companyName={c.companyName}
+                          compact
+                        />
+                      </div>
                     </td>
                     <td className="px-4 py-4 text-gray-600 text-xs">
                       {[c.city, c.country].filter(Boolean).join(", ") || "—"}

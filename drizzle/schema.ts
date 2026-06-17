@@ -718,3 +718,19 @@ export const shareVisitors = mysqlTable("share_visitors", {
 
 export type ShareVisitor = typeof shareVisitors.$inferSelect;
 export type InsertShareVisitor = typeof shareVisitors.$inferInsert;
+
+/**
+ * SharePoint CRM lead lookup table — read-only reference for CRM presence badges.
+ * Populated via scripts/import-sharepoint-leads.mjs from SharePoint Excel export.
+ */
+export const cgLeads = mysqlTable("lt_mns_cg_leads", {
+  id: int("id").primaryKey(),
+  companyName: text("company_name").notNull(),
+  website: text("website"),
+  domain: text("domain"),
+  sharepointUrl: text("sharepoint_url").notNull(),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+export type CgLead = typeof cgLeads.$inferSelect;
+export type InsertCgLead = typeof cgLeads.$inferInsert;

@@ -1,13 +1,15 @@
 import { useAuth } from "@/_core/hooks/useAuth";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { trpc } from "@/lib/trpc";
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { toast } from "sonner";
 import { useLocation, useParams } from "wouter";
 import CompanyDecisionButtons from "@/components/CompanyDecisionButtons";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
 import BrainBadge from "@/components/BrainBadge";
+import { CgLeadBadge } from "@/components/CgLeadBadge";
 import { normaliseSalesApproach } from "@shared/normaliseStarters";
 
 // Format revenue to human-readable string
@@ -157,12 +159,32 @@ export default function SearchResults() {
   const [excludedSectors, setExcludedSectors] = useState<string[]>([]);
   const [showCallTodayOnly, setShowCallTodayOnly] = useState(false);
   const [showExcluded, setShowExcluded] = useState(false);
-  const [sortBy, setSortBy] = useState<"default" | "urgency" | "fit_urgency">("urgency");
+  const [sortBy, setSortBy] = useState<"default" | "urgency" | "fit_urgency" | "name">("urgency");
+  const [nameSortDir, setNameSortDir] = useState<"asc" | "desc">("asc");
+  const [companyNameInput, setCompanyNameInput] = useState("");
+  const [debouncedCompanyName, setDebouncedCompanyName] = useState("");
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [rawPage, setRawPage] = useState(0);
   const RAW_PAGE_SIZE = 100;
 
+  useEffect(() => {
+    if (debounceRef.current) clearTimeout(debounceRef.current);
+    debounceRef.current = setTimeout(() => {
+      setDebouncedCompanyName(companyNameInput);
+      setRawPage(0);
+    }, 350);
+    return () => { if (debounceRef.current) clearTimeout(debounceRef.current); };
+  }, [companyNameInput]);
+
   const { data: rawData, isLoading: rawLoading } = trpc.companyFinder.getSearchRaw.useQuery(
-    { searchId: searchId!, page: rawPage, pageSize: RAW_PAGE_SIZE },
+    {
+      searchId: searchId!,
+      page: rawPage,
+      pageSize: RAW_PAGE_SIZE,
+      sortBy: sortBy === "name" ? "name" : "id",
+      sortDir: sortBy === "name" ? nameSortDir : "asc",
+      search: debouncedCompanyName || undefined,
+    },
     { enabled: !!searchId && viewMode === "raw" }
   );
   const [enrichmentFilter, setEnrichmentFilter] = useState<"all" | "enriched" | "pending" | "outreach" | "visitors">("all");
@@ -483,13 +505,31 @@ export default function SearchResults() {
 
   const baseDisplayed = showCallTodayOnly ? callTodayCompanies : enrichmentFiltered;
 
+  const hasNameFilter = companyNameInput.trim().length > 0;
+
+  const nameFiltered = useMemo(() => {
+    const q = companyNameInput.trim().toLowerCase();
+    if (!q) return baseDisplayed;
+    return baseDisplayed.filter((c) => (c.name ?? "").toLowerCase().includes(q));
+  }, [baseDisplayed, companyNameInput]);
+
+  const handleNameSort = () => {
+    if (sortBy === "name") {
+      setNameSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortBy("name");
+      setNameSortDir("asc");
+    }
+    setRawPage(0);
+  };
+
   // Site visitor boost: a company that visited your website is the hottest lead.
   // We add a massive flat bonus (50 points) to the sort score for site visitors.
   // This means even a moderate-fit site visitor outranks a high-fit non-visitor.
   const SITE_VISITOR_BONUS = 50;
 
   const displayedCompanies = useMemo(() => {
-    const sorted = [...baseDisplayed];
+    const sorted = [...nameFiltered];
 
     const visitorBoost = (c: any) => leadinfoSet.has(c.id) ? SITE_VISITOR_BONUS : 0;
 
@@ -508,6 +548,11 @@ export default function SearchResults() {
         const scoreB = baseB + (leadinfoSet.has(b.id) ? 5000 : 0);
         return scoreB - scoreA;
       });
+    } else if (sortBy === "name") {
+      sorted.sort((a: any, b: any) => {
+        const cmp = (a.name ?? "").localeCompare(b.name ?? "", undefined, { sensitivity: "base" });
+        return nameSortDir === "asc" ? cmp : -cmp;
+      });
     } else {
       // "default" = import order, but still float site visitors to the top
       if (leadinfoSet.size > 0) {
@@ -519,7 +564,7 @@ export default function SearchResults() {
       }
     }
     return sorted;
-  }, [baseDisplayed, sortBy, leadinfoSet]);
+  }, [nameFiltered, sortBy, nameSortDir, leadinfoSet]);
 
   // High-urgency companies not yet in Call Today list
   const highUrgencyNotCalled = useMemo(() => {
@@ -1012,8 +1057,22 @@ export default function SearchResults() {
           {/* ── STATS BAR ─────────────────────────────────────────────── */}
           <div className="flex flex-wrap items-center gap-4 mb-4">
             <div className="text-3xl font-black">
-              [{displayedCompanies.length}{enrichmentFilter !== "all" ? ` / ${filteredCompanies.length}` : ""} MATCHES]
-              {enrichmentFilter !== "all" && (
+              [{displayedCompanies.length}
+              {hasNameFilter
+                ? ` / ${baseDisplayed.length}`
+                : enrichmentFilter !== "all"
+                  ? ` / ${filteredCompanies.length}`
+                  : ""} MATCHES]
+              {hasNameFilter && (
+                <button
+                  onClick={() => setCompanyNameInput("")}
+                  className="ml-2 text-sm font-black text-muted-foreground hover:text-black"
+                  title="Clear name filter"
+                >
+                  ✕
+                </button>
+              )}
+              {!hasNameFilter && enrichmentFilter !== "all" && (
                 <button
                   onClick={() => setEnrichmentFilter("all")}
                   className="ml-2 text-sm font-black text-muted-foreground hover:text-black"
@@ -1329,7 +1388,7 @@ export default function SearchResults() {
             ] as const).map((opt) => (
               <button
                 key={opt.value}
-                onClick={() => setSortBy(opt.value)}
+                onClick={() => { setSortBy(opt.value); setRawPage(0); }}
                 className={`border-2 px-3 py-1 text-xs font-black transition-colors ${
                   sortBy === opt.value
                     ? "border-black bg-black text-white"
@@ -1339,6 +1398,32 @@ export default function SearchResults() {
                 {opt.label}
               </button>
             ))}
+            <button
+              onClick={handleNameSort}
+              className={`border-2 px-3 py-1 text-xs font-black transition-colors ${
+                sortBy === "name"
+                  ? "border-black bg-black text-white"
+                  : "border-gray-300 hover:border-black"
+              }`}
+            >
+              NAME {sortBy === "name" ? (nameSortDir === "asc" ? "▲" : "▼") : ""}
+            </button>
+            <div className="relative flex-1 min-w-[180px] max-w-xs">
+              <Input
+                className="h-8 font-mono text-xs border-2 border-gray-300 focus:border-black"
+                placeholder="Filter by company name…"
+                value={companyNameInput}
+                onChange={(e) => setCompanyNameInput(e.target.value)}
+              />
+            </div>
+            {hasNameFilter && (
+              <button
+                className="text-xs font-black text-gray-400 hover:text-black underline"
+                onClick={() => setCompanyNameInput("")}
+              >
+                CLEAR
+              </button>
+            )}
           </div>
 
           {/* View Toggle */}
@@ -1381,14 +1466,21 @@ export default function SearchResults() {
               return (
                 <div>
                   <div className="text-xs text-gray-500 font-mono mb-2">
-                    Showing {pageStart + 1}–{Math.min(pageStart + pageRows.length, totalRaw)} of {totalRaw} companies
+                    {totalRaw === 0 && debouncedCompanyName
+                      ? `No results for "${debouncedCompanyName}"`
+                      : `Showing ${pageStart + 1}–${Math.min(pageStart + pageRows.length, totalRaw)} of ${totalRaw} companies`}
                   </div>
                   <div className="border border-gray-200 overflow-x-auto">
                     <table className="w-full text-xs">
                       <thead>
                         <tr className="bg-gray-50 border-b-2 border-gray-200">
                           <th className="text-left px-3 py-2 font-black text-gray-500 w-8">#</th>
-                          <th className="text-left px-3 py-2 font-black text-gray-700">COMPANY</th>
+                          <th
+                            className="text-left px-3 py-2 font-black text-gray-700 cursor-pointer hover:text-black select-none"
+                            onClick={handleNameSort}
+                          >
+                            COMPANY{sortBy === "name" ? (nameSortDir === "asc" ? " ▲" : " ▼") : ""}
+                          </th>
                           <th className="text-left px-3 py-2 font-black text-gray-700">WEBSITE</th>
                           <th className="text-left px-3 py-2 font-black text-gray-700">COUNTRY</th>
                           <th className="text-left px-3 py-2 font-black text-gray-700">CITY</th>
@@ -1729,6 +1821,12 @@ function CompanyListRow({ company, index, searchId, isWebsiteVisitor, activeBrai
         activeBrainName={activeBrainName}
         compact
       />
+      <CgLeadBadge
+        websiteUrl={company.websiteUrl}
+        domain={company.primaryDomain}
+        companyName={company.name}
+        compact
+      />
 
       {/* Site visitor dot */}
       {isWebsiteVisitor && (
@@ -1821,6 +1919,12 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach,
                 generatedWithBrainName={company.generatedWithBrainName}
                 activeBrainId={activeBrainId}
                 activeBrainName={activeBrainName}
+                compact
+              />
+              <CgLeadBadge
+                websiteUrl={company.websiteUrl}
+                domain={company.primaryDomain}
+                companyName={company.name}
                 compact
               />
             </div>

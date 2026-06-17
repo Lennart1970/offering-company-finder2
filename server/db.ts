@@ -1,6 +1,6 @@
 import { eq, and, or, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob, bomCalculations, BomCalculation, InsertBomCalculation, apolloWebhookLogs, ApolloWebhookLog, InsertApolloWebhookLog, companyBrainOutputs, CompanyBrainOutput, InsertCompanyBrainOutput, offeringBrain } from "../drizzle/schema";
+import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob, bomCalculations, BomCalculation, InsertBomCalculation, apolloWebhookLogs, ApolloWebhookLog, InsertApolloWebhookLog, companyBrainOutputs, CompanyBrainOutput, InsertCompanyBrainOutput, offeringBrain, cgLeads } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1424,4 +1424,48 @@ export async function getCompanyDatabaseCgLeadOrigins() {
     .groupBy(companies.cgLeadOrigin)
     .orderBy(sql`count(*) desc`);
   return rows.map(r => ({ origin: r.origin as string, count: Number(r.cnt) }));
+}
+
+/** Normalise company name for fuzzy CRM lookup (strips legal suffixes). */
+export function normalizeCgCompanyName(s: string): string {
+  return s.toLowerCase()
+    .replace(/\b(bv|b\.v\.|nv|n\.v\.|gmbh|ag|ltd|limited|inc|corp|sa|sas|srl|llc|plc|pty)\b/g, "")
+    .replace(/[^a-z0-9]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+export async function findCgLead(opts: {
+  domain?: string | null;
+  companyName?: string | null;
+}): Promise<{ id: number; companyName: string; sharepointUrl: string } | null> {
+  const db = await getDb();
+  if (!db) return null;
+
+  if (opts.domain) {
+    const clean = opts.domain.replace(/^www\./, "").toLowerCase();
+    const rows = await db.select({
+      id: cgLeads.id,
+      companyName: cgLeads.companyName,
+      sharepointUrl: cgLeads.sharepointUrl,
+    }).from(cgLeads).where(eq(cgLeads.domain, clean)).limit(1);
+    if (rows.length) return rows[0];
+  }
+
+  if (opts.companyName) {
+    const needle = normalizeCgCompanyName(opts.companyName);
+    if (needle.length >= 3) {
+      const { like } = await import("drizzle-orm");
+      const prefix = needle.slice(0, 20).replace(/[%_]/g, "\\$&");
+      const candidates = await db.select({
+        id: cgLeads.id,
+        companyName: cgLeads.companyName,
+        sharepointUrl: cgLeads.sharepointUrl,
+      }).from(cgLeads).where(like(cgLeads.companyName, `${prefix}%`)).limit(10);
+      const match = candidates.find(c => normalizeCgCompanyName(c.companyName) === needle);
+      if (match) return match;
+    }
+  }
+
+  return null;
 }

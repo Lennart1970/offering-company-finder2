@@ -5,6 +5,7 @@ import { useLocation, useParams } from "wouter";
 import { useAuth } from "@/_core/hooks/useAuth";
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
 import BrainBadge from "@/components/BrainBadge";
+import { CgLeadBadge } from "@/components/CgLeadBadge";
 import { Button } from "@/components/ui/button";
 import { normaliseSalesApproach } from "@shared/normaliseStarters";
 import { stripGrokCitations } from "@/lib/utils";
@@ -629,6 +630,13 @@ export default function CompanyDetailMagazine() {
                   {company.websiteUrl.replace(/^https?:\/\//, "")}
                 </a>
               )}
+              <div className="mt-2">
+                <CgLeadBadge
+                  websiteUrl={company.websiteUrl}
+                  domain={company.primaryDomain}
+                  companyName={company.name}
+                />
+              </div>
               {briefData?.companyOverview && (
                 <p className="text-sm text-muted-foreground mt-2 leading-relaxed max-w-2xl">{briefData.companyOverview}</p>
               )}

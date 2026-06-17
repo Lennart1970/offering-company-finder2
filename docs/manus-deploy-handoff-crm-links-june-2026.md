@@ -10,7 +10,7 @@ Implementation guide for Manus WebDev engineer.
 |------|-------|
 | **Repo** | [offering-company-finder2](https://github.com/Lennart1970/offering-company-finder2) |
 | **Branch** | `main` |
-| **Target commit** | Latest on `main` after pull |
+| **Target commit** | `73ca2d4` (SharePage CRM add-on; rebase on `9cbe940` import checkpoint) |
 | **Deploy target** | Manus WebDev (TiDB MySQL + existing Supabase env) |
 
 ### What's in this release

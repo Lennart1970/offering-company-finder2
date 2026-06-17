@@ -159,7 +159,7 @@ export function CompanyLookalikeModal({ open, onClose, seed, defaultBrainId }: P
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-4xl max-h-[90vh] flex flex-col gap-0 p-0">
+      <DialogContent className="w-[92vw] max-w-[1400px] sm:max-w-[1400px] max-h-[90vh] flex flex-col gap-0 p-0">
         <DialogHeader className="px-6 pt-5 pb-4 border-b border-gray-100">
           <DialogTitle className="flex items-center gap-2 text-base font-semibold">
             <Copy className="w-4 h-4 text-purple-500" />
@@ -325,10 +325,10 @@ export function CompanyLookalikeModal({ open, onClose, seed, defaultBrainId }: P
                   {selectedIds.size === companies.length ? "Deselect all" : "Select all"}
                 </button>
               </div>
-              <table className="w-full text-xs border-collapse">
+              <table className="w-full text-xs border-collapse table-fixed">
                 <thead>
                   <tr className="border-b border-gray-200 text-gray-500 text-left">
-                    <th className="py-1.5 pr-2 w-6">
+                    <th className="py-1.5 pr-2 w-8">
                       <input
                         type="checkbox"
                         checked={selectedIds.size === companies.length && companies.length > 0}
@@ -336,11 +336,11 @@ export function CompanyLookalikeModal({ open, onClose, seed, defaultBrainId }: P
                         className="accent-purple-500"
                       />
                     </th>
-                    <th className="py-1.5 pr-3">Company</th>
-                    <th className="py-1.5 pr-3">Location</th>
-                    <th className="py-1.5 pr-3">Sector</th>
-                    <th className="py-1.5 pr-3 text-right">SIM</th>
-                    <th className="py-1.5 text-right">FIT LLM</th>
+                    <th className="py-1.5 pr-3 w-[32%]">Company</th>
+                    <th className="py-1.5 pr-3 w-[18%]">Location</th>
+                    <th className="py-1.5 pr-3 w-[32%]">Sector</th>
+                    <th className="py-1.5 pr-3 text-right w-[9%]">SIM</th>
+                    <th className="py-1.5 text-right w-[9%]">FIT LLM</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -360,8 +360,8 @@ export function CompanyLookalikeModal({ open, onClose, seed, defaultBrainId }: P
                         />
                       </td>
                       <td className="py-1.5 pr-3 font-medium text-gray-800">
-                        <div className="flex items-center gap-1">
-                          <span className="truncate max-w-[180px]">{c.name}</span>
+                        <div className="flex items-center gap-1 min-w-0">
+                          <span className="truncate">{c.name}</span>
                           {c.websiteUrl && (
                             <a
                               href={c.websiteUrl}
@@ -375,10 +375,10 @@ export function CompanyLookalikeModal({ open, onClose, seed, defaultBrainId }: P
                           )}
                         </div>
                       </td>
-                      <td className="py-1.5 pr-3 text-gray-500">
+                      <td className="py-1.5 pr-3 text-gray-500 truncate">
                         {[c.city, c.country].filter(Boolean).join(", ") || "—"}
                       </td>
-                      <td className="py-1.5 pr-3 text-gray-500 truncate max-w-[120px]">
+                      <td className="py-1.5 pr-3 text-gray-500 truncate">
                         {c.sector || "—"}
                       </td>
                       <td className="py-1.5 pr-3 text-right">

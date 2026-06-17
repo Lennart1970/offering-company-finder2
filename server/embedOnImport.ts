@@ -16,6 +16,7 @@ import OpenAI from "openai";
 import { createClient } from "@supabase/supabase-js";
 import type { Company } from "../drizzle/schema";
 import { buildEmbeddingText } from "./embeddingService";
+import { toCompanyUUID } from "./supabaseEmbeddings";
 
 const EMBEDDING_MODEL = "text-embedding-3-small";
 
@@ -30,12 +31,6 @@ function getSupabase() {
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
   if (!url || !key) throw new Error("SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY not configured");
   return createClient(url, key);
-}
-
-/** Convert MySQL integer ID to the deterministic UUID used in Supabase */
-function toCompanyUUID(mysqlId: number): string {
-  const hex = mysqlId.toString(16).padStart(8, "0");
-  return `${hex.slice(0, 8)}-0000-0000-0000-000000000000`;
 }
 
 function dotProduct(a: number[], b: number[]): number {

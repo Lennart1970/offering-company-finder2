@@ -5228,90 +5228,91 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       maxResults: z.number().min(1).max(500).default(200),
     }))
     .query(async ({ input }) => {
-      const { createClient } = await import("@supabase/supabase-js");
-      const { v5: uuidv5 } = await import("uuid");
-      const LT_NAMESPACE = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
-      const { inArray: inArr } = await import("drizzle-orm");
+      const {
+        getSupabaseClient,
+        fetchBrainEmbedding,
+        scoreAllEmbeddingsAgainstVector,
+        mapWatchlistIdsToMysqlCompanies,
+      } = await import("./companySimilaritySearch");
+      const sb = getSupabaseClient();
+      const brainVec = await fetchBrainEmbedding(sb, input.brainId);
+      const { scored, top } = await scoreAllEmbeddingsAgainstVector(sb, brainVec, {
+        minScore: input.minSim,
+        maxResults: input.maxResults,
+      });
+      const { companies: result } = await mapWatchlistIdsToMysqlCompanies(top);
+      return { companies: result, brainId: input.brainId, totalMatched: scored.length };
+    }),
+
+  /**
+   * Preview companies similar to a seed company (company lookalike search).
+   */
+  previewLookalikeSearch: protectedProcedure
+    .input(z.object({
+      seedCompanyId: z.number(),
+      minSim: z.number().min(0).max(100).default(55),
+      maxResults: z.number().min(1).max(500).default(200),
+      country: z.string().optional(),
+      sector: z.string().optional(),
+    }))
+    .query(async ({ input }) => {
+      const { eq } = await import("drizzle-orm");
       const { companies } = await import("../drizzle/schema");
-      const { getDb: _getDb1 } = await import("./db");
-      const db = await _getDb1();
+      const { getDb } = await import("./db");
+      const {
+        getSupabaseClient,
+        fetchSeedEmbedding,
+        scoreAllEmbeddingsAgainstVector,
+        mapWatchlistIdsToMysqlCompanies,
+      } = await import("./companySimilaritySearch");
+      const { toCompanyUUID } = await import("./supabaseEmbeddings");
+
+      const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-      const sb = createClient(
-        process.env.SUPABASE_URL!,
-        process.env.SUPABASE_SERVICE_ROLE_KEY!,
-        { auth: { persistSession: false } }
-      );
-      // 1. Fetch brain embedding
-      const { data: brainRow, error: brainErr } = await sb
-        .from("lt_mns_brain_embeddings")
-        .select("embedding")
-        .eq("brain_id", String(input.brainId))
-        .single();
-      if (brainErr || !brainRow) {
-        throw new TRPCError({ code: "NOT_FOUND", message: `No embedding found for brain ${input.brainId}. Please generate the brain embedding first.` });
-      }
-      const brainVec: number[] = typeof brainRow.embedding === "string"
-        ? JSON.parse(brainRow.embedding)
-        : (brainRow.embedding as number[]);
-      // 2. Fetch all company embeddings from Supabase (paginated)
-      const PAGE = 1000;
-      const scored: { watchlistId: string; score: number }[] = [];
-      let page = 0;
-      let hasMore = true;
-      while (hasMore) {
-        const { data: rows, error } = await sb
-          .from("lt_mns_company_embeddings")
-          .select("watchlist_id, embedding")
-          .range(page * PAGE, (page + 1) * PAGE - 1);
-        if (error || !rows || rows.length === 0) { hasMore = false; break; }
-        for (const row of rows) {
-          const vec: number[] = typeof row.embedding === "string" ? JSON.parse(row.embedding) : (row.embedding as number[]);
-          let dot = 0, ma = 0, mb = 0;
-          for (let i = 0; i < vec.length; i++) { dot += vec[i] * brainVec[i]; ma += vec[i] ** 2; mb += brainVec[i] ** 2; }
-          const sim = (ma === 0 || mb === 0) ? 0 : dot / (Math.sqrt(ma) * Math.sqrt(mb));
-          const score = Math.round(((sim + 1) / 2) * 100);
-          if (score >= input.minSim) scored.push({ watchlistId: row.watchlist_id, score });
-        }
-        if (rows.length < PAGE) hasMore = false;
-        else page++;
-      }
-      // 3. Sort by score desc, take top N
-      scored.sort((a, b) => b.score - a.score);
-      const top = scored.slice(0, input.maxResults);
-      if (top.length === 0) return { companies: [], brainId: input.brainId, totalMatched: 0 };
-      // 4. Build UUID → MySQL ID map
-      const allCompanyIds = await db.select({ id: companies.id }).from(companies);
-      const mysqlUuidMap = new Map<string, number>();
-      for (const { id } of allCompanyIds) {
-        mysqlUuidMap.set(uuidv5(`company-${id}`, LT_NAMESPACE), id);
-      }
-      const topWithIds = top
-        .map(t => ({ ...t, mysqlId: mysqlUuidMap.get(t.watchlistId) }))
-        .filter((t): t is { watchlistId: string; score: number; mysqlId: number } => t.mysqlId !== undefined);
-      if (topWithIds.length === 0) return { companies: [], brainId: input.brainId, totalMatched: 0 };
-      // 5. Fetch company details from MySQL
-      const ids = topWithIds.map(t => t.mysqlId);
-      const companyRows = await db
+
+      const [seedRow] = await db
         .select({
           id: companies.id,
           name: companies.name,
           websiteUrl: companies.websiteUrl,
           primaryDomain: companies.primaryDomain,
-          city: companies.city,
           country: companies.country,
           sector: companies.sector,
-          fitScore: companies.fitScore,
-          searchId: companies.searchId,
-          generatedWithBrainName: companies.generatedWithBrainName,
         })
         .from(companies)
-        .where(inArr(companies.id, ids));
-      // 6. Merge sim scores and sort
-      const simMap = new Map(topWithIds.map(t => [t.mysqlId, t.score]));
-      const result = companyRows
-        .map(c => ({ ...c, simScore: simMap.get(c.id) ?? 0 }))
-        .sort((a, b) => b.simScore - a.simScore);
-      return { companies: result, brainId: input.brainId, totalMatched: scored.length };
+        .where(eq(companies.id, input.seedCompanyId))
+        .limit(1);
+
+      if (!seedRow) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `Company ${input.seedCompanyId} not found` });
+      }
+
+      const sb = getSupabaseClient();
+      const seedVector = await fetchSeedEmbedding(sb, input.seedCompanyId);
+      if (!seedVector) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: `No embedding found for "${seedRow.name}". Run FIT-SIM on this company's campaign or re-import to embed it first.`,
+        });
+      }
+
+      const seedWatchlistId = toCompanyUUID(input.seedCompanyId);
+      const { scored, top } = await scoreAllEmbeddingsAgainstVector(sb, seedVector, {
+        minScore: input.minSim,
+        maxResults: input.maxResults,
+        excludeWatchlistIds: [seedWatchlistId],
+      });
+
+      const { companies: result, totalMatched } = await mapWatchlistIdsToMysqlCompanies(top, {
+        country: input.country,
+        sector: input.sector,
+      });
+
+      return {
+        seedCompany: seedRow,
+        companies: result,
+        totalMatched: scored.length,
+      };
     }),
 
   /**
@@ -5408,6 +5409,123 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
           }))
         );
       }
+      return { searchId, companiesCreated: newCompanies.length };
+    }),
+
+  /**
+   * Create a campaign from company lookalike search results.
+   */
+  createCampaignFromLookalike: protectedProcedure
+    .input(z.object({
+      seedCompanyId: z.number(),
+      brainId: z.number(),
+      campaignName: z.string().min(1).max(255),
+      companyIds: z.array(z.number()).min(1).max(500),
+      similarityScores: z.record(z.string(), z.number()).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const { eq, inArray: inArr, sql: sqlRaw } = await import("drizzle-orm");
+      const { companies } = await import("../drizzle/schema");
+      const { getDb } = await import("./db");
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+
+      const [seedRow] = await db
+        .select({ id: companies.id, name: companies.name })
+        .from(companies)
+        .where(eq(companies.id, input.seedCompanyId))
+        .limit(1);
+
+      if (!seedRow) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `Seed company ${input.seedCompanyId} not found` });
+      }
+
+      const brainRows = await db.execute(
+        sqlRaw`SELECT id, brainName, companyWebsite FROM offering_brain WHERE id = ${input.brainId} LIMIT 1`
+      ) as unknown as { id: number; brainName: string; companyWebsite: string }[];
+      const brainArr = Array.isArray(brainRows[0]) ? brainRows[0] : brainRows;
+      if (!brainArr || brainArr.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: `Brain ${input.brainId} not found` });
+      }
+      const brain = (brainArr as { id: number; brainName: string; companyWebsite: string }[])[0];
+
+      const searchId = await createSearch({
+        userId: ctx.user.id,
+        companyWebsite: brain.companyWebsite || "lookalike-search",
+        location: `Lookalike: ${seedRow.name} (id=${input.seedCompanyId})`,
+        offeringName: `[LIKE] ${input.campaignName}`,
+        brainId: input.brainId,
+        status: "completed",
+        sharedWithTeam: 0,
+        isArchived: 0,
+      });
+
+      const scoreMap = new Map<number, number>();
+      if (input.similarityScores) {
+        for (const [idStr, score] of Object.entries(input.similarityScores)) {
+          scoreMap.set(Number(idStr), score);
+        }
+      }
+
+      const sourceCompanies = await db
+        .select()
+        .from(companies)
+        .where(inArr(companies.id, input.companyIds));
+
+      const toInsert = sourceCompanies.map((c) => ({
+        searchId,
+        name: c.name,
+        apolloId: c.apolloId,
+        websiteUrl: c.websiteUrl,
+        primaryDomain: c.primaryDomain,
+        linkedinUrl: c.linkedinUrl,
+        twitterUrl: c.twitterUrl,
+        facebookUrl: c.facebookUrl,
+        phone: c.phone,
+        foundedYear: c.foundedYear,
+        revenue: c.revenue,
+        headcountGrowth: c.headcountGrowth,
+        parentCompanyName: c.parentCompanyName,
+        parentCompanyId: c.parentCompanyId,
+        searchLocation: c.searchLocation,
+        city: c.city,
+        state: c.state,
+        country: c.country,
+        streetAddress: c.streetAddress,
+        rawAddress: c.rawAddress,
+        sicCodes: c.sicCodes,
+        naicsCodes: c.naicsCodes,
+        sector: c.sector,
+        sliceMetadata: c.sliceMetadata,
+        similarityScore: scoreMap.get(c.id) ?? c.similarityScore,
+        enrichmentStatus: c.enrichmentStatus,
+        generatedWithBrainId: input.brainId,
+        generatedWithBrainName: brain.brainName,
+      }));
+
+      if (toInsert.length > 0) {
+        await createCompanies(toInsert as any);
+      }
+
+      const newCompanies = await db
+        .select({ id: companies.id, name: companies.name })
+        .from(companies)
+        .where(sqlRaw`${companies.searchId} = ${searchId}`);
+
+      if (newCompanies.length > 0) {
+        const { campaignQueue } = await import("../drizzle/schema");
+        await db.insert(campaignQueue).values(
+          newCompanies.map((c) => ({
+            searchId,
+            companyId: c.id,
+            userId: ctx.user.id,
+            companyName: c.name,
+            jobType: "score_only" as const,
+            status: "pending" as const,
+          }))
+        );
+      }
+
       return { searchId, companiesCreated: newCompanies.length };
     }),
 });

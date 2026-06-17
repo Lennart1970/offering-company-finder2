@@ -27,10 +27,12 @@ import {
   Loader2,
   Newspaper,
   Sparkles,
+  Copy,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { SimilaritySearchModal } from "@/components/SimilaritySearchModal";
+import { CompanyLookalikeModal, type LookalikeSeed } from "@/components/CompanyLookalikeModal";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -408,6 +410,7 @@ export default function CompanyDatabase() {
   const [hasFitScoreOnly, setHasFitScoreOnly] = useState(false);
   const [articleFilter, setArticleFilter] = useState<ArticleFilter>("any");
   const [simModalOpen, setSimModalOpen] = useState(false);
+  const [lookalikeSeed, setLookalikeSeed] = useState<LookalikeSeed | null>(null);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Map<number, number>>(new Map());
 
@@ -560,6 +563,28 @@ export default function CompanyDatabase() {
     if (skipped > 0) {
       toast.warning(`${skipped} row(s) on this page skipped — no brain could be resolved`);
     }
+  };
+
+  const openLookalikeForRow = (row: (typeof rows)[number]) => {
+    setLookalikeSeed({
+      id: row.id,
+      name: row.name,
+      websiteUrl: row.websiteUrl,
+      primaryDomain: (row as { primaryDomain?: string | null }).primaryDomain,
+      country: row.country,
+      sector: row.sector,
+    });
+  };
+
+  const openLookalikeForSelected = () => {
+    if (selectedItems.size !== 1) return;
+    const companyId = Array.from(selectedItems.keys())[0];
+    const row = rows.find((r) => r.id === companyId);
+    if (!row) {
+      toast.error("Selected company is not on the current page — scroll to it or use the row action");
+      return;
+    }
+    openLookalikeForRow(row);
   };
 
   const handleCreateShareList = () => {
@@ -1071,6 +1096,16 @@ export default function CompanyDatabase() {
             {createShareListMutation.isPending ? "⏳ CREATING..." : "🔗 CREATE SHARE LIST"}
           </button>
         )}
+        {isSelectMode && selectedItems.size === 1 && (
+          <button
+            onClick={openLookalikeForSelected}
+            className="h-8 px-3 rounded text-xs font-medium border border-purple-300 text-purple-700 bg-purple-50 hover:bg-purple-100 flex items-center gap-1.5 transition-colors"
+            title="Create a campaign from companies similar to the selected company"
+          >
+            <Copy className="w-3 h-3" />
+            Campaign like selected
+          </button>
+        )}
 
         {/* Score Similarity button — campaign-scoped when a single run is selected */}
         {(() => {
@@ -1142,6 +1177,12 @@ export default function CompanyDatabase() {
 
       {/* Similarity Search Modal */}
       <SimilaritySearchModal open={simModalOpen} onClose={() => setSimModalOpen(false)} />
+      <CompanyLookalikeModal
+        open={lookalikeSeed !== null}
+        onClose={() => setLookalikeSeed(null)}
+        seed={lookalikeSeed}
+        defaultBrainId={activeBrainId ?? null}
+      />
       {/* ── Table ── */}
       <div className="flex-1 overflow-auto">
         {isSelectMode && rows.length > 0 && (
@@ -1192,7 +1233,10 @@ export default function CompanyDatabase() {
                 Lead Class
               </th>
               <Th col="brainName" label="Brain / BU" className="min-w-[160px]" />
-              <Th col="searchId" label="Campaign" className="min-w-[130px]" />
+              <Th col="searchId" label="Run" className="w-24 whitespace-nowrap" />
+              <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[130px]">
+                Campaign
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -1208,7 +1252,7 @@ export default function CompanyDatabase() {
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={isSelectMode ? 15 : 14} className="px-6 py-12 text-center text-gray-400 text-sm">
+                <td colSpan={isSelectMode ? 16 : 15} className="px-6 py-12 text-center text-gray-400 text-sm">
                   No companies found matching your filters.
                 </td>
               </tr>
@@ -1239,9 +1283,23 @@ export default function CompanyDatabase() {
                       {page * PAGE_SIZE + i + 1}
                     </td>
                     <td className="px-3 py-2 font-medium text-gray-900 max-w-[240px]">
-                      <span className="truncate block" title={row.name}>
-                        {row.name}
-                      </span>
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <span className="truncate block flex-1" title={row.name}>
+                          {row.name}
+                        </span>
+                        <button
+                          type="button"
+                          title="Find companies like this"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openLookalikeForRow(row);
+                          }}
+                          className="shrink-0 inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] font-medium border border-purple-200 text-purple-700 bg-purple-50 hover:bg-purple-100 transition-colors"
+                        >
+                          <Copy className="w-2.5 h-2.5" />
+                          Like
+                        </button>
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-gray-500" onClick={(e) => e.stopPropagation()}>
                       {row.websiteUrl ? (
@@ -1323,12 +1381,29 @@ export default function CompanyDatabase() {
                         <span className="text-gray-300">—</span>
                       )}
                     </td>
+                    <td className="px-3 py-2 text-xs whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                      <span
+                        className={`inline-flex items-center px-2 py-0.5 rounded-full font-mono text-xs cursor-pointer transition-colors ${
+                          selectedRunIds.includes(row.searchId)
+                            ? "bg-gray-900 text-white"
+                            : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        }`}
+                        title={`Filter by Run #${row.searchId}`}
+                        onClick={() => { setSelectedRunIds([row.searchId]); setPage(0); }}
+                      >
+                        #{row.searchId}
+                      </span>
+                    </td>
                     <td className="px-3 py-2 text-xs text-gray-500 max-w-[160px]">
                       <span
                         className="truncate block"
-                        title={campaignMap.get(row.searchId) ?? `Run #${row.searchId}`}
+                        title={
+                          campaignMap.get(row.searchId)
+                            ? `Run #${row.searchId} — ${campaignMap.get(row.searchId)}`
+                            : `Run #${row.searchId}`
+                        }
                       >
-                        {campaignMap.get(row.searchId) ?? `Run #${row.searchId}`}
+                        {campaignMap.get(row.searchId) ?? "—"}
                       </span>
                     </td>
                   </tr>

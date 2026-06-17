@@ -770,21 +770,3 @@ export const cgLeads = mysqlTable("lt_mns_cg_leads", {
 
 export type CgLead = typeof cgLeads.$inferSelect;
 export type InsertCgLead = typeof cgLeads.$inferInsert;
-
-/**
- * Share page feedback — anonymous ratings and comments submitted on public share pages.
- * Replaces Supabase lt_share_feedback table.
- */
-export const shareFeedback = mysqlTable("share_feedback", {
-  id: int("id").autoincrement().primaryKey(),
-  shareToken: varchar("shareToken", { length: 200 }).notNull(),
-  companyId: int("companyId").references(() => companies.id, { onDelete: "set null" }),
-  companyName: varchar("companyName", { length: 300 }),
-  rating: mysqlEnum("rating", ["thumbs_up", "thumbs_down", "neutral"]),
-  comment: text("comment"),
-  submitterName: varchar("submitterName", { length: 200 }),
-  submitterEmail: varchar("submitterEmail", { length: 200 }),
-  submittedAt: timestamp("submittedAt").defaultNow().notNull(),
-});
-export type ShareFeedback = typeof shareFeedback.$inferSelect;
-export type InsertShareFeedback = typeof shareFeedback.$inferInsert;

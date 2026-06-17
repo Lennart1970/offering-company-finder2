@@ -1,4 +1,4 @@
-import { eq, and, or, desc, sql } from "drizzle-orm";
+import { eq, and, or, desc, sql, exists, not, ne, isNotNull } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob, bomCalculations, BomCalculation, InsertBomCalculation, apolloWebhookLogs, ApolloWebhookLog, InsertApolloWebhookLog, companyBrainOutputs, CompanyBrainOutput, InsertCompanyBrainOutput, offeringBrain, cgLeads } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -1099,33 +1099,57 @@ export async function getAllBrainOutputsForCompany(
 
 export type CompanyDbCrmFilter = "in" | "not_in";
 
-/** SQL fragment: company row matches lt_mns_cg_leads (SharePoint CRM lookup). */
-function companyInCrmExistsSql() {
-  return sql`EXISTS (
-    SELECT 1 FROM lt_mns_cg_leads cg
-    WHERE (
-      ${companies.cgSharepointId} IS NOT NULL
-      AND ${companies.cgSharepointId} REGEXP '^[0-9]+$'
-      AND cg.id = CAST(${companies.cgSharepointId} AS UNSIGNED)
-    ) OR (
-      ${companies.primaryDomain} IS NOT NULL
-      AND ${companies.primaryDomain} != ''
-      AND cg.domain = LOWER(REPLACE(TRIM(${companies.primaryDomain}), 'www.', ''))
-    ) OR (
-      ${companies.websiteUrl} IS NOT NULL
-      AND ${companies.websiteUrl} != ''
-      AND cg.domain IS NOT NULL
-      AND cg.domain = LOWER(
-        SUBSTRING_INDEX(
-          SUBSTRING_INDEX(
-            REPLACE(REPLACE(REPLACE(TRIM(${companies.websiteUrl}), 'https://', ''), 'http://', ''), 'www.', ''),
-            '/', 1
-          ),
-          ':', 1
-        )
-      )
+/** Hostname from companies.websiteUrl — mirrors cgLeadRouter URL parsing. */
+function companyWebsiteHostSql() {
+  return sql`LOWER(
+    SUBSTRING_INDEX(
+      SUBSTRING_INDEX(
+        REPLACE(REPLACE(REPLACE(TRIM(${companies.websiteUrl}), 'https://', ''), 'http://', ''), 'www.', ''),
+        '/', 1
+      ),
+      ':', 1
     )
   )`;
+}
+
+/** WHERE clause matching one company row to lt_mns_cg_leads (mirrors findCgLead). */
+function companyCrmMatchWhere() {
+  return or(
+    and(
+      isNotNull(companies.cgSharepointId),
+      sql`${companies.cgSharepointId} REGEXP '^[0-9]+$'`,
+      eq(cgLeads.id, sql`CAST(${companies.cgSharepointId} AS UNSIGNED)`),
+    ),
+    and(
+      isNotNull(companies.primaryDomain),
+      ne(companies.primaryDomain, ""),
+      eq(cgLeads.domain, sql`LOWER(REPLACE(TRIM(${companies.primaryDomain}), 'www.', ''))`),
+    ),
+    and(
+      isNotNull(companies.websiteUrl),
+      ne(companies.websiteUrl, ""),
+      isNotNull(cgLeads.domain),
+      eq(cgLeads.domain, companyWebsiteHostSql()),
+    ),
+    // Name prefix match — same first step as findCgLead fuzzy name lookup
+    and(
+      isNotNull(companies.name),
+      sql`CHAR_LENGTH(TRIM(${companies.name})) >= 3`,
+      isNotNull(cgLeads.companyName),
+      sql`LOWER(TRIM(${cgLeads.companyName})) LIKE CONCAT(LOWER(LEFT(TRIM(${companies.name}), 20)), '%')`,
+    ),
+  );
+}
+
+/** EXISTS / NOT EXISTS for CRM presence — uses drizzle exists() so and() composes correctly. */
+function companyCrmPresenceCondition(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  mode: CompanyDbCrmFilter,
+) {
+  const matchExists = exists(
+    db.select({ one: sql`1` }).from(cgLeads).where(companyCrmMatchWhere()),
+  );
+  return mode === "in" ? matchExists : not(matchExists);
 }
 
 export type CompanyDbSortBy = "name" | "country" | "city" | "fitScore" | "similarityScore" | "urgencyScore" | "urgencyScoreSynth" | "urgencyScoreNews" | "urgencyScoreLLM" | "createdAt" | "searchId" | "briefGeneratedAt" | "salesApproachGeneratedAt" | "brainName";
@@ -1190,8 +1214,7 @@ export async function getCompanyDatabase(opts: {
     conditions.push(isNull(companies.briefGeneratedAt) as any);
     conditions.push(isNull(companies.salesApproachGeneratedAt) as any);
   }
-  if (crmFilter === "in") conditions.push(companyInCrmExistsSql() as any);
-  if (crmFilter === "not_in") conditions.push(sql`NOT ${companyInCrmExistsSql()}` as any);
+  if (crmFilter) conditions.push(companyCrmPresenceCondition(db, crmFilter) as any);
 
   const whereClause = conditions.length > 0 ? and(...(conditions as any)) : undefined;
 
@@ -1343,8 +1366,7 @@ export async function countCompanyDatabase(opts: {
     conditions.push(isNull(companies.briefGeneratedAt) as any);
     conditions.push(isNull(companies.salesApproachGeneratedAt) as any);
   }
-  if (crmFilter === "in") conditions.push(companyInCrmExistsSql() as any);
-  if (crmFilter === "not_in") conditions.push(sql`NOT ${companyInCrmExistsSql()}` as any);
+  if (crmFilter) conditions.push(companyCrmPresenceCondition(db, crmFilter) as any);
 
   const whereClause = conditions.length > 0 ? and(...(conditions as any)) : undefined;
 

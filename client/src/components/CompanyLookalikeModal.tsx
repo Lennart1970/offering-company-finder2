@@ -29,6 +29,8 @@ export interface LookalikeSeed {
   sector?: string | null;
 }
 
+type SectorOption = { sector: string; count: number };
+
 interface Props {
   open: boolean;
   onClose: () => void;
@@ -271,9 +273,10 @@ export function CompanyLookalikeModal({ open, onClose, seed, defaultBrainId }: P
                 <SelectItem value="__any__" className="text-xs">
                   Any sector
                 </SelectItem>
-                {(meta?.sectors ?? []).map((s) => (
-                  <SelectItem key={s.sector} value={s.sector} className="text-xs">
-                    {s.sector}
+                {((meta?.sectors ?? []) as SectorOption[]).map(({ sector, count }) => (
+                  <SelectItem key={sector} value={sector} className="text-xs">
+                    <span className="capitalize">{sector}</span>
+                    <span className="ml-1 text-gray-400">({count.toLocaleString()})</span>
                   </SelectItem>
                 ))}
               </SelectContent>

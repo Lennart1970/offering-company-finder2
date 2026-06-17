@@ -272,8 +272,8 @@ export function CompanyLookalikeModal({ open, onClose, seed, defaultBrainId }: P
                   Any sector
                 </SelectItem>
                 {(meta?.sectors ?? []).map((s) => (
-                  <SelectItem key={s} value={s} className="text-xs">
-                    {s}
+                  <SelectItem key={s.sector} value={s.sector} className="text-xs">
+                    {s.sector}
                   </SelectItem>
                 ))}
               </SelectContent>

@@ -19,6 +19,10 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2, Zap, ExternalLink, Copy, ChevronRight } from "lucide-react";
+import {
+  CompanyDbSectorSelectItems,
+  type CompanyDbSectorOption,
+} from "@/components/CompanyDbSectorSelectItems";
 
 export interface LookalikeSeed {
   id: number;
@@ -28,8 +32,6 @@ export interface LookalikeSeed {
   country?: string | null;
   sector?: string | null;
 }
-
-type SectorOption = { sector: string; count: number };
 
 interface Props {
   open: boolean;
@@ -273,12 +275,10 @@ export function CompanyLookalikeModal({ open, onClose, seed, defaultBrainId }: P
                 <SelectItem value="__any__" className="text-xs">
                   Any sector
                 </SelectItem>
-                {((meta?.sectors ?? []) as SectorOption[]).map(({ sector, count }) => (
-                  <SelectItem key={sector} value={sector} className="text-xs">
-                    <span className="capitalize">{sector}</span>
-                    <span className="ml-1 text-gray-400">({count.toLocaleString()})</span>
-                  </SelectItem>
-                ))}
+                <CompanyDbSectorSelectItems
+                  sectors={meta?.sectors as CompanyDbSectorOption[] | undefined}
+                  showCount={false}
+                />
               </SelectContent>
             </Select>
           </div>

@@ -33,6 +33,7 @@ import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { SimilaritySearchModal } from "@/components/SimilaritySearchModal";
 import { CompanyLookalikeModal, type LookalikeSeed } from "@/components/CompanyLookalikeModal";
+import { CompanyDbSectorSelectItems } from "@/components/CompanyDbSectorSelectItems";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -911,12 +912,7 @@ export default function CompanyDatabase() {
           </SelectTrigger>
           <SelectContent className="max-h-72 overflow-y-auto">
             <SelectItem value="all">All sectors</SelectItem>
-            {(meta?.sectors ?? []).map((s) => (
-              <SelectItem key={s.sector} value={s.sector}>
-                <span className="capitalize">{s.sector}</span>
-                <span className="ml-1 text-gray-400 text-xs">({s.count.toLocaleString()})</span>
-              </SelectItem>
-            ))}
+            <CompanyDbSectorSelectItems sectors={meta?.sectors} className="text-sm" />
           </SelectContent>
         </Select>
 

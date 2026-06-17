@@ -1016,6 +1016,8 @@ async function getCompaniesBySearchIdPaged(searchId, limit = 100, offset = 0) {
     sourceCountryCode: companies.sourceCountryCode,
     urgencyScore: companies.urgencyScore,
     fitScore: companies.fitScore,
+    fitScoreSource: companies.fitScoreSource,
+    similarityScore: companies.similarityScore,
     briefGeneratedAt: companies.briefGeneratedAt,
     salesApproachGeneratedAt: companies.salesApproachGeneratedAt,
     salesRepProfileGeneratedAt: companies.salesRepProfileGeneratedAt,
@@ -8278,19 +8280,37 @@ var companyFinderRouter = router({
       getDecisionsBySearch(input.searchId),
       countCompaniesBySearchId(input.searchId)
     ]);
+    const inferredBrainId = (() => {
+      const counts = /* @__PURE__ */ new Map();
+      for (const c of companiesList) {
+        if (c.generatedWithBrainId) {
+          counts.set(c.generatedWithBrainId, (counts.get(c.generatedWithBrainId) ?? 0) + 1);
+        }
+      }
+      let best;
+      let bestN = 0;
+      for (const [id, n] of counts) {
+        if (n > bestN) {
+          best = id;
+          bestN = n;
+        }
+      }
+      return best;
+    })();
+    const effectiveBrainId = input.brainId ?? search.brainId ?? inferredBrainId;
     let mergedCompanies = companiesList;
-    if (input.brainId) {
+    if (effectiveBrainId) {
       const enrichedIds = companiesList.filter((c) => c.enrichmentStatus === "enriched").map((c) => c.id);
-      const brainOutputMap = await getCompanyBrainOutputsForSearch(enrichedIds, input.brainId);
+      const brainOutputMap = await getCompanyBrainOutputsForSearch(enrichedIds, effectiveBrainId);
       mergedCompanies = companiesList.map((c) => {
         const out = brainOutputMap.get(c.id);
         return {
           ...c,
-          // Override display fields with brain-scoped values
+          // Override display fields with brain-scoped values (fall back to legacy columns)
           urgencyScore: out?.urgencyScore ?? c.urgencyScore,
           fitScore: out?.fitScore ?? c.fitScore,
-          briefGeneratedAt: out?.briefGeneratedAt ?? null,
-          salesApproachGeneratedAt: out?.salesApproachGeneratedAt ?? null,
+          briefGeneratedAt: out?.briefGeneratedAt ?? c.briefGeneratedAt,
+          salesApproachGeneratedAt: out?.salesApproachGeneratedAt ?? c.salesApproachGeneratedAt,
           // Keep original values accessible under brain-prefixed keys
           brainUrgencyScore: out?.urgencyScore ?? null,
           brainFitScore: out?.fitScore ?? null,

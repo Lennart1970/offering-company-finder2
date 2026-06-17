@@ -249,6 +249,7 @@ export const companyFinderRouter = router({
       cgBusinessUnit: z.string().optional(),
       cgLeadClass: z.string().optional(),
       cgLeadOrigin: z.string().optional(),
+      crmFilter: z.enum(["in", "not_in"]).optional(),
     }))
     .query(async ({ input }) => {
       const offset = input.page * input.pageSize;
@@ -271,6 +272,7 @@ export const companyFinderRouter = router({
           cgBusinessUnit: input.cgBusinessUnit || undefined,
           cgLeadClass: input.cgLeadClass || undefined,
           cgLeadOrigin: input.cgLeadOrigin || undefined,
+          crmFilter: input.crmFilter,
         }),
         countCompanyDatabase({
           search: input.search || undefined,
@@ -286,6 +288,7 @@ export const companyFinderRouter = router({
           cgBusinessUnit: input.cgBusinessUnit || undefined,
           cgLeadClass: input.cgLeadClass || undefined,
           cgLeadOrigin: input.cgLeadOrigin || undefined,
+          crmFilter: input.crmFilter,
         }),
       ]);
       return {

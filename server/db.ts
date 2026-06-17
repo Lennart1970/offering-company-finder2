@@ -1,4 +1,4 @@
-import { eq, and, or, desc } from "drizzle-orm";
+import { eq, and, or, desc, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob, bomCalculations, BomCalculation, InsertBomCalculation, apolloWebhookLogs, ApolloWebhookLog, InsertApolloWebhookLog, companyBrainOutputs, CompanyBrainOutput, InsertCompanyBrainOutput, offeringBrain, cgLeads } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -1097,6 +1097,37 @@ export async function getAllBrainOutputsForCompany(
 // Cross-campaign query: all companies with fitScore, joined to search name.
 // Used by the /company-database page.
 
+export type CompanyDbCrmFilter = "in" | "not_in";
+
+/** SQL fragment: company row matches lt_mns_cg_leads (SharePoint CRM lookup). */
+function companyInCrmExistsSql() {
+  return sql`EXISTS (
+    SELECT 1 FROM lt_mns_cg_leads cg
+    WHERE (
+      ${companies.cgSharepointId} IS NOT NULL
+      AND ${companies.cgSharepointId} REGEXP '^[0-9]+$'
+      AND cg.id = CAST(${companies.cgSharepointId} AS UNSIGNED)
+    ) OR (
+      ${companies.primaryDomain} IS NOT NULL
+      AND ${companies.primaryDomain} != ''
+      AND cg.domain = LOWER(REPLACE(TRIM(${companies.primaryDomain}), 'www.', ''))
+    ) OR (
+      ${companies.websiteUrl} IS NOT NULL
+      AND ${companies.websiteUrl} != ''
+      AND cg.domain IS NOT NULL
+      AND cg.domain = LOWER(
+        SUBSTRING_INDEX(
+          SUBSTRING_INDEX(
+            REPLACE(REPLACE(REPLACE(TRIM(${companies.websiteUrl}), 'https://', ''), 'http://', ''), 'www.', ''),
+            '/', 1
+          ),
+          ':', 1
+        )
+      )
+    )
+  )`;
+}
+
 export type CompanyDbSortBy = "name" | "country" | "city" | "fitScore" | "similarityScore" | "urgencyScore" | "urgencyScoreSynth" | "urgencyScoreNews" | "urgencyScoreLLM" | "createdAt" | "searchId" | "briefGeneratedAt" | "salesApproachGeneratedAt" | "brainName";
 
 export async function getCompanyDatabase(opts: {
@@ -1119,12 +1150,13 @@ export async function getCompanyDatabase(opts: {
   cgBusinessUnit?: string;
   cgLeadClass?: string;
   cgLeadOrigin?: string;
+  crmFilter?: CompanyDbCrmFilter;
 }) {
-  const { asc, desc, like, and, gte, isNotNull, isNull, inArray, sql } = await import("drizzle-orm");
+  const { asc, desc, like, and, gte, isNotNull, isNull, inArray, sql: _sql } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return [];
 
-  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, searchIds, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin } = opts;
+  const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, searchIds, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin, crmFilter } = opts;
 
   const conditions: Parameters<typeof and>[] = [];
   if (search) conditions.push(like(companies.name, `%${search}%`) as any);
@@ -1158,6 +1190,8 @@ export async function getCompanyDatabase(opts: {
     conditions.push(isNull(companies.briefGeneratedAt) as any);
     conditions.push(isNull(companies.salesApproachGeneratedAt) as any);
   }
+  if (crmFilter === "in") conditions.push(companyInCrmExistsSql() as any);
+  if (crmFilter === "not_in") conditions.push(sql`NOT ${companyInCrmExistsSql()}` as any);
 
   const whereClause = conditions.length > 0 ? and(...(conditions as any)) : undefined;
 
@@ -1270,12 +1304,13 @@ export async function countCompanyDatabase(opts: {
   cgBusinessUnit?: string;
   cgLeadClass?: string;
   cgLeadOrigin?: string;
+  crmFilter?: CompanyDbCrmFilter;
 }) {
   const { count, like, and, gte, isNotNull, isNull, inArray } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return 0;
 
-  const { search, searchId, searchIds, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin } = opts;
+  const { search, searchId, searchIds, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin, crmFilter } = opts;
 
   const conditions: Parameters<typeof and>[] = [];
   if (search) conditions.push(like(companies.name, `%${search}%`) as any);
@@ -1308,6 +1343,8 @@ export async function countCompanyDatabase(opts: {
     conditions.push(isNull(companies.briefGeneratedAt) as any);
     conditions.push(isNull(companies.salesApproachGeneratedAt) as any);
   }
+  if (crmFilter === "in") conditions.push(companyInCrmExistsSql() as any);
+  if (crmFilter === "not_in") conditions.push(sql`NOT ${companyInCrmExistsSql()}` as any);
 
   const whereClause = conditions.length > 0 ? and(...(conditions as any)) : undefined;
 

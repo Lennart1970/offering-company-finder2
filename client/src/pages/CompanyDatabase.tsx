@@ -55,6 +55,7 @@ type SortBy =
   | "brainName";
 type SortDir = "asc" | "desc";
 type ArticleFilter = "any" | "brief" | "approach" | "both" | "none";
+type CrmFilter = "any" | "in" | "not_in";
 
 // ── Region Map ───────────────────────────────────────────────────────────────
 // Maps macro-region labels to the list of country strings stored in the DB.
@@ -435,6 +436,7 @@ export default function CompanyDatabase() {
   const [minFitScore, setMinFitScore] = useState<number | undefined>(undefined);
   const [hasFitScoreOnly, setHasFitScoreOnly] = useState(false);
   const [articleFilter, setArticleFilter] = useState<ArticleFilter>("any");
+  const [crmFilter, setCrmFilter] = useState<CrmFilter>("any");
   const [simModalOpen, setSimModalOpen] = useState(false);
   const [lookalikeSeed, setLookalikeSeed] = useState<LookalikeSeed | null>(null);
   const [isSelectMode, setIsSelectMode] = useState(false);
@@ -515,6 +517,7 @@ export default function CompanyDatabase() {
     minFitScore,
     hasFitScore: hasFitScoreOnly || undefined,
     articleFilter: articleFilter === "any" ? undefined : articleFilter,
+    crmFilter: crmFilter === "any" ? undefined : crmFilter,
   });
 
   const rows = data?.companies ?? [];
@@ -687,6 +690,7 @@ export default function CompanyDatabase() {
     setMinFitScore(undefined);
     setHasFitScoreOnly(false);
     setArticleFilter("any");
+    setCrmFilter("any");
     setPage(0);
   };
 
@@ -704,7 +708,8 @@ export default function CompanyDatabase() {
     selectedCgLeadOrigin ||
     minFitScore !== undefined ||
     hasFitScoreOnly ||
-    articleFilter !== "any";
+    articleFilter !== "any" ||
+    crmFilter !== "any";
 
   const Th = ({
     col,
@@ -1036,6 +1041,24 @@ export default function CompanyDatabase() {
             </SelectContent>
           </Select>
         )}
+
+        {/* CRM presence filter */}
+        <Select
+          value={crmFilter}
+          onValueChange={(v) => {
+            setCrmFilter(v as CrmFilter);
+            setPage(0);
+          }}
+        >
+          <SelectTrigger className="h-8 w-40 text-sm">
+            <SelectValue placeholder="CRM" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="any">All CRM</SelectItem>
+            <SelectItem value="in">In CRM</SelectItem>
+            <SelectItem value="not_in">Not in CRM</SelectItem>
+          </SelectContent>
+        </Select>
 
         {/* Min FIT */}
         <Select

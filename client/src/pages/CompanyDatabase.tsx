@@ -187,6 +187,30 @@ function countryLabel(val: string): string {
   return val; // fallback: unknown format
 }
 
+/** Expand region country names to include ISO-2 codes stored in the DB */
+function expandRegionCountries(names: string[]): string[] {
+  const out = new Set<string>();
+  for (const name of names) {
+    out.add(name);
+    const iso = NAME_TO_ISO2[name.toLowerCase()];
+    if (iso) out.add(iso);
+  }
+  return [...out];
+}
+
+/** True when a DB country value belongs to the given macro-region */
+function countryInRegion(dbCountry: string, region: string): boolean {
+  const names = REGION_MAP[region];
+  if (!names) return false;
+  if (names.includes(dbCountry)) return true;
+  const iso =
+    dbCountry.length === 2
+      ? dbCountry.toUpperCase()
+      : NAME_TO_ISO2[dbCountry.toLowerCase()];
+  if (iso && names.some((n) => NAME_TO_ISO2[n.toLowerCase()] === iso)) return true;
+  return false;
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
 function fitBadge(score: number | null | undefined, source?: string | null) {
@@ -461,6 +485,12 @@ export default function CompanyDatabase() {
 
   const { data: meta } = trpc.companyFinder.getCompanyDbMeta.useQuery();
 
+  const filteredCountries = useMemo(() => {
+    const all = meta?.countries ?? [];
+    if (!selectedRegion) return all;
+    return all.filter((c) => countryInRegion(c, selectedRegion));
+  }, [meta?.countries, selectedRegion]);
+
   const { data, isFetching } = trpc.companyFinder.getCompanyDb.useQuery({
     page,
     pageSize: PAGE_SIZE,
@@ -472,7 +502,10 @@ export default function CompanyDatabase() {
       ? (meta?.searches ?? []).filter(s => selectedCampaignNames.includes((s as any).offeringName || s.location || `Run #${s.id}`)).map(s => s.id)
       : undefined,
     country: selectedCountry || undefined,
-    countries: selectedRegion ? REGION_MAP[selectedRegion] : undefined,
+    countries:
+      selectedRegion && !selectedCountry
+        ? expandRegionCountries(REGION_MAP[selectedRegion] ?? [])
+        : undefined,
     sector: selectedSector || undefined,
     brainId: selectedBrainId,
     cgBusinessUnit: selectedCgBu || undefined,
@@ -861,8 +894,11 @@ export default function CompanyDatabase() {
         <Select
           value={selectedRegion || "all"}
           onValueChange={(v) => {
-            setSelectedRegion(v === "all" ? undefined : v);
-            setSelectedCountry(undefined); // clear country when region changes
+            const region = v === "all" ? undefined : v;
+            setSelectedRegion(region);
+            if (region && selectedCountry && !countryInRegion(selectedCountry, region)) {
+              setSelectedCountry(undefined);
+            }
             setPage(0);
           }}
         >
@@ -882,7 +918,6 @@ export default function CompanyDatabase() {
           value={selectedCountry || "all"}
           onValueChange={(v) => {
             setSelectedCountry(v === "all" ? undefined : v);
-            setSelectedRegion(undefined); // clear region when country is chosen
             setPage(0);
           }}
         >
@@ -891,7 +926,7 @@ export default function CompanyDatabase() {
           </SelectTrigger>
           <SelectContent className="max-h-64 overflow-y-auto">
             <SelectItem value="all">All countries</SelectItem>
-            {(meta?.countries ?? []).map((c) => (
+            {(filteredCountries).map((c) => (
               <SelectItem key={c} value={c}>
                 {countryLabel(c)}
               </SelectItem>

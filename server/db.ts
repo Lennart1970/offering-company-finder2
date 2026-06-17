@@ -1131,9 +1131,9 @@ export async function getCompanyDatabase(opts: {
   // Multi-select campaign filter takes precedence over single searchId
   if (searchIds && searchIds.length > 0) conditions.push(inArray(companies.searchId, searchIds) as any);
   else if (searchId) conditions.push(eq(companies.searchId, searchId) as any);
-  // Region filter (array) takes precedence over single country filter
-  if (countries && countries.length > 0) conditions.push(inArray(companies.country, countries) as any);
-  else if (country) conditions.push(eq(companies.country, country) as any);
+  // Geo: single country is more specific; region expands to a country list
+  if (country) conditions.push(eq(companies.country, country) as any);
+  else if (countries && countries.length > 0) conditions.push(inArray(companies.country, countries) as any);
   if (sector) conditions.push(eq(companies.sector, sector) as any);
   if (minFitScore !== undefined) conditions.push(gte(companies.fitScore, minFitScore) as any);
   if (hasFitScore) conditions.push(isNotNull(companies.fitScore) as any);
@@ -1280,9 +1280,9 @@ export async function countCompanyDatabase(opts: {
   // Multi-select campaign filter takes precedence over single searchId
   if (searchIds && searchIds.length > 0) conditions.push(inArray(companies.searchId, searchIds) as any);
   else if (searchId) conditions.push(eq(companies.searchId, searchId) as any);
-  // Region filter (array) takes precedence over single country filter
-  if (countries && countries.length > 0) conditions.push(inArray(companies.country, countries) as any);
-  else if (country) conditions.push(eq(companies.country, country) as any);
+  // Geo: single country is more specific; region expands to a country list
+  if (country) conditions.push(eq(companies.country, country) as any);
+  else if (countries && countries.length > 0) conditions.push(inArray(companies.country, countries) as any);
   if (sector) conditions.push(eq(companies.sector, sector) as any);
   if (minFitScore !== undefined) conditions.push(gte(companies.fitScore, minFitScore) as any);
   if (hasFitScore) conditions.push(isNotNull(companies.fitScore) as any);

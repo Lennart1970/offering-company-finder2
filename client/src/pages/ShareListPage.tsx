@@ -89,6 +89,19 @@ const SHARE_REGION_MAP: Record<string, string[]> = {
     "United Arab Emirates",
   ],
 };
+
+function countryInRegionSL(dbCountry: string, region: string): boolean {
+  const names = SHARE_REGION_MAP[region];
+  if (!names) return false;
+  if (names.includes(dbCountry)) return true;
+  const iso =
+    dbCountry.length === 2
+      ? dbCountry.toUpperCase()
+      : NAME_TO_ISO2_SL[dbCountry.toLowerCase()];
+  if (iso && names.some((n) => NAME_TO_ISO2_SL[n.toLowerCase()] === iso)) return true;
+  return false;
+}
+
 type SortDir = "desc" | "asc";
 
 // --- Sort header button -------------------------------------------------------
@@ -137,8 +150,10 @@ export default function ShareListPage() {
     if (!data?.companies) return [];
     const set = new Set<string>();
     (data.companies as any[]).forEach((c) => { if (c.country) set.add(c.country); });
-    return Array.from(set).sort();
-  }, [data]);
+    const all = Array.from(set).sort();
+    if (!selectedRegion) return all;
+    return all.filter((c) => countryInRegionSL(c, selectedRegion));
+  }, [data, selectedRegion]);
 
   function handleSort(key: SortKey) {
     if (key === sortKey) {
@@ -171,12 +186,12 @@ export default function ShareListPage() {
     if (minFit > 0) list = list.filter((c) => (c.fitScore ?? 0) >= minFit);
     if (minUrgency > 0) list = list.filter((c) => (c.urgencyScore ?? 0) >= minUrgency);
 
-    // Geo filters — region takes precedence over country
-    if (selectedRegion && SHARE_REGION_MAP[selectedRegion]) {
-      const allowed = new Set(SHARE_REGION_MAP[selectedRegion]);
-      list = list.filter((c) => c.country && allowed.has(c.country));
-    } else if (selectedCountry) {
+    // Geo filters — country narrows within an optional region
+    if (selectedCountry) {
       list = list.filter((c) => c.country === selectedCountry);
+    } else if (selectedRegion && SHARE_REGION_MAP[selectedRegion]) {
+      const allowed = new Set(SHARE_REGION_MAP[selectedRegion]);
+      list = list.filter((c) => c.country && (allowed.has(c.country) || countryInRegionSL(c.country, selectedRegion)));
     }
 
     // Sort
@@ -462,7 +477,13 @@ export default function ShareListPage() {
           {/* Region filter */}
           <select
             value={selectedRegion ?? ""}
-            onChange={(e) => { setSelectedRegion(e.target.value || undefined); setSelectedCountry(undefined); }}
+            onChange={(e) => {
+              const region = e.target.value || undefined;
+              setSelectedRegion(region);
+              if (region && selectedCountry && !countryInRegionSL(selectedCountry, region)) {
+                setSelectedCountry(undefined);
+              }
+            }}
             className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-black"
           >
             <option value="">All regions</option>
@@ -474,7 +495,7 @@ export default function ShareListPage() {
           {/* Country filter */}
           <select
             value={selectedCountry ?? ""}
-            onChange={(e) => { setSelectedCountry(e.target.value || undefined); setSelectedRegion(undefined); }}
+            onChange={(e) => { setSelectedCountry(e.target.value || undefined); }}
             className="text-xs border border-gray-300 rounded-lg px-2 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-black"
           >
             <option value="">All countries</option>

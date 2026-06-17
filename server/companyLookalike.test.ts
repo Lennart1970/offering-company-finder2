@@ -1,14 +1,227 @@
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach } from "vitest";
 import { v5 as uuidv5 } from "uuid";
 import {
   cosineSimilarityScore0to100,
   scoreAllEmbeddingsAgainstVector,
+  minSim0to100ToRpcThreshold,
+  rpcSimilarityToSim0to100,
+  matchCompaniesByEmbeddingRpc,
+  mapRpcMatchesToMysqlCompanies,
+  type RpcMatchRow,
 } from "./companySimilaritySearch";
 import { toCompanyUUID } from "./supabaseEmbeddings";
+
+vi.mock("./db", () => ({
+  getDb: vi.fn(),
+}));
+
+import { getDb } from "./db";
 
 const LT_NAMESPACE = "a1b2c3d4-e5f6-7890-abcd-ef1234567890";
 
 describe("company lookalike helpers", () => {
+  describe("RPC score scale conversion", () => {
+    it("converts minSim 55 to RPC threshold 0.1", () => {
+      expect(minSim0to100ToRpcThreshold(55)).toBeCloseTo(0.1);
+    });
+
+    it("converts minSim 70 to RPC threshold 0.4", () => {
+      expect(minSim0to100ToRpcThreshold(70)).toBeCloseTo(0.4);
+    });
+
+    it("converts minSim 100 to RPC threshold 1", () => {
+      expect(minSim0to100ToRpcThreshold(100)).toBe(1);
+    });
+
+    it("converts minSim 50 to RPC threshold 0", () => {
+      expect(minSim0to100ToRpcThreshold(50)).toBe(0);
+    });
+
+    it("round-trips RPC cosine to UI simScore", () => {
+      expect(rpcSimilarityToSim0to100(0.1)).toBe(55);
+      expect(rpcSimilarityToSim0to100(1)).toBe(100);
+      expect(rpcSimilarityToSim0to100(0)).toBe(50);
+    });
+  });
+
+  describe("matchCompaniesByEmbeddingRpc", () => {
+    it("calls RPC with converted threshold and excludes seed ids", async () => {
+      const seedUuid = toCompanyUUID(1);
+      const matchUuid = toCompanyUUID(2);
+      const rpc = vi.fn(async () => ({
+        data: [
+          { company_id: seedUuid, company_name: "Seed", similarity_score: 0.99 },
+          { company_id: matchUuid, company_name: "Peer", similarity_score: 0.8 },
+        ],
+        error: null,
+      }));
+
+      const sb = { rpc } as any;
+      const { matches } = await matchCompaniesByEmbeddingRpc(sb, [1, 0, 0], {
+        minSim: 55,
+        maxResults: 10,
+        excludeWatchlistIds: [seedUuid],
+      });
+
+      expect(rpc).toHaveBeenCalledWith("match_companies_to_embedding", {
+        p_embedding: [1, 0, 0],
+        p_limit: 10,
+        p_threshold: expect.closeTo(0.1),
+      });
+      expect(matches).toHaveLength(1);
+      expect(matches[0].company_id).toBe(matchUuid);
+    });
+  });
+
+  describe("mapRpcMatchesToMysqlCompanies", () => {
+    beforeEach(() => {
+      vi.mocked(getDb).mockReset();
+    });
+
+    it("resolves UUIDs via Supabase registry and enriches from MySQL", async () => {
+      const uuid2 = toCompanyUUID(2);
+      const uuid3 = toCompanyUUID(3);
+      const matches: RpcMatchRow[] = [
+        {
+          company_id: uuid2,
+          company_name: "Peer A",
+          country: "France",
+          sector: "Aerospace",
+          similarity_score: 0.9,
+        },
+        {
+          company_id: uuid3,
+          company_name: "Peer B",
+          country: "Germany",
+          sector: "Defense",
+          similarity_score: 0.7,
+        },
+      ];
+
+      const sb = {
+        from: vi.fn(() => ({
+          select: vi.fn(() => ({
+            in: vi.fn(async () => ({
+              data: [
+                { id: uuid2, mysql_id: 2 },
+                { id: uuid3, mysql_id: 3 },
+              ],
+            })),
+          })),
+        })),
+      } as any;
+
+      const companyRows = [
+        {
+          id: 2,
+          name: "Peer A",
+          websiteUrl: null,
+          primaryDomain: "peera.com",
+          city: "Paris",
+          country: "France",
+          sector: "Aerospace",
+          fitScore: 80,
+          searchId: 1,
+          generatedWithBrainName: null,
+        },
+        {
+          id: 3,
+          name: "Peer B",
+          websiteUrl: null,
+          primaryDomain: "peerb.com",
+          city: "Berlin",
+          country: "Germany",
+          sector: "Defense",
+          fitScore: 70,
+          searchId: 1,
+          generatedWithBrainName: null,
+        },
+      ];
+
+      vi.mocked(getDb).mockResolvedValue({
+        select: vi.fn(() => ({
+          from: vi.fn(() => ({
+            where: vi.fn(async () => companyRows),
+            limit: vi.fn(() => ({
+              offset: vi.fn(async () => []),
+            })),
+          })),
+        })),
+      } as any);
+
+      const { companies: result, totalMatched } = await mapRpcMatchesToMysqlCompanies(sb, matches);
+
+      expect(totalMatched).toBe(2);
+      expect(result).toHaveLength(2);
+      expect(result[0].id).toBe(2);
+      expect(result[0].simScore).toBe(rpcSimilarityToSim0to100(0.9));
+      expect(result[1].simScore).toBe(rpcSimilarityToSim0to100(0.7));
+    });
+
+    it("filters by country and sector on RPC rows before MySQL lookup", async () => {
+      const uuid2 = toCompanyUUID(2);
+      const matches: RpcMatchRow[] = [
+        {
+          company_id: uuid2,
+          company_name: "Peer A",
+          country: "France",
+          sector: "Aerospace",
+          similarity_score: 0.85,
+        },
+        {
+          company_id: toCompanyUUID(4),
+          company_name: "Peer US",
+          country: "United States",
+          sector: "Aerospace",
+          similarity_score: 0.9,
+        },
+      ];
+
+      const sb = {
+        from: vi.fn(() => ({
+          select: vi.fn(() => ({
+            in: vi.fn(async () => ({
+              data: [{ id: uuid2, mysql_id: 2 }],
+            })),
+          })),
+        })),
+      } as any;
+
+      vi.mocked(getDb).mockResolvedValue({
+        select: vi.fn(() => ({
+          from: vi.fn(() => ({
+            where: vi.fn(async () => [
+              {
+                id: 2,
+                name: "Peer A",
+                websiteUrl: null,
+                primaryDomain: "peera.com",
+                city: "Paris",
+                country: "France",
+                sector: "Aerospace",
+                fitScore: 80,
+                searchId: 1,
+                generatedWithBrainName: null,
+              },
+            ]),
+            limit: vi.fn(() => ({
+              offset: vi.fn(async () => []),
+            })),
+          })),
+        })),
+      } as any);
+
+      const { companies: result, totalMatched } = await mapRpcMatchesToMysqlCompanies(sb, matches, {
+        country: "France",
+        sector: "Aero",
+      });
+
+      expect(totalMatched).toBe(1);
+      expect(result).toHaveLength(1);
+      expect(result[0].country).toBe("France");
+    });
+  });
+
   describe("toCompanyUUID round-trip", () => {
     it("maps mysql id to deterministic watchlist uuid", () => {
       expect(toCompanyUUID(42)).toBe(uuidv5("company-42", LT_NAMESPACE));

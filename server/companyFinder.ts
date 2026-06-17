@@ -5231,8 +5231,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       const {
         getSupabaseClient,
         fetchBrainEmbedding,
-        scoreAllEmbeddingsAgainstVector,
-        mapWatchlistIdsToMysqlCompanies,
+        previewSimilarityByVector,
       } = await import("./companySimilaritySearch");
       const sb = getSupabaseClient();
       let brainVec: number[];
@@ -5242,12 +5241,11 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         const msg = e instanceof Error ? e.message : String(e);
         throw new TRPCError({ code: "NOT_FOUND", message: msg });
       }
-      const { scored, top } = await scoreAllEmbeddingsAgainstVector(sb, brainVec, {
-        minScore: input.minSim,
+      const { companies: result, totalMatched } = await previewSimilarityByVector(sb, brainVec, {
+        minSim: input.minSim,
         maxResults: input.maxResults,
       });
-      const { companies: result } = await mapWatchlistIdsToMysqlCompanies(top);
-      return { companies: result, brainId: input.brainId, totalMatched: scored.length };
+      return { companies: result, brainId: input.brainId, totalMatched };
     }),
 
   /**
@@ -5268,8 +5266,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       const {
         getSupabaseClient,
         fetchSeedEmbedding,
-        scoreAllEmbeddingsAgainstVector,
-        mapWatchlistIdsToMysqlCompanies,
+        previewSimilarityByVector,
       } = await import("./companySimilaritySearch");
       const { toCompanyUUID } = await import("./supabaseEmbeddings");
 
@@ -5303,21 +5300,22 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       }
 
       const seedWatchlistId = toCompanyUUID(input.seedCompanyId);
-      const { scored, top } = await scoreAllEmbeddingsAgainstVector(sb, seedVector, {
-        minScore: input.minSim,
+      const hasFilters = !!(input.country || input.sector);
+      const { companies: result, totalMatched } = await previewSimilarityByVector(sb, seedVector, {
+        minSim: input.minSim,
         maxResults: input.maxResults,
         excludeWatchlistIds: [seedWatchlistId],
-      });
-
-      const { companies: result, totalMatched } = await mapWatchlistIdsToMysqlCompanies(top, {
-        country: input.country,
-        sector: input.sector,
+        overfetchForFilters: hasFilters,
+        filters: {
+          country: input.country,
+          sector: input.sector,
+        },
       });
 
       return {
         seedCompany: seedRow,
         companies: result,
-        totalMatched: scored.length,
+        totalMatched,
       };
     }),
 

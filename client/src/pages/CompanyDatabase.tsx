@@ -408,6 +408,39 @@ export default function CompanyDatabase() {
   const [hasFitScoreOnly, setHasFitScoreOnly] = useState(false);
   const [articleFilter, setArticleFilter] = useState<ArticleFilter>("any");
   const [simModalOpen, setSimModalOpen] = useState(false);
+  const [isSelectMode, setIsSelectMode] = useState(false);
+  const [selectedItems, setSelectedItems] = useState<Map<number, number>>(new Map());
+
+  const { data: activeBrainData } = trpc.companyFinder.getActiveBrain.useQuery();
+  const activeBrainId = activeBrainData?.brain?.id;
+
+  const createShareListMutation = trpc.share.createShareListWithToken.useMutation({
+    onSuccess: async (result) => {
+      const { listToken, tokens } = result;
+      if (!tokens.length) { toast.error("No companies selected"); return; }
+      const listUrl = `${window.location.origin}/share/list/${listToken}`;
+      const tokenStr = tokens.map((t: { token: string }) => t.token).join(",");
+      try {
+        const origin = encodeURIComponent(window.location.origin);
+        const res = await fetch(`/api/share-list-export?tokens=${encodeURIComponent(tokenStr)}&listUrl=${encodeURIComponent(listUrl)}&origin=${origin}`);
+        if (!res.ok) throw new Error("Export failed");
+        const blob = await res.blob();
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = `share-list-${new Date().toISOString().slice(0, 10)}.xlsx`;
+        a.click();
+        URL.revokeObjectURL(url);
+        try { await navigator.clipboard.writeText(listUrl); } catch {}
+        toast.success(`${tokens.length} companies shared — Excel downloaded & list link copied!`);
+      } catch {
+        toast.error("Share list created but Excel download failed");
+      }
+      setIsSelectMode(false);
+      setSelectedItems(new Map());
+    },
+    onError: (err) => toast.error(`Share list failed: ${err.message}`),
+  });
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -466,6 +499,83 @@ export default function CompanyDatabase() {
     const withApproach = rows.filter((r) => r.salesApproachGeneratedAt).length;
     return { withBrief, withApproach };
   }, [rows]);
+
+  const resolveBrainIdForRow = (row: (typeof rows)[number]): number | null => {
+    if (selectedBrainId) return selectedBrainId;
+    const generatedWithBrainId = (row as { generatedWithBrainId?: number | null }).generatedWithBrainId;
+    if (generatedWithBrainId) return generatedWithBrainId;
+    if (selectedRunIds.length === 1) {
+      const run = (meta?.searches ?? []).find((s) => s.id === selectedRunIds[0]);
+      const runBrainId = (run as { brainId?: number } | undefined)?.brainId;
+      if (runBrainId) return runBrainId;
+    }
+    if (activeBrainId) return activeBrainId;
+    return null;
+  };
+
+  const pageSelectableRows = useMemo(
+    () => rows.filter((row) => resolveBrainIdForRow(row) !== null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [rows, selectedBrainId, selectedRunIds, meta?.searches, activeBrainId],
+  );
+
+  const allPageRowsSelected =
+    pageSelectableRows.length > 0 &&
+    pageSelectableRows.every((row) => selectedItems.has(row.id));
+
+  const somePageRowsSelected =
+    pageSelectableRows.some((row) => selectedItems.has(row.id)) && !allPageRowsSelected;
+
+  const toggleRowSelection = (row: (typeof rows)[number]) => {
+    const brainId = resolveBrainIdForRow(row);
+    if (!brainId) {
+      toast.error(`No brain found for ${row.name}`);
+      return;
+    }
+    setSelectedItems((prev) => {
+      const next = new Map(prev);
+      if (next.has(row.id)) next.delete(row.id);
+      else next.set(row.id, brainId);
+      return next;
+    });
+  };
+
+  const toggleSelectAllOnPage = () => {
+    if (allPageRowsSelected) {
+      setSelectedItems((prev) => {
+        const next = new Map(prev);
+        for (const row of rows) next.delete(row.id);
+        return next;
+      });
+      return;
+    }
+    let skipped = 0;
+    const next = new Map(selectedItems);
+    for (const row of rows) {
+      const brainId = resolveBrainIdForRow(row);
+      if (brainId) next.set(row.id, brainId);
+      else skipped++;
+    }
+    setSelectedItems(next);
+    if (skipped > 0) {
+      toast.warning(`${skipped} row(s) on this page skipped — no brain could be resolved`);
+    }
+  };
+
+  const handleCreateShareList = () => {
+    if (!selectedItems.size) {
+      toast.error("Select at least one company first");
+      return;
+    }
+    const items = Array.from(selectedItems.entries()).map(([companyId, brainId]) => ({
+      companyId,
+      brainId,
+    }));
+    createShareListMutation.mutate({
+      items,
+      shareListName: `Company DB — ${new Date().toLocaleDateString()}`,
+    });
+  };
 
   const handleSort = (col: SortBy) => {
     if (col === sortBy) {
@@ -935,6 +1045,33 @@ export default function CompanyDatabase() {
           </button>
         )}
 
+        <button
+          onClick={() => {
+            if (isSelectMode) {
+              setIsSelectMode(false);
+              setSelectedItems(new Map());
+            } else {
+              setIsSelectMode(true);
+            }
+          }}
+          className={`h-8 px-3 rounded text-xs font-medium border transition-colors ${
+            isSelectMode
+              ? "border-purple-600 bg-purple-600 text-white"
+              : "border-purple-300 text-purple-700 bg-purple-50 hover:bg-purple-100"
+          }`}
+        >
+          {isSelectMode ? `✓ ${selectedItems.size} SELECTED` : "☑ SELECT FOR SHARE"}
+        </button>
+        {isSelectMode && (
+          <button
+            onClick={handleCreateShareList}
+            disabled={createShareListMutation.isPending || !selectedItems.size}
+            className="h-8 px-3 rounded text-xs font-medium border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+          >
+            {createShareListMutation.isPending ? "⏳ CREATING..." : "🔗 CREATE SHARE LIST"}
+          </button>
+        )}
+
         {/* Score Similarity button — campaign-scoped when a single run is selected */}
         {(() => {
           const singleRun = selectedRunIds.length === 1
@@ -1007,9 +1144,33 @@ export default function CompanyDatabase() {
       <SimilaritySearchModal open={simModalOpen} onClose={() => setSimModalOpen(false)} />
       {/* ── Table ── */}
       <div className="flex-1 overflow-auto">
+        {isSelectMode && rows.length > 0 && (
+          <div className="flex items-center gap-3 px-6 py-2 bg-purple-50 border-b border-purple-200 sticky top-0 z-20">
+            <input
+              type="checkbox"
+              checked={allPageRowsSelected}
+              ref={(el) => {
+                if (el) el.indeterminate = somePageRowsSelected;
+              }}
+              onChange={toggleSelectAllOnPage}
+              className="w-4 h-4 accent-purple-600 shrink-0 cursor-pointer"
+            />
+            <span className="text-xs font-black text-purple-700 uppercase tracking-widest">
+              {allPageRowsSelected && pageSelectableRows.length > 0
+                ? `DESELECT ALL ON PAGE (${pageSelectableRows.length})`
+                : `SELECT ALL ON PAGE (${pageSelectableRows.length})`}
+            </span>
+            {selectedItems.size > 0 && (
+              <span className="text-xs text-purple-500">{selectedItems.size} total selected</span>
+            )}
+          </div>
+        )}
         <table className="w-full text-sm border-collapse">
           <thead className="sticky top-0 bg-gray-50 z-10">
             <tr className="border-b border-gray-200">
+              {isSelectMode && (
+                <th className="px-3 py-2 w-8" />
+              )}
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide w-8">
                 #
               </th>
@@ -1047,7 +1208,7 @@ export default function CompanyDatabase() {
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={12} className="px-6 py-12 text-center text-gray-400 text-sm">
+                <td colSpan={isSelectMode ? 15 : 14} className="px-6 py-12 text-center text-gray-400 text-sm">
                   No companies found matching your filters.
                 </td>
               </tr>
@@ -1056,13 +1217,24 @@ export default function CompanyDatabase() {
                 const hasBrief = !!row.briefGeneratedAt;
                 const hasApproach = !!row.salesApproachGeneratedAt;
                 const hasCallSummary = !!row.callReadinessSummary;
+                const isRowSelected = selectedItems.has(row.id);
 
                 return (
                   <tr
                     key={row.id}
-                    className="border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer"
+                    className={`border-b border-gray-100 hover:bg-gray-50 transition-colors cursor-pointer ${isRowSelected ? "bg-purple-50/50" : ""}`}
                     onClick={() => navigate(`/company/${row.id}`)}
                   >
+                    {isSelectMode && (
+                      <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          type="checkbox"
+                          checked={isRowSelected}
+                          onChange={() => toggleRowSelection(row)}
+                          className="w-4 h-4 accent-purple-600 cursor-pointer"
+                        />
+                      </td>
+                    )}
                     <td className="px-3 py-2 text-xs text-gray-400 tabular-nums">
                       {page * PAGE_SIZE + i + 1}
                     </td>

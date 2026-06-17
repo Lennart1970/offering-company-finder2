@@ -1072,7 +1072,11 @@ export default function SearchResults() {
 
           <PipelineProgressCard
             campaignName={searchData?.search.offeringName}
-            brainName={(searchData?.search as any)?.brainName}
+            brainName={
+              (searchData?.search as any)?.brainName
+              ?? activeBrain?.brainName
+              ?? allCompanies.find((c) => c.generatedWithBrainName)?.generatedWithBrainName
+            }
             stats={pipelineStats}
             isJobRunning={isJobRunning}
             onRunFullPipeline={() =>

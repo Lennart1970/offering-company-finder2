@@ -33,13 +33,18 @@ function StepPill({
   label,
   count,
   active,
+  title,
 }: {
   label: string;
   count: number;
   active?: boolean;
+  title?: string;
 }) {
   return (
-    <div className={`text-center min-w-[4.5rem] ${active ? "opacity-100" : "opacity-70"}`}>
+    <div
+      className={`text-center min-w-[4.5rem] ${active ? "opacity-100" : "opacity-70"}`}
+      title={title}
+    >
       <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest">{label}</div>
       <div className="text-lg font-black text-gray-900">{count}</div>
     </div>
@@ -67,7 +72,11 @@ export default function PipelineProgressCard({
   const steps = [
     { label: "Found", count: total },
     { label: "Enriched", count: stats?.enriched ?? 0 },
-    { label: "FIT", count: stats?.llmFitScored ?? 0 },
+    {
+      label: "FIT",
+      count: stats?.llmFitScored ?? 0,
+      title: "AI fit scoring (LLM). Embedding similarity (SIM) on list rows is separate.",
+    },
     { label: "Urgency", count: stats?.urgencyScored ?? 0 },
     { label: "Outreach", count: stats?.outreachReady ?? 0 },
   ];
@@ -92,7 +101,7 @@ export default function PipelineProgressCard({
       <div className="flex flex-wrap items-center justify-between gap-3 mb-4 py-3 border-y border-gray-200">
         {steps.map((step, i) => (
           <div key={step.label} className="flex items-center gap-2">
-            <StepPill label={step.label} count={step.count} active={i <= 2 || step.count > 0} />
+            <StepPill label={step.label} count={step.count} active={i <= 2 || step.count > 0} title={(step as { title?: string }).title} />
             {i < steps.length - 1 && <span className="text-gray-300 font-bold hidden sm:inline">→</span>}
           </div>
         ))}

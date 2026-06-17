@@ -328,7 +328,27 @@ export const companyFinderRouter = router({
         countCompaniesBySearchId(input.searchId),
       ]);
 
-      // If a brainId is provided, merge brain-scoped outputs into each company row
+      // Default to the run's brain so cockpit stats match detail/share pages (which use brain-scoped outputs).
+      const inferredBrainId = (() => {
+        const counts = new Map<number, number>();
+        for (const c of companiesList) {
+          if (c.generatedWithBrainId) {
+            counts.set(c.generatedWithBrainId, (counts.get(c.generatedWithBrainId) ?? 0) + 1);
+          }
+        }
+        let best: number | undefined;
+        let bestN = 0;
+        for (const [id, n] of counts) {
+          if (n > bestN) {
+            best = id;
+            bestN = n;
+          }
+        }
+        return best;
+      })();
+      const effectiveBrainId = input.brainId ?? search.brainId ?? inferredBrainId;
+
+      // If a brainId is resolved, merge brain-scoped outputs into each company row
       // so that urgencyScore, fitScore, briefGeneratedAt, salesApproachGeneratedAt
       // reflect the selected brain's data rather than the legacy columns.
       let mergedCompanies = companiesList as Array<typeof companiesList[0] & {
@@ -338,18 +358,18 @@ export const companyFinderRouter = router({
         brainSalesApproachGeneratedAt?: Date | null;
       }>;
 
-      if (input.brainId) {
+      if (effectiveBrainId) {
         const enrichedIds = companiesList.filter(c => c.enrichmentStatus === "enriched").map(c => c.id);
-        const brainOutputMap = await getCompanyBrainOutputsForSearch(enrichedIds, input.brainId);
+        const brainOutputMap = await getCompanyBrainOutputsForSearch(enrichedIds, effectiveBrainId);
         mergedCompanies = companiesList.map(c => {
           const out = brainOutputMap.get(c.id);
           return {
             ...c,
-            // Override display fields with brain-scoped values
+            // Override display fields with brain-scoped values (fall back to legacy columns)
             urgencyScore: out?.urgencyScore ?? c.urgencyScore,
             fitScore: out?.fitScore ?? c.fitScore,
-            briefGeneratedAt: out?.briefGeneratedAt ?? null,
-            salesApproachGeneratedAt: out?.salesApproachGeneratedAt ?? null,
+            briefGeneratedAt: out?.briefGeneratedAt ?? c.briefGeneratedAt,
+            salesApproachGeneratedAt: out?.salesApproachGeneratedAt ?? c.salesApproachGeneratedAt,
             // Keep original values accessible under brain-prefixed keys
             brainUrgencyScore: out?.urgencyScore ?? null,
             brainFitScore: out?.fitScore ?? null,

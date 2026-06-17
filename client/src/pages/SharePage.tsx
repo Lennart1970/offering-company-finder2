@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { normaliseSalesApproach } from "@shared/normaliseStarters";
 import { stripGrokCitations } from "@/lib/utils";
 import { ShareGate } from "@/components/ShareGate";
+import { CgLeadBadge } from "@/components/CgLeadBadge";
 
 // --- Helpers ----------------------------------------------------------------
 
@@ -553,6 +554,12 @@ export default function SharePage() {
                 {location !== "—" && <span>📍 {location}</span>}
                 {company.revenue && <span>💰 {formatRevenue(company.revenue)}</span>}
                 {employeeBand && <span>👥 {employeeBand}</span>}
+                <CgLeadBadge
+                  websiteUrl={company.websiteUrl}
+                  domain={company.primaryDomain}
+                  companyName={company.name}
+                  sharepointId={company.cgSharepointId}
+                />
               </div>
               {briefData?.companyOverview && (
                 <p className="text-sm text-gray-600 leading-relaxed max-w-2xl">{briefData.companyOverview}</p>

@@ -20,6 +20,7 @@ Implementation guide for Manus WebDev engineer.
 3. **Company Database CRM column** — green CRM icon / grey "not in CRM" indicator per row.
 4. **Company Database CRM filter** — filter dropdown: **All CRM** / **In CRM** / **Not in CRM**.
 5. **Company detail header** — full "View in CRM →" badge at top of company page.
+6. **Single-company share page** (`/share/:token`) — **View in CRM** badge in company header (gated share briefs).
 
 ---
 
@@ -111,6 +112,14 @@ Existing requirements unchanged:
 1. Open a search with CRM-matched companies.
 2. Company cards / list rows show green CRM icon in badge row.
 
+### E. Share pages — CRM link
+
+1. Open a **share list** (`/share/list/<token>`) — matched companies show compact green CRM icon under the name.
+2. Open a **single-company share** (`/share/<token>`) after email gate — header meta row shows **View in CRM** (or "Not in CRM database" when no match).
+3. Click **View in CRM** — opens SharePoint lead item in a new tab.
+
+**Prerequisite:** `lt_mns_cg_leads` imported (Step 2). No new migration for this add-on.
+
 ---
 
 ## Architecture notes (do not change unless asked)
@@ -147,6 +156,8 @@ CRM filter uses SQL `EXISTS` against `lt_mns_cg_leads` (domain + SharePoint ID m
 | `client/src/pages/CompanyDatabase.tsx` | CRM column + filter dropdown |
 | `client/src/pages/CompanyDetail.tsx` | CRM badge in header |
 | `client/src/pages/SearchResults.tsx` | Pass `sharepointId` to badge |
+| `client/src/pages/SharePage.tsx` | CRM badge in gated single-company share header |
+| `client/src/pages/ShareListPage.tsx` | Compact CRM badge per list row (existing) |
 
 ---
 
@@ -159,6 +170,7 @@ Reply to product owner with:
 - [ ] CRM import run: yes / no / already populated
 - [ ] Smoke test B (CRM filter) passed
 - [ ] Smoke test C (detail CRM link) passed
+- [ ] Smoke test E (share list + single `/share/:token` CRM link) passed
 - [ ] Build / `tsc --noEmit`: 0 errors
 
 ---

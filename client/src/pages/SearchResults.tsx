@@ -10,6 +10,8 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
 import BrainBadge from "@/components/BrainBadge";
 import { CgLeadBadge } from "@/components/CgLeadBadge";
+import FitScoreBadge from "@/components/FitScoreBadge";
+import PipelineProgressCard from "@/components/PipelineProgressCard";
 import { normaliseSalesApproach } from "@shared/normaliseStarters";
 
 // Format revenue to human-readable string
@@ -123,30 +125,6 @@ export default function SearchResults() {
     onError: (err) => toast.error(err.message),
   });
 
-  // ── Campaign Queue ──────────────────────────────────────────────────────────
-  const [queueingSearchId, setQueueingSearchId] = useState<number | null>(null);
-  const enqueueSearch = trpc.campaignQueue.enqueueSearch.useMutation({
-    onSuccess: (data, vars) => {
-      toast.success(data.message);
-      setQueueingSearchId(null);
-      utils.campaignQueue.getQueueStatus.invalidate({ searchId: vars.searchId });
-      utils.campaignQueue.getQueueStatus.invalidate({});
-    },
-    onError: (err) => { toast.error(err.message); setQueueingSearchId(null); },
-  });
-  const cancelQueue = trpc.campaignQueue.cancelSearch.useMutation({
-    onSuccess: (data, vars) => {
-      toast.success(`${data.cancelled} jobs cancelled`);
-      utils.campaignQueue.getQueueStatus.invalidate({ searchId: vars.searchId });
-      utils.campaignQueue.getQueueStatus.invalidate({});
-    },
-    onError: (err) => toast.error(err.message),
-  });
-  // Global queue status — polls every 30s to update all campaign cards
-  const { data: globalQueueStatus } = trpc.campaignQueue.getQueueStatus.useQuery(
-    {},
-    { refetchInterval: 30_000 }
-  );
   const { data: excludedCodes } = trpc.companyFinder.getExcludedCodes.useQuery();
 
   // Leadinfo — fetch matched company IDs for this campaign
@@ -187,7 +165,9 @@ export default function SearchResults() {
     },
     { enabled: !!searchId && viewMode === "raw" }
   );
-  const [enrichmentFilter, setEnrichmentFilter] = useState<"all" | "enriched" | "pending" | "outreach" | "visitors">("all");
+  const [enrichmentFilter, setEnrichmentFilter] = useState<
+    "all" | "enriched" | "pending" | "needs_fit" | "needs_urgency" | "outreach" | "visitors"
+  >("all");
   const [urgencyCtaAdded, setUrgencyCtaAdded] = useState(false);
   const [quickViewCompanyId, setQuickViewCompanyId] = useState<number | null>(null);
   const [quickViewMode, setQuickViewMode] = useState<"research" | "approach" | null>(null);
@@ -291,11 +271,12 @@ export default function SearchResults() {
   useEffect(() => {
     const job = jobStatusQuery.data;
     if (!job) return;
-    const label = job.jobType === "doAll" ? "DO ALL" : "DO 10";
+    const label = job.jobType === "doAll" ? "Full pipeline" : "Process next 10";
     if (job.status === "done") {
       const s = job.stats;
       const parts: string[] = [];
       if (s.enriched > 0) parts.push(`${s.enriched} enriched`);
+      if ((s as any).fitScored > 0) parts.push(`${(s as any).fitScored} FIT scored`);
       if (s.researched > 0) parts.push(`${s.researched} researched`);
       if (s.approached > 0) parts.push(`${s.approached} approached`);
       if (s.failed > 0) parts.push(`${s.failed} failed`);
@@ -328,17 +309,17 @@ export default function SearchResults() {
       setActiveJobId(data.jobId);
     },
     onError: (error) => {
-      toast.error(`DO 10 failed: ${error.message}`);
+      toast.error(`Process next 10 failed: ${error.message}`);
     },
   });
 
   const doAllMutation = trpc.companyFinder.doAll.useMutation({
     onSuccess: (data) => {
       setActiveJobId(data.jobId);
-      toast.info("DO ALL started — processing all remaining companies in the background");
+      toast.info("Full pipeline started — processing all remaining companies in the background");
     },
     onError: (error) => {
-      toast.error(`DO ALL failed: ${error.message}`);
+      toast.error(`Full pipeline failed: ${error.message}`);
     },
   });
 
@@ -498,6 +479,14 @@ export default function SearchResults() {
   const enrichmentFiltered = useMemo(() => {
     if (enrichmentFilter === "enriched") return filteredCompanies.filter(c => c.enrichmentStatus === "enriched");
     if (enrichmentFilter === "pending") return filteredCompanies.filter(c => c.enrichmentStatus === "pending" || c.enrichmentStatus === "failed");
+    if (enrichmentFilter === "needs_fit") return filteredCompanies.filter(
+      (c) => c.enrichmentStatus === "enriched" && c.fitScoreSource !== "llm" && (c as any).brainFitScore == null
+    );
+    if (enrichmentFilter === "needs_urgency") return filteredCompanies.filter(
+      (c) => c.enrichmentStatus === "enriched"
+        && (c.fitScoreSource === "llm" || (c as any).brainFitScore != null)
+        && !c.briefGeneratedAt
+    );
     if (enrichmentFilter === "outreach") return filteredCompanies.filter(c => !!c.salesApproachGeneratedAt);
     if (enrichmentFilter === "visitors") return filteredCompanies.filter(c => leadinfoSet.has(c.id));
     return filteredCompanies;
@@ -589,18 +578,8 @@ export default function SearchResults() {
     toast.success(`${highUrgencyNotCalled.length} high-urgency companies added to Call Today`);
   };
 
-  // Remaining work = pending + no-brief + no-approach (must be before early returns)
-  const remainingWorkBreakdown = useMemo(() => {
-    // Use timestamp fields as presence indicators — briefData/salesApproachData are excluded from the slim list query
-    const pendingEnrich = allCompanies.filter((c: any) => c.enrichmentStatus === "pending").length;
-    const needsBrief = allCompanies.filter((c: any) => c.enrichmentStatus === "enriched" && !c.briefGeneratedAt).length;
-    const needsApproach = allCompanies.filter((c: any) => c.enrichmentStatus === "enriched" && !!c.briefGeneratedAt && !c.salesApproachGeneratedAt).length;
-    const total = allCompanies.filter(
-      (c: any) => c.enrichmentStatus === "pending" || !c.briefGeneratedAt || !c.salesApproachGeneratedAt
-    ).length;
-    return { pendingEnrich, needsBrief, needsApproach, total };
-  }, [allCompanies]);
-  const remainingWork = remainingWorkBreakdown.total;
+  // Pipeline stats from server (used by PipelineProgressCard on search detail view)
+  const pipelineStats = searchData?.enrichmentStats;
 
   // Search selector mode
   if (isSelectMode) {
@@ -615,29 +594,6 @@ export default function SearchResults() {
             Select a completed search to view and manage company results.
           </p>
         </div>
-
-        {/* Global Queue Status Banner */}
-        {globalQueueStatus && (globalQueueStatus.pending > 0 || globalQueueStatus.running > 0) && (
-          <div className="mb-4 border-2 border-blue-600 bg-blue-50 p-4 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-4">
-              <span className="text-blue-700 font-black text-sm animate-pulse">⚡ QUEUE ACTIVE</span>
-              <span className="text-blue-800 text-sm font-bold">
-                {globalQueueStatus.running > 0 && (
-                  <span className="mr-3">▶ Processing: <strong>{globalQueueStatus.currentCompany ?? "..."}</strong></span>
-                )}
-                {globalQueueStatus.pending > 0 && (
-                  <span>{globalQueueStatus.pending} pending — ~{globalQueueStatus.estimatedMinutes} min remaining · Enrich → Score → Brief → Approach</span>
-                )}
-              </span>
-            </div>
-            <div className="flex items-center gap-3">
-              <span className="text-xs text-blue-600 font-bold">✓ {globalQueueStatus.completed} done</span>
-              {globalQueueStatus.failed > 0 && (
-                <span className="text-xs text-red-600 font-bold">✗ {globalQueueStatus.failed} failed</span>
-              )}
-            </div>
-          </div>
-        )}
 
         {/* Filter bar: user filter + archived toggle */}
         <div className="flex flex-wrap items-center gap-2 mb-4">
@@ -711,54 +667,6 @@ export default function SearchResults() {
                       )}
                     </div>
                     <div className="flex items-center gap-3">
-                      {/* Queue Research button — enqueue all unprocessed companies for background deep research */}
-                      {search.userId === user?.id && search.status === "completed" && (() => {
-                        const qStatus = (globalQueueStatus as any)?.[search.id];
-                        const isPending = queueingSearchId === search.id;
-                        return (
-                          <div className="flex items-center gap-1">
-                            {/* ── LLM Pipeline: 3 sequential steps ── */}
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setQueueingSearchId(search.id);
-                                enqueueSearch.mutate({ searchId: search.id, jobType: "score_only", forceRescore: false });
-                              }}
-                              disabled={isPending || enqueueSearch.isPending}
-                              className="text-xs font-black border-2 px-2 py-1 transition-colors border-emerald-600 text-emerald-600 hover:bg-emerald-600 hover:text-white disabled:opacity-40"
-                              title="Step 1 — Score FIT: LLM evaluates each company against the Brain ICP. Upgrades SIM scores to LLM scores."
-                            >
-                              {isPending ? "..." : "① SCORE FIT"}
-                            </button>
-                            <span className="text-gray-300 font-bold text-xs">→</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setQueueingSearchId(search.id);
-                                enqueueSearch.mutate({ searchId: search.id, jobType: "score_urgency_only", forceRefresh: false });
-                              }}
-                              disabled={isPending || enqueueSearch.isPending}
-                              className="text-xs font-black border-2 px-2 py-1 transition-colors border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white disabled:opacity-40"
-                              title="Step 2 — Score Urgency: Grok news scan generates urgency score + deep research brief for each company."
-                            >
-                              {isPending ? "..." : "② SCORE URGENCY"}
-                            </button>
-                            <span className="text-gray-300 font-bold text-xs">→</span>
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                setQueueingSearchId(search.id);
-                                enqueueSearch.mutate({ searchId: search.id, jobType: "outreach_only", forceRefresh: false });
-                              }}
-                              disabled={isPending || enqueueSearch.isPending}
-                              className="text-xs font-black border-2 px-2 py-1 transition-colors border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white disabled:opacity-40"
-                              title="Step 3 — Create Outreach: generates personalised sales approach for each company (requires urgency brief)."
-                            >
-                              {isPending ? "..." : "③ CREATE OUTREACH"}
-                            </button>
-                          </div>
-                        );
-                      })()}
                       {/* Archive button — owner or admin can archive/restore */}
                       {(search.userId === user?.id || (user as any)?.role === 'admin') && (
                         <button
@@ -889,7 +797,7 @@ export default function SearchResults() {
             {" "}Press <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
              onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
-            >[DO 10]</strong>{" "}
+            >Process next 10</strong>{" "}
             to process the next 10 companies.
           </>
         );
@@ -900,7 +808,7 @@ export default function SearchResults() {
           {" "}Press <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
               onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
-            >[DO 10]</strong>{" "}
+            >Process next 10</strong>{" "}
             to research and write outreach scripts for the next 10.
         </>
       );
@@ -912,7 +820,7 @@ export default function SearchResults() {
           {" "}Press <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
               onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
-            >[DO 10]</strong>{" "}
+            >Process next 10</strong>{" "}
             to enrich the next 10 companies.
         </>
       );
@@ -922,11 +830,11 @@ export default function SearchResults() {
       return (
         <>
           <strong>{outreachReadyCount} of {totalCount} companies</strong> from <strong>{campaignName}</strong> are ready for outreach.
-          {" "}Press <span className="cursor-pointer underline decoration-dotted hover:opacity-70 transition-opacity font-black" onClick={() => setEnrichmentFilter("outreach")}>OUTREACH READY</span> to go straight to your scripts, or press{" "}
+          {" "}Press <span className="cursor-pointer underline decoration-dotted hover:opacity-70 transition-opacity font-black" onClick={() => setEnrichmentFilter("outreach")}>Ready to call</span> to go straight to your scripts, or press{" "}
             <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
               onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
-            >[DO 10]</strong>{" "}
+            >Process next 10</strong>{" "}
             to process the next 10 remaining companies.
         </>
       );
@@ -935,11 +843,11 @@ export default function SearchResults() {
       return (
         <>
           <strong>{enrichedCount} of {totalCount} companies</strong> from <strong>{campaignName}</strong> ({sourceType}) are enriched and ready.
-          {" "}Press <strong>ENRICHED</strong> to see them, then hit{" "}
+          {" "}Press <strong>Has contact data</strong> to see them, then hit{" "}
             <strong
               className="cursor-pointer underline decoration-dotted hover:text-gray-600 transition-colors"
               onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
-            >[DO 10]</strong>{" "}
+            >Process next 10</strong>{" "}
             to research and write outreach scripts for the next 10.
         </>
       );
@@ -1091,7 +999,7 @@ export default function SearchResults() {
                     : "border-gray-400 text-gray-600 hover:border-gray-700"
                 }`}
               >
-                {enrichmentStats?.enriched || 0} ENRICHED
+                {enrichmentStats?.enriched || 0} HAS DATA
               </button>
               <button
                 onClick={() => setEnrichmentFilter(enrichmentFilter === "pending" ? "all" : "pending")}
@@ -1103,6 +1011,30 @@ export default function SearchResults() {
               >
                 {enrichmentStats?.pending || 0} PENDING
               </button>
+              {(enrichmentStats?.needsFit ?? 0) > 0 && (
+                <button
+                  onClick={() => setEnrichmentFilter(enrichmentFilter === "needs_fit" ? "all" : "needs_fit")}
+                  className={`text-xs font-black border-2 px-3 py-1 cursor-pointer transition-colors ${
+                    enrichmentFilter === "needs_fit"
+                      ? "border-gray-900 bg-gray-900 text-white"
+                      : "border-gray-400 text-gray-600 hover:border-gray-700"
+                  }`}
+                >
+                  {enrichmentStats?.needsFit} NEEDS FIT
+                </button>
+              )}
+              {(enrichmentStats?.needsUrgency ?? 0) > 0 && (
+                <button
+                  onClick={() => setEnrichmentFilter(enrichmentFilter === "needs_urgency" ? "all" : "needs_urgency")}
+                  className={`text-xs font-black border-2 px-3 py-1 cursor-pointer transition-colors ${
+                    enrichmentFilter === "needs_urgency"
+                      ? "border-gray-900 bg-gray-900 text-white"
+                      : "border-gray-400 text-gray-600 hover:border-gray-700"
+                  }`}
+                >
+                  {enrichmentStats?.needsUrgency} NEEDS URGENCY
+                </button>
+              )}
               {(enrichmentStats?.outreachReady ?? 0) > 0 && (
                 <button
                   onClick={() => setEnrichmentFilter(enrichmentFilter === "outreach" ? "all" : "outreach")}
@@ -1112,7 +1044,7 @@ export default function SearchResults() {
                       : "border-gray-400 text-gray-600 hover:border-gray-700"
                   }`}
                 >
-                  {enrichmentStats?.outreachReady || 0} OUTREACH READY
+                  {enrichmentStats?.outreachReady || 0} READY TO CALL
                 </button>
               )}
               {leadinfoSet.size > 0 && (
@@ -1138,85 +1070,31 @@ export default function SearchResults() {
             </div>
           </div>
 
-          {/* ── COMMAND PANEL: Campaign + Business Unit (read-only) + Action ── */}
-          <div className="border-2 border-gray-200 bg-gray-50 p-4 mb-6">
-            <div className="grid grid-cols-1 md:grid-cols-[1fr_1fr_auto] gap-4 items-end">
-              {/* Step 1: Campaign (already selected — display only) */}
-              <div>
-                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">① CAMPAIGN</div>
-                <div className="text-sm font-black text-black truncate border-2 border-gray-300 bg-white px-3 py-2">
-                  {searchData?.search.offeringName || "—"}
-                </div>
-              </div>
-
-              {/* Step 2: Business Unit (fixed per run — display only, inherited from the niche/campaign) */}
-              <div>
-                <div className="text-[10px] font-black text-gray-400 uppercase tracking-widest mb-1">② BUSINESS UNIT</div>
-                <div className="text-sm font-bold text-black truncate border-2 border-gray-300 bg-gray-100 px-3 py-2">
-                  {(searchData?.search as any)?.brainName ?? "—"}
-                </div>
-              </div>
-
-              {/* Action buttons */}
-              <div className="flex items-end gap-2">
-                {remainingWork > 0 ? (
-                  <>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            onClick={() => doNext10Mutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
-                            disabled={isJobRunning}
-                            className="text-sm px-4 py-2 font-black border-2 border-black bg-black text-white whitespace-nowrap"
-                          >
-                            {doNext10Mutation.isPending ? "WORKING..." : `DO 10`}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="max-w-xs text-sm">
-                          <p>Processes the next 10 companies: enrich → deep research → sales approach.</p>
-                          <p className="text-xs text-muted-foreground mt-1">{remainingWork} remaining</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    <TooltipProvider>
-                      <Tooltip>
-                        <TooltipTrigger asChild>
-                          <Button
-                            onClick={() => doAllMutation.mutate({ searchId: searchId!, brainId: selectedBrainIdForMutation, angleId: selectedAngleIdForMutation })}
-                            disabled={isJobRunning}
-                            className="text-sm px-4 py-2 font-black border-2 border-black bg-black text-white whitespace-nowrap"
-                          >
-                            {doAllMutation.isPending ? "STARTING..." : `DO ALL (${remainingWork})`}
-                          </Button>
-                        </TooltipTrigger>
-                        <TooltipContent side="bottom" className="max-w-sm text-sm">
-                          <p className="font-bold mb-1">Processes {remainingWork} companies in the background:</p>
-                          <ul className="space-y-0.5 text-xs">
-                            {remainingWorkBreakdown.pendingEnrich > 0 && <li>• <strong>{remainingWorkBreakdown.pendingEnrich}</strong> pending enrichment</li>}
-                            {remainingWorkBreakdown.needsBrief > 0 && <li>• <strong>{remainingWorkBreakdown.needsBrief}</strong> need deep research brief</li>}
-                            {remainingWorkBreakdown.needsApproach > 0 && <li>• <strong>{remainingWorkBreakdown.needsApproach}</strong> need sales approach</li>}
-                          </ul>
-                          <p className="mt-1 text-xs text-muted-foreground">You can navigate away — the job continues.</p>
-                        </TooltipContent>
-                      </Tooltip>
-                    </TooltipProvider>
-                    {isJobRunning && activeJobId && (
-                      <Button
-                        onClick={() => cancelJobMutation.mutate({ jobId: activeJobId })}
-                        disabled={cancelJobMutation.isPending}
-                        variant="outline"
-                        className="text-sm px-3 py-2 font-black border-2 border-red-600 text-red-600 hover:bg-red-50 whitespace-nowrap"
-                      >
-                        {cancelJobMutation.isPending ? "CANCELLING..." : "CANCEL"}
-                      </Button>
-                    )}
-                  </>
-                ) : (
-                  <span className="text-xs font-bold text-green-700 bg-green-50 border border-green-300 px-3 py-2">ALL DONE ✓</span>
-                )}
-              </div>
-            </div>
-          </div>
+          <PipelineProgressCard
+            campaignName={searchData?.search.offeringName}
+            brainName={(searchData?.search as any)?.brainName}
+            stats={pipelineStats}
+            isJobRunning={isJobRunning}
+            onRunFullPipeline={() =>
+              doAllMutation.mutate({
+                searchId: searchId!,
+                brainId: selectedBrainIdForMutation,
+                angleId: selectedAngleIdForMutation,
+              })
+            }
+            onRunNext10={() =>
+              doNext10Mutation.mutate({
+                searchId: searchId!,
+                brainId: selectedBrainIdForMutation,
+                angleId: selectedAngleIdForMutation,
+              })
+            }
+            onCancel={() => activeJobId && cancelJobMutation.mutate({ jobId: activeJobId })}
+            isStartingFull={doAllMutation.isPending}
+            isStartingNext10={doNext10Mutation.isPending}
+            isCancelling={cancelJobMutation.isPending}
+            showCancel={isJobRunning && !!activeJobId}
+          />
 
           {/* ── SECONDARY ACTIONS ──────────────────────────────────────── */}
           <div className="flex flex-wrap gap-2 mb-6">
@@ -1260,38 +1138,6 @@ export default function SearchResults() {
             >
               {deduplicateMutation.isPending ? '⏳ DEDUPLICATING...' : '🔁 DEDUPLICATE'}
             </Button>
-            {/* ── LLM Pipeline: 3 sequential steps ── */}
-            <div className="flex items-center gap-1">
-              <Button
-                onClick={() => enqueueSearch.mutate({ searchId: searchId!, jobType: "score_only", forceRescore: false })}
-                disabled={enqueueSearch.isPending}
-                variant="outline"
-                className="text-sm px-3 py-2 font-black border-2 border-emerald-600 text-emerald-700 hover:bg-emerald-600 hover:text-white transition-colors disabled:opacity-50"
-                title="Step 1 — Score FIT: LLM evaluates each company against the Brain ICP. Upgrades SIM scores to LLM scores."
-              >
-                {enqueueSearch.isPending ? '⏳...' : '① SCORE FIT'}
-              </Button>
-              <span className="text-gray-300 font-bold">→</span>
-              <Button
-                onClick={() => enqueueSearch.mutate({ searchId: searchId!, jobType: "score_urgency_only", forceRefresh: false })}
-                disabled={enqueueSearch.isPending}
-                variant="outline"
-                className="text-sm px-3 py-2 font-black border-2 border-orange-500 text-orange-600 hover:bg-orange-500 hover:text-white transition-colors disabled:opacity-50"
-                title="Step 2 — Score Urgency: Grok news scan generates urgency score + deep research brief for each company."
-              >
-                {enqueueSearch.isPending ? '⏳...' : '② SCORE URGENCY'}
-              </Button>
-              <span className="text-gray-300 font-bold">→</span>
-              <Button
-                onClick={() => enqueueSearch.mutate({ searchId: searchId!, jobType: "outreach_only", forceRefresh: false })}
-                disabled={enqueueSearch.isPending}
-                variant="outline"
-                className="text-sm px-3 py-2 font-black border-2 border-purple-600 text-purple-600 hover:bg-purple-600 hover:text-white transition-colors disabled:opacity-50"
-                title="Step 3 — Create Outreach: generates personalised sales approach for each company (requires urgency brief)."
-              >
-                {enqueueSearch.isPending ? '⏳...' : '③ CREATE OUTREACH'}
-              </Button>
-            </div>
           </div>
 
           {/* Background Job Progress Bar */}
@@ -1302,13 +1148,16 @@ export default function SearchResults() {
                   {batchContactsMutation.isPending
                     ? "→ FINDING DECISION MAKERS..."
                     : jobStatusQuery.data?.jobType === "doAll"
-                    ? `→ DO ALL RUNNING — ${jobStatusQuery.data?.stats?.total ?? "?"} COMPANIES (5 ⚡ PARALLEL)`
-                    : "→ DO 10 RUNNING..."}
+                    ? `→ Pipeline running — ${jobStatusQuery.data?.stats?.total ?? "?"} companies (5 parallel)`
+                    : "→ Pipeline running (next 10)..."}
                 </div>
                 {jobStatusQuery.data?.stats && (
                   <div className="text-xs font-bold text-gray-500 text-right">
-                    {jobStatusQuery.data.stats.enriched > 0 && <span>{jobStatusQuery.data.stats.enriched} contacts found · </span>}
-                    {jobStatusQuery.data.stats.researched} researched · {jobStatusQuery.data.stats.approached} approached
+                    {jobStatusQuery.data.stats.enriched > 0 && <span>{jobStatusQuery.data.stats.enriched} enriched · </span>}
+                    {(jobStatusQuery.data.stats as any).fitScored > 0 && (
+                      <span>{(jobStatusQuery.data.stats as any).fitScored} FIT · </span>
+                    )}
+                    {jobStatusQuery.data.stats.researched} urgency · {jobStatusQuery.data.stats.approached} outreach
                     {jobStatusQuery.data.stats.failed > 0 && (
                       <span className="text-red-500 ml-1">· {jobStatusQuery.data.stats.failed} failed</span>
                     )}
@@ -1320,7 +1169,13 @@ export default function SearchResults() {
                   Last completed: <span className="text-black">{jobStatusQuery.data.current}</span>
                   {jobStatusQuery.data.stats.total > 0 && (
                     <span className="ml-2 text-gray-400">
-                      ({Math.round((jobStatusQuery.data.progress ?? 0))}% — {jobStatusQuery.data.stats.enriched + jobStatusQuery.data.stats.researched + jobStatusQuery.data.stats.approached} steps done — 5 workers running in parallel)
+                      ({Math.round((jobStatusQuery.data.progress ?? 0))}% —{" "}
+                      {jobStatusQuery.data.stats.enriched +
+                        ((jobStatusQuery.data.stats as any).fitScored ?? 0) +
+                        jobStatusQuery.data.stats.researched +
+                        jobStatusQuery.data.stats.approached}{" "}
+                      steps done
+                      {jobStatusQuery.data?.jobType === "doAll" ? " — 5 workers in parallel" : ""})
                     </span>
                   )}
                 </div>
@@ -1825,6 +1680,7 @@ function CompanyListRow({ company, index, searchId, isWebsiteVisitor, activeBrai
         websiteUrl={company.websiteUrl}
         domain={company.primaryDomain}
         companyName={company.name}
+        sharepointId={company.cgSharepointId}
         compact
       />
 
@@ -1843,10 +1699,13 @@ function CompanyListRow({ company, index, searchId, isWebsiteVisitor, activeBrai
         )}
       </div>
 
-      {/* Fit score (if available) */}
-      {company.fitScore != null && (
-        <span className="text-[10px] font-black text-blue-600 shrink-0">FIT {company.fitScore}</span>
-      )}
+      {/* Fit / SIM score badge */}
+      <FitScoreBadge
+        fitScore={company.fitScore}
+        fitScoreSource={company.fitScoreSource}
+        similarityScore={company.similarityScore}
+        compact
+      />
 
       {/* Arrow */}
       <span className="text-gray-300 group-hover:text-gray-700 transition-colors shrink-0 text-sm font-bold">→</span>
@@ -1925,6 +1784,7 @@ function CompanyCard({ company, index, searchId, onViewResearch, onViewApproach,
                 websiteUrl={company.websiteUrl}
                 domain={company.primaryDomain}
                 companyName={company.name}
+                sharepointId={company.cgSharepointId}
                 compact
               />
             </div>

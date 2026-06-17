@@ -117,7 +117,6 @@ export const companies = mysqlTable("companies", {
   fitScoreData: text("fitScoreData"),
   fitScoreGeneratedAt: timestamp("fitScoreGeneratedAt"),
   fitScoreSource: varchar("fitScoreSource", { length: 10 }), // 'embed' | 'llm' — how the fitScore was produced
-  // Tier 3: Human-in-the-loop override (ground truth for model calibration)
   fitScoreHITL: int("fitScoreHITL"),
   fitScoreHITLUpdatedAt: timestamp("fitScoreHITLUpdatedAt"),
   fitScoreHITLNote: text("fitScoreHITLNote"),
@@ -371,6 +370,7 @@ export const batchJobs = mysqlTable("batch_jobs", {
   currentCompany: varchar("currentCompany", { length: 512 }), // Name of company currently processing
   totalCompanies: int("totalCompanies").default(0).notNull(), // Total companies in this job's queue
   enriched: int("enriched").default(0).notNull(),
+  fitScored: int("fitScored").default(0).notNull(),
   researched: int("researched").default(0).notNull(),
   approached: int("approached").default(0).notNull(),
   failed: int("failed").default(0).notNull(),

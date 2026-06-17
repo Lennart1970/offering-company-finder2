@@ -60,9 +60,12 @@ export function mapApolloRowToCompany(
     : [];
 
   // Build slice metadata with additional fields
+  const industry = row["Industry"] || null;
+  const country = row["Company Country"] || null;
   const sliceMetadata = {
     employeeCount,
-    industry: row["Industry"] || null,
+    industry,
+    country,
     keywords: row["Keywords"] || null,
     description: row["Short Description"] || null,
     lists: row["Lists"] || null,
@@ -95,20 +98,22 @@ export function mapApolloRowToCompany(
     headcountGrowth: null, // Not in Apollo CSV
     parentCompanyName: row["Subsidiary of"] || null,
     parentCompanyId: row["Subsidiary of (Organization ID)"] || null,
-    searchLocation: row["Company State"] || row["Company Country"] || null,
+    searchLocation: row["Company State"] || country || null,
     city: row["Company City"] || null,
     state: row["Company State"] || null,
-    country: row["Company Country"] || null,
+    country,
     streetAddress: row["Company Street"] || null,
     rawAddress: row["Company Address"] || null,
     sicCodes: JSON.stringify(sicCodes),
     naicsCodes: null, // Not in Apollo CSV
+    sector: industry,
     sliceMetadata: JSON.stringify(sliceMetadata),
     urgencyScore: null,
     briefData: null,
     briefGeneratedAt: null,
     salesApproachData: null,
     salesApproachGeneratedAt: null,
-    enrichmentStatus: "pending",
+    // Apollo CSV already contains firmographics — skip API enrichment (preserves country from CSV)
+    enrichmentStatus: "enriched",
   };
 }

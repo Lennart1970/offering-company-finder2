@@ -12,6 +12,7 @@ export const cgLeadRouter = router({
       domain: z.string().optional(),
       companyName: z.string().optional(),
       websiteUrl: z.string().optional(),
+      sharepointId: z.union([z.string(), z.number()]).optional(),
     }))
     .query(async ({ input }) => {
       let domain = input.domain;
@@ -25,7 +26,11 @@ export const cgLeadRouter = router({
           // ignore invalid URL
         }
       }
-      const lead = await findCgLead({ domain, companyName: input.companyName });
+      const lead = await findCgLead({
+        domain,
+        companyName: input.companyName,
+        sharepointId: input.sharepointId,
+      });
       return { lead };
     }),
 });

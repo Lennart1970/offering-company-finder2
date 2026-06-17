@@ -123,7 +123,7 @@ async function processJob() {
           await updateCompany(job.companyId, {
             city: details.city,
             state: details.state,
-            country: details.country,
+            country: details.country || company.country || null,
             streetAddress: details.street_address,
             rawAddress: details.raw_address,
             enrichmentStatus: "enriched",

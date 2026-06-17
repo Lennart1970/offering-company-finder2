@@ -8,20 +8,22 @@ interface CgLeadBadgeProps {
   domain?: string | null;
   websiteUrl?: string | null;
   companyName?: string | null;
+  sharepointId?: string | number | null;
   compact?: boolean;
 }
 
 export function CgLeadBadge({
-  domain, websiteUrl, companyName, compact = false,
+  domain, websiteUrl, companyName, sharepointId, compact = false,
 }: CgLeadBadgeProps) {
   const { data, isLoading } = trpc.cgLead.lookup.useQuery(
     {
       domain: domain ?? undefined,
       websiteUrl: websiteUrl ?? undefined,
       companyName: companyName ?? undefined,
+      sharepointId: sharepointId ?? undefined,
     },
     {
-      enabled: !!(domain || websiteUrl || companyName),
+      enabled: !!(domain || websiteUrl || companyName || sharepointId),
       staleTime: 5 * 60 * 1000,
       retry: false,
     }

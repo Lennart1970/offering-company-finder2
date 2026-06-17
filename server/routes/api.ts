@@ -453,7 +453,7 @@ router.post("/enrich-campaign", async (req: any, res: any) => {
             await updateCompany(company.id, {
               city: details.city || null,
               state: details.state || null,
-              country: details.country || null,
+              country: details.country || company.country || null,
               streetAddress: details.street_address || null,
               rawAddress: details.raw_address || null,
               enrichmentStatus: "enriched",

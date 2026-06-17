@@ -59,7 +59,7 @@ const COL_MAP: Record<string, string[]> = {
   employees:    ["# employees", "employees", "headcount", "employee count", "aantal medewerkers"],
   city:         ["company city", "city", "stad"],
   state:        ["company state", "state", "provincie"],
-  country:      ["company country", "country", "land"],
+  country:      ["company country", "country", "land", "hq country", "headquarters country", "organization country"],
   street:       ["company street", "street", "address", "straat"],
   address:      ["company address", "full address", "volledig adres"],
   keywords:     ["keywords", "trefwoorden"],
@@ -123,18 +123,18 @@ function mapRowToCompany(
   const employeeCount = employeeRaw ? parseInt(employeeRaw.replace(/[^0-9]/g, "")) || null : null;
 
   const industryVal = cell(row, idx.industry);
+  const stateVal = cell(row, idx.state);
+  const countryVal = cell(row, idx.country);
 
   const sliceMetadata = {
     employeeCount,
     industry: industryVal,
+    country: countryVal,
     keywords: cell(row, idx.keywords),
     description: cell(row, idx.description),
     lists: cell(row, idx.lists),
     logoUrl: cell(row, idx.logoUrl),
   };
-
-  const stateVal = cell(row, idx.state);
-  const countryVal = cell(row, idx.country);
 
   return {
     searchId,

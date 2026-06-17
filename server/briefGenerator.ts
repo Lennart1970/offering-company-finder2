@@ -670,17 +670,22 @@ export async function getAngleContext(angleId?: string): Promise<{ context: stri
 export async function scoreCompanyFit(
   companyId: number,
   userId?: number,
+  brainId?: number,
   angleId?: string
 ): Promise<FitScoreResult> {
   const company = await getCompanyById(companyId);
   if (!company) throw new Error(`Company ${companyId} not found`);
 
-  const brain = userId ? await getActiveBrain(userId) : null;
+  const brain = userId
+    ? (brainId
+        ? await getOfferingBrainById(brainId, userId)
+        : await getActiveBrain(userId))
+    : null;
   if (!brain || brain.status !== "completed") {
     throw new Error("No active Brain found — cannot score fit without ICP criteria");
   }
 
-  const brainContext = await getBrainContext(userId!);
+  const brainContext = await getBrainContext(userId!, brainId);
   const angleInfo = await getAngleContext(angleId);
 
   // Parse brain fields for structured scoring

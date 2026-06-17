@@ -34,6 +34,7 @@ import { useLocation } from "wouter";
 import { SimilaritySearchModal } from "@/components/SimilaritySearchModal";
 import { CompanyLookalikeModal, type LookalikeSeed } from "@/components/CompanyLookalikeModal";
 import { CompanyDbSectorSelectItems } from "@/components/CompanyDbSectorSelectItems";
+import { CgLeadBadge } from "@/components/CgLeadBadge";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -1250,6 +1251,9 @@ export default function CompanyDatabase() {
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Website
               </th>
+              <th className="px-3 py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide w-12" title="Connect Group SharePoint CRM">
+                CRM
+              </th>
               <Th col="country" label="Country" />
               <th className="px-3 py-2 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 Sector
@@ -1283,7 +1287,7 @@ export default function CompanyDatabase() {
               ))
             ) : rows.length === 0 ? (
               <tr>
-                <td colSpan={isSelectMode ? 16 : 15} className="px-6 py-12 text-center text-gray-400 text-sm">
+                <td colSpan={isSelectMode ? 17 : 16} className="px-6 py-12 text-center text-gray-400 text-sm">
                   No companies found matching your filters.
                 </td>
               </tr>
@@ -1350,6 +1354,17 @@ export default function CompanyDatabase() {
                       ) : (
                         <span className="text-gray-300 text-xs">—</span>
                       )}
+                    </td>
+                    <td className="px-3 py-2 text-center" onClick={(e) => e.stopPropagation()}>
+                      <div className="flex justify-center">
+                        <CgLeadBadge
+                          websiteUrl={row.websiteUrl}
+                          domain={row.primaryDomain}
+                          companyName={row.name}
+                          sharepointId={row.cgSharepointId}
+                          compact
+                        />
+                      </div>
                     </td>
                     <td className="px-3 py-2 text-gray-600 text-xs whitespace-nowrap">
                       {row.country || "—"}

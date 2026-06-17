@@ -11,6 +11,7 @@
  */
 
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { buildPipelineQueue } from "./companyPipeline";
 
 // ---------------------------------------------------------------------------
 // Unit tests for status mapping logic (no DB required)
@@ -88,6 +89,7 @@ describe("batch job helper contract", () => {
     currentCompany: string | null;
     totalCompanies: number;
     enriched: number;
+    fitScored: number;
     researched: number;
     approached: number;
     failed: number;
@@ -127,6 +129,7 @@ describe("batch job helper contract", () => {
       currentCompany: null,
       totalCompanies: 0,
       enriched: 0,
+      fitScored: 0,
       researched: 0,
       approached: 0,
       failed: 0,
@@ -154,6 +157,7 @@ describe("batch job helper contract", () => {
       currentCompany: null,
       totalCompanies: 5,
       enriched: 0,
+      fitScored: 0,
       researched: 0,
       approached: 0,
       failed: 0,
@@ -180,6 +184,7 @@ describe("batch job helper contract", () => {
       currentCompany: null,
       totalCompanies: 3,
       enriched: 0,
+      fitScored: 0,
       researched: 0,
       approached: 0,
       failed: 0,
@@ -239,6 +244,7 @@ describe("batch job helper contract", () => {
       currentCompany: null,
       totalCompanies: 1,
       enriched: 0,
+      fitScored: 0,
       researched: 0,
       approached: 0,
       failed: 0,
@@ -292,58 +298,50 @@ describe("doAll cancellation logic", () => {
 });
 
 describe("doAll vs doNext10 queue building", () => {
-  /**
-   * doNext10 slices the queue to a limit (default 10).
-   * doAll processes the full queue without slicing.
-   */
   type MockCompany = {
+    id: number;
+    name: string;
     enrichmentStatus: "pending" | "enriched";
     apolloId: string | null;
-    briefData: string | null;
-    salesApproachData: string | null;
+    fitScoreSource?: string | null;
+    briefGeneratedAt?: Date | null;
+    salesApproachGeneratedAt?: Date | null;
   };
 
-  function buildQueue(companies: MockCompany[], limit?: number): MockCompany[] {
-    const pending = companies.filter((c) => c.enrichmentStatus === "pending" && !!c.apolloId);
-    const needsBrief = companies.filter((c) => c.enrichmentStatus === "enriched" && !c.briefData);
-    const needsApproach = companies.filter((c) => c.enrichmentStatus === "enriched" && !!c.briefData && !c.salesApproachData);
-    const full = [...pending, ...needsBrief, ...needsApproach];
-    return limit !== undefined ? full.slice(0, limit) : full;
-  }
-
   const sampleCompanies: MockCompany[] = Array.from({ length: 50 }, (_, i) => ({
+    id: i + 1,
+    name: `Co ${i}`,
     enrichmentStatus: "enriched",
     apolloId: `apollo-${i}`,
-    briefData: null,
-    salesApproachData: null,
+    fitScoreSource: "embed",
   }));
 
   it("doNext10 queue is capped at 10 by default", () => {
-    const queue = buildQueue(sampleCompanies, 10);
+    const queue = buildPipelineQueue(sampleCompanies, new Map(), null, 10);
     expect(queue).toHaveLength(10);
   });
 
   it("doAll queue contains all remaining companies", () => {
-    const queue = buildQueue(sampleCompanies);
+    const queue = buildPipelineQueue(sampleCompanies, new Map(), null);
     expect(queue).toHaveLength(50);
   });
 
-  it("pending companies are prioritised before needsBrief", () => {
+  it("pending companies are prioritised before needsFit", () => {
     const mixed: MockCompany[] = [
-      { enrichmentStatus: "enriched", apolloId: "a1", briefData: null, salesApproachData: null },
-      { enrichmentStatus: "pending", apolloId: "a2", briefData: null, salesApproachData: null },
+      { id: 1, name: "A", enrichmentStatus: "enriched", apolloId: "a1", fitScoreSource: "embed" },
+      { id: 2, name: "B", enrichmentStatus: "pending", apolloId: "a2" },
     ];
-    const queue = buildQueue(mixed);
-    expect(queue[0].apolloId).toBe("a2"); // pending first
-    expect(queue[1].apolloId).toBe("a1"); // needsBrief second
+    const queue = buildPipelineQueue(mixed, new Map(), null);
+    expect(queue[0].apolloId).toBe("a2");
+    expect(queue[1].apolloId).toBe("a1");
   });
 
   it("companies with no apolloId are excluded from pending bucket", () => {
     const withoutApollo: MockCompany[] = [
-      { enrichmentStatus: "pending", apolloId: null, briefData: null, salesApproachData: null },
-      { enrichmentStatus: "pending", apolloId: "a1", briefData: null, salesApproachData: null },
+      { id: 1, name: "A", enrichmentStatus: "pending", apolloId: null },
+      { id: 2, name: "B", enrichmentStatus: "pending", apolloId: "a1" },
     ];
-    const queue = buildQueue(withoutApollo);
+    const queue = buildPipelineQueue(withoutApollo, new Map(), null);
     expect(queue).toHaveLength(1);
     expect(queue[0].apolloId).toBe("a1");
   });

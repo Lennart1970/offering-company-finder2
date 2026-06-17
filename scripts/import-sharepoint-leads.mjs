@@ -1,9 +1,11 @@
 /**
- * Import SharePoint lead list from Excel into MySQL lt_mns_cg_leads.
+ * Import SharePoint lead list from Excel or CSV into MySQL lt_mns_cg_leads.
  *
  * Usage:
  *   SHAREPOINT_LEADS_BASE_URL="https://yourorg.sharepoint.com/.../DispForm.aspx?ID=" \
  *   node scripts/import-sharepoint-leads.mjs /path/to/leads.xlsx
+ *
+ * CSV with a LinkToItem column (full SharePoint URLs) does not need --base-url.
  *
  * Options:
  *   --table     MySQL table name (default: lt_mns_cg_leads)
@@ -25,13 +27,59 @@ function extractDomain(url) {
   return domain ? domain.toLowerCase() : null;
 }
 
+/** Take first http(s) URL from messy multi-line / spaced cells. */
+function firstWebsite(raw) {
+  if (!raw) return null;
+  const text = String(raw).replace(/\s+/g, " ").trim();
+  const match = text.match(/https?:\/\/[^\s;,"]+/i) || text.match(/(?:^|\s)((?:www\.)?[a-z0-9][-a-z0-9.]+\.[a-z]{2,})/i);
+  if (!match) return text || null;
+  const url = (match[1] ?? match[0]).trim().replace(/\s+/g, "");
+  return url.startsWith("http") ? url : `https://${url}`;
+}
+
 function findCol(headers, ...candidates) {
-  const lower = headers.map(h => (h ? String(h).toLowerCase() : ""));
+  const lower = headers.map(h => (h ? String(h).toLowerCase().trim() : ""));
   for (const c of candidates) {
     const idx = lower.indexOf(c.toLowerCase());
     if (idx !== -1) return idx;
   }
   return null;
+}
+
+function parseDelimitedFile(filePath) {
+  const raw = fs.readFileSync(filePath, "utf8");
+  const firstLine = raw.split(/\r?\n/)[0] ?? "";
+  const delimiter = firstLine.includes(";") && !firstLine.includes(",") ? ";" : ",";
+  const lines = raw.split(/\r?\n/).filter(l => l.trim());
+  if (!lines.length) return { headers: [], rows: [] };
+  const headers = lines[0].split(delimiter).map(h => h.trim().replace(/^"|"$/g, ""));
+  const rows = lines.slice(1).map(line => {
+    // Simple split — good enough for our export (no embedded semicolons in values except quoted)
+    const parts = [];
+    let cur = "";
+    let inQuotes = false;
+    for (let i = 0; i < line.length; i++) {
+      const ch = line[i];
+      if (ch === '"') { inQuotes = !inQuotes; continue; }
+      if (ch === delimiter && !inQuotes) { parts.push(cur); cur = ""; continue; }
+      cur += ch;
+    }
+    parts.push(cur);
+    return parts.map(p => p.trim().replace(/^"|"$/g, ""));
+  });
+  return { headers, rows };
+}
+
+function loadSheetData(filePath, sheetIndex) {
+  const ext = filePath.toLowerCase();
+  if (ext.endsWith(".csv") || ext.endsWith(".txt")) {
+    const { headers, rows } = parseDelimitedFile(filePath);
+    return { headers, data: rows };
+  }
+  const wb = XLSX.readFile(filePath);
+  const ws = wb.Sheets[wb.SheetNames[sheetIndex] ?? wb.SheetNames[0]];
+  const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
+  return { headers: data[0] || [], data: data.slice(1) };
 }
 
 function parseArgs(argv) {
@@ -51,11 +99,7 @@ async function main() {
   const dbUrl = process.env.DATABASE_URL || "";
 
   if (!args.excelFile) {
-    console.error("Usage: node scripts/import-sharepoint-leads.mjs [--base-url URL] [--table NAME] [--sheet N] file.xlsx");
-    process.exit(1);
-  }
-  if (!baseUrl) {
-    console.error("ERROR: Set SHAREPOINT_LEADS_BASE_URL or pass --base-url");
+    console.error("Usage: node scripts/import-sharepoint-leads.mjs [--base-url URL] [--table NAME] [--sheet N] file.xlsx|file.csv");
     process.exit(1);
   }
   if (!dbUrl) {
@@ -67,14 +111,12 @@ async function main() {
     process.exit(1);
   }
 
-  const wb = XLSX.readFile(args.excelFile);
-  const ws = wb.Sheets[wb.SheetNames[args.sheet] ?? wb.SheetNames[0]];
-  const data = XLSX.utils.sheet_to_json(ws, { header: 1, defval: null });
-  const headers = data[0] || [];
+  const { headers, data } = loadSheetData(args.excelFile, args.sheet);
 
   const colCompany = findCol(headers, "company", "company name", "naam", "bedrijf");
   const colWebsite = findCol(headers, "website", "url", "web", "site");
   const colId = findCol(headers, "id", "item id", "sharepoint id");
+  const colLink = findCol(headers, "linktoitem", "link to item", "sharepoint url", "crm url", "crm link");
 
   if (colCompany === null) {
     console.error(`ERROR: No Company column. Headers: ${JSON.stringify(headers)}`);
@@ -84,16 +126,20 @@ async function main() {
     console.error(`ERROR: No ID column. Headers: ${JSON.stringify(headers)}`);
     process.exit(1);
   }
+  if (!baseUrl && colLink === null) {
+    console.error("ERROR: Set SHAREPOINT_LEADS_BASE_URL, pass --base-url, or include a LinkToItem column");
+    process.exit(1);
+  }
 
   const rows = [];
   let skipped = 0;
 
-  for (let r = 1; r < data.length; r++) {
-    const row = data[r];
+  for (const row of data) {
     if (!row) continue;
     const company = row[colCompany];
     const idVal = row[colId];
     const website = colWebsite !== null ? row[colWebsite] : null;
+    const linkRaw = colLink !== null ? row[colLink] : null;
 
     if (!company || idVal == null || idVal === "") {
       skipped++;
@@ -105,10 +151,17 @@ async function main() {
       continue;
     }
 
-    const websiteStr = website ? String(website).trim() : null;
-    const sharepointUrl = baseUrl.includes("=")
-      ? `${baseUrl.replace(/=+$/, "")}=${idInt}`
-      : `${baseUrl}${idInt}`;
+    const websiteStr = firstWebsite(website);
+    let sharepointUrl = linkRaw ? String(linkRaw).trim() : null;
+    if (!sharepointUrl && baseUrl) {
+      sharepointUrl = baseUrl.includes("=")
+        ? `${baseUrl.replace(/=+$/, "")}=${idInt}`
+        : `${baseUrl}${idInt}`;
+    }
+    if (!sharepointUrl) {
+      skipped++;
+      continue;
+    }
 
     rows.push([idInt, String(company).trim(), websiteStr, extractDomain(websiteStr), sharepointUrl]);
   }

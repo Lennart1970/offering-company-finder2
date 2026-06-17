@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { useLocation, useParams } from "wouter";
 import CompanyCodeDisplay from "@/components/CompanyCodeDisplay";
 import BrainBadge from "@/components/BrainBadge";
+import { CgLeadBadge } from "@/components/CgLeadBadge";
 import { Button } from "@/components/ui/button";
 import { normaliseSalesApproach } from "@shared/normaliseStarters";
 
@@ -886,6 +887,12 @@ export default function CompanyDetail() {
                   generatedWithBrainName={company.generatedWithBrainName}
                   activeBrainId={activeBrain?.id}
                   activeBrainName={activeBrain?.brainName}
+                />
+                <CgLeadBadge
+                  websiteUrl={company.websiteUrl}
+                  domain={company.primaryDomain}
+                  companyName={company.name}
+                  sharepointId={company.cgSharepointId}
                 />
               </div>
 

@@ -1186,6 +1186,7 @@ export async function getCompanyDatabase(opts: {
       searchId: companies.searchId,
       name: companies.name,
       websiteUrl: companies.websiteUrl,
+      primaryDomain: companies.primaryDomain,
       city: companies.city,
       country: companies.country,
       sliceMetadata: companies.sliceMetadata,
@@ -1232,6 +1233,7 @@ export async function getCompanyDatabase(opts: {
       cgSalesManager: companies.cgSalesManager,
       cgLeadClass: companies.cgLeadClass,
       cgLeadOrigin: companies.cgLeadOrigin,
+      cgSharepointId: companies.cgSharepointId,
       cgMarket: companies.cgMarket,
       cgImportedAt: companies.cgImportedAt,
       // Join search run identifier
@@ -1438,9 +1440,22 @@ export function normalizeCgCompanyName(s: string): string {
 export async function findCgLead(opts: {
   domain?: string | null;
   companyName?: string | null;
+  sharepointId?: string | number | null;
 }): Promise<{ id: number; companyName: string; sharepointUrl: string } | null> {
   const db = await getDb();
   if (!db) return null;
+
+  if (opts.sharepointId != null && opts.sharepointId !== "") {
+    const spId = parseInt(String(opts.sharepointId), 10);
+    if (!Number.isNaN(spId)) {
+      const rows = await db.select({
+        id: cgLeads.id,
+        companyName: cgLeads.companyName,
+        sharepointUrl: cgLeads.sharepointUrl,
+      }).from(cgLeads).where(eq(cgLeads.id, spId)).limit(1);
+      if (rows.length) return rows[0];
+    }
+  }
 
   if (opts.domain) {
     const clean = opts.domain.replace(/^www\./, "").toLowerCase();

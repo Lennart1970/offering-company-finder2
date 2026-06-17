@@ -999,33 +999,30 @@ export const shareExtRouter = router({
     }),
 
   /**
-   * Admin: fetch all feedback rows from Supabase lt_share_feedback.
+   * Admin: fetch all feedback rows from MySQL share_feedback.
    * Protected — only logged-in users.
    */
   getFeedback: protectedProcedure.query(async () => {
-    const { createClient } = await import('@supabase/supabase-js');
-    const sb = createClient(
-      process.env.SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      { auth: { persistSession: false } }
-    );
-    const { data, error } = await sb
-      .from('lt_share_feedback')
-      .select('id, share_token, company_id, company_name, rating, comment, submitter_name, submitter_email, submitted_at')
-      .order('submitted_at', { ascending: false })
+    const db = await getDb();
+    if (!db) throw new Error("Database unavailable");
+    const { shareFeedback } = await import('../drizzle/schema.js');
+    const { desc } = await import('drizzle-orm');
+    const rows = await db
+      .select()
+      .from(shareFeedback)
+      .orderBy(desc(shareFeedback.submittedAt))
       .limit(500);
-    if (error) throw new Error(`Supabase error: ${error.message}`);
     return {
-      rows: (data ?? []).map((r: any) => ({
-        id: r.id as number,
-        shareToken: r.share_token as string,
-        companyId: r.company_id as number | null,
-        companyName: r.company_name as string | null,
-        rating: r.rating as string | null,
-        comment: r.comment as string | null,
-        submitterName: r.submitter_name as string | null,
-        submitterEmail: r.submitter_email as string | null,
-        submittedAt: r.submitted_at as string,
+      rows: rows.map((r) => ({
+        id: r.id,
+        shareToken: r.shareToken,
+        companyId: r.companyId ?? null,
+        companyName: r.companyName ?? null,
+        rating: r.rating ?? null,
+        comment: r.comment ?? null,
+        submitterName: r.submitterName ?? null,
+        submitterEmail: r.submitterEmail ?? null,
+        submittedAt: r.submittedAt instanceof Date ? r.submittedAt.toISOString() : String(r.submittedAt),
       })),
     };
   }),

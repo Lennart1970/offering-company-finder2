@@ -39,6 +39,8 @@ describe("share list export columns", () => {
     const requiredColumns = [
       "Company Name",
       "Website",
+      "Link ID",
+      "SharePoint Page Link",
       "Country",
       "Employee Count",
       "Sector",
@@ -54,6 +56,8 @@ describe("share list export columns", () => {
     const exportedColumns = [
       "Company Name",
       "Website",
+      "Link ID",
+      "SharePoint Page Link",
       "Country",
       "Employee Count",
       "Sector",

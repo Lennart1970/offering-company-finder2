@@ -220,6 +220,8 @@ export default function ShareListPage() {
       "Company Name": c.companyName,
       "List Name": listName,
       Website: c.website,
+      "Link ID": c.linkId ?? "",
+      "SharePoint Page Link": c.sharepointPageLink ?? "",
       Country: c.country,
       City: c.city,
       "Employee Count": c.employeeCount,
@@ -255,6 +257,8 @@ export default function ShareListPage() {
       "Company Name": c.companyName,
       "Campaign": listName,
       "Website": c.website ?? "",
+      "Link ID": c.linkId ?? "",
+      "SharePoint Page Link": c.sharepointPageLink ?? "",
       "Country": c.country ?? "",
       "City": c.city ?? "",
       "Employee Count": c.employeeCount ?? "",
@@ -560,6 +564,7 @@ export default function ShareListPage() {
                         <CgLeadBadge
                           websiteUrl={c.website}
                           companyName={c.companyName}
+                          sharepointId={c.linkId ?? undefined}
                           compact
                         />
                       </div>

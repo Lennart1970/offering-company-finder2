@@ -393,6 +393,102 @@ function FeedbackBox({ shareToken, companyId, companyName }: {
   );
 }
 
+// --- Deep Research Request Component -----------------------------------------
+function DeepResearchRequestBox({
+  shareToken,
+  companyName,
+}: {
+  shareToken: string;
+  companyName: string;
+}) {
+  const storedEmail = typeof window !== "undefined" ? localStorage.getItem("lt_share_visitor_email") ?? "" : "";
+  const [email, setEmail] = useState(storedEmail);
+  const [status, setStatus] = useState<"idle" | "loading" | "success" | "error">("idle");
+  const [errorMsg, setErrorMsg] = useState("");
+  const [remaining, setRemaining] = useState<number | null>(null);
+  const [autoCompleted, setAutoCompleted] = useState(false);
+
+  const quotaQuery = trpc.shareExt.getResearchRequestQuota.useQuery(
+    { visitorEmail: email },
+    { enabled: email.includes("@") }
+  );
+
+  const requestMutation = trpc.shareExt.requestDeepResearch.useMutation({
+    onSuccess: (data) => {
+      setStatus("success");
+      setRemaining(data.remainingToday);
+      setAutoCompleted(data.autoCompleted);
+      quotaQuery.refetch();
+    },
+    onError: (e) => {
+      setStatus("error");
+      setErrorMsg(e.message);
+    },
+  });
+
+  const quota = quotaQuery.data;
+  const atLimit = quota ? quota.remaining <= 0 : false;
+
+  const handleSubmit = () => {
+    if (!email.includes("@")) {
+      setErrorMsg("Please enter a valid email address.");
+      setStatus("error");
+      return;
+    }
+    setStatus("loading");
+    setErrorMsg("");
+    requestMutation.mutate({ token: shareToken, visitorEmail: email.trim() });
+  };
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-5">
+      {status === "success" && (
+        <div className="mb-4 bg-green-50 border border-green-200 rounded-lg p-3 flex items-center gap-2">
+          <span className="text-lg">✅</span>
+          <div>
+            <p className="text-xs font-black text-green-800">
+              {autoCompleted ? "Research already up to date!" : "Request submitted — thank you!"}
+            </p>
+            <p className="text-xs text-green-600">
+              {autoCompleted
+                ? `This company already has a fresh LLM fit score. Outreach is available on this page.`
+                : `Our team will run deep research and create outreach for ${companyName}.`}
+              {!autoCompleted && remaining !== null && remaining > 0 && ` You have ${remaining} request${remaining === 1 ? "" : "s"} left today.`}
+            </p>
+          </div>
+        </div>
+      )}
+      <h3 className="text-xs font-black uppercase tracking-widest text-gray-400 mb-2">🔬 Request Deep Research</h3>
+      <p className="text-xs text-gray-500 mb-4 leading-relaxed">
+        Need fuller intelligence or personalised outreach for this company? Submit a request and our team will process it.
+      </p>
+      <label className="block text-[10px] font-black text-gray-400 uppercase mb-1">Your work email</label>
+      <input
+        type="email"
+        value={email}
+        onChange={(e) => { setEmail(e.target.value); setStatus("idle"); setErrorMsg(""); }}
+        placeholder="you@company.com"
+        className="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 mb-3 focus:outline-none focus:border-gray-400 text-gray-700 placeholder-gray-300"
+      />
+      {quota && (
+        <p className="text-[10px] text-gray-400 mb-3">
+          {quota.remaining > 0
+            ? `${quota.remaining} of ${quota.limit} requests remaining today`
+            : "Daily limit reached — try again tomorrow"}
+        </p>
+      )}
+      {status === "error" && <p className="text-xs text-red-600 font-bold mb-2">{errorMsg}</p>}
+      <button
+        onClick={handleSubmit}
+        disabled={status === "loading" || atLimit || status === "success"}
+        className="w-full border-2 border-indigo-600 text-indigo-700 text-xs font-black py-2.5 px-3 rounded hover:bg-indigo-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+      >
+        {status === "loading" ? "Submitting…" : "REQUEST DEEP RESEARCH & OUTREACH"}
+      </button>
+    </div>
+  );
+}
+
 // --- Main Component ----------------------------------------------------------
 
 export default function SharePage() {
@@ -613,6 +709,11 @@ export default function SharePage() {
               token={token ?? ""}
               initialContacts={contactList ?? []}
               initialFetchedAt={contactsFetchedAt ? new Date(contactsFetchedAt as any) : null}
+            />
+
+            <DeepResearchRequestBox
+              shareToken={token ?? ""}
+              companyName={company.name ?? ""}
             />
 
             {/* Quick company meta */}

@@ -758,6 +758,25 @@ export type ShareContactRetrievalLog = typeof shareContactRetrievalLog.$inferSel
 export type InsertShareContactRetrievalLog = typeof shareContactRetrievalLog.$inferInsert;
 
 /**
+ * Visitor requests for deep research + outreach on public company share pages.
+ * Log-only — internal team processes manually. Rate-limited per visitor email.
+ */
+export const shareResearchRequests = mysqlTable("share_research_requests", {
+  id: int("id").autoincrement().primaryKey(),
+  visitorEmail: varchar("visitorEmail", { length: 320 }).notNull(),
+  domain: varchar("domain", { length: 128 }).notNull(),
+  shareToken: varchar("shareToken", { length: 64 }).notNull(),
+  companyId: int("companyId").notNull().references(() => companies.id, { onDelete: "cascade" }),
+  companyName: varchar("companyName", { length: 300 }),
+  brainId: int("brainId").references(() => offeringBrain.id, { onDelete: "set null" }),
+  status: mysqlEnum("status", ["pending", "completed", "cancelled"]).default("pending").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ShareResearchRequest = typeof shareResearchRequests.$inferSelect;
+export type InsertShareResearchRequest = typeof shareResearchRequests.$inferInsert;
+
+/**
  * SharePoint CRM lead lookup table — read-only reference for CRM presence badges.
  * Populated via scripts/import-sharepoint-leads.mjs from SharePoint Excel export.
  */

@@ -1,8 +1,8 @@
 import { useState } from "react";
 import { trpc } from "@/lib/trpc";
-import { Activity, Users, Eye, Clock, Mail, Globe, ChevronDown, ChevronUp, UserSearch } from "lucide-react";
+import { Activity, Users, Eye, Clock, Mail, Globe, ChevronDown, ChevronUp, UserSearch, FlaskConical } from "lucide-react";
 
-type Tab = "visitors" | "log" | "contacts";
+type Tab = "visitors" | "log" | "contacts" | "research";
 
 function formatDate(d: Date | string) {
   return new Date(d).toLocaleString(undefined, {
@@ -47,14 +47,25 @@ export default function ShareAccessLogPage() {
   const [tab, setTab] = useState<Tab>("visitors");
   const [sortField, setSortField] = useState<"lastSeen" | "accessCount">("lastSeen");
   const [sortDir, setSortDir] = useState<"desc" | "asc">("desc");
+  const [updatingId, setUpdatingId] = useState<number | null>(null);
 
   const visitorsQuery = trpc.shareExt.getShareVisitors.useQuery();
   const logQuery = trpc.shareExt.getShareAccessLog.useQuery({ limit: 200 });
   const contactLogQuery = trpc.shareExt.getShareContactRetrievalLog.useQuery({ limit: 200 });
+  const researchQuery = trpc.shareExt.getShareResearchRequests.useQuery({ limit: 200 });
+
+  const updateResearchStatus = trpc.shareExt.updateShareResearchRequestStatus.useMutation({
+    onSuccess: () => {
+      setUpdatingId(null);
+      researchQuery.refetch();
+    },
+    onError: () => setUpdatingId(null),
+  });
 
   const visitors = visitorsQuery.data ?? [];
   const log = logQuery.data ?? [];
   const contactLog = contactLogQuery.data ?? [];
+  const researchLog = researchQuery.data ?? [];
 
   const sortedVisitors = [...visitors].sort((a, b) => {
     const av = sortField === "accessCount" ? a.accessCount : new Date(a.lastSeen).getTime();
@@ -86,7 +97,7 @@ export default function ShareAccessLogPage() {
         <Activity className="w-6 h-6 text-gray-700" />
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Share Access Log</h1>
-          <p className="text-sm text-gray-500">Track who accessed public share pages and retrieved contact details</p>
+          <p className="text-sm text-gray-500">Track share page access, contact retrievals, and deep research requests</p>
         </div>
       </div>
 
@@ -150,6 +161,15 @@ export default function ShareAccessLogPage() {
         >
           <UserSearch className="w-3.5 h-3.5 inline mr-1.5" />
           Contact Retrievals ({contactLog.length})
+        </button>
+        <button
+          onClick={() => setTab("research")}
+          className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+            tab === "research" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+          }`}
+        >
+          <FlaskConical className="w-3.5 h-3.5 inline mr-1.5" />
+          Research Requests ({researchLog.length})
         </button>
       </div>
 
@@ -297,6 +317,85 @@ export default function ShareAccessLogPage() {
                       </span>
                     </td>
                     <td className="px-4 py-3 text-xs text-gray-400">{formatDate(entry.createdAt)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      )}
+
+      {/* Deep research request log tab */}
+      {tab === "research" && (
+        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          {researchQuery.isLoading ? (
+            <div className="p-8 text-center text-gray-400 text-sm">Loading research requests…</div>
+          ) : researchLog.length === 0 ? (
+            <div className="p-8 text-center text-gray-400 text-sm">No deep research requests yet.</div>
+          ) : (
+            <table className="w-full text-sm">
+              <thead className="bg-gray-50 border-b border-gray-200">
+                <tr>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Visitor</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Company</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Status</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Time</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-gray-500 uppercase tracking-wide">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {researchLog.map((entry) => (
+                  <tr key={entry.id} className="hover:bg-gray-50 transition-colors">
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-2">
+                        <Mail className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+                        <span className="text-gray-900">{entry.visitorEmail}</span>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-gray-900">{entry.companyName ?? "—"}</div>
+                      <span className="font-mono text-xs text-gray-400">{entry.shareToken.slice(0, 12)}…</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium ${
+                        entry.status === "pending" ? "bg-amber-100 text-amber-700"
+                          : entry.status === "completed" ? "bg-green-100 text-green-700"
+                          : "bg-gray-100 text-gray-600"
+                      }`}>
+                        {entry.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 text-xs text-gray-400">{formatDate(entry.createdAt)}</td>
+                    <td className="px-4 py-3 text-right">
+                      {entry.status === "pending" ? (
+                        <div className="flex items-center justify-end gap-2">
+                          <button
+                            type="button"
+                            disabled={updatingId === entry.id}
+                            onClick={() => {
+                              setUpdatingId(entry.id);
+                              updateResearchStatus.mutate({ id: entry.id, status: "completed" });
+                            }}
+                            className="text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 px-2.5 py-1 rounded disabled:opacity-50"
+                          >
+                            {updatingId === entry.id ? "…" : "Mark complete"}
+                          </button>
+                          <button
+                            type="button"
+                            disabled={updatingId === entry.id}
+                            onClick={() => {
+                              setUpdatingId(entry.id);
+                              updateResearchStatus.mutate({ id: entry.id, status: "cancelled" });
+                            }}
+                            className="text-xs font-medium text-gray-600 bg-gray-50 hover:bg-gray-100 border border-gray-200 px-2.5 py-1 rounded disabled:opacity-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-xs text-gray-300">—</span>
+                      )}
+                    </td>
                   </tr>
                 ))}
               </tbody>

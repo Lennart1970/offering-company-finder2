@@ -1,10 +1,9 @@
 import { z } from "zod";
-import { eq, and, or, desc } from "drizzle-orm";
+import { TRPCError } from "@trpc/server";
+import { eq, and, or, desc, gte, inArray, sql } from "drizzle-orm";
 import crypto from "crypto";
 import { protectedProcedure, publicProcedure, router } from "./_core/trpc";
-import { getDb } from "./db";
-import { createContact, getContactsByCompanyId } from "./db";
-import { inArray } from "drizzle-orm";
+import { getDb, batchFindCgLeadsForCompanies, createContact, getContactsByCompanyId } from "./db";
 import { getCachedToken, setCachedToken, getCachedList, setCachedList, invalidateToken } from "./shareCache";
 import { trickleDownSearch, getAllPersonnel } from "./apolloPeopleSearch";
 import {
@@ -21,8 +20,62 @@ import {
   brainShareTokens,
   shareVisitors,
   shareContactRetrievalLog,
+  shareResearchRequests,
   leadinfoVisits,
 } from "../drizzle/schema";
+
+const SHARE_RESEARCH_DAILY_LIMIT = 10;
+const LLM_SCORE_FRESH_MS = 3 * 24 * 60 * 60 * 1000;
+
+function hasFreshLlmScore(
+  fitScoreSource: string | null | undefined,
+  fitScoreGeneratedAt: Date | string | null | undefined,
+): boolean {
+  if (fitScoreSource !== "llm" || !fitScoreGeneratedAt) return false;
+  const age = Date.now() - new Date(fitScoreGeneratedAt).getTime();
+  return age >= 0 && age < LLM_SCORE_FRESH_MS;
+}
+
+/** Auto-complete pending requests when the company already has a fresh LLM fit score. */
+async function autoCompleteResearchRequestsWithFreshLlmScore(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+): Promise<number> {
+  const pending = await db
+    .select({
+      id: shareResearchRequests.id,
+      companyId: shareResearchRequests.companyId,
+    })
+    .from(shareResearchRequests)
+    .where(eq(shareResearchRequests.status, "pending"));
+
+  if (pending.length === 0) return 0;
+
+  const companyIds = [...new Set(pending.map((r) => r.companyId))];
+  const companyRows = await db
+    .select({
+      id: companies.id,
+      fitScoreSource: companies.fitScoreSource,
+      fitScoreGeneratedAt: companies.fitScoreGeneratedAt,
+    })
+    .from(companies)
+    .where(inArray(companies.id, companyIds));
+
+  const freshCompanyIds = new Set(
+    companyRows
+      .filter((c) => hasFreshLlmScore(c.fitScoreSource, c.fitScoreGeneratedAt))
+      .map((c) => c.id),
+  );
+
+  const toComplete = pending.filter((r) => freshCompanyIds.has(r.companyId)).map((r) => r.id);
+  if (toComplete.length === 0) return 0;
+
+  await db
+    .update(shareResearchRequests)
+    .set({ status: "completed" })
+    .where(inArray(shareResearchRequests.id, toComplete));
+
+  return toComplete.length;
+}
 
 /** Generate a cryptographically random 32-char hex token */
 function generateToken(): string {
@@ -506,10 +559,20 @@ export const shareRouter = router({
         };
       });
 
+      const crmMap = await batchFindCgLeadsForCompanies(companyRows.map((r) => r.companyId));
+      const enrichedCompanies = companyRows.map((row) => {
+        const crm = crmMap.get(row.companyId);
+        return {
+          ...row,
+          linkId: crm ? String(crm.linkId) : null,
+          sharepointPageLink: crm?.sharepointPageLink ?? null,
+        };
+      });
+
       const result = {
         shareListName: shareList.shareListName,
         createdAt: shareList.createdAt,
-        companies: companyRows,
+        companies: enrichedCompanies,
       };
 
       // Cache for 24h
@@ -704,6 +767,160 @@ export const shareExtRouter = router({
       .from(shareVisitors)
       .orderBy(desc(shareVisitors.lastSeen));
   }),
+
+  /** Public — check remaining deep-research request quota for a visitor email today */
+  getResearchRequestQuota: publicProcedure
+    .input(z.object({ visitorEmail: z.string().email() }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const normalizedEmail = input.visitorEmail.toLowerCase().trim();
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const [countRow] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(shareResearchRequests)
+        .where(and(
+          eq(shareResearchRequests.visitorEmail, normalizedEmail),
+          gte(shareResearchRequests.createdAt, todayStart),
+        ));
+
+      const usedToday = Number(countRow?.count ?? 0);
+      return {
+        limit: SHARE_RESEARCH_DAILY_LIMIT,
+        usedToday,
+        remaining: Math.max(0, SHARE_RESEARCH_DAILY_LIMIT - usedToday),
+      };
+    }),
+
+  /**
+   * Public — request deep research + outreach for a company on a share page.
+   * Log-only: internal team processes manually. Max 10 requests per visitor email per day.
+   */
+  requestDeepResearch: publicProcedure
+    .input(z.object({
+      token: z.string(),
+      visitorEmail: z.string().email(),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const normalizedEmail = input.visitorEmail.toLowerCase().trim();
+      const domain = normalizedEmail.split("@")[1] ?? "";
+
+      const allowed = await db
+        .select()
+        .from(shareAllowedDomains)
+        .where(eq(shareAllowedDomains.domain, domain))
+        .limit(1);
+      if (allowed.length === 0) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Access denied: email domain not on allowlist",
+        });
+      }
+
+      const tokenRows = await db
+        .select()
+        .from(shareTokens)
+        .where(eq(shareTokens.token, input.token))
+        .limit(1);
+      if (tokenRows.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Invalid share token" });
+      }
+      const tokenRow = tokenRows[0];
+
+      const companyRows = await db
+        .select()
+        .from(companies)
+        .where(eq(companies.id, tokenRow.companyId))
+        .limit(1);
+      if (companyRows.length === 0) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Company not found" });
+      }
+      const company = companyRows[0];
+
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+
+      const [countRow] = await db
+        .select({ count: sql<number>`count(*)` })
+        .from(shareResearchRequests)
+        .where(and(
+          eq(shareResearchRequests.visitorEmail, normalizedEmail),
+          gte(shareResearchRequests.createdAt, todayStart),
+        ));
+
+      const usedToday = Number(countRow?.count ?? 0);
+      if (usedToday >= SHARE_RESEARCH_DAILY_LIMIT) {
+        throw new TRPCError({
+          code: "TOO_MANY_REQUESTS",
+          message: `Daily limit reached (${SHARE_RESEARCH_DAILY_LIMIT} requests per day). Try again tomorrow.`,
+        });
+      }
+
+      const autoCompleted = hasFreshLlmScore(company.fitScoreSource, company.fitScoreGeneratedAt);
+
+      await db.insert(shareResearchRequests).values({
+        visitorEmail: normalizedEmail,
+        domain,
+        shareToken: input.token,
+        companyId: company.id,
+        companyName: company.name ?? null,
+        brainId: tokenRow.brainId,
+        status: autoCompleted ? "completed" : "pending",
+      });
+
+      return {
+        ok: true,
+        autoCompleted,
+        remainingToday: SHARE_RESEARCH_DAILY_LIMIT - usedToday - 1,
+      };
+    }),
+
+  /** Admin — deep research requests from share pages (auto-completes when LLM score < 3 days old) */
+  getShareResearchRequests: protectedProcedure
+    .input(z.object({ limit: z.number().default(200) }))
+    .query(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+      await autoCompleteResearchRequestsWithFreshLlmScore(db);
+      return db
+        .select()
+        .from(shareResearchRequests)
+        .orderBy(desc(shareResearchRequests.createdAt))
+        .limit(input.limit);
+    }),
+
+  /** Admin — mark a share research request completed or cancelled */
+  updateShareResearchRequestStatus: protectedProcedure
+    .input(z.object({
+      id: z.number(),
+      status: z.enum(["completed", "cancelled"]),
+    }))
+    .mutation(async ({ input }) => {
+      const db = await getDb();
+      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+
+      const [existing] = await db
+        .select({ id: shareResearchRequests.id })
+        .from(shareResearchRequests)
+        .where(eq(shareResearchRequests.id, input.id))
+        .limit(1);
+      if (!existing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Research request not found" });
+      }
+
+      await db
+        .update(shareResearchRequests)
+        .set({ status: input.status })
+        .where(eq(shareResearchRequests.id, input.id));
+
+      return { ok: true };
+    }),
 
   /** Admin — who retrieved contact details on share pages */
   getShareContactRetrievalLog: protectedProcedure

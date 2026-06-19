@@ -470,6 +470,13 @@
       "when": 1782300000000,
       "tag": "0066_companies_normalized_domain",
       "breakpoints": true
+    },
+    {
+      "idx": 67,
+      "version": "5",
+      "when": 1782400000000,
+      "tag": "0067_share_research_requests",
+      "breakpoints": true
     }
   ]
 }

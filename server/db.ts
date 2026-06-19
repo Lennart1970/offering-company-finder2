@@ -1,4 +1,4 @@
-import { eq, and, or, desc, sql, exists, not, ne, isNotNull } from "drizzle-orm";
+import { eq, and, or, desc, sql, exists, not, ne, isNotNull, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob, bomCalculations, BomCalculation, InsertBomCalculation, apolloWebhookLogs, ApolloWebhookLog, InsertApolloWebhookLog, companyBrainOutputs, CompanyBrainOutput, InsertCompanyBrainOutput, offeringBrain, cgLeads } from "../drizzle/schema";
 import { ENV } from './_core/env';
@@ -1548,4 +1548,112 @@ export async function findCgLead(opts: {
   }
 
   return null;
+}
+
+export type CgLeadMatch = { linkId: number; sharepointPageLink: string };
+
+/**
+ * Batch CRM lookup for share list exports — same priority as findCgLead:
+ * SharePoint ID → normalizedDomain → company name.
+ */
+export async function batchFindCgLeadsForCompanies(
+  companyIds: number[],
+): Promise<Map<number, CgLeadMatch>> {
+  const result = new Map<number, CgLeadMatch>();
+  if (!companyIds.length) return result;
+
+  const db = await getDb();
+  if (!db) return result;
+
+  const companyRows = await db
+    .select({
+      id: companies.id,
+      cgSharepointId: companies.cgSharepointId,
+      normalizedDomain: companies.normalizedDomain,
+      name: companies.name,
+    })
+    .from(companies)
+    .where(inArray(companies.id, companyIds));
+
+  if (!companyRows.length) return result;
+
+  const setMatch = (companyId: number, lead: { id: number; sharepointUrl: string }) => {
+    result.set(companyId, { linkId: lead.id, sharepointPageLink: lead.sharepointUrl });
+  };
+
+  // Pass 1 — SharePoint ID
+  const spIdToCompanyIds = new Map<number, number[]>();
+  for (const c of companyRows) {
+    if (c.cgSharepointId && /^[0-9]+$/.test(c.cgSharepointId)) {
+      const spId = parseInt(c.cgSharepointId, 10);
+      const list = spIdToCompanyIds.get(spId) ?? [];
+      list.push(c.id);
+      spIdToCompanyIds.set(spId, list);
+    }
+  }
+  const spIds = [...spIdToCompanyIds.keys()];
+  if (spIds.length) {
+    const leads = await db
+      .select({
+        id: cgLeads.id,
+        sharepointUrl: cgLeads.sharepointUrl,
+      })
+      .from(cgLeads)
+      .where(inArray(cgLeads.id, spIds));
+    for (const lead of leads) {
+      for (const companyId of spIdToCompanyIds.get(lead.id) ?? []) {
+        setMatch(companyId, lead);
+      }
+    }
+  }
+
+  // Pass 2 — domain
+  const unmatchedAfterSp = companyRows.filter((c) => !result.has(c.id));
+  const domainToCompanyIds = new Map<string, number[]>();
+  for (const c of unmatchedAfterSp) {
+    const domain = c.normalizedDomain?.replace(/^www\./, "").toLowerCase();
+    if (!domain) continue;
+    const list = domainToCompanyIds.get(domain) ?? [];
+    list.push(c.id);
+    domainToCompanyIds.set(domain, list);
+  }
+  const domains = [...domainToCompanyIds.keys()];
+  if (domains.length) {
+    const leads = await db
+      .select({
+        id: cgLeads.id,
+        domain: cgLeads.domain,
+        sharepointUrl: cgLeads.sharepointUrl,
+      })
+      .from(cgLeads)
+      .where(inArray(cgLeads.domain, domains));
+    for (const lead of leads) {
+      if (!lead.domain) continue;
+      for (const companyId of domainToCompanyIds.get(lead.domain) ?? []) {
+        if (!result.has(companyId)) setMatch(companyId, lead);
+      }
+    }
+  }
+
+  // Pass 3 — company name (small remainder)
+  const { like } = await import("drizzle-orm");
+  for (const c of companyRows) {
+    if (result.has(c.id) || !c.name) continue;
+    const needle = normalizeCgCompanyName(c.name);
+    if (needle.length < 3) continue;
+    const prefix = needle.slice(0, 20).replace(/[%_]/g, "\\$&");
+    const candidates = await db
+      .select({
+        id: cgLeads.id,
+        companyName: cgLeads.companyName,
+        sharepointUrl: cgLeads.sharepointUrl,
+      })
+      .from(cgLeads)
+      .where(like(cgLeads.companyName, `${prefix}%`))
+      .limit(10);
+    const match = candidates.find((row) => normalizeCgCompanyName(row.companyName) === needle);
+    if (match) setMatch(c.id, match);
+  }
+
+  return result;
 }

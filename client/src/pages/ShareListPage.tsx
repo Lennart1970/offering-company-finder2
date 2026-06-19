@@ -249,6 +249,43 @@ export default function ShareListPage() {
     XLSX.writeFile(wb, `${listName.replace(/\s+/g, "-")}.xlsx`);
   }
 
+  // -- Minimal SharePoint CRM link list (Link ID + share page only) -----------
+  function handleDownloadShareLinksCsv() {
+    if (!data) return;
+    const listName = data.shareListName ?? "share-list";
+    const rows = displayCompanies
+      .filter((c: any) => c.linkId)
+      .map((c: any) => ({
+        LinkID: c.linkId,
+        Company: c.companyName,
+        SharePage: `${window.location.origin}/share/${c.token}`,
+        Campaign: listName,
+      }));
+
+    if (!rows.length) {
+      alert("No companies with a CRM Link ID in this list. Only CRM-matched rows can be linked to SharePoint.");
+      return;
+    }
+
+    const escape = (v: string) => {
+      if (v.includes(";") || v.includes('"') || v.includes("\n")) {
+        return `"${v.replace(/"/g, '""')}"`;
+      }
+      return v;
+    };
+    const header = "Link ID;Company;Share Page;Campaign";
+    const body = rows
+      .map((r) => [r.LinkID, r.Company, r.SharePage, r.Campaign].map((v) => escape(String(v ?? ""))).join(";"))
+      .join("\r\n");
+    const blob = new Blob(["\uFEFF" + header + "\r\n" + body + "\r\n"], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${listName.replace(/\s+/g, "-")}-share-links.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   // -- JSON download ----------------------------------------------------------
   function handleDownloadJson() {
     if (!data) return;
@@ -342,6 +379,14 @@ export default function ShareListPage() {
               className="bg-black text-white hover:bg-gray-800 font-black text-xs px-4 py-2 h-auto"
             >
               ⬇ Download Excel
+            </Button>
+            <Button
+              onClick={handleDownloadShareLinksCsv}
+              variant="outline"
+              className="border-green-700 text-green-800 hover:bg-green-50 font-black text-xs px-4 py-2 h-auto"
+              title="Link ID + share page URL only — for SharePoint CRM list"
+            >
+              ⬇ Share Links (CRM)
             </Button>
             <Button
               onClick={handleDownloadJson}

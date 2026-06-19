@@ -1,0 +1,19 @@
+{
+  "_comment": "Copy to sharepoint-field-map.json and edit SharePoint internal column names (run Get-PnPField -List 'Leadlist Database' | Select Title, InternalName). JSON keys must match LeadTrigger Download JSON export.",
+  "linkIdJsonKey": "Link ID",
+  "skipIfNoLinkId": true,
+  "fields": {
+    "Fit Score": "LT_FitScore",
+    "Urgency Score": "LT_UrgencyScore",
+    "Company Page": "LT_CompanyPage",
+    "Key Signal": "LT_KeySignal",
+    "Campaign": "LT_Campaign",
+    "Country": "LT_Country",
+    "Sector": "LT_Sector",
+    "Brain / ICP": "LT_Brain",
+    "Contact Name": "LT_ContactName",
+    "Contact Title": "LT_ContactTitle",
+    "Contact Email": "LT_ContactEmail"
+  },
+  "hyperlinkFields": ["Company Page", "SharePoint Page Link"]
+}

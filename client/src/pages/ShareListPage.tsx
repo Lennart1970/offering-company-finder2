@@ -249,7 +249,7 @@ export default function ShareListPage() {
     XLSX.writeFile(wb, `${listName.replace(/\s+/g, "-")}.xlsx`);
   }
 
-  // -- Minimal SharePoint CRM link list (Link ID + share page only) -----------
+  // -- Minimal Vibe import file (tab-separated, exact column contract) --------
   function handleDownloadShareLinksCsv() {
     if (!data) return;
     const listName = data.shareListName ?? "share-list";
@@ -258,7 +258,8 @@ export default function ShareListPage() {
       .map((c: any) => ({
         LinkID: c.linkId,
         Company: c.companyName,
-        SharePage: `${window.location.origin}/share/${c.token}`,
+        SharePointItemUrl: c.sharepointPageLink ?? "",
+        LeadTriggerSharePage: `${window.location.origin}/share/${c.token}`,
         Campaign: listName,
       }));
 
@@ -267,21 +268,26 @@ export default function ShareListPage() {
       return;
     }
 
-    const escape = (v: string) => {
-      if (v.includes(";") || v.includes('"') || v.includes("\n")) {
-        return `"${v.replace(/"/g, '""')}"`;
-      }
-      return v;
-    };
-    const header = "Link ID;Company;Share Page;Campaign";
+    const cleanTsvValue = (v: string) => v.replace(/\t/g, " ").replace(/\r?\n/g, " ").trim();
+    const header = "Link ID\tCompany\tSharePoint Item URL\tLeadTrigger Share Page\tCampaign";
     const body = rows
-      .map((r) => [r.LinkID, r.Company, r.SharePage, r.Campaign].map((v) => escape(String(v ?? ""))).join(";"))
+      .map((r) =>
+        [
+          r.LinkID,
+          r.Company,
+          r.SharePointItemUrl,
+          r.LeadTriggerSharePage,
+          r.Campaign,
+        ]
+          .map((v) => cleanTsvValue(String(v ?? "")))
+          .join("\t")
+      )
       .join("\r\n");
-    const blob = new Blob(["\uFEFF" + header + "\r\n" + body + "\r\n"], { type: "text/csv;charset=utf-8" });
+    const blob = new Blob(["\uFEFF" + header + "\r\n" + body + "\r\n"], { type: "text/tab-separated-values;charset=utf-8" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `${listName.replace(/\s+/g, "-")}-share-links.csv`;
+    a.download = `${listName.replace(/\s+/g, "-")}-share-links.tsv`;
     a.click();
     URL.revokeObjectURL(url);
   }

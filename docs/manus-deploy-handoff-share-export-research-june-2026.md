@@ -10,7 +10,7 @@ Implementation guide for Manus WebDev engineer.
 |------|-------|
 | **Repo** | [offering-company-finder2](https://github.com/Lennart1970/offering-company-finder2) |
 | **Branch** | `main` |
-| **Target commit** | `93f05b2` |
+| **Target commit** | latest `main` after the Vibe TSV export alignment |
 | **Deploy target** | Manus WebDev (TiDB MySQL + existing Supabase env) |
 
 ### What's in this release
@@ -19,9 +19,10 @@ Implementation guide for Manus WebDev engineer.
 2. **Share list Excel export — same CRM fields** — Download Excel includes the same two columns for parity with JSON.
 3. **Batch CRM enrichment on list load** — `resolveListToken` enriches each company with `linkId` and `sharepointPageLink` (SharePoint ID → domain → company name). Cached for 24h in `shareCache`.
 4. **Share list CRM badge optimization** — `CgLeadBadge` receives `sharepointId` when already resolved server-side.
-5. **Share page deep research requests** — Visitors on `/share/:token` can request deep research + outreach (log-only; internal team processes manually). Daily quota: 10 requests per visitor email.
-6. **Admin research request log** — `/share-access-log` → **Research Requests** tab; mark pending requests complete or cancelled.
-7. **Migration 0067** — Creates `share_research_requests` table.
+5. **Vibe / Power App import file** — **Share Links (CRM)** now downloads a `.tsv` file with the exact Vibe contract: `Link ID`, `Company`, `SharePoint Item URL`, `LeadTrigger Share Page`, `Campaign`.
+6. **Share page deep research requests** — Visitors on `/share/:token` can request deep research + outreach (log-only; internal team processes manually). Daily quota: 10 requests per visitor email.
+7. **Admin research request log** — `/share-access-log` → **Research Requests** tab; mark pending requests complete or cancelled.
+8. **Migration 0067** — Creates `share_research_requests` table.
 
 ---
 
@@ -36,7 +37,7 @@ git pull origin main
 git log -1 --oneline
 ```
 
-Expected: `93f05b2 Add SharePoint CRM fields to share list exports and share-page research requests.`
+Expected: latest `main` commit including the Vibe TSV export alignment. Base feature commit was `93f05b2`.
 
 Then:
 
@@ -143,6 +144,20 @@ SELECT * FROM share_allowed_domains;
 1. On share list table, green CRM icon on a matched company should still open SharePoint.
 2. Export Link ID / SharePoint Page Link should match badge URL for same row.
 
+### F. Vibe / Power App TSV import file
+
+1. Same share list page → **Share Links (CRM)**.
+2. Confirm the downloaded filename ends in `-share-links.tsv`.
+3. Open in a text editor or Excel and confirm first row is exactly:
+
+   ```text
+   Link ID	Company	SharePoint Item URL	LeadTrigger Share Page	Campaign
+   ```
+
+4. Confirm remaining rows are tab-separated, not comma- or semicolon-separated.
+5. Confirm rows with no `Link ID` are omitted.
+6. Paste/upload into the Vibe app import screen — expect imported/updated count and skipped invalid count.
+
 ---
 
 ## Architecture notes (do not change unless asked)
@@ -180,6 +195,7 @@ SELECT * FROM share_allowed_domains;
 | `server/db.ts` | `batchFindCgLeadsForCompanies()` batch CRM lookup |
 | `server/shareRouter.ts` | Enrich `resolveListToken`; research request tRPC endpoints |
 | `client/src/pages/ShareListPage.tsx` | JSON/Excel export columns; badge `sharepointId` |
+| `docs/sharepoint-share-links-simple.md` | Vibe TSV import contract and SharePoint clickable-link guidance |
 | `client/src/pages/SharePage.tsx` | `DeepResearchRequestBox` on share page |
 | `client/src/pages/ShareAccessLogPage.tsx` | Research Requests admin tab |
 | `drizzle/0067_share_research_requests.sql` | New table migration |
@@ -198,6 +214,7 @@ Reply to product owner with:
 - [ ] Smoke test B — Excel export CRM fields
 - [ ] Smoke test C — deep research request + quota
 - [ ] Smoke test D — admin research log
+- [ ] Smoke test F — Vibe TSV import file
 - [ ] Build / `tsc --noEmit`: 0 errors
 - [ ] App restarted (share list cache)
 
@@ -215,6 +232,8 @@ Include: migration output, test share list URL, sample JSON snippet with Link ID
 | Research request 403 | Visitor email domain not in `share_allowed_domains` |
 | Research request 500 | Migration 0067 not applied |
 | Daily limit error on first request | Quota already used today for that email (10/day) |
+| Vibe import skips all rows | TSV header/order changed, or Link ID column is empty/non-numeric |
+| Vibe import creates wrong mapping | File must be tab-separated with exact order: Link ID, Company, SharePoint Item URL, LeadTrigger Share Page, Campaign |
 
 ---
 
@@ -223,6 +242,7 @@ Include: migration output, test share list URL, sample JSON snippet with Link ID
 - [`docs/manus-deploy-handoff-crm-links-june-2026.md`](./manus-deploy-handoff-crm-links-june-2026.md) — CRM import & badge setup
 - [`docs/SharePoint CRM Lead Lookup — Implementation Guide`](./SharePoint%20CRM%20Lead%20Lookup%20%E2%80%94%20Implementation%20Guide)
 - [`docs/share-page-email-gate-and-audit.md`](./share-page-email-gate-and-audit.md) — Share gate + allowlist
+- [`docs/sharepoint-share-links-simple.md`](./sharepoint-share-links-simple.md) — Vibe TSV import / SharePoint linking guide
 - [`docs/database_mess.md`](./database_mess.md) — Dual-DB architecture
 
 ---
@@ -230,11 +250,11 @@ Include: migration output, test share list URL, sample JSON snippet with Link ID
 ## Manus engineer quick instructions
 
 ```
-1. git pull origin main && git log -1 --oneline   # expect 93f05b2
+1. git pull origin main && git log -1 --oneline   # latest main with TSV export alignment
 2. npm run build (0 TS errors)
 3. Publish Manus WebDev app + restart
 4. Apply migration 0067 if share_research_requests missing
 5. Verify lt_mns_cg_leads has rows (import CSV if needed)
-6. Smoke test: share list JSON export + research request + admin log
+6. Smoke test: share list JSON export + Vibe TSV export + research request + admin log
 7. Reply with: commit hash, migration output, checklist above
 ```

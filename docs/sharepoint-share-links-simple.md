@@ -1,6 +1,6 @@
 # SharePoint: Link Leadlist to LeadTrigger share pages (simple)
 
-No Power Automate. One CSV export, one helper list in SharePoint, one lookup on your existing **Leadlist Database**.
+No Power Automate. One TSV export, one helper list in SharePoint, one lookup on your existing **Leadlist Database**.
 
 ---
 
@@ -17,11 +17,11 @@ No Power Automate. One CSV export, one helper list in SharePoint, one lookup on 
 
 1. Open your share list, e.g. `/share/list/<token>`
 2. Click **Share Links (CRM)** (green button)
-3. You get a semicolon CSV with only CRM-matched rows:
+3. You get a tab-separated `.tsv` file with only CRM-matched rows:
 
-```csv
-Link ID;Company;Share Page;Campaign
-42;BAE SYSTEMS;https://up.manus.space/share/abc123…;Defense Leads 5/19/2026
+```text
+Link ID	Company	SharePoint Item URL	LeadTrigger Share Page	Campaign
+42	BAE SYSTEMS	https://connectgroup0.sharepoint.com/sites/.../DispForm.aspx?ID=42	https://up.manus.space/share/abc123…	Defense Leads 5/19/2026
 ```
 
 Rows without a CRM Link ID are omitted (they cannot tie to Leadlist `ID`).
@@ -39,14 +39,14 @@ Site: `Connect4Sales_CG` → **New list** → name: **LT Share Links**
 | **Share Page** | Hyperlink | LeadTrigger company brief URL |
 | **Campaign** | Single line | Optional list name |
 
-### Import the CSV
+### Import the TSV
 
 1. Open **LT Share Links** → **Integrate** → **Excel** → **Export to Excel** (creates workbook)
-2. Paste your CSV rows below the header (or use **Quick edit** / grid paste)
-3. For **Share Page** hyperlink column: paste URL in **URL** field, display text e.g. `View brief`
+2. Paste **Link ID**, **Company**, **SharePoint Item URL**, **LeadTrigger Share Page**, **Campaign** from the TSV
+3. For **LeadTrigger Share Page**, use Excel in the hyperlink column: `=HYPERLINK(D2,"View brief")` (adjust cell ref) — plain TSV paste alone may not create clickable links
 4. Save workbook back to SharePoint (sync)
 
-Share Page is already clickable in this list (hyperlink column).
+Or: create items in grid view and paste each URL into the hyperlink URL field manually for small lists.
 
 ---
 
@@ -75,7 +75,7 @@ Add a **Formula** column (classic) or use the hyperlink display text from the lo
 Fastest for 100+ companies:
 
 1. Export **Leadlist Database** to Excel
-2. Export **LT Share Links** to Excel (or use the CSV from LeadTrigger)
+2. Export **LT Share Links** to Excel (or use the TSV from LeadTrigger)
 3. In Leadlist sheet, new column **LT Share Page URL**:
 
 ```excel
@@ -93,15 +93,48 @@ Use column type **Hyperlink** with URL from XLOOKUP and description `View LeadTr
 
 ---
 
-## SharePoint formula (hyperlink from plain URL text)
+## Clickable links in SharePoint (check before you import)
 
-If Share Page is stored as **Single line text** (not Hyperlink), add a **Calculated column** (where your tenant still allows it):
+### Hyperlink column (recommended)
 
-```text
-=HYPERLINK([Share Page], "View brief")
+Use column type **Hyperlink** on **LT Share Links** and **Leadlist Database**.
+
+- **Editing one row:** paste the URL in the URL box — it becomes clickable. Add display text (e.g. `View brief`) in the description box.
+- **Bulk from TSV/CSV:** SharePoint does **not** auto-convert a plain URL column on import into a proper hyperlink with friendly text. After import, URLs may appear as text only.
+- **Reliable bulk method:** open the list in **Excel** (Integrate → Export to Excel), paste URLs into the **Share Page** hyperlink column using Excel’s `=HYPERLINK(url, "View brief")`, save/sync back to SharePoint.  
+  Or paste `View brief# https://…` into the hyperlink field via **Access** linked table (legacy but works for bulk).
+
+### Plain text URL column (Single line of text)
+
+If **Share Page** is text, `=HYPERLINK(...)` in a **Calculated column does not work** in modern SharePoint Online — Microsoft blocks HTML in calculated fields, so the formula shows as text, not a clickable link.
+
+**Use JSON column formatting instead:**
+
+1. Column settings → **Format this column** → **Advanced mode**
+2. Paste:
+
+```json
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/sp/v2/column-formatting.schema.json",
+  "elmType": "a",
+  "txtContent": "View brief",
+  "attributes": {
+    "target": "_blank",
+    "href": "@currentField"
+  }
+}
 ```
 
-In modern lists, prefer **Hyperlink column** on import — no formula needed.
+3. Save — the text column renders as a clickable **View brief** link.
+
+### Summary
+
+| Approach | Clickable in modern SPO? |
+|----------|---------------------------|
+| Hyperlink column, enter URL in form | Yes |
+| Hyperlink column, bulk TSV/CSV import only | Often **no** — needs Excel/Access step |
+| Calculated `=HYPERLINK(...)` | **No** (renders as text) |
+| Text column + JSON formatting | Yes |
 
 ---
 
@@ -117,7 +150,7 @@ Create one **LT Share Links — Defense May 2026** list per campaign, or one lis
 |-------|-----|
 | **Share Links (CRM)** button downloads empty file | No CRM matches — companies need Link ID (import CRM CSV first) |
 | Lookup empty | Link ID on helper list must equal Leadlist item **ID** |
-| Link not clickable | Use Hyperlink column type, not plain text |
+| Link not clickable | TSV/CSV import into Hyperlink column often leaves plain text — use Excel `=HYPERLINK()` sync, or JSON formatting on a text column |
 | Wrong company linked | Re-check Link ID matches Leadlist **ID** column |
 
 ---

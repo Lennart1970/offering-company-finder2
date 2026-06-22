@@ -1646,6 +1646,15 @@ async function getCompanyDatabase(opts) {
     // Brain used for last generation (denormalised for fast display)
     generatedWithBrainId: companies.generatedWithBrainId,
     generatedWithBrainName: companies.generatedWithBrainName,
+    // Brain with highest fit score that still exists in offering_brain
+    primaryBrainId: sql`(
+        SELECT cbo2.brainId
+        FROM company_brain_outputs cbo2
+        INNER JOIN offering_brain ob2 ON cbo2.brainId = ob2.id
+        WHERE cbo2.companyId = ${companies.id}
+        ORDER BY cbo2.fitScore IS NULL, cbo2.fitScore DESC, cbo2.updatedAt DESC
+        LIMIT 1
+      )`,
     // All brain names from company_brain_outputs (correlated subquery — avoids GROUP BY/ORDER BY conflicts)
     allBrainNames: sql`(
         SELECT GROUP_CONCAT(DISTINCT ob2.brainName ORDER BY ob2.brainName SEPARATOR '||')
@@ -16657,6 +16666,16 @@ async function autoCompleteResearchRequestsWithFreshLlmScore(db) {
 function generateToken() {
   return crypto.randomBytes(16).toString("hex");
 }
+async function assertValidShareBrain(db, brainId, companyId) {
+  const brainRows = await db.select({ id: offeringBrain.id }).from(offeringBrain).where(eq13(offeringBrain.id, brainId)).limit(1);
+  if (brainRows.length > 0) return;
+  const companyRows = await db.select({ name: companies.name }).from(companies).where(eq13(companies.id, companyId)).limit(1);
+  const companyLabel = companyRows[0]?.name ?? `company ${companyId}`;
+  throw new TRPCError9({
+    code: "BAD_REQUEST",
+    message: `Offering Brain ${brainId} not found for ${companyLabel}. Choose a Brain filter on Company Database, or re-score the company with a current brain.`
+  });
+}
 async function logShareContactRetrieval(db, params) {
   const domain = params.visitorEmail.split("@")[1]?.toLowerCase() ?? "";
   await db.insert(shareContactRetrievalLog).values({
@@ -16700,6 +16719,7 @@ var shareRouter = router({
       if (existing.length > 0) {
         results.push({ companyId: item.companyId, brainId: item.brainId, token: existing[0].token });
       } else {
+        await assertValidShareBrain(db, item.brainId, item.companyId);
         const token = generateToken();
         await db.insert(shareTokens).values({
           token,
@@ -16924,6 +16944,7 @@ var shareRouter = router({
       if (existing.length > 0) {
         tokenResults.push({ companyId: item.companyId, brainId: item.brainId, token: existing[0].token, tokenId: existing[0].id });
       } else {
+        await assertValidShareBrain(db, item.brainId, item.companyId);
         const token = generateToken();
         await db.insert(shareTokens).values({ token, companyId: item.companyId, brainId: item.brainId, createdBy: userId, shareListName: input.shareListName ?? null });
         const inserted = await db.select().from(shareTokens).where(eq13(shareTokens.token, token)).limit(1);

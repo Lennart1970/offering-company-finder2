@@ -711,7 +711,7 @@ export default function CompanyDatabase() {
     setPage(0);
   };
 
-  const hasFilters =
+  const hasFilters = Boolean(
     rawSearch ||
     selectedSearchId ||
     selectedCampaignNames.length > 0 ||
@@ -726,7 +726,8 @@ export default function CompanyDatabase() {
     minFitScore !== undefined ||
     hasFitScoreOnly ||
     articleFilter !== "any" ||
-    crmFilter !== "any";
+    crmFilter !== "any"
+  );
 
   const resolvedSearchIds =
     selectedRunIds.length > 0

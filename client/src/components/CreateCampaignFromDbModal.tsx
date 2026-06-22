@@ -19,27 +19,17 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Loader2 } from "lucide-react";
+import type { RouterInputs } from "@/lib/trpc";
 
 const MAX = 100;
 
-export type CampaignFromDbFilterParams = {
-  sortBy: string;
-  sortDir: "asc" | "desc";
-  search?: string;
-  searchId?: number;
-  searchIds?: number[];
-  country?: string;
-  countries?: string[];
-  sector?: string;
-  filterBrainId?: number;
-  minFitScore?: number;
-  hasFitScore?: boolean;
-  articleFilter?: "any" | "brief" | "approach" | "both" | "none";
-  cgBusinessUnit?: string;
-  cgLeadClass?: string;
-  cgLeadOrigin?: string;
-  crmFilter?: "in" | "not_in";
-};
+type CreateCampaignFromCompanyDbInput =
+  RouterInputs["companyFinder"]["createCampaignFromCompanyDb"];
+
+export type CampaignFromDbFilterParams = Omit<
+  Extract<CreateCampaignFromCompanyDbInput["source"], { type: "filter" }>,
+  "type"
+>;
 
 type BrainOption = { id: number; brainName: string; count?: number };
 
@@ -131,12 +121,15 @@ export function CreateCampaignFromDbModal({
         source: { type: "selection", companyIds },
       });
     } else if (filterParams) {
+      const { sortBy, sortDir, ...rest } = filterParams;
       createCampaign.mutate({
         campaignName: campaignName.trim(),
         brainId: selectedBrainId,
         source: {
           type: "filter",
-          ...filterParams,
+          sortBy,
+          sortDir,
+          ...rest,
         },
       });
     }

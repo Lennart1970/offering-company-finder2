@@ -257,14 +257,15 @@ export default function ShareListPage() {
     return s;
   }
 
-  // -- Simple 4-column CSV for Excel / CRM merge --------------------------------
+  // -- Simple CSV for Excel / CRM merge -----------------------------------------
   function handleDownloadLinksCsv() {
     if (!data) return;
     const listName = data.shareListName ?? "share-list";
-    const header = "Company Name,Company Website,SharePoint URL,Shareable Page URL";
+    const header = "Link ID,Company Name,Company Website,SharePoint URL,Shareable Page URL";
     const body = displayCompanies
       .map((c: any) =>
         [
+          c.linkId ?? "",
           c.companyName,
           c.website ?? "",
           c.sharepointPageLink ?? "",
@@ -426,7 +427,7 @@ export default function ShareListPage() {
               onClick={handleDownloadLinksCsv}
               variant="outline"
               className="border-black text-black hover:bg-gray-100 font-black text-xs px-4 py-2 h-auto"
-              title="Company name, website, SharePoint URL, and shareable brief link"
+              title="Link ID, company name, website, SharePoint URL, and shareable brief link"
             >
               ⬇ Download CSV
             </Button>

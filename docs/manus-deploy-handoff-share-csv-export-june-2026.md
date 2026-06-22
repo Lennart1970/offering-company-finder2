@@ -15,7 +15,7 @@ Implementation guide for Manus WebDev engineer.
 
 ### What's in this release
 
-1. **Download CSV** — new button on `/share/list/:listToken` exports a simple 4-column CSV for Excel/CRM merge: Company Name, Company Website, SharePoint URL, Shareable Page URL.
+1. **Download CSV** — new button on `/share/list/:listToken` exports a 5-column CSV for Excel/CRM merge: Link ID, Company Name, Company Website, SharePoint URL, Shareable Page URL.
 2. **Share Links (CRM) TSV** — adds **Company Website** column (6 columns total); column order updated for Vibe/Dataverse imports.
 3. **Docs** — `docs/dataverse-share-links-simple.md` (Dataverse helper table guide); SharePoint/Dataverse TSV contract updates.
 
@@ -72,12 +72,12 @@ Existing share list behaviour unchanged (gated lists, filters, CRM enrichment vi
 4. Open in Excel — header row exactly:
 
    ```text
-   Company Name,Company Website,SharePoint URL,Shareable Page URL
+   Link ID,Company Name,Company Website,SharePoint URL,Shareable Page URL
    ```
 
-5. Confirm CRM-matched rows have **SharePoint URL** populated (`DispForm.aspx?ID=…`).
+5. Confirm CRM-matched rows have **Link ID** and **SharePoint URL** populated (`DispForm.aspx?ID=…`).
 6. Confirm every row has **Shareable Page URL** (`https://<domain>/share/<token>`).
-7. Non-CRM companies: SharePoint URL column empty; share URL still present.
+7. Non-CRM companies: Link ID and SharePoint URL empty; share URL still present.
 
 ### B. Share Links (CRM) TSV (regression)
 

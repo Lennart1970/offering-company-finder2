@@ -558,23 +558,40 @@ export default function CompanyDatabase() {
     return { withBrief, withApproach };
   }, [rows]);
 
+  const validBrainIds = useMemo(
+    () => new Set((meta?.brains ?? []).map((b) => b.id)),
+    [meta?.brains],
+  );
+
   const resolveBrainIdForRow = (row: (typeof rows)[number]): number | null => {
     if (selectedBrainId) return selectedBrainId;
-    const generatedWithBrainId = (row as { generatedWithBrainId?: number | null }).generatedWithBrainId;
-    if (generatedWithBrainId) return generatedWithBrainId;
+
+    const primaryBrainId = (row as { primaryBrainId?: number | null }).primaryBrainId;
+    if (primaryBrainId) return primaryBrainId;
+
     if (selectedRunIds.length === 1) {
       const run = (meta?.searches ?? []).find((s) => s.id === selectedRunIds[0]);
       const runBrainId = (run as { brainId?: number } | undefined)?.brainId;
       if (runBrainId) return runBrainId;
     }
+
     if (activeBrainId) return activeBrainId;
+
+    const generatedWithBrainId = (row as { generatedWithBrainId?: number | null }).generatedWithBrainId;
+    if (
+      generatedWithBrainId &&
+      (validBrainIds.size === 0 || validBrainIds.has(generatedWithBrainId))
+    ) {
+      return generatedWithBrainId;
+    }
+
     return null;
   };
 
   const pageSelectableRows = useMemo(
     () => rows.filter((row) => resolveBrainIdForRow(row) !== null),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rows, selectedBrainId, selectedRunIds, meta?.searches, activeBrainId],
+    [rows, selectedBrainId, selectedRunIds, meta?.searches, activeBrainId, validBrainIds],
   );
 
   const allPageRowsSelected =
@@ -647,10 +664,29 @@ export default function CompanyDatabase() {
       toast.error("Select at least one company first");
       return;
     }
-    const items = Array.from(selectedItems.entries()).map(([companyId, brainId]) => ({
-      companyId,
-      brainId,
-    }));
+    const items: Array<{ companyId: number; brainId: number }> = [];
+    const missing: string[] = [];
+    for (const companyId of selectedItems.keys()) {
+      const row = rows.find((r) => r.id === companyId);
+      if (!row) continue;
+      const brainId = resolveBrainIdForRow(row);
+      if (!brainId) {
+        missing.push(row.name);
+        continue;
+      }
+      items.push({ companyId, brainId });
+    }
+    if (!items.length) {
+      toast.error(
+        missing.length
+          ? `No valid Offering Brain for: ${missing.slice(0, 3).join(", ")}${missing.length > 3 ? "…" : ""}. Pick a Brain filter or re-score first.`
+          : "Selected companies are not on the current page — scroll to them and try again",
+      );
+      return;
+    }
+    if (missing.length) {
+      toast.warning(`${missing.length} selected company(ies) skipped — no valid brain`);
+    }
     createShareListMutation.mutate({
       items,
       shareListName: `Company DB — ${new Date().toLocaleDateString()}`,

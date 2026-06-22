@@ -1277,6 +1277,15 @@ export async function getCompanyDatabase(opts: {
       // Brain used for last generation (denormalised for fast display)
       generatedWithBrainId: companies.generatedWithBrainId,
       generatedWithBrainName: companies.generatedWithBrainName,
+      // Brain with highest fit score that still exists in offering_brain
+      primaryBrainId: sql<number | null>`(
+        SELECT cbo2.brainId
+        FROM company_brain_outputs cbo2
+        INNER JOIN offering_brain ob2 ON cbo2.brainId = ob2.id
+        WHERE cbo2.companyId = ${companies.id}
+        ORDER BY cbo2.fitScore IS NULL, cbo2.fitScore DESC, cbo2.updatedAt DESC
+        LIMIT 1
+      )`,
       // All brain names from company_brain_outputs (correlated subquery — avoids GROUP BY/ORDER BY conflicts)
       allBrainNames: sql<string>`(
         SELECT GROUP_CONCAT(DISTINCT ob2.brainName ORDER BY ob2.brainName SEPARATOR '||')

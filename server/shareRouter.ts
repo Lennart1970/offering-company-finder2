@@ -82,6 +82,33 @@ function generateToken(): string {
   return crypto.randomBytes(16).toString("hex");
 }
 
+async function assertValidShareBrain(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  brainId: number,
+  companyId: number,
+): Promise<void> {
+  const brainRows = await db
+    .select({ id: offeringBrain.id })
+    .from(offeringBrain)
+    .where(eq(offeringBrain.id, brainId))
+    .limit(1);
+  if (brainRows.length > 0) return;
+
+  const companyRows = await db
+    .select({ name: companies.name })
+    .from(companies)
+    .where(eq(companies.id, companyId))
+    .limit(1);
+  const companyLabel = companyRows[0]?.name ?? `company ${companyId}`;
+
+  throw new TRPCError({
+    code: "BAD_REQUEST",
+    message:
+      `Offering Brain ${brainId} not found for ${companyLabel}. ` +
+      `Choose a Brain filter on Company Database, or re-score the company with a current brain.`,
+  });
+}
+
 async function logShareContactRetrieval(
   db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
   params: {
@@ -145,6 +172,7 @@ export const shareRouter = router({
         if (existing.length > 0) {
           results.push({ companyId: item.companyId, brainId: item.brainId, token: existing[0].token });
         } else {
+          await assertValidShareBrain(db, item.brainId, item.companyId);
           const token = generateToken();
           await db.insert(shareTokens).values({
             token,
@@ -478,6 +506,7 @@ export const shareRouter = router({
         if (existing.length > 0) {
           tokenResults.push({ companyId: item.companyId, brainId: item.brainId, token: existing[0].token, tokenId: existing[0].id });
         } else {
+          await assertValidShareBrain(db, item.brainId, item.companyId);
           const token = generateToken();
           await db.insert(shareTokens).values({ token, companyId: item.companyId, brainId: item.brainId, createdBy: userId, shareListName: input.shareListName ?? null });
           const inserted = await db.select().from(shareTokens).where(eq(shareTokens.token, token)).limit(1);

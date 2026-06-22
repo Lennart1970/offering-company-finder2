@@ -249,6 +249,40 @@ export default function ShareListPage() {
     XLSX.writeFile(wb, `${listName.replace(/\s+/g, "-")}.xlsx`);
   }
 
+  function escapeCsvField(v: unknown): string {
+    const s = String(v ?? "").replace(/\r\n/g, "\n").trim();
+    if (s.includes(",") || s.includes('"') || s.includes("\n")) {
+      return `"${s.replace(/"/g, '""')}"`;
+    }
+    return s;
+  }
+
+  // -- Simple 4-column CSV for Excel / CRM merge --------------------------------
+  function handleDownloadLinksCsv() {
+    if (!data) return;
+    const listName = data.shareListName ?? "share-list";
+    const header = "Company Name,Company Website,SharePoint URL,Shareable Page URL";
+    const body = displayCompanies
+      .map((c: any) =>
+        [
+          c.companyName,
+          c.website ?? "",
+          c.sharepointPageLink ?? "",
+          `${window.location.origin}/share/${c.token}`,
+        ]
+          .map(escapeCsvField)
+          .join(",")
+      )
+      .join("\r\n");
+    const blob = new Blob(["\uFEFF" + header + "\r\n" + body + "\r\n"], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `${listName.replace(/\s+/g, "-")}-links.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  }
+
   // -- Minimal Vibe import file (tab-separated, exact column contract) --------
   function handleDownloadShareLinksCsv() {
     if (!data) return;
@@ -258,6 +292,7 @@ export default function ShareListPage() {
       .map((c: any) => ({
         LinkID: c.linkId,
         Company: c.companyName,
+        CompanyWebsite: c.website ?? "",
         SharePointItemUrl: c.sharepointPageLink ?? "",
         LeadTriggerSharePage: `${window.location.origin}/share/${c.token}`,
         Campaign: listName,
@@ -269,12 +304,13 @@ export default function ShareListPage() {
     }
 
     const cleanTsvValue = (v: string) => v.replace(/\t/g, " ").replace(/\r?\n/g, " ").trim();
-    const header = "Link ID\tCompany\tSharePoint Item URL\tLeadTrigger Share Page\tCampaign";
+    const header = "Link ID\tCompany\tCompany Website\tSharePoint Item URL\tLeadTrigger Share Page\tCampaign";
     const body = rows
       .map((r) =>
         [
           r.LinkID,
           r.Company,
+          r.CompanyWebsite,
           r.SharePointItemUrl,
           r.LeadTriggerSharePage,
           r.Campaign,
@@ -385,6 +421,14 @@ export default function ShareListPage() {
               className="bg-black text-white hover:bg-gray-800 font-black text-xs px-4 py-2 h-auto"
             >
               ⬇ Download Excel
+            </Button>
+            <Button
+              onClick={handleDownloadLinksCsv}
+              variant="outline"
+              className="border-black text-black hover:bg-gray-100 font-black text-xs px-4 py-2 h-auto"
+              title="Company name, website, SharePoint URL, and shareable brief link"
+            >
+              ⬇ Download CSV
             </Button>
             <Button
               onClick={handleDownloadShareLinksCsv}

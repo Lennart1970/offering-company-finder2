@@ -19,7 +19,7 @@ Implementation guide for Manus WebDev engineer.
 2. **Share list Excel export — same CRM fields** — Download Excel includes the same two columns for parity with JSON.
 3. **Batch CRM enrichment on list load** — `resolveListToken` enriches each company with `linkId` and `sharepointPageLink` (SharePoint ID → domain → company name). Cached for 24h in `shareCache`.
 4. **Share list CRM badge optimization** — `CgLeadBadge` receives `sharepointId` when already resolved server-side.
-5. **Vibe / Power App import file** — **Share Links (CRM)** now downloads a `.tsv` file with the exact Vibe contract: `Link ID`, `Company`, `SharePoint Item URL`, `LeadTrigger Share Page`, `Campaign`.
+5. **Vibe / Power App import file** — **Share Links (CRM)** now downloads a `.tsv` file with the exact Vibe contract: `Link ID`, `Company`, `Company Website`, `SharePoint Item URL`, `LeadTrigger Share Page`, `Campaign`.
 6. **Share page deep research requests** — Visitors on `/share/:token` can request deep research + outreach (log-only; internal team processes manually). Daily quota: 10 requests per visitor email.
 7. **Admin research request log** — `/share-access-log` → **Research Requests** tab; mark pending requests complete or cancelled.
 8. **Migration 0067** — Creates `share_research_requests` table.
@@ -151,7 +151,7 @@ SELECT * FROM share_allowed_domains;
 3. Open in a text editor or Excel and confirm first row is exactly:
 
    ```text
-   Link ID	Company	SharePoint Item URL	LeadTrigger Share Page	Campaign
+   Link ID	Company	Company Website	SharePoint Item URL	LeadTrigger Share Page	Campaign
    ```
 
 4. Confirm remaining rows are tab-separated, not comma- or semicolon-separated.
@@ -233,7 +233,7 @@ Include: migration output, test share list URL, sample JSON snippet with Link ID
 | Research request 500 | Migration 0067 not applied |
 | Daily limit error on first request | Quota already used today for that email (10/day) |
 | Vibe import skips all rows | TSV header/order changed, or Link ID column is empty/non-numeric |
-| Vibe import creates wrong mapping | File must be tab-separated with exact order: Link ID, Company, SharePoint Item URL, LeadTrigger Share Page, Campaign |
+| Vibe import creates wrong mapping | File must be tab-separated with exact order: Link ID, Company, Company Website, SharePoint Item URL, LeadTrigger Share Page, Campaign |
 
 ---
 

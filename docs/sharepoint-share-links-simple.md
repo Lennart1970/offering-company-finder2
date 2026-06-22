@@ -20,8 +20,8 @@ No Power Automate. One TSV export, one helper list in SharePoint, one lookup on 
 3. You get a tab-separated `.tsv` file with only CRM-matched rows:
 
 ```text
-Link ID	Company	SharePoint Item URL	LeadTrigger Share Page	Campaign
-42	BAE SYSTEMS	https://connectgroup0.sharepoint.com/sites/.../DispForm.aspx?ID=42	https://up.manus.space/share/abc123…	Defense Leads 5/19/2026
+Link ID	Company	Company Website	SharePoint Item URL	LeadTrigger Share Page	Campaign
+42	BAE SYSTEMS	https://www.baesystems.com	https://connectgroup0.sharepoint.com/sites/.../DispForm.aspx?ID=42	https://up.manus.space/share/abc123…	Defense Leads 5/19/2026
 ```
 
 Rows without a CRM Link ID are omitted (they cannot tie to Leadlist `ID`).
@@ -36,13 +36,14 @@ Site: `Connect4Sales_CG` → **New list** → name: **LT Share Links**
 |--------|------|--------|
 | **Title** | Single line (default) | Company name |
 | **Link ID** | Number | Same as Leadlist `ID` |
+| **Company Website** | Multiple lines of text | From TSV — use multiline if URLs are long or messy |
 | **Share Page** | Hyperlink | LeadTrigger company brief URL |
 | **Campaign** | Single line | Optional list name |
 
 ### Import the TSV
 
 1. Open **LT Share Links** → **Integrate** → **Excel** → **Export to Excel** (creates workbook)
-2. Paste **Link ID**, **Company**, **SharePoint Item URL**, **LeadTrigger Share Page**, **Campaign** from the TSV
+2. Paste **Link ID**, **Company**, **Company Website**, **SharePoint Item URL**, **LeadTrigger Share Page**, **Campaign** from the TSV
 3. For **LeadTrigger Share Page**, use Excel in the hyperlink column: `=HYPERLINK(D2,"View brief")` (adjust cell ref) — plain TSV paste alone may not create clickable links
 4. Save workbook back to SharePoint (sync)
 
@@ -157,5 +158,6 @@ Create one **LT Share Links — Defense May 2026** list per campaign, or one lis
 
 ## Related
 
+- [`docs/dataverse-share-links-simple.md`](./dataverse-share-links-simple.md) — same TSV → **LT Share Links** on a Dataverse table (Power Automate)
 - [`docs/link to item.csv`](./link%20to%20item.csv) — CRM Leadlist export (Company;Website;ID;LinkToItem)
 - [`docs/manus-deploy-handoff-share-export-research-june-2026.md`](./manus-deploy-handoff-share-export-research-june-2026.md) — Link ID in exports

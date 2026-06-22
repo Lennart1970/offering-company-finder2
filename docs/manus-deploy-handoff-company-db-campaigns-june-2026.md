@@ -10,7 +10,7 @@ Implementation guide for Manus WebDev engineer.
 |------|-------|
 | **Repo** | [offering-company-finder2](https://github.com/Lennart1970/offering-company-finder2) |
 | **Branch** | `main` |
-| **Target commit** | Latest on `main` after pull (see `git log -1 --oneline`) |
+| **Target commit** | `4a44bdd` — *Add Company Database campaign creation with Manus deploy handoff.* |
 | **Deploy target** | Manus WebDev (TiDB MySQL + existing Supabase env) |
 
 ### What's in this release
@@ -33,6 +33,7 @@ git fetch origin
 git checkout main
 git pull origin main
 git log -1 --oneline
+# Expect: 4a44bdd or newer
 ```
 
 Then:
@@ -150,7 +151,7 @@ Existing requirements (unchanged):
 
 Reply to product owner with:
 
-- [ ] Git commit deployed: `________`
+- [ ] Git commit deployed: `4a44bdd` (or newer on main)
 - [ ] Migrations: **N/A** (none)
 - [ ] `npm run build` / `tsc --noEmit`: 0 errors
 - [ ] Smoke test A — filter campaign: pass

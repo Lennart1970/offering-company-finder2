@@ -1512,8 +1512,8 @@ async function getCompanyBrainOutputsForSearch(companyIds, brainId) {
   const db = await getDb();
   const map = /* @__PURE__ */ new Map();
   if (!db || companyIds.length === 0) return map;
-  const { inArray: inArray14, and: and14 } = await import("drizzle-orm");
-  const rows = await db.select().from(companyBrainOutputs).where(and14(inArray14(companyBrainOutputs.companyId, companyIds), eq(companyBrainOutputs.brainId, brainId)));
+  const { inArray: inArray15, and: and14 } = await import("drizzle-orm");
+  const rows = await db.select().from(companyBrainOutputs).where(and14(inArray15(companyBrainOutputs.companyId, companyIds), eq(companyBrainOutputs.brainId, brainId)));
   for (const row of rows) map.set(row.companyId, row);
   return map;
 }
@@ -1561,21 +1561,21 @@ function companyCrmPresenceCondition(db, mode) {
   return mode === "in" ? matchExists : not(matchExists);
 }
 async function getCompanyDatabase(opts) {
-  const { asc: asc2, desc: desc5, like, and: and14, gte: gte3, isNotNull: isNotNull6, isNull: isNull7, inArray: inArray14, sql: _sql } = await import("drizzle-orm");
+  const { asc: asc2, desc: desc5, like, and: and14, gte: gte3, isNotNull: isNotNull6, isNull: isNull7, inArray: inArray15, sql: _sql } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return [];
   const { limit, offset, sortBy = "fitScore", sortDir = "desc", search, searchId, searchIds, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin, crmFilter } = opts;
   const conditions = [];
   if (search) conditions.push(like(companies.name, `%${search}%`));
-  if (searchIds && searchIds.length > 0) conditions.push(inArray14(companies.searchId, searchIds));
+  if (searchIds && searchIds.length > 0) conditions.push(inArray15(companies.searchId, searchIds));
   else if (searchId) conditions.push(eq(companies.searchId, searchId));
   if (country) conditions.push(eq(companies.country, country));
-  else if (countries && countries.length > 0) conditions.push(inArray14(companies.country, countries));
+  else if (countries && countries.length > 0) conditions.push(inArray15(companies.country, countries));
   if (sector) conditions.push(eq(companies.sector, sector));
   if (minFitScore !== void 0) conditions.push(gte3(companies.fitScore, minFitScore));
   if (hasFitScore) conditions.push(isNotNull6(companies.fitScore));
   if (brainId) conditions.push(
-    inArray14(
+    inArray15(
       companies.id,
       db.select({ id: companyBrainOutputs.companyId }).from(companyBrainOutputs).where(eq(companyBrainOutputs.brainId, brainId))
     )
@@ -1680,21 +1680,21 @@ async function getCompanyDatabase(opts) {
   return rows;
 }
 async function countCompanyDatabase(opts) {
-  const { count: count2, like, and: and14, gte: gte3, isNotNull: isNotNull6, isNull: isNull7, inArray: inArray14 } = await import("drizzle-orm");
+  const { count: count2, like, and: and14, gte: gte3, isNotNull: isNotNull6, isNull: isNull7, inArray: inArray15 } = await import("drizzle-orm");
   const db = await getDb();
   if (!db) return 0;
   const { search, searchId, searchIds, country, countries, sector, brainId, minFitScore, hasFitScore, articleFilter, cgBusinessUnit, cgLeadClass, cgLeadOrigin, crmFilter } = opts;
   const conditions = [];
   if (search) conditions.push(like(companies.name, `%${search}%`));
-  if (searchIds && searchIds.length > 0) conditions.push(inArray14(companies.searchId, searchIds));
+  if (searchIds && searchIds.length > 0) conditions.push(inArray15(companies.searchId, searchIds));
   else if (searchId) conditions.push(eq(companies.searchId, searchId));
   if (country) conditions.push(eq(companies.country, country));
-  else if (countries && countries.length > 0) conditions.push(inArray14(companies.country, countries));
+  else if (countries && countries.length > 0) conditions.push(inArray15(companies.country, countries));
   if (sector) conditions.push(eq(companies.sector, sector));
   if (minFitScore !== void 0) conditions.push(gte3(companies.fitScore, minFitScore));
   if (hasFitScore) conditions.push(isNotNull6(companies.fitScore));
   if (brainId) conditions.push(
-    inArray14(
+    inArray15(
       companies.id,
       db.select({ id: companyBrainOutputs.companyId }).from(companyBrainOutputs).where(eq(companyBrainOutputs.brainId, brainId))
     )
@@ -1733,26 +1733,26 @@ async function getCompanyDatabaseSearches() {
 async function getCompanyDatabaseCountries() {
   const db = await getDb();
   if (!db) return [];
-  const { sql: sql9 } = await import("drizzle-orm");
-  const rows = await db.selectDistinct({ country: companies.country }).from(companies).where(sql9`${companies.country} IS NOT NULL AND ${companies.country} != ''`).orderBy(companies.country);
+  const { sql: sql10 } = await import("drizzle-orm");
+  const rows = await db.selectDistinct({ country: companies.country }).from(companies).where(sql10`${companies.country} IS NOT NULL AND ${companies.country} != ''`).orderBy(companies.country);
   return rows.map((r) => r.country).filter(Boolean);
 }
 async function getCompanyDatabaseSectors() {
   const db = await getDb();
   if (!db) return [];
-  const { count: count2, isNotNull: isNotNull6, sql: sql9 } = await import("drizzle-orm");
-  const rows = await db.select({ sector: companies.sector, cnt: count2() }).from(companies).where(isNotNull6(companies.sector)).groupBy(companies.sector).orderBy(sql9`count(*) desc`).limit(100);
+  const { count: count2, isNotNull: isNotNull6, sql: sql10 } = await import("drizzle-orm");
+  const rows = await db.select({ sector: companies.sector, cnt: count2() }).from(companies).where(isNotNull6(companies.sector)).groupBy(companies.sector).orderBy(sql10`count(*) desc`).limit(100);
   return rows.filter((r) => r.sector && r.sector !== "null").map((r) => ({ sector: r.sector, count: Number(r.cnt) }));
 }
 async function getCompanyDatabaseBrains() {
   const db = await getDb();
   if (!db) return [];
-  const { count: count2, sql: sql9 } = await import("drizzle-orm");
+  const { count: count2, sql: sql10 } = await import("drizzle-orm");
   const rows = await db.select({
     id: offeringBrain.id,
     brainName: offeringBrain.brainName,
     cnt: count2(companyBrainOutputs.companyId)
-  }).from(offeringBrain).innerJoin(companyBrainOutputs, eq(offeringBrain.id, companyBrainOutputs.brainId)).groupBy(offeringBrain.id).orderBy(sql9`count(${companyBrainOutputs.companyId}) desc`);
+  }).from(offeringBrain).innerJoin(companyBrainOutputs, eq(offeringBrain.id, companyBrainOutputs.brainId)).groupBy(offeringBrain.id).orderBy(sql10`count(${companyBrainOutputs.companyId}) desc`);
   return rows.map((r) => ({
     id: r.id,
     brainName: r.brainName,
@@ -1762,22 +1762,22 @@ async function getCompanyDatabaseBrains() {
 async function getCompanyDatabaseCgBusinessUnits() {
   const db = await getDb();
   if (!db) return [];
-  const { count: count2, isNotNull: isNotNull6, sql: sql9 } = await import("drizzle-orm");
-  const rows = await db.select({ bu: companies.cgBusinessUnit, cnt: count2() }).from(companies).where(isNotNull6(companies.cgBusinessUnit)).groupBy(companies.cgBusinessUnit).orderBy(sql9`count(*) desc`);
+  const { count: count2, isNotNull: isNotNull6, sql: sql10 } = await import("drizzle-orm");
+  const rows = await db.select({ bu: companies.cgBusinessUnit, cnt: count2() }).from(companies).where(isNotNull6(companies.cgBusinessUnit)).groupBy(companies.cgBusinessUnit).orderBy(sql10`count(*) desc`);
   return rows.map((r) => ({ bu: r.bu, count: Number(r.cnt) }));
 }
 async function getCompanyDatabaseCgLeadClasses() {
   const db = await getDb();
   if (!db) return [];
-  const { count: count2, isNotNull: isNotNull6, sql: sql9 } = await import("drizzle-orm");
-  const rows = await db.select({ cls: companies.cgLeadClass, cnt: count2() }).from(companies).where(isNotNull6(companies.cgLeadClass)).groupBy(companies.cgLeadClass).orderBy(sql9`count(*) desc`);
+  const { count: count2, isNotNull: isNotNull6, sql: sql10 } = await import("drizzle-orm");
+  const rows = await db.select({ cls: companies.cgLeadClass, cnt: count2() }).from(companies).where(isNotNull6(companies.cgLeadClass)).groupBy(companies.cgLeadClass).orderBy(sql10`count(*) desc`);
   return rows.map((r) => ({ cls: r.cls, count: Number(r.cnt) }));
 }
 async function getCompanyDatabaseCgLeadOrigins() {
   const db = await getDb();
   if (!db) return [];
-  const { count: count2, isNotNull: isNotNull6, sql: sql9 } = await import("drizzle-orm");
-  const rows = await db.select({ origin: companies.cgLeadOrigin, cnt: count2() }).from(companies).where(isNotNull6(companies.cgLeadOrigin)).groupBy(companies.cgLeadOrigin).orderBy(sql9`count(*) desc`);
+  const { count: count2, isNotNull: isNotNull6, sql: sql10 } = await import("drizzle-orm");
+  const rows = await db.select({ origin: companies.cgLeadOrigin, cnt: count2() }).from(companies).where(isNotNull6(companies.cgLeadOrigin)).groupBy(companies.cgLeadOrigin).orderBy(sql10`count(*) desc`);
   return rows.map((r) => ({ origin: r.origin, count: Number(r.cnt) }));
 }
 function normalizeCgCompanyName(s) {
@@ -6180,8 +6180,8 @@ async function runBulkSimilarityScoring(opts) {
   const sb = getSupabase();
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const { sql: sql9 } = await import("drizzle-orm");
-  const brainRows = opts.brainId ? await db.execute(sql9`SELECT id, brainName FROM offering_brain WHERE id = ${opts.brainId} LIMIT 1`) : await db.execute(sql9`SELECT id, brainName FROM offering_brain WHERE isActive = 1 AND show_on_leadtrigger = 1 ORDER BY updatedAt DESC LIMIT 1`);
+  const { sql: sql10 } = await import("drizzle-orm");
+  const brainRows = opts.brainId ? await db.execute(sql10`SELECT id, brainName FROM offering_brain WHERE id = ${opts.brainId} LIMIT 1`) : await db.execute(sql10`SELECT id, brainName FROM offering_brain WHERE isActive = 1 AND show_on_leadtrigger = 1 ORDER BY updatedAt DESC LIMIT 1`);
   const brainArr = brainRows;
   if (!brainArr || brainArr.length === 0) {
     throw new Error(opts.brainId ? `Brain id=${opts.brainId} not found` : "No active Brain found \u2014 cannot compute similarity scores");
@@ -6258,11 +6258,11 @@ async function runBulkSimilarityScoring(opts) {
     const batchIds = batch.map((u) => u.mysqlId);
     const caseScore = batch.map((u) => `WHEN ${u.mysqlId} THEN ${u.score}`).join(" ");
     const inList = batchIds.join(",");
-    await db.execute(sql9`
+    await db.execute(sql10`
       UPDATE companies
-      SET similarityScore = CASE id ${sql9.raw(caseScore)} END,
+      SET similarityScore = CASE id ${sql10.raw(caseScore)} END,
           similarityScoreGeneratedAt = ${now}
-      WHERE id IN (${sql9.raw(inList)})
+      WHERE id IN (${sql10.raw(inList)})
     `);
     updated += batch.length;
     if (updated % 2e3 === 0 || updated === mysqlUpdates.length) {
@@ -6832,6 +6832,183 @@ var init_companySimilaritySearch = __esm({
   }
 });
 
+// server/companyDbCampaign.ts
+var companyDbCampaign_exports = {};
+__export(companyDbCampaign_exports, {
+  COMPANY_DB_CAMPAIGN_MAX: () => COMPANY_DB_CAMPAIGN_MAX,
+  cloneCompaniesToCampaign: () => cloneCompaniesToCampaign,
+  resolveCompanyIdsFromFilter: () => resolveCompanyIdsFromFilter
+});
+import { TRPCError as TRPCError3 } from "@trpc/server";
+import { eq as eq5, inArray as inArray5, sql as sql2 } from "drizzle-orm";
+function companyMatchKey(c) {
+  if (c.apolloId) return `apollo:${c.apolloId}`;
+  const domain = c.primaryDomain?.trim().toLowerCase();
+  if (domain) return `domain:${domain}`;
+  return `name:${c.name.trim().toLowerCase()}|${(c.country ?? "").trim().toLowerCase()}`;
+}
+async function cloneCompaniesToCampaign(opts) {
+  const { userId, brainId, campaignName, companyIds } = opts;
+  if (companyIds.length === 0) {
+    throw new TRPCError3({ code: "BAD_REQUEST", message: "No companies selected" });
+  }
+  if (companyIds.length > COMPANY_DB_CAMPAIGN_MAX) {
+    throw new TRPCError3({
+      code: "BAD_REQUEST",
+      message: `Maximum ${COMPANY_DB_CAMPAIGN_MAX} companies per campaign`
+    });
+  }
+  const db = await getDb();
+  if (!db) {
+    throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+  }
+  const brainRows = await db.execute(
+    sql2`SELECT id, brainName, companyWebsite FROM offering_brain WHERE id = ${brainId} LIMIT 1`
+  );
+  const brainArr = Array.isArray(brainRows[0]) ? brainRows[0] : brainRows;
+  if (!brainArr?.length) {
+    throw new TRPCError3({ code: "NOT_FOUND", message: `Brain ${brainId} not found` });
+  }
+  const brain = brainArr[0];
+  const uniqueIds = [...new Set(companyIds)];
+  const sourceCompanies = await db.select().from(companies).where(inArray5(companies.id, uniqueIds));
+  if (sourceCompanies.length === 0) {
+    throw new TRPCError3({ code: "BAD_REQUEST", message: "No matching companies found" });
+  }
+  const searchId = await createSearch({
+    userId,
+    companyWebsite: brain.companyWebsite || "company-database",
+    location: campaignName,
+    offeringName: `[DB] ${campaignName}`,
+    brainId,
+    status: "completed",
+    sharedWithTeam: 0,
+    isArchived: 0
+  });
+  const sourceBrainOutputs = await getCompanyBrainOutputsForSearch(
+    sourceCompanies.map((c) => c.id),
+    brainId
+  );
+  let copied = 0;
+  try {
+    const BATCH_SIZE2 = 100;
+    for (let i = 0; i < sourceCompanies.length; i += BATCH_SIZE2) {
+      const batch = sourceCompanies.slice(i, i + BATCH_SIZE2).map((c) => {
+        const { id: _id, searchId: _searchId, ...rest } = c;
+        return { ...rest, searchId };
+      });
+      await createCompanies(batch);
+      copied += batch.length;
+    }
+    const newCompanies = await db.select({
+      id: companies.id,
+      apolloId: companies.apolloId,
+      primaryDomain: companies.primaryDomain,
+      name: companies.name,
+      country: companies.country
+    }).from(companies).where(eq5(companies.searchId, searchId));
+    const newByKey = /* @__PURE__ */ new Map();
+    for (const row of newCompanies) {
+      newByKey.set(companyMatchKey(row), row.id);
+    }
+    const outputRows = [];
+    for (const source of sourceCompanies) {
+      const output = sourceBrainOutputs.get(source.id);
+      if (!output) continue;
+      const newCompanyId = newByKey.get(companyMatchKey(source));
+      if (!newCompanyId) continue;
+      const { id: _oid, companyId: _oc, createdAt: _ca, updatedAt: _ua, ...outputRest } = output;
+      outputRows.push({
+        ...outputRest,
+        companyId: newCompanyId,
+        brainId
+      });
+    }
+    if (outputRows.length > 0) {
+      await db.insert(companyBrainOutputs).values(outputRows);
+    }
+  } catch (copyErr) {
+    try {
+      await db.delete(searches).where(eq5(searches.id, searchId));
+    } catch {
+    }
+    const message = copyErr instanceof Error ? copyErr.message : String(copyErr);
+    throw new TRPCError3({
+      code: "INTERNAL_SERVER_ERROR",
+      message: `Failed to copy companies into campaign: ${message}`
+    });
+  }
+  if (copied === 0) {
+    try {
+      await db.delete(searches).where(eq5(searches.id, searchId));
+    } catch {
+    }
+    throw new TRPCError3({
+      code: "INTERNAL_SERVER_ERROR",
+      message: "Campaign creation failed: 0 companies were copied"
+    });
+  }
+  console.log(
+    `[companyDbCampaign] Created "[DB] ${campaignName}" (searchId=${searchId}) with ${copied} companies`
+  );
+  return { searchId, companiesCopied: copied };
+}
+async function resolveCompanyIdsFromFilter(filter) {
+  const { getCompanyDatabase: getCompanyDatabase2, countCompanyDatabase: countCompanyDatabase2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+  const articleFilter = filter.articleFilter && filter.articleFilter !== "any" ? filter.articleFilter : void 0;
+  const [rows, totalMatched] = await Promise.all([
+    getCompanyDatabase2({
+      limit: COMPANY_DB_CAMPAIGN_MAX,
+      offset: 0,
+      sortBy: filter.sortBy,
+      sortDir: filter.sortDir,
+      search: filter.search,
+      searchId: filter.searchId,
+      searchIds: filter.searchIds,
+      country: filter.country,
+      countries: filter.countries,
+      sector: filter.sector,
+      brainId: filter.brainId,
+      minFitScore: filter.minFitScore,
+      hasFitScore: filter.hasFitScore,
+      articleFilter,
+      cgBusinessUnit: filter.cgBusinessUnit,
+      cgLeadClass: filter.cgLeadClass,
+      cgLeadOrigin: filter.cgLeadOrigin,
+      crmFilter: filter.crmFilter
+    }),
+    countCompanyDatabase2({
+      search: filter.search,
+      searchId: filter.searchId,
+      searchIds: filter.searchIds,
+      country: filter.country,
+      countries: filter.countries,
+      sector: filter.sector,
+      brainId: filter.brainId,
+      minFitScore: filter.minFitScore,
+      hasFitScore: filter.hasFitScore,
+      articleFilter,
+      cgBusinessUnit: filter.cgBusinessUnit,
+      cgLeadClass: filter.cgLeadClass,
+      cgLeadOrigin: filter.cgLeadOrigin,
+      crmFilter: filter.crmFilter
+    })
+  ]);
+  return {
+    companyIds: rows.map((r) => r.id),
+    totalMatched
+  };
+}
+var COMPANY_DB_CAMPAIGN_MAX;
+var init_companyDbCampaign = __esm({
+  "server/companyDbCampaign.ts"() {
+    "use strict";
+    init_schema();
+    init_db();
+    COMPANY_DB_CAMPAIGN_MAX = 100;
+  }
+});
+
 // server/embeddingService.ts
 import OpenAI from "openai";
 function getOpenAIClient() {
@@ -6952,12 +7129,12 @@ async function embedAndScoreCompany(company) {
       return { embedded: false, similarityScore: null, activeBrainId: null, error: upsertErr.message };
     }
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-    const { sql: sql9 } = await import("drizzle-orm");
+    const { sql: sql10 } = await import("drizzle-orm");
     const db = await getDb2();
     if (!db) {
       return { embedded: true, similarityScore: null, activeBrainId: null, error: "DB not available" };
     }
-    const brainRows = await db.execute(sql9`
+    const brainRows = await db.execute(sql10`
       SELECT id, brainName FROM offering_brain
       WHERE isActive = 1 AND show_on_leadtrigger = 1
       ORDER BY updatedAt DESC LIMIT 1
@@ -6977,7 +7154,7 @@ async function embedAndScoreCompany(company) {
     const sim = cosineSimilarity5(vector, brainVector);
     const score = Math.round((sim + 1) / 2 * 100);
     const now = /* @__PURE__ */ new Date();
-    await db.execute(sql9`
+    await db.execute(sql10`
       UPDATE companies
       SET similarityScore = ${score},
           similarityScoreGeneratedAt = ${now},
@@ -7466,7 +7643,7 @@ var systemRouter = router({
 // server/companyFinder.ts
 init_db();
 init_apolloPeopleSearch();
-import { TRPCError as TRPCError3 } from "@trpc/server";
+import { TRPCError as TRPCError4 } from "@trpc/server";
 import { z as z2 } from "zod";
 import { randomUUID } from "crypto";
 
@@ -8164,23 +8341,23 @@ init_naicsHierarchy();
 async function assertSearchAccess(searchId, _userId) {
   const search = await getSearchById(searchId);
   if (!search) {
-    throw new TRPCError3({ code: "NOT_FOUND", message: "Search not found" });
+    throw new TRPCError4({ code: "NOT_FOUND", message: "Search not found" });
   }
   return search;
 }
 async function assertSearchOwner(searchId, userId) {
   const search = await getSearchById(searchId);
   if (!search || search.userId !== userId) {
-    throw new TRPCError3({ code: "FORBIDDEN", message: "Only the campaign owner can perform this action" });
+    throw new TRPCError4({ code: "FORBIDDEN", message: "Only the campaign owner can perform this action" });
   }
   return search;
 }
 async function assertCompanyAccess(companyId, userId) {
   const company = await getCompanyById(companyId);
-  if (!company) throw new TRPCError3({ code: "NOT_FOUND", message: "Company not found" });
+  if (!company) throw new TRPCError4({ code: "NOT_FOUND", message: "Company not found" });
   const search = await getSearchById(company.searchId);
   if (!search || search.userId !== userId && !search.sharedWithTeam) {
-    throw new TRPCError3({ code: "FORBIDDEN", message: "Access denied" });
+    throw new TRPCError4({ code: "FORBIDDEN", message: "Access denied" });
   }
   return company;
 }
@@ -8205,7 +8382,7 @@ var companyFinderRouter = router({
   ).mutation(async ({ ctx, input }) => {
     const brain = await getActiveBrain(ctx.user.id);
     if (!brain || brain.status !== "completed") {
-      throw new TRPCError3({
+      throw new TRPCError4({
         code: "PRECONDITION_FAILED",
         message: "No active Offering Brain found. Please create one first on the Brain page."
       });
@@ -8757,8 +8934,8 @@ var companyFinderRouter = router({
   // The doAll background loop checks this flag before each company and exits cleanly.
   cancelJob: protectedProcedure.input(z2.object({ jobId: z2.string() })).mutation(async ({ ctx, input }) => {
     const job = await getBatchJob(input.jobId);
-    if (!job) throw new TRPCError3({ code: "NOT_FOUND", message: "Job not found" });
-    if (job.userId !== ctx.user.id) throw new TRPCError3({ code: "FORBIDDEN", message: "Not your job" });
+    if (!job) throw new TRPCError4({ code: "NOT_FOUND", message: "Job not found" });
+    if (job.userId !== ctx.user.id) throw new TRPCError4({ code: "FORBIDDEN", message: "Not your job" });
     if (job.status !== "running") return { cancelled: false, reason: "Job is not running" };
     await updateBatchJob(input.jobId, { status: "cancelled", errorMessage: "Cancelled by user" });
     console.log(`[cancelJob] jobId=${input.jobId} cancelled by user ${ctx.user.id}`);
@@ -9119,7 +9296,7 @@ var companyFinderRouter = router({
       };
     }
     const domain = company.websiteUrl ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "") : company.primaryDomain || null;
-    if (!domain) throw new TRPCError3({ code: "BAD_REQUEST", message: "This company has no website URL. Please add one to enable contact search." });
+    if (!domain) throw new TRPCError4({ code: "BAD_REQUEST", message: "This company has no website URL. Please add one to enable contact search." });
     console.log(`[findContact] Searching for "${input.jobTitle}" at ${company.name} (${domain})`);
     try {
       const contact = await searchApolloContacts({
@@ -9644,7 +9821,7 @@ var companyFinderRouter = router({
   })).mutation(async ({ ctx, input }) => {
     const brain = await getOfferingBrainById(input.brainId, ctx.user.id);
     if (!brain) throw new Error("Brain not found or access denied");
-    if (brain.userId !== ctx.user.id) throw new TRPCError3({ code: "FORBIDDEN", message: "Only the brain owner can change sharing settings" });
+    if (brain.userId !== ctx.user.id) throw new TRPCError4({ code: "FORBIDDEN", message: "Only the brain owner can change sharing settings" });
     await updateOfferingBrain(input.brainId, { isShared: input.isShared ? 1 : 0 });
     return { success: true, isShared: input.isShared };
   }),
@@ -9707,7 +9884,7 @@ var companyFinderRouter = router({
   })).mutation(async ({ ctx, input }) => {
     const company = await assertCompanyAccess(input.companyId, ctx.user.id);
     const domain = company.websiteUrl ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "") : company.primaryDomain || null;
-    if (!domain) throw new TRPCError3({ code: "BAD_REQUEST", message: "This company has no website URL. Please add one to enable contact search." });
+    if (!domain) throw new TRPCError4({ code: "BAD_REQUEST", message: "This company has no website URL. Please add one to enable contact search." });
     console.log(`[Trickle-Down] Starting trickle-down search at ${company.name} (${domain})`);
     const existingContacts = await getContactsByCompanyId(input.companyId);
     if (existingContacts.length > 0) {
@@ -9777,7 +9954,7 @@ var companyFinderRouter = router({
   })).mutation(async ({ ctx, input }) => {
     const company = await assertCompanyAccess(input.companyId, ctx.user.id);
     const domain = company.websiteUrl ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "") : company.primaryDomain || null;
-    if (!domain) throw new TRPCError3({ code: "BAD_REQUEST", message: "This company has no website URL. Please add one to enable contact search." });
+    if (!domain) throw new TRPCError4({ code: "BAD_REQUEST", message: "This company has no website URL. Please add one to enable contact search." });
     console.log(`[Get All Personnel] Starting search at ${company.name} (${domain}), seniorities: ${input.seniorities?.join(",") || "all"}, dept: ${input.department || "any"}`);
     const result = await getAllPersonnel(
       domain,
@@ -9827,10 +10004,10 @@ var companyFinderRouter = router({
     includePhone: z2.boolean().optional()
   })).mutation(async ({ ctx, input }) => {
     const contact = await getContactById(input.contactId);
-    if (!contact) throw new TRPCError3({ code: "NOT_FOUND", message: "Contact not found" });
+    if (!contact) throw new TRPCError4({ code: "NOT_FOUND", message: "Contact not found" });
     const company = await assertCompanyAccess(contact.companyId, ctx.user.id);
     const domain = company.websiteUrl ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "") : company.primaryDomain || null;
-    if (!domain) throw new TRPCError3({ code: "BAD_REQUEST", message: "This company has no website URL. Please add one to enable enrichment." });
+    if (!domain) throw new TRPCError4({ code: "BAD_REQUEST", message: "This company has no website URL. Please add one to enable enrichment." });
     console.log(`[Enrich Contact] Enriching ${contact.fullName} at ${company.name}`);
     if (!contact.firstName || !contact.lastName) {
       throw new Error("Contact must have first name and last name for enrichment");
@@ -9845,9 +10022,9 @@ var companyFinderRouter = router({
     );
     const db = await Promise.resolve().then(() => (init_db(), db_exports));
     const drizzleDb = await db.getDb();
-    if (!drizzleDb) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+    if (!drizzleDb) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
     const { contacts: contactsTable } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq21 } = await import("drizzle-orm");
+    const { eq: eq22 } = await import("drizzle-orm");
     await drizzleDb.update(contactsTable).set({
       email: enriched.email || contact.email || null,
       phone: enriched.phone || contact.phone || null,
@@ -9855,9 +10032,9 @@ var companyFinderRouter = router({
       phonePending: enriched.phonePending ? 1 : 0,
       // Save Apollo person ID so webhook can match this contact when phone arrives
       ...enriched.apolloPersonId ? { apolloPersonId: enriched.apolloPersonId } : {}
-    }).where(eq21(contactsTable.id, contact.id));
+    }).where(eq22(contactsTable.id, contact.id));
     const updatedContact = await getContactById(contact.id);
-    if (!updatedContact) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "Failed to fetch updated contact" });
+    if (!updatedContact) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "Failed to fetch updated contact" });
     console.log(`[Enrich Contact] Completed: ${updatedContact.fullName} enriched. phonePending=${enriched.phonePending}`);
     return {
       contact: updatedContact,
@@ -10137,7 +10314,7 @@ var companyFinderRouter = router({
       return { success: true, result };
     } catch (error) {
       console.error(`[Fit Score] Error:`, error);
-      throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: error.message });
+      throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: error.message });
     }
   }),
   // Log a call outcome for a company
@@ -10152,7 +10329,7 @@ var companyFinderRouter = router({
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { callOutcomes: callOutcomes2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const db = await getDb2();
-    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    if (!db) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
     await db.insert(callOutcomes2).values({
       companyId: input.companyId,
       userId: ctx.user.id,
@@ -10167,17 +10344,17 @@ var companyFinderRouter = router({
     await assertCompanyAccess(input.companyId, ctx.user.id);
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { callOutcomes: callOutcomes2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq21, desc: desc5 } = await import("drizzle-orm");
+    const { eq: eq22, desc: desc5 } = await import("drizzle-orm");
     const db = await getDb2();
     if (!db) return { outcomes: [] };
-    const outcomes = await db.select().from(callOutcomes2).where(eq21(callOutcomes2.companyId, input.companyId)).orderBy(desc5(callOutcomes2.createdAt));
+    const outcomes = await db.select().from(callOutcomes2).where(eq22(callOutcomes2.companyId, input.companyId)).orderBy(desc5(callOutcomes2.createdAt));
     return { outcomes };
   }),
   // Get all companies with follow-up dates set (nurture list)
   getNurtureList: protectedProcedure.query(async ({ ctx }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { callOutcomes: callOutcomes2, companies: companies2, searches: searches3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq21, and: and14, isNotNull: isNotNull6, asc: asc2, desc: desc5, sql: sql9 } = await import("drizzle-orm");
+    const { eq: eq22, and: and14, isNotNull: isNotNull6, asc: asc2, desc: desc5, sql: sql10 } = await import("drizzle-orm");
     const db = await getDb2();
     if (!db) return { items: [] };
     const rows = await db.select({
@@ -10193,9 +10370,9 @@ var companyFinderRouter = router({
       companyCountry: companies2.country,
       urgencyScore: companies2.urgencyScore,
       searchId: companies2.searchId
-    }).from(callOutcomes2).innerJoin(companies2, eq21(callOutcomes2.companyId, companies2.id)).where(
+    }).from(callOutcomes2).innerJoin(companies2, eq22(callOutcomes2.companyId, companies2.id)).where(
       and14(
-        eq21(callOutcomes2.userId, ctx.user.id),
+        eq22(callOutcomes2.userId, ctx.user.id),
         isNotNull6(callOutcomes2.followUpDate)
       )
     ).orderBy(asc2(callOutcomes2.followUpDate));
@@ -10252,10 +10429,10 @@ var companyFinderRouter = router({
     try {
       const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
       const { leadinfoVisits: leadinfoVisits2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq21, sql: sql9 } = await import("drizzle-orm");
+      const { eq: eq22, sql: sql10 } = await import("drizzle-orm");
       const db = await getDb2();
       if (db) {
-        const rows = await db.select().from(leadinfoVisits2).where(eq21(leadinfoVisits2.companyId, input.companyId)).orderBy(sql9`${leadinfoVisits2.importedAt} DESC`).limit(1);
+        const rows = await db.select().from(leadinfoVisits2).where(eq22(leadinfoVisits2.companyId, input.companyId)).orderBy(sql10`${leadinfoVisits2.importedAt} DESC`).limit(1);
         leadinfoVisit = rows[0] || null;
       }
     } catch {
@@ -10351,7 +10528,7 @@ FIT RATIONALE: ${fitData.overallRationale}`);
     const { WHY_CALL_TODAY: WHY_CALL_TODAY2 } = await Promise.resolve().then(() => (init_prompts(), prompts_exports));
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { leadinfoVisits: leadinfoVisits2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq21, sql: sql9 } = await import("drizzle-orm");
+    const { eq: eq22, sql: sql10 } = await import("drizzle-orm");
     const eligible = allCompanies.filter((c) => c.briefData && c.enrichmentStatus === "enriched");
     let brainOffering = "";
     try {
@@ -10363,7 +10540,7 @@ FIT RATIONALE: ${fitData.overallRationale}`);
     const leadinfoMap = /* @__PURE__ */ new Map();
     if (db) {
       try {
-        const allVisits = await db.select().from(leadinfoVisits2).where(eq21(leadinfoVisits2.searchId, input.searchId));
+        const allVisits = await db.select().from(leadinfoVisits2).where(eq22(leadinfoVisits2.searchId, input.searchId));
         for (const v of allVisits) {
           if (v.companyId) leadinfoMap.set(v.companyId, v);
         }
@@ -10650,7 +10827,7 @@ FIT RATIONALE: ${fitData.overallRationale}`);
     const { invokeLLM: invokeLLM2 } = await Promise.resolve().then(() => (init_llm(), llm_exports));
     const { getActiveBrain: getActiveBrain2, getCompanyById: getCompanyById2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const company = await getCompanyById2(input.companyId);
-    if (!company) throw new TRPCError3({ code: "NOT_FOUND", message: "Company not found" });
+    if (!company) throw new TRPCError4({ code: "NOT_FOUND", message: "Company not found" });
     let brainContext = "";
     let sellerName = "Your Company";
     try {
@@ -10705,7 +10882,7 @@ Return ONLY the profile description.`;
     });
     const rawContent = response?.choices?.[0]?.message?.content;
     const profile = (typeof rawContent === "string" ? rawContent : "").trim();
-    if (!profile) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "LLM returned empty profile" });
+    if (!profile) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "LLM returned empty profile" });
     await updateCompany(input.companyId, {
       salesRepProfile: profile,
       salesRepProfileGeneratedAt: /* @__PURE__ */ new Date()
@@ -10716,7 +10893,7 @@ Return ONLY the profile description.`;
   // Load persisted sales rep profile for a company
   getSalesRepProfile: protectedProcedure.input(z2.object({ companyId: z2.number() })).query(async ({ input }) => {
     const company = await getCompanyById(input.companyId);
-    if (!company) throw new TRPCError3({ code: "NOT_FOUND", message: "Company not found" });
+    if (!company) throw new TRPCError4({ code: "NOT_FOUND", message: "Company not found" });
     return {
       profile: company.salesRepProfile ?? null,
       generatedAt: company.salesRepProfileGeneratedAt ?? null
@@ -10737,7 +10914,7 @@ Return ONLY the profile description.`;
     const { invokeLLM: invokeLLM2 } = await Promise.resolve().then(() => (init_llm(), llm_exports));
     const { getActiveBrain: getActiveBrain2, getCompanyById: getCompanyById2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const company = await getCompanyById2(input.companyId);
-    if (!company) throw new TRPCError3({ code: "NOT_FOUND", message: "Company not found" });
+    if (!company) throw new TRPCError4({ code: "NOT_FOUND", message: "Company not found" });
     let brainContext = "";
     let sellerName = "Your Company";
     try {
@@ -10785,7 +10962,7 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
     });
     const rawContent = response?.choices?.[0]?.message?.content;
     const opener = (typeof rawContent === "string" ? rawContent : "").trim();
-    if (!opener) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "LLM returned empty opener" });
+    if (!opener) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "LLM returned empty opener" });
     return { opener };
   }),
   // Batch find decision makers for all companies with urgency >= threshold in a search
@@ -11077,25 +11254,25 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
   getSalesMenuCampaigns: protectedProcedure.query(async ({ ctx }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { searches: searches3, companies: companies2, offeringBrain: offeringBrain2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq21, and: and14, or: or4, desc: desc5, sql: sql9, inArray: inArray14 } = await import("drizzle-orm");
+    const { eq: eq22, and: and14, or: or4, desc: desc5, sql: sql10, inArray: inArray15 } = await import("drizzle-orm");
     const db = await getDb2();
     if (!db) return [];
     const rows = await db.select({
       search: searches3,
       brainName: offeringBrain2.brainName
-    }).from(searches3).leftJoin(offeringBrain2, eq21(searches3.brainId, offeringBrain2.id)).where(
+    }).from(searches3).leftJoin(offeringBrain2, eq22(searches3.brainId, offeringBrain2.id)).where(
       and14(
-        or4(eq21(searches3.userId, ctx.user.id), eq21(searches3.sharedWithTeam, 1)),
-        eq21(searches3.isArchived, 0)
+        or4(eq22(searches3.userId, ctx.user.id), eq22(searches3.sharedWithTeam, 1)),
+        eq22(searches3.isArchived, 0)
       )
     ).orderBy(desc5(searches3.createdAt));
     if (rows.length === 0) return [];
     const searchIds = rows.map((r) => r.search.id);
     const statsRows = await db.select({
       searchId: companies2.searchId,
-      companyCount: sql9`COUNT(*)`,
-      avgFit: sql9`ROUND(AVG(CASE WHEN ${companies2.fitScore} IS NOT NULL THEN ${companies2.fitScore} END), 0)`
-    }).from(companies2).where(inArray14(companies2.searchId, searchIds)).groupBy(companies2.searchId);
+      companyCount: sql10`COUNT(*)`,
+      avgFit: sql10`ROUND(AVG(CASE WHEN ${companies2.fitScore} IS NOT NULL THEN ${companies2.fitScore} END), 0)`
+    }).from(companies2).where(inArray15(companies2.searchId, searchIds)).groupBy(companies2.searchId);
     const statsMap = new Map(statsRows.map((s) => [s.searchId, s]));
     return rows.map((r) => {
       const stats = statsMap.get(r.search.id);
@@ -11480,8 +11657,8 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
         const db = await getDb2();
         if (db) {
           const { offeringBrain: offeringBrain2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-          const { eq: eq21 } = await import("drizzle-orm");
-          await db.update(offeringBrain2).set({ showOnLeadtrigger: input.visible ? 1 : 0 }).where(eq21(offeringBrain2.id, localId));
+          const { eq: eq22 } = await import("drizzle-orm");
+          await db.update(offeringBrain2).set({ showOnLeadtrigger: input.visible ? 1 : 0 }).where(eq22(offeringBrain2.id, localId));
         }
       } catch (err) {
         console.warn("[toggleBrainVisibility] Local MySQL update failed:", err);
@@ -11560,15 +11737,15 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
    */
   getDatabaseHealth: protectedProcedure.query(async () => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-    const { count: count2, isNotNull: isNotNull6, sql: sql9, inArray: inArray14 } = await import("drizzle-orm");
+    const { count: count2, isNotNull: isNotNull6, sql: sql10, inArray: inArray15 } = await import("drizzle-orm");
     const { companies: companies2, searches: searches3, offeringBrain: offeringBrain2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const db = await getDb2();
     if (!db) return null;
     const [totalCompaniesRow] = await db.select({ total: count2() }).from(companies2);
     const total = totalCompaniesRow?.total ?? 0;
-    const [enrichedRow] = await db.select({ n: count2() }).from(companies2).where(sql9`enrichmentStatus = 'enriched'`);
-    const [failedRow] = await db.select({ n: count2() }).from(companies2).where(sql9`enrichmentStatus = 'failed'`);
-    const [pendingRow] = await db.select({ n: count2() }).from(companies2).where(sql9`enrichmentStatus = 'pending'`);
+    const [enrichedRow] = await db.select({ n: count2() }).from(companies2).where(sql10`enrichmentStatus = 'enriched'`);
+    const [failedRow] = await db.select({ n: count2() }).from(companies2).where(sql10`enrichmentStatus = 'failed'`);
+    const [pendingRow] = await db.select({ n: count2() }).from(companies2).where(sql10`enrichmentStatus = 'pending'`);
     const [simRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.similarityScore));
     const [fitRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.fitScore));
     const [urgSynthRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.urgencyScoreSynth));
@@ -11580,37 +11757,37 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
     const [salesRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.salesApproachGeneratedAt));
     const [contactsRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.contactsFetchedAt));
     const [cgRow] = await db.select({ n: count2() }).from(companies2).where(isNotNull6(companies2.cgImportedAt));
-    const [lastEnrichedRow] = await db.select({ ts: sql9`MAX(createdAt)` }).from(companies2).where(sql9`enrichmentStatus = 'enriched'`);
-    const [lastFitRow] = await db.select({ ts: sql9`MAX(fitScoreGeneratedAt)` }).from(companies2);
-    const [lastUrgSynthRow] = await db.select({ ts: sql9`MAX(urgencyScoreSynthGeneratedAt)` }).from(companies2);
-    const [lastUrgNewsRow] = await db.select({ ts: sql9`MAX(urgencyScoreNewsGeneratedAt)` }).from(companies2);
-    const [lastUrgLLMRow] = await db.select({ ts: sql9`MAX(urgencyScoreLLMGeneratedAt)` }).from(companies2);
-    const [lastBriefRow] = await db.select({ ts: sql9`MAX(briefGeneratedAt)` }).from(companies2);
-    const [lastSalesRow] = await db.select({ ts: sql9`MAX(salesApproachGeneratedAt)` }).from(companies2);
+    const [lastEnrichedRow] = await db.select({ ts: sql10`MAX(createdAt)` }).from(companies2).where(sql10`enrichmentStatus = 'enriched'`);
+    const [lastFitRow] = await db.select({ ts: sql10`MAX(fitScoreGeneratedAt)` }).from(companies2);
+    const [lastUrgSynthRow] = await db.select({ ts: sql10`MAX(urgencyScoreSynthGeneratedAt)` }).from(companies2);
+    const [lastUrgNewsRow] = await db.select({ ts: sql10`MAX(urgencyScoreNewsGeneratedAt)` }).from(companies2);
+    const [lastUrgLLMRow] = await db.select({ ts: sql10`MAX(urgencyScoreLLMGeneratedAt)` }).from(companies2);
+    const [lastBriefRow] = await db.select({ ts: sql10`MAX(briefGeneratedAt)` }).from(companies2);
+    const [lastSalesRow] = await db.select({ ts: sql10`MAX(salesApproachGeneratedAt)` }).from(companies2);
     const [totalSearchesRow] = await db.select({ total: count2() }).from(searches3);
-    const [completedSearchesRow] = await db.select({ n: count2() }).from(searches3).where(sql9`status = 'completed'`);
-    const [failedSearchesRow] = await db.select({ n: count2() }).from(searches3).where(sql9`status = 'failed'`);
-    const [lastSearchRow] = await db.select({ ts: sql9`MAX(updatedAt)` }).from(searches3);
+    const [completedSearchesRow] = await db.select({ n: count2() }).from(searches3).where(sql10`status = 'completed'`);
+    const [failedSearchesRow] = await db.select({ n: count2() }).from(searches3).where(sql10`status = 'failed'`);
+    const [lastSearchRow] = await db.select({ ts: sql10`MAX(updatedAt)` }).from(searches3);
     const [totalBrainsRow] = await db.select({ total: count2() }).from(offeringBrain2);
-    const [activeBrainsRow] = await db.select({ n: count2() }).from(offeringBrain2).where(sql9`isActive = 1`);
+    const [activeBrainsRow] = await db.select({ n: count2() }).from(offeringBrain2).where(sql10`isActive = 1`);
     const campaignRows = await db.select({
       searchId: companies2.searchId,
       total: count2(),
-      enriched: sql9`SUM(CASE WHEN enrichmentStatus = 'enriched' THEN 1 ELSE 0 END)`,
-      withSimilarity: sql9`SUM(CASE WHEN similarityScore IS NOT NULL THEN 1 ELSE 0 END)`,
-      withFit: sql9`SUM(CASE WHEN fitScore IS NOT NULL THEN 1 ELSE 0 END)`,
-      withUrgSynth: sql9`SUM(CASE WHEN urgencyScoreSynth IS NOT NULL THEN 1 ELSE 0 END)`,
-      withUrgNews: sql9`SUM(CASE WHEN urgencyScoreNews IS NOT NULL THEN 1 ELSE 0 END)`,
-      withUrgLLM: sql9`SUM(CASE WHEN urgencyScoreLLM IS NOT NULL THEN 1 ELSE 0 END)`,
-      withBrief: sql9`SUM(CASE WHEN briefGeneratedAt IS NOT NULL THEN 1 ELSE 0 END)`,
-      withSales: sql9`SUM(CASE WHEN salesApproachGeneratedAt IS NOT NULL THEN 1 ELSE 0 END)`,
-      withContacts: sql9`SUM(CASE WHEN contactsFetchedAt IS NOT NULL THEN 1 ELSE 0 END)`,
-      lastActivity: sql9`MAX(createdAt)`
-    }).from(companies2).groupBy(companies2.searchId).orderBy(sql9`MAX(createdAt) DESC`).limit(20);
+      enriched: sql10`SUM(CASE WHEN enrichmentStatus = 'enriched' THEN 1 ELSE 0 END)`,
+      withSimilarity: sql10`SUM(CASE WHEN similarityScore IS NOT NULL THEN 1 ELSE 0 END)`,
+      withFit: sql10`SUM(CASE WHEN fitScore IS NOT NULL THEN 1 ELSE 0 END)`,
+      withUrgSynth: sql10`SUM(CASE WHEN urgencyScoreSynth IS NOT NULL THEN 1 ELSE 0 END)`,
+      withUrgNews: sql10`SUM(CASE WHEN urgencyScoreNews IS NOT NULL THEN 1 ELSE 0 END)`,
+      withUrgLLM: sql10`SUM(CASE WHEN urgencyScoreLLM IS NOT NULL THEN 1 ELSE 0 END)`,
+      withBrief: sql10`SUM(CASE WHEN briefGeneratedAt IS NOT NULL THEN 1 ELSE 0 END)`,
+      withSales: sql10`SUM(CASE WHEN salesApproachGeneratedAt IS NOT NULL THEN 1 ELSE 0 END)`,
+      withContacts: sql10`SUM(CASE WHEN contactsFetchedAt IS NOT NULL THEN 1 ELSE 0 END)`,
+      lastActivity: sql10`MAX(createdAt)`
+    }).from(companies2).groupBy(companies2.searchId).orderBy(sql10`MAX(createdAt) DESC`).limit(20);
     const searchIds = campaignRows.map((r) => r.searchId).filter(Boolean);
     let searchNames = {};
     if (searchIds.length > 0) {
-      const searchRows = await db.select({ id: searches3.id, offeringName: searches3.offeringName, companyWebsite: searches3.companyWebsite }).from(searches3).where(inArray14(searches3.id, searchIds));
+      const searchRows = await db.select({ id: searches3.id, offeringName: searches3.offeringName, companyWebsite: searches3.companyWebsite }).from(searches3).where(inArray15(searches3.id, searchIds));
       searchNames = Object.fromEntries(
         searchRows.map((s) => [s.id, s.offeringName || s.companyWebsite || `Campaign ${s.id}`])
       );
@@ -11705,10 +11882,10 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
   // domain TLD, and company name as signals — no external API call needed.
   inferCountryFromBrief: protectedProcedure.input(z2.object({ companyId: z2.number() })).mutation(async ({ input }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-    const { eq: eq21 } = await import("drizzle-orm");
+    const { eq: eq22 } = await import("drizzle-orm");
     const { companies: companies2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const db = await getDb2();
-    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    if (!db) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
     const [company] = await db.select({
       id: companies2.id,
       name: companies2.name,
@@ -11717,10 +11894,10 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       city: companies2.city,
       briefData: companies2.briefData,
       fitScoreData: companies2.fitScoreData
-    }).from(companies2).where(eq21(companies2.id, input.companyId)).limit(1);
-    if (!company) throw new TRPCError3({ code: "NOT_FOUND", message: "Company not found" });
+    }).from(companies2).where(eq22(companies2.id, input.companyId)).limit(1);
+    if (!company) throw new TRPCError4({ code: "NOT_FOUND", message: "Company not found" });
     const hasAnyData = company.briefData || company.fitScoreData;
-    if (!hasAnyData) throw new TRPCError3({ code: "BAD_REQUEST", message: "No research data available for this company" });
+    if (!hasAnyData) throw new TRPCError4({ code: "BAD_REQUEST", message: "No research data available for this company" });
     let brief = {};
     try {
       if (company.briefData) brief = JSON.parse(company.briefData);
@@ -11876,9 +12053,9 @@ Return ONLY: {"country": "XX" or null, "confidence": "high" | "medium" | "low"}`
     } catch {
     }
     if (result.country && (result.confidence === "high" || result.confidence === "medium")) {
-      const { eq: eq22 } = await import("drizzle-orm");
+      const { eq: eq23 } = await import("drizzle-orm");
       const { companies: co2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      await db.update(co2).set({ country: result.country.toUpperCase() }).where(eq22(co2.id, input.companyId));
+      await db.update(co2).set({ country: result.country.toUpperCase() }).where(eq23(co2.id, input.companyId));
     }
     return {
       companyId: input.companyId,
@@ -11899,14 +12076,14 @@ Return ONLY: {"country": "XX" or null, "confidence": "high" | "medium" | "low"}`
     // optional: restrict to a specific campaign/run
   })).mutation(async ({ input }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-    const { eq: eq21, and: and14, or: or4, isNull: isNull7, isNotNull: isNotNull6 } = await import("drizzle-orm");
+    const { eq: eq22, and: and14, or: or4, isNull: isNull7, isNotNull: isNotNull6 } = await import("drizzle-orm");
     const { companies: companies2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const db = await getDb2();
-    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    if (!db) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
     const whereClause = and14(
-      or4(isNull7(companies2.country), eq21(companies2.country, "")),
+      or4(isNull7(companies2.country), eq22(companies2.country, "")),
       isNotNull6(companies2.briefData),
-      input.searchId !== void 0 ? eq21(companies2.searchId, input.searchId) : void 0
+      input.searchId !== void 0 ? eq22(companies2.searchId, input.searchId) : void 0
     );
     const batch = await db.select({ id: companies2.id, name: companies2.name, websiteUrl: companies2.websiteUrl, briefData: companies2.briefData, fitScoreData: companies2.fitScoreData, city: companies2.city, state: companies2.state, rawAddress: companies2.rawAddress, sourceCountryCode: companies2.sourceCountryCode }).from(companies2).where(whereClause).limit(input.limit);
     if (batch.length === 0) return { processed: 0, written: 0, skipped: 0, errors: 0, dryRun: input.dryRun, results: [] };
@@ -12220,15 +12397,15 @@ Return ONLY: {"country": "XX" or null, "confidence": "high" | "medium" | "low"}`
   // Count companies eligible for country backfill (no country, has briefData)
   getCountryBackfillStats: protectedProcedure.input(z2.object({ searchId: z2.number().optional() })).query(async ({ input }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
-    const { count: count2, sql: sql9, eq: eq21, and: and14 } = await import("drizzle-orm");
+    const { count: count2, sql: sql10, eq: eq22, and: and14 } = await import("drizzle-orm");
     const { companies: companies2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const db = await getDb2();
     if (!db) return { eligible: 0, total: 0, missingCountry: 0 };
-    const whereClause = input.searchId !== void 0 ? eq21(companies2.searchId, input.searchId) : void 0;
+    const whereClause = input.searchId !== void 0 ? eq22(companies2.searchId, input.searchId) : void 0;
     const [stats] = await db.select({
       total: count2(),
-      missingCountry: count2(sql9`CASE WHEN (${companies2.country} IS NULL OR ${companies2.country} = '') THEN 1 END`),
-      eligible: count2(sql9`CASE WHEN (${companies2.country} IS NULL OR ${companies2.country} = '') AND ${companies2.briefData} IS NOT NULL THEN 1 END`)
+      missingCountry: count2(sql10`CASE WHEN (${companies2.country} IS NULL OR ${companies2.country} = '') THEN 1 END`),
+      eligible: count2(sql10`CASE WHEN (${companies2.country} IS NULL OR ${companies2.country} = '') AND ${companies2.briefData} IS NOT NULL THEN 1 END`)
     }).from(companies2).where(whereClause);
     return {
       total: Number(stats.total),
@@ -12309,7 +12486,7 @@ Return ONLY: {"country": "XX" or null, "confidence": "high" | "medium" | "low"}`
   purgeDuplicates: protectedProcedure.input(z2.object({ dryRun: z2.boolean().default(true) })).mutation(async ({ input }) => {
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const db = await getDb2();
-    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    if (!db) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
     const rawGhostRows = await db.execute(`
         SELECT c.id
         FROM companies c
@@ -12367,7 +12544,7 @@ Return ONLY: {"country": "XX" or null, "confidence": "high" | "medium" | "low"}`
       brainVec = await fetchBrainEmbedding2(sb, input.brainId);
     } catch (e) {
       const msg = e instanceof Error ? e.message : String(e);
-      throw new TRPCError3({ code: "NOT_FOUND", message: msg });
+      throw new TRPCError4({ code: "NOT_FOUND", message: msg });
     }
     const { companies: result, totalMatched } = await previewSimilarityByVector2(sb, brainVec, {
       minSim: input.minSim,
@@ -12385,7 +12562,7 @@ Return ONLY: {"country": "XX" or null, "confidence": "high" | "medium" | "low"}`
     country: z2.string().optional(),
     sector: z2.string().optional()
   })).query(async ({ input }) => {
-    const { eq: eq21 } = await import("drizzle-orm");
+    const { eq: eq22 } = await import("drizzle-orm");
     const { companies: companies2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const {
@@ -12396,7 +12573,7 @@ Return ONLY: {"country": "XX" or null, "confidence": "high" | "medium" | "low"}`
     } = await Promise.resolve().then(() => (init_companySimilaritySearch(), companySimilaritySearch_exports));
     const { toCompanyUUID: toCompanyUUID3 } = await Promise.resolve().then(() => (init_supabaseEmbeddings(), supabaseEmbeddings_exports));
     const db = await getDb2();
-    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    if (!db) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
     const [seedRow] = await db.select({
       id: companies2.id,
       name: companies2.name,
@@ -12408,14 +12585,14 @@ Return ONLY: {"country": "XX" or null, "confidence": "high" | "medium" | "low"}`
       fitScore: companies2.fitScore,
       searchId: companies2.searchId,
       generatedWithBrainName: companies2.generatedWithBrainName
-    }).from(companies2).where(eq21(companies2.id, input.seedCompanyId)).limit(1);
+    }).from(companies2).where(eq22(companies2.id, input.seedCompanyId)).limit(1);
     if (!seedRow) {
-      throw new TRPCError3({ code: "NOT_FOUND", message: `Company ${input.seedCompanyId} not found` });
+      throw new TRPCError4({ code: "NOT_FOUND", message: `Company ${input.seedCompanyId} not found` });
     }
     const sb = getSupabaseClient3();
     const seedVector = await fetchSeedEmbedding2(sb, input.seedCompanyId);
     if (!seedVector) {
-      throw new TRPCError3({
+      throw new TRPCError4({
         code: "NOT_FOUND",
         message: `No embedding found for "${seedRow.name}". Run FIT-SIM on this company's campaign or re-import to embed it first.`
       });
@@ -12451,13 +12628,13 @@ Return ONLY: {"country": "XX" or null, "confidence": "high" | "medium" | "low"}`
     const { companies: companies2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const { getDb: _getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const db = await _getDb2();
-    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    if (!db) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
     const brainRows = await db.execute(
       sqlRaw`SELECT id, brainName, companyWebsite FROM offering_brain WHERE id = ${input.brainId} LIMIT 1`
     );
     const brainArr = Array.isArray(brainRows[0]) ? brainRows[0] : brainRows;
     if (!brainArr || brainArr.length === 0) {
-      throw new TRPCError3({ code: "NOT_FOUND", message: `Brain ${input.brainId} not found` });
+      throw new TRPCError4({ code: "NOT_FOUND", message: `Brain ${input.brainId} not found` });
     }
     const brain = brainArr[0];
     const searchId = await createSearch({
@@ -12530,21 +12707,21 @@ Return ONLY: {"country": "XX" or null, "confidence": "high" | "medium" | "low"}`
     companyIds: z2.array(z2.number()).min(1).max(500),
     similarityScores: z2.record(z2.string(), z2.number()).optional()
   })).mutation(async ({ ctx, input }) => {
-    const { eq: eq21, inArray: inArr, sql: sqlRaw } = await import("drizzle-orm");
+    const { eq: eq22, inArray: inArr, sql: sqlRaw } = await import("drizzle-orm");
     const { companies: companies2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const db = await getDb2();
-    if (!db) throw new TRPCError3({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-    const [seedRow] = await db.select({ id: companies2.id, name: companies2.name }).from(companies2).where(eq21(companies2.id, input.seedCompanyId)).limit(1);
+    if (!db) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    const [seedRow] = await db.select({ id: companies2.id, name: companies2.name }).from(companies2).where(eq22(companies2.id, input.seedCompanyId)).limit(1);
     if (!seedRow) {
-      throw new TRPCError3({ code: "NOT_FOUND", message: `Seed company ${input.seedCompanyId} not found` });
+      throw new TRPCError4({ code: "NOT_FOUND", message: `Seed company ${input.seedCompanyId} not found` });
     }
     const brainRows = await db.execute(
       sqlRaw`SELECT id, brainName, companyWebsite FROM offering_brain WHERE id = ${input.brainId} LIMIT 1`
     );
     const brainArr = Array.isArray(brainRows[0]) ? brainRows[0] : brainRows;
     if (!brainArr || brainArr.length === 0) {
-      throw new TRPCError3({ code: "NOT_FOUND", message: `Brain ${input.brainId} not found` });
+      throw new TRPCError4({ code: "NOT_FOUND", message: `Brain ${input.brainId} not found` });
     }
     const brain = brainArr[0];
     const searchId = await createSearch({
@@ -12617,6 +12794,109 @@ Return ONLY: {"country": "XX" or null, "confidence": "high" | "medium" | "low"}`
       );
     }
     return { searchId, companiesCreated: newCompanies.length };
+  }),
+  /**
+   * Create a campaign from Company Database — selection or current filters.
+   * Clones companies with scores/briefs preserved (no re-scoring queue). Max 100.
+   */
+  createCampaignFromCompanyDb: protectedProcedure.input(
+    z2.object({
+      campaignName: z2.string().min(1).max(255),
+      brainId: z2.number(),
+      source: z2.discriminatedUnion("type", [
+        z2.object({
+          type: z2.literal("selection"),
+          companyIds: z2.array(z2.number()).min(1).max(100)
+        }),
+        z2.object({
+          type: z2.literal("filter"),
+          sortBy: z2.enum([
+            "name",
+            "country",
+            "city",
+            "fitScore",
+            "similarityScore",
+            "urgencyScore",
+            "urgencyScoreSynth",
+            "urgencyScoreNews",
+            "urgencyScoreLLM",
+            "createdAt",
+            "searchId",
+            "briefGeneratedAt",
+            "salesApproachGeneratedAt",
+            "brainName"
+          ]).optional().default("fitScore"),
+          sortDir: z2.enum(["asc", "desc"]).optional().default("desc"),
+          search: z2.string().optional(),
+          searchId: z2.number().optional(),
+          searchIds: z2.array(z2.number()).optional(),
+          country: z2.string().optional(),
+          countries: z2.array(z2.string()).optional(),
+          sector: z2.string().optional(),
+          filterBrainId: z2.number().optional(),
+          minFitScore: z2.number().optional(),
+          hasFitScore: z2.boolean().optional(),
+          articleFilter: z2.enum(["any", "brief", "approach", "both", "none"]).optional(),
+          cgBusinessUnit: z2.string().optional(),
+          cgLeadClass: z2.string().optional(),
+          cgLeadOrigin: z2.string().optional(),
+          crmFilter: z2.enum(["in", "not_in"]).optional()
+        })
+      ])
+    })
+  ).mutation(async ({ ctx, input }) => {
+    const {
+      cloneCompaniesToCampaign: cloneCompaniesToCampaign2,
+      resolveCompanyIdsFromFilter: resolveCompanyIdsFromFilter2,
+      COMPANY_DB_CAMPAIGN_MAX: COMPANY_DB_CAMPAIGN_MAX2
+    } = await Promise.resolve().then(() => (init_companyDbCampaign(), companyDbCampaign_exports));
+    let companyIds;
+    let totalMatched;
+    let capped = false;
+    if (input.source.type === "selection") {
+      companyIds = input.source.companyIds;
+    } else {
+      const f = input.source;
+      const articleFilter = f.articleFilter && f.articleFilter !== "any" ? f.articleFilter : void 0;
+      const resolved = await resolveCompanyIdsFromFilter2({
+        sortBy: f.sortBy,
+        sortDir: f.sortDir,
+        search: f.search,
+        searchId: f.searchId,
+        searchIds: f.searchIds,
+        country: f.country,
+        countries: f.countries,
+        sector: f.sector,
+        brainId: f.filterBrainId,
+        minFitScore: f.minFitScore,
+        hasFitScore: f.hasFitScore,
+        articleFilter,
+        cgBusinessUnit: f.cgBusinessUnit,
+        cgLeadClass: f.cgLeadClass,
+        cgLeadOrigin: f.cgLeadOrigin,
+        crmFilter: f.crmFilter
+      });
+      companyIds = resolved.companyIds;
+      totalMatched = resolved.totalMatched;
+      capped = totalMatched > COMPANY_DB_CAMPAIGN_MAX2;
+      if (companyIds.length === 0) {
+        throw new TRPCError4({
+          code: "BAD_REQUEST",
+          message: "No companies match the current filters"
+        });
+      }
+    }
+    const result = await cloneCompaniesToCampaign2({
+      userId: ctx.user.id,
+      brainId: input.brainId,
+      campaignName: input.campaignName.trim(),
+      companyIds
+    });
+    return {
+      ...result,
+      totalMatched,
+      capped
+    };
   })
 });
 
@@ -12626,7 +12906,7 @@ import { z as z3 } from "zod";
 // server/codeDescriptionDb.ts
 init_db();
 init_schema();
-import { eq as eq5, and as and2, inArray as inArray5, sql as sql2 } from "drizzle-orm";
+import { eq as eq6, and as and2, inArray as inArray6, sql as sql3 } from "drizzle-orm";
 
 // server/codeDescriptionLookup.ts
 async function fetchSicDescription(code) {
@@ -12726,8 +13006,8 @@ async function batchGetSicDescriptions(codes) {
     return results;
   }
   const cached = await db.select().from(codeDescriptions).where(and2(
-    inArray5(codeDescriptions.code, codes),
-    eq5(codeDescriptions.codeType, "SIC")
+    inArray6(codeDescriptions.code, codes),
+    eq6(codeDescriptions.codeType, "SIC")
   ));
   const cachedMap = new Map(cached.map((c) => [c.code, c.description]));
   const uncachedCodes = codes.filter((code) => !cachedMap.has(code));
@@ -12741,7 +13021,7 @@ async function batchGetSicDescriptions(codes) {
     if (toInsert.length > 0) {
       try {
         await db.insert(codeDescriptions).values(toInsert).onDuplicateKeyUpdate({
-          set: { description: sql2`VALUES(description)` }
+          set: { description: sql3`VALUES(description)` }
         });
       } catch (error) {
         console.error("[Code Cache] Failed to batch cache SIC codes:", error);
@@ -12763,8 +13043,8 @@ async function batchGetNaicsDescriptions(codes) {
     return results;
   }
   const cached = await db.select().from(codeDescriptions).where(and2(
-    inArray5(codeDescriptions.code, codes),
-    eq5(codeDescriptions.codeType, "NAICS")
+    inArray6(codeDescriptions.code, codes),
+    eq6(codeDescriptions.codeType, "NAICS")
   ));
   const cachedMap = new Map(cached.map((c) => [c.code, c.description]));
   const uncachedCodes = codes.filter((code) => !cachedMap.has(code));
@@ -12778,7 +13058,7 @@ async function batchGetNaicsDescriptions(codes) {
     if (toInsert.length > 0) {
       try {
         await db.insert(codeDescriptions).values(toInsert).onDuplicateKeyUpdate({
-          set: { description: sql2`VALUES(description)` }
+          set: { description: sql3`VALUES(description)` }
         });
       } catch (error) {
         console.error("[Code Cache] Failed to batch cache NAICS codes:", error);
@@ -12825,7 +13105,7 @@ var codeDescriptionsRouter = router({
 // server/nicheRouter.ts
 import { z as z4 } from "zod";
 init_db();
-import { TRPCError as TRPCError4 } from "@trpc/server";
+import { TRPCError as TRPCError5 } from "@trpc/server";
 
 // server/nicheFitScorer.ts
 init_llm();
@@ -13562,7 +13842,7 @@ function splitByCompanyType(allCompanies) {
 // server/nicheRouter.ts
 init_schema();
 init_db();
-import { eq as eq6, inArray as inArray6 } from "drizzle-orm";
+import { eq as eq7, inArray as inArray7 } from "drizzle-orm";
 function safeParseStringArray2(value) {
   if (!value) return [];
   const trimmed = value.trim();
@@ -13593,10 +13873,10 @@ var nicheRouter = router({
   ).mutation(async ({ ctx, input }) => {
     const userId = ctx.user.id;
     const db = await getDb();
-    if (!db) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-    const allCompanies = await db.select().from(companies).where(eq6(companies.searchId, input.searchId));
+    if (!db) throw new TRPCError5({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+    const allCompanies = await db.select().from(companies).where(eq7(companies.searchId, input.searchId));
     if (allCompanies.length < 9) {
-      throw new TRPCError4({
+      throw new TRPCError5({
         code: "BAD_REQUEST",
         message: `Need at least 9 companies to cluster. This search has ${allCompanies.length}.`
       });
@@ -13793,7 +14073,7 @@ var nicheRouter = router({
     const userId = ctx.user.id;
     const allNiches = await getNichesBySearchId(input.searchId);
     if (allNiches.length === 0) {
-      throw new TRPCError4({
+      throw new TRPCError5({
         code: "NOT_FOUND",
         message: "No niches found for this search. Create niches first."
       });
@@ -13854,7 +14134,7 @@ var nicheRouter = router({
     const niche = await getNicheById(input.nicheId);
     const isSuperAdmin = ctx.user.role === "super_admin";
     if (!niche || !isSuperAdmin && niche.userId !== userId) {
-      throw new TRPCError4({ code: "NOT_FOUND", message: "Niche not found" });
+      throw new TRPCError5({ code: "NOT_FOUND", message: "Niche not found" });
     }
     const effectiveUserId = niche.userId;
     const clusterInput = {
@@ -13870,7 +14150,7 @@ var nicheRouter = router({
       result = await scoreNicheFit(clusterInput, effectiveUserId, input.brainId, input.angleName);
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: `Scoring failed: ${msg}` });
+      throw new TRPCError5({ code: "INTERNAL_SERVER_ERROR", message: `Scoring failed: ${msg}` });
     }
     await updateNiche(niche.id, {
       fitScore: result.fitScore,
@@ -13916,7 +14196,7 @@ var nicheRouter = router({
   deleteBySearch: adminProcedure.input(z4.object({ searchId: z4.number() })).mutation(async ({ ctx, input }) => {
     const niches2 = await getNichesBySearchId(input.searchId);
     if (niches2.length > 0 && niches2[0].userId !== ctx.user.id) {
-      throw new TRPCError4({ code: "FORBIDDEN", message: "Not your niches" });
+      throw new TRPCError5({ code: "FORBIDDEN", message: "Not your niches" });
     }
     await deleteNichesBySearchId(input.searchId);
     return { deleted: niches2.length };
@@ -13928,7 +14208,7 @@ var nicheRouter = router({
   getUnassignedCount: protectedProcedure.input(z4.object({ searchId: z4.number() })).query(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) return { unassigned: 0, total: 0 };
-    const allCompanies = await db.select({ id: companies.id, nicheId: companies.nicheId }).from(companies).where(eq6(companies.searchId, input.searchId));
+    const allCompanies = await db.select({ id: companies.id, nicheId: companies.nicheId }).from(companies).where(eq7(companies.searchId, input.searchId));
     const total = allCompanies.length;
     const unassigned = allCompanies.filter((c) => c.nicheId === null || c.nicheId === void 0).length;
     return { unassigned, total, assigned: total - unassigned };
@@ -13946,10 +14226,10 @@ var nicheRouter = router({
    */
   assignRemainingCompanies: adminProcedure.input(z4.object({ searchId: z4.number() })).mutation(async ({ ctx, input }) => {
     const db = await getDb();
-    if (!db) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+    if (!db) throw new TRPCError5({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
     const savedNiches = await getNichesBySearchId(input.searchId);
     if (savedNiches.length === 0) {
-      throw new TRPCError4({
+      throw new TRPCError5({
         code: "BAD_REQUEST",
         message: "No niches found. Run Phase 1 clustering first."
       });
@@ -13959,13 +14239,13 @@ var nicheRouter = router({
     const untaggedCentroids = savedNiches.filter((n) => n.centroid && !n.name.startsWith("[Manufacturing]") && !n.name.startsWith("[Service]")).map((n) => ({ nicheId: n.id, centroid: JSON.parse(n.centroid) }));
     const allCentroids = [...mfgCentroids, ...svcCentroids, ...untaggedCentroids];
     if (allCentroids.length === 0) {
-      throw new TRPCError4({
+      throw new TRPCError5({
         code: "BAD_REQUEST",
         message: "Niches have no centroid data. Re-run Phase 1 clustering."
       });
     }
     const hasTypeSplit = mfgCentroids.length > 0 && svcCentroids.length > 0;
-    const allCompanies = await db.select().from(companies).where(eq6(companies.searchId, input.searchId));
+    const allCompanies = await db.select().from(companies).where(eq7(companies.searchId, input.searchId));
     const unassigned = allCompanies.filter((c) => c.nicheId === null || c.nicheId === void 0);
     if (unassigned.length === 0) {
       return { assigned: 0, message: "All companies are already assigned to niches." };
@@ -14012,7 +14292,7 @@ var nicheRouter = router({
         assigned++;
       }
     }
-    const updatedCompanies = await db.select().from(companies).where(eq6(companies.searchId, input.searchId));
+    const updatedCompanies = await db.select().from(companies).where(eq7(companies.searchId, input.searchId));
     const nicheCounts = /* @__PURE__ */ new Map();
     for (const company of updatedCompanies) {
       if (company.nicheId) nicheCounts.set(company.nicheId, (nicheCounts.get(company.nicheId) ?? 0) + 1);
@@ -14044,10 +14324,10 @@ var nicheRouter = router({
     })
   ).mutation(async ({ ctx, input }) => {
     const db = await getDb();
-    if (!db) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+    if (!db) throw new TRPCError5({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
     const savedNiches = await getNichesBySearchId(input.searchId);
     if (savedNiches.length === 0) {
-      throw new TRPCError4({
+      throw new TRPCError5({
         code: "BAD_REQUEST",
         message: "No niches found. Run Phase 1 clustering first."
       });
@@ -14057,13 +14337,13 @@ var nicheRouter = router({
     const untaggedCentroids = savedNiches.filter((n) => n.centroid && !n.name.startsWith("[Manufacturing]") && !n.name.startsWith("[Service]")).map((n) => ({ nicheId: n.id, centroid: JSON.parse(n.centroid) }));
     const nicheCentroids = [...mfgCentroids, ...svcCentroids, ...untaggedCentroids];
     if (nicheCentroids.length === 0) {
-      throw new TRPCError4({
+      throw new TRPCError5({
         code: "BAD_REQUEST",
         message: "Niches have no centroid data. Re-run Phase 1 clustering."
       });
     }
     const hasTypeSplit = mfgCentroids.length > 0 && svcCentroids.length > 0;
-    const allCompanies = await db.select().from(companies).where(eq6(companies.searchId, input.searchId));
+    const allCompanies = await db.select().from(companies).where(eq7(companies.searchId, input.searchId));
     const unassigned = allCompanies.filter((c) => c.nicheId === null || c.nicheId === void 0).slice(0, input.batchSize);
     if (unassigned.length === 0) {
       return {
@@ -14133,7 +14413,7 @@ var nicheRouter = router({
       }
     }
     const nicheCounts = /* @__PURE__ */ new Map();
-    const updatedAllCompanies = await db.select().from(companies).where(eq6(companies.searchId, input.searchId));
+    const updatedAllCompanies = await db.select().from(companies).where(eq7(companies.searchId, input.searchId));
     for (const company of updatedAllCompanies) {
       if (company.nicheId) nicheCounts.set(company.nicheId, (nicheCounts.get(company.nicheId) ?? 0) + 1);
     }
@@ -14167,13 +14447,13 @@ var nicheRouter = router({
   ).mutation(async ({ ctx, input }) => {
     const userId = ctx.user.id;
     const db = await getDb();
-    if (!db) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+    if (!db) throw new TRPCError5({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
     const parentNiche = await getNicheById(input.parentNicheId);
-    if (!parentNiche) throw new TRPCError4({ code: "NOT_FOUND", message: "Parent segment not found" });
-    if (parentNiche.userId !== userId) throw new TRPCError4({ code: "FORBIDDEN", message: "Not your segment" });
-    const allCompanies = await db.select().from(companies).where(eq6(companies.nicheId, input.parentNicheId));
+    if (!parentNiche) throw new TRPCError5({ code: "NOT_FOUND", message: "Parent segment not found" });
+    if (parentNiche.userId !== userId) throw new TRPCError5({ code: "FORBIDDEN", message: "Not your segment" });
+    const allCompanies = await db.select().from(companies).where(eq7(companies.nicheId, input.parentNicheId));
     if (allCompanies.length < 9) {
-      throw new TRPCError4({
+      throw new TRPCError5({
         code: "BAD_REQUEST",
         message: `Need at least 9 companies in this segment to sub-cluster. This segment has ${allCompanies.length}.`
       });
@@ -14282,12 +14562,12 @@ var nicheRouter = router({
   ).mutation(async ({ ctx, input }) => {
     const userId = ctx.user.id;
     const db = await getDb();
-    if (!db) throw new TRPCError4({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
+    if (!db) throw new TRPCError5({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
     const niche = await getNicheById(input.nicheId);
-    if (!niche) throw new TRPCError4({ code: "NOT_FOUND", message: "Niche not found" });
-    if (niche.userId !== userId) throw new TRPCError4({ code: "FORBIDDEN", message: "Not your niche" });
+    if (!niche) throw new TRPCError5({ code: "NOT_FOUND", message: "Niche not found" });
+    if (niche.userId !== userId) throw new TRPCError5({ code: "FORBIDDEN", message: "Not your niche" });
     if ((niche.fitScore ?? 0) < 40) {
-      throw new TRPCError4({
+      throw new TRPCError5({
         code: "BAD_REQUEST",
         message: `Fit score must be \u2265 40 (Moderate Fit) to create a campaign. This niche scored ${niche.fitScore ?? 0}.`
       });
@@ -14306,7 +14586,7 @@ var nicheRouter = router({
       status: "completed",
       brainId: niche.brainId ?? parentSearch?.brainId ?? void 0
     });
-    let nicheCompanies = await db.select().from(companies).where(eq6(companies.nicheId, input.nicheId));
+    let nicheCompanies = await db.select().from(companies).where(eq7(companies.nicheId, input.nicheId));
     if (nicheCompanies.length === 0 && niche.companyIds) {
       let ids = [];
       try {
@@ -14317,13 +14597,13 @@ var nicheRouter = router({
         const CHUNK = 1e3;
         for (let i = 0; i < ids.length; i += CHUNK) {
           const chunk = ids.slice(i, i + CHUNK);
-          const rows = await db.select().from(companies).where(inArray6(companies.id, chunk));
+          const rows = await db.select().from(companies).where(inArray7(companies.id, chunk));
           nicheCompanies = nicheCompanies.concat(rows);
         }
       }
     }
     if (nicheCompanies.length === 0) {
-      throw new TRPCError4({
+      throw new TRPCError5({
         code: "BAD_REQUEST",
         message: `No companies found for niche "${niche.name}". The niche has ${niche.companyCount} companies recorded but none could be loaded. Please re-run clustering for this search.`
       });
@@ -14346,27 +14626,27 @@ var nicheRouter = router({
       }
     } catch (copyErr) {
       try {
-        await db.delete(searches).where(eq6(searches.id, newSearchId));
+        await db.delete(searches).where(eq7(searches.id, newSearchId));
       } catch {
       }
-      throw new TRPCError4({
+      throw new TRPCError5({
         code: "INTERNAL_SERVER_ERROR",
         message: `Failed to copy companies into campaign: ${copyErr.message}`
       });
     }
     if (copied === 0) {
       try {
-        await db.delete(searches).where(eq6(searches.id, newSearchId));
+        await db.delete(searches).where(eq7(searches.id, newSearchId));
       } catch {
       }
-      throw new TRPCError4({
+      throw new TRPCError5({
         code: "INTERNAL_SERVER_ERROR",
         message: `Campaign creation failed: 0 companies were copied. Please try again.`
       });
     }
     const db2 = await getDb();
     if (db2) {
-      await db2.update(searches).set({ sourceNicheId: input.nicheId, sharedWithTeam: 1 }).where(eq6(searches.id, newSearchId));
+      await db2.update(searches).set({ sourceNicheId: input.nicheId, sharedWithTeam: 1 }).where(eq7(searches.id, newSearchId));
     }
     console.log(`[nicheRouter] Created campaign "${campaignName}" (searchId=${newSearchId}) with ${copied} companies from niche ${input.nicheId}`);
     return {
@@ -14419,7 +14699,7 @@ function tryParse(value, fallback) {
 
 // server/prototypeRouter.ts
 import { z as z5 } from "zod";
-import { TRPCError as TRPCError5 } from "@trpc/server";
+import { TRPCError as TRPCError6 } from "@trpc/server";
 
 // server/storage.ts
 init_env();
@@ -14477,7 +14757,7 @@ async function storagePut(relKey, data, contentType = "application/octet-stream"
 init_llm();
 init_db();
 init_schema();
-import { eq as eq7, desc as desc2 } from "drizzle-orm";
+import { eq as eq8, desc as desc2 } from "drizzle-orm";
 async function extractProductFromImages(imageUrls, productUrl, brainContext) {
   console.log(`[Prototype] Analyzing ${imageUrls.length} image(s)...`);
   const content = [];
@@ -14571,13 +14851,13 @@ async function createPrototypeRequest(data) {
 async function getPrototypeRequestById(id) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  const rows = await db.select().from(prototypeRequests).where(eq7(prototypeRequests.id, id)).limit(1);
+  const rows = await db.select().from(prototypeRequests).where(eq8(prototypeRequests.id, id)).limit(1);
   return rows[0] ?? null;
 }
 async function getPrototypeRequestsByUser(userId) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  return db.select().from(prototypeRequests).where(eq7(prototypeRequests.userId, userId)).orderBy(desc2(prototypeRequests.createdAt));
+  return db.select().from(prototypeRequests).where(eq8(prototypeRequests.userId, userId)).orderBy(desc2(prototypeRequests.createdAt));
 }
 async function getAllPrototypeRequests() {
   const db = await getDb();
@@ -14587,7 +14867,7 @@ async function getAllPrototypeRequests() {
 async function updatePrototypeRequest(id, data) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  await db.update(prototypeRequests).set(data).where(eq7(prototypeRequests.id, id));
+  await db.update(prototypeRequests).set(data).where(eq8(prototypeRequests.id, id));
 }
 
 // server/prototypeRouter.ts
@@ -14706,7 +14986,7 @@ var prototypeRouter = router({
    */
   getById: protectedProcedure.input(z5.object({ id: z5.number() })).query(async ({ input }) => {
     const request = await getPrototypeRequestById(input.id);
-    if (!request) throw new TRPCError5({ code: "NOT_FOUND", message: "Prototype request not found" });
+    if (!request) throw new TRPCError6({ code: "NOT_FOUND", message: "Prototype request not found" });
     return request;
   }),
   /**
@@ -14753,7 +15033,7 @@ var prototypeRouter = router({
     );
     const validDataUris = dataUris.filter((d) => d !== null);
     if (validDataUris.length === 0) {
-      throw new TRPCError5({
+      throw new TRPCError6({
         code: "BAD_REQUEST",
         message: "Could not load any of the selected images. The image URLs may have expired or be blocked. Please try refreshing the product images and selecting again."
       });
@@ -15055,7 +15335,7 @@ PRODUCT CONTEXT: ${input.productContext}` : "") + "\n\nReturn a JSON object: { c
 import { z as z6 } from "zod";
 init_db();
 init_schema();
-import { eq as eq8, and as and3 } from "drizzle-orm";
+import { eq as eq9, and as and3 } from "drizzle-orm";
 var bomRouter = router({
   /**
    * List all BOM items for a prototype request
@@ -15063,7 +15343,7 @@ var bomRouter = router({
   list: protectedProcedure.input(z6.object({ prototypeRequestId: z6.number().int().positive() })).query(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new Error("DB unavailable");
-    return db.select().from(bomItems).where(eq8(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
+    return db.select().from(bomItems).where(eq9(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
   }),
   /**
    * Add a BOM line item
@@ -15088,7 +15368,7 @@ var bomRouter = router({
       currency: input.currency,
       notes: input.notes ?? null
     });
-    return db.select().from(bomItems).where(eq8(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
+    return db.select().from(bomItems).where(eq9(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
   }),
   /**
    * Update a BOM line item
@@ -15115,12 +15395,12 @@ var bomRouter = router({
     if (Object.keys(updates).length > 0) {
       await db.update(bomItems).set(updates).where(
         and3(
-          eq8(bomItems.id, input.id),
-          eq8(bomItems.prototypeRequestId, input.prototypeRequestId)
+          eq9(bomItems.id, input.id),
+          eq9(bomItems.prototypeRequestId, input.prototypeRequestId)
         )
       );
     }
-    return db.select().from(bomItems).where(eq8(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
+    return db.select().from(bomItems).where(eq9(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
   }),
   /**
    * Delete a BOM line item
@@ -15135,11 +15415,11 @@ var bomRouter = router({
     if (!db) throw new Error("DB unavailable");
     await db.delete(bomItems).where(
       and3(
-        eq8(bomItems.id, input.id),
-        eq8(bomItems.prototypeRequestId, input.prototypeRequestId)
+        eq9(bomItems.id, input.id),
+        eq9(bomItems.prototypeRequestId, input.prototypeRequestId)
       )
     );
-    return db.select().from(bomItems).where(eq8(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
+    return db.select().from(bomItems).where(eq9(bomItems.prototypeRequestId, input.prototypeRequestId)).orderBy(bomItems.createdAt);
   })
 });
 
@@ -15150,12 +15430,12 @@ init_prompts();
 import { z as z7 } from "zod";
 init_db();
 init_schema();
-import { TRPCError as TRPCError6 } from "@trpc/server";
-import { eq as eq10, and as and5, inArray as inArray7, count, sql as sql4 } from "drizzle-orm";
+import { TRPCError as TRPCError7 } from "@trpc/server";
+import { eq as eq11, and as and5, inArray as inArray8, count, sql as sql5 } from "drizzle-orm";
 
 // server/campaignQueueWorker.ts
 init_schema();
-import { eq as eq9, asc, sql as sql3 } from "drizzle-orm";
+import { eq as eq10, asc, sql as sql4 } from "drizzle-orm";
 var POLL_INTERVAL_MS = 2e3;
 var CONCURRENCY = 5;
 var SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1e3;
@@ -15165,17 +15445,17 @@ async function claimNextJob() {
   const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
   const db = await getDb2();
   if (!db) return null;
-  const [candidate] = await db.select({ id: campaignQueue.id }).from(campaignQueue).where(eq9(campaignQueue.status, "pending")).orderBy(asc(campaignQueue.createdAt)).limit(1);
+  const [candidate] = await db.select({ id: campaignQueue.id }).from(campaignQueue).where(eq10(campaignQueue.status, "pending")).orderBy(asc(campaignQueue.createdAt)).limit(1);
   if (!candidate) return null;
   const result = await db.execute(
-    sql3`UPDATE campaign_queue
+    sql4`UPDATE campaign_queue
         SET status = 'running', startedAt = NOW()
         WHERE id = ${candidate.id} AND status = 'pending'
         LIMIT 1`
   );
   const affectedRows = result?.[0]?.affectedRows ?? result?.rowsAffected ?? 0;
   if (affectedRows === 0) return null;
-  const [job] = await db.select().from(campaignQueue).where(eq9(campaignQueue.id, candidate.id)).limit(1);
+  const [job] = await db.select().from(campaignQueue).where(eq10(campaignQueue.id, candidate.id)).limit(1);
   return job ?? null;
 }
 async function processJob() {
@@ -15204,7 +15484,7 @@ async function processJob() {
         status: "failed",
         errorMessage: "Company not found in DB",
         completedAt: /* @__PURE__ */ new Date()
-      }).where(eq9(campaignQueue.id, job.id));
+      }).where(eq10(campaignQueue.id, job.id));
       return true;
     }
     if (company.enrichmentStatus === "pending") {
@@ -15273,7 +15553,7 @@ async function processJob() {
       await db.update(campaignQueue).set({
         status: "completed",
         completedAt: /* @__PURE__ */ new Date()
-      }).where(eq9(campaignQueue.id, job.id));
+      }).where(eq10(campaignQueue.id, job.id));
       console.log(`[CampaignQueue] \u2705 Score-only job ${job.id} complete \u2014 ${company.name}`);
       return true;
     }
@@ -15296,7 +15576,7 @@ async function processJob() {
       await db.update(campaignQueue).set({
         status: "completed",
         completedAt: /* @__PURE__ */ new Date()
-      }).where(eq9(campaignQueue.id, job.id));
+      }).where(eq10(campaignQueue.id, job.id));
       console.log(`[CampaignQueue] \u2705 Score-urgency job ${job.id} complete \u2014 ${company.name}`);
       return true;
     }
@@ -15316,7 +15596,7 @@ async function processJob() {
       await db.update(campaignQueue).set({
         status: "completed",
         completedAt: /* @__PURE__ */ new Date()
-      }).where(eq9(campaignQueue.id, job.id));
+      }).where(eq10(campaignQueue.id, job.id));
       console.log(`[CampaignQueue] \u2705 Outreach job ${job.id} complete \u2014 ${company.name}`);
       return true;
     }
@@ -15388,7 +15668,7 @@ async function processJob() {
     await db.update(campaignQueue).set({
       status: "completed",
       completedAt: /* @__PURE__ */ new Date()
-    }).where(eq9(campaignQueue.id, job.id));
+    }).where(eq10(campaignQueue.id, job.id));
     console.log(`[CampaignQueue] \u2705 Job ${job.id} complete \u2014 ${company.name}`);
     return true;
   } catch (err) {
@@ -15401,7 +15681,7 @@ async function processJob() {
           status: "failed",
           errorMessage: (err.message ?? "Unknown error").slice(0, 512),
           completedAt: /* @__PURE__ */ new Date()
-        }).where(eq9(campaignQueue.id, job.id));
+        }).where(eq10(campaignQueue.id, job.id));
       }
     } catch (dbErr) {
       console.error(`[CampaignQueue] Could not mark job as failed:`, dbErr);
@@ -15460,7 +15740,7 @@ var campaignQueueRouter = router({
     forceRescore: z7.boolean().default(false)
   })).mutation(async ({ ctx, input }) => {
     const db = await getDb();
-    if (!db) throw new TRPCError6({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    if (!db) throw new TRPCError7({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
     const allCompanies = await db.select({
       id: companies.id,
       name: companies.name,
@@ -15470,7 +15750,7 @@ var campaignQueueRouter = router({
       fitScore: companies.fitScore,
       fitScoreSource: companies.fitScoreSource
     }).from(companies).where(and5(
-      eq10(companies.searchId, input.searchId)
+      eq11(companies.searchId, input.searchId)
     ));
     const processable = allCompanies.filter(
       (c) => c.enrichmentStatus !== "failed" || c.salesApproachData
@@ -15479,8 +15759,8 @@ var campaignQueueRouter = router({
       return { enqueued: 0, skipped: 0, total: 0, message: "No processable companies found in this campaign." };
     }
     const existingJobs = await db.select({ companyId: campaignQueue.companyId }).from(campaignQueue).where(and5(
-      eq10(campaignQueue.searchId, input.searchId),
-      inArray7(campaignQueue.status, ["pending", "running"])
+      eq11(campaignQueue.searchId, input.searchId),
+      inArray8(campaignQueue.status, ["pending", "running"])
     ));
     const alreadyQueued = new Set(existingJobs.map((j) => j.companyId));
     const toEnqueue = processable.filter((c) => {
@@ -15532,8 +15812,8 @@ var campaignQueueRouter = router({
     searchId: z7.number().optional()
   })).query(async ({ ctx, input }) => {
     const db = await getDb();
-    if (!db) throw new TRPCError6({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
-    const baseWhere = input.searchId ? and5(eq10(campaignQueue.userId, ctx.user.id), eq10(campaignQueue.searchId, input.searchId)) : eq10(campaignQueue.userId, ctx.user.id);
+    if (!db) throw new TRPCError7({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    const baseWhere = input.searchId ? and5(eq11(campaignQueue.userId, ctx.user.id), eq11(campaignQueue.searchId, input.searchId)) : eq11(campaignQueue.userId, ctx.user.id);
     const rows = await db.select({
       status: campaignQueue.status,
       cnt: count()
@@ -15543,9 +15823,9 @@ var campaignQueueRouter = router({
       statusMap[row.status] = Number(row.cnt);
     }
     const [runningJob] = await db.select({ companyName: campaignQueue.companyName, startedAt: campaignQueue.startedAt }).from(campaignQueue).where(and5(
-      eq10(campaignQueue.userId, ctx.user.id),
-      eq10(campaignQueue.status, "running"),
-      ...input.searchId ? [eq10(campaignQueue.searchId, input.searchId)] : []
+      eq11(campaignQueue.userId, ctx.user.id),
+      eq11(campaignQueue.status, "running"),
+      ...input.searchId ? [eq11(campaignQueue.searchId, input.searchId)] : []
     )).limit(1);
     const worker = getWorkerStatus();
     return {
@@ -15567,11 +15847,11 @@ var campaignQueueRouter = router({
    */
   cancelSearch: protectedProcedure.input(z7.object({ searchId: z7.number() })).mutation(async ({ ctx, input }) => {
     const db = await getDb();
-    if (!db) throw new TRPCError6({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    if (!db) throw new TRPCError7({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
     const result = await db.update(campaignQueue).set({ status: "failed", errorMessage: "Cancelled by user", completedAt: /* @__PURE__ */ new Date() }).where(and5(
-      eq10(campaignQueue.searchId, input.searchId),
-      eq10(campaignQueue.userId, ctx.user.id),
-      eq10(campaignQueue.status, "pending")
+      eq11(campaignQueue.searchId, input.searchId),
+      eq11(campaignQueue.userId, ctx.user.id),
+      eq11(campaignQueue.status, "pending")
     ));
     return { cancelled: result.affectedRows ?? 0 };
   }),
@@ -15580,12 +15860,12 @@ var campaignQueueRouter = router({
    */
   getJobHistory: protectedProcedure.input(z7.object({ searchId: z7.number() })).query(async ({ ctx, input }) => {
     const db = await getDb();
-    if (!db) throw new TRPCError6({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    if (!db) throw new TRPCError7({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
     const jobs = await db.select().from(campaignQueue).where(and5(
-      eq10(campaignQueue.searchId, input.searchId),
-      eq10(campaignQueue.userId, ctx.user.id),
-      inArray7(campaignQueue.status, ["completed", "failed"])
-    )).orderBy(sql4`${campaignQueue.completedAt} DESC`).limit(50);
+      eq11(campaignQueue.searchId, input.searchId),
+      eq11(campaignQueue.userId, ctx.user.id),
+      inArray8(campaignQueue.status, ["completed", "failed"])
+    )).orderBy(sql5`${campaignQueue.completedAt} DESC`).limit(50);
     return jobs;
   })
 });
@@ -15594,7 +15874,7 @@ var campaignQueueRouter = router({
 import { z as z8 } from "zod";
 init_db();
 init_schema();
-import { eq as eq11, and as and6, isNotNull as isNotNull3, sql as sql5 } from "drizzle-orm";
+import { eq as eq12, and as and6, isNotNull as isNotNull3, sql as sql6 } from "drizzle-orm";
 
 // server/leadinfoService.ts
 import * as XLSX2 from "xlsx";
@@ -15824,7 +16104,7 @@ var leadinfoRouter = router({
       name: companies.name,
       primaryDomain: companies.primaryDomain,
       websiteUrl: companies.websiteUrl
-    }).from(companies).where(eq11(companies.searchId, input.searchId));
+    }).from(companies).where(eq12(companies.searchId, input.searchId));
     const matches = matchCompaniesToCampaign(enriched, campaignCompanies);
     const matched = matches.filter((m) => m.matchType !== "unmatched");
     const unmatched = matches.filter((m) => m.matchType === "unmatched");
@@ -15870,7 +16150,7 @@ var leadinfoRouter = router({
       name: companies.name,
       primaryDomain: companies.primaryDomain,
       websiteUrl: companies.websiteUrl
-    }).from(companies).where(eq11(companies.searchId, input.searchId));
+    }).from(companies).where(eq12(companies.searchId, input.searchId));
     const matches = matchCompaniesToCampaign(enriched, campaignCompanies);
     const batchId = randomUUID2();
     let savedCount = 0;
@@ -15920,14 +16200,14 @@ var leadinfoRouter = router({
   getByCompany: protectedProcedure.input(z8.object({ companyId: z8.number() })).query(async ({ input }) => {
     const db = await getDb();
     if (!db) return null;
-    const direct = await db.select().from(leadinfoVisits).where(eq11(leadinfoVisits.companyId, input.companyId)).orderBy(sql5`${leadinfoVisits.importedAt} DESC`).limit(1);
+    const direct = await db.select().from(leadinfoVisits).where(eq12(leadinfoVisits.companyId, input.companyId)).orderBy(sql6`${leadinfoVisits.importedAt} DESC`).limit(1);
     if (direct[0]) return direct[0];
-    const companyRow = await db.select({ websiteUrl: companies.websiteUrl, primaryDomain: companies.primaryDomain }).from(companies).where(eq11(companies.id, input.companyId)).limit(1);
+    const companyRow = await db.select({ websiteUrl: companies.websiteUrl, primaryDomain: companies.primaryDomain }).from(companies).where(eq12(companies.id, input.companyId)).limit(1);
     if (!companyRow[0]) return null;
     const rawDomain = companyRow[0].primaryDomain || companyRow[0].websiteUrl || "";
     const domain = normaliseDomain(rawDomain);
     if (!domain) return null;
-    const byDomain = await db.select().from(leadinfoVisits).where(eq11(leadinfoVisits.domain, domain)).orderBy(sql5`${leadinfoVisits.engagementScore} DESC, ${leadinfoVisits.importedAt} DESC`).limit(1);
+    const byDomain = await db.select().from(leadinfoVisits).where(eq12(leadinfoVisits.domain, domain)).orderBy(sql6`${leadinfoVisits.engagementScore} DESC, ${leadinfoVisits.importedAt} DESC`).limit(1);
     return byDomain[0] || null;
   }),
   /**
@@ -15936,7 +16216,7 @@ var leadinfoRouter = router({
   getByCampaign: protectedProcedure.input(z8.object({ searchId: z8.number() })).query(async ({ input }) => {
     const db = await getDb();
     if (!db) return [];
-    return db.select().from(leadinfoVisits).where(eq11(leadinfoVisits.searchId, input.searchId)).orderBy(sql5`${leadinfoVisits.engagementScore} DESC`);
+    return db.select().from(leadinfoVisits).where(eq12(leadinfoVisits.searchId, input.searchId)).orderBy(sql6`${leadinfoVisits.engagementScore} DESC`);
   }),
   /**
    * Get company IDs that have Leadinfo data for a given campaign.
@@ -15947,7 +16227,7 @@ var leadinfoRouter = router({
     if (!db) return [];
     const directRows = await db.select({ companyId: leadinfoVisits.companyId }).from(leadinfoVisits).where(
       and6(
-        eq11(leadinfoVisits.searchId, input.searchId),
+        eq12(leadinfoVisits.searchId, input.searchId),
         isNotNull3(leadinfoVisits.companyId)
       )
     );
@@ -15961,7 +16241,7 @@ var leadinfoRouter = router({
       id: companies.id,
       websiteUrl: companies.websiteUrl,
       primaryDomain: companies.primaryDomain
-    }).from(companies).where(eq11(companies.searchId, input.searchId));
+    }).from(companies).where(eq12(companies.searchId, input.searchId));
     const crossIds = /* @__PURE__ */ new Set();
     for (const c of campaignCompanies) {
       if (directIds.has(c.id)) continue;
@@ -15981,10 +16261,10 @@ var leadinfoRouter = router({
     const rows = await db.select({
       importBatchId: leadinfoVisits.importBatchId,
       searchId: leadinfoVisits.searchId,
-      count: sql5`COUNT(*)`,
-      matchedCount: sql5`SUM(CASE WHEN ${leadinfoVisits.companyId} IS NOT NULL THEN 1 ELSE 0 END)`,
-      importedAt: sql5`MIN(${leadinfoVisits.importedAt})`
-    }).from(leadinfoVisits).where(eq11(leadinfoVisits.userId, ctx.user.id)).groupBy(leadinfoVisits.importBatchId, leadinfoVisits.searchId).orderBy(sql5`MIN(${leadinfoVisits.importedAt}) DESC`);
+      count: sql6`COUNT(*)`,
+      matchedCount: sql6`SUM(CASE WHEN ${leadinfoVisits.companyId} IS NOT NULL THEN 1 ELSE 0 END)`,
+      importedAt: sql6`MIN(${leadinfoVisits.importedAt})`
+    }).from(leadinfoVisits).where(eq12(leadinfoVisits.userId, ctx.user.id)).groupBy(leadinfoVisits.importBatchId, leadinfoVisits.searchId).orderBy(sql6`MIN(${leadinfoVisits.importedAt}) DESC`);
     return rows;
   })
 });
@@ -16192,7 +16472,7 @@ var webhookLogRouter = router({
 
 // server/salesMaterialsRouter.ts
 import { z as z11 } from "zod";
-import { TRPCError as TRPCError7 } from "@trpc/server";
+import { TRPCError as TRPCError8 } from "@trpc/server";
 function randomSuffix2() {
   return Math.random().toString(36).substring(2, 10);
 }
@@ -16219,8 +16499,8 @@ var salesMaterialsRouter = router({
       createdAt: salesMaterials2.createdAt,
       uploaderName: users3.name
     }).from(salesMaterials2).leftJoin(users3, (t2) => {
-      const { eq: eq21 } = __require("drizzle-orm");
-      return eq21(salesMaterials2.uploadedBy, users3.id);
+      const { eq: eq22 } = __require("drizzle-orm");
+      return eq22(salesMaterials2.uploadedBy, users3.id);
     }).orderBy(asc2(salesMaterials2.sortOrder), asc2(salesMaterials2.createdAt));
     return { materials: rows };
   }),
@@ -16239,11 +16519,11 @@ var salesMaterialsRouter = router({
     })
   ).mutation(async ({ ctx, input }) => {
     if (ctx.user.role !== "admin") {
-      throw new TRPCError7({ code: "FORBIDDEN", message: "Admin only" });
+      throw new TRPCError8({ code: "FORBIDDEN", message: "Admin only" });
     }
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const db = await getDb2();
-    if (!db) throw new TRPCError7({ code: "INTERNAL_SERVER_ERROR" });
+    if (!db) throw new TRPCError8({ code: "INTERNAL_SERVER_ERROR" });
     const { salesMaterials: salesMaterials2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
     const buffer = Buffer.from(input.base64, "base64");
     const key = `sales-materials/${Date.now()}-${randomSuffix2()}-${input.fileName}`;
@@ -16267,14 +16547,14 @@ var salesMaterialsRouter = router({
    */
   delete: protectedProcedure.input(z11.object({ id: z11.number().int().positive() })).mutation(async ({ ctx, input }) => {
     if (ctx.user.role !== "admin") {
-      throw new TRPCError7({ code: "FORBIDDEN", message: "Admin only" });
+      throw new TRPCError8({ code: "FORBIDDEN", message: "Admin only" });
     }
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const db = await getDb2();
-    if (!db) throw new TRPCError7({ code: "INTERNAL_SERVER_ERROR" });
+    if (!db) throw new TRPCError8({ code: "INTERNAL_SERVER_ERROR" });
     const { salesMaterials: salesMaterials2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq21 } = await import("drizzle-orm");
-    await db.delete(salesMaterials2).where(eq21(salesMaterials2.id, input.id));
+    const { eq: eq22 } = await import("drizzle-orm");
+    await db.delete(salesMaterials2).where(eq22(salesMaterials2.id, input.id));
     return { success: true };
   }),
   /**
@@ -16289,26 +16569,26 @@ var salesMaterialsRouter = router({
     })
   ).mutation(async ({ ctx, input }) => {
     if (ctx.user.role !== "admin") {
-      throw new TRPCError7({ code: "FORBIDDEN", message: "Admin only" });
+      throw new TRPCError8({ code: "FORBIDDEN", message: "Admin only" });
     }
     const { getDb: getDb2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const db = await getDb2();
-    if (!db) throw new TRPCError7({ code: "INTERNAL_SERVER_ERROR" });
+    if (!db) throw new TRPCError8({ code: "INTERNAL_SERVER_ERROR" });
     const { salesMaterials: salesMaterials2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const { eq: eq21 } = await import("drizzle-orm");
+    const { eq: eq22 } = await import("drizzle-orm");
     const updates = {};
     if (input.title !== void 0) updates.title = input.title;
     if (input.description !== void 0) updates.description = input.description;
     if (input.category !== void 0) updates.category = input.category;
-    await db.update(salesMaterials2).set(updates).where(eq21(salesMaterials2.id, input.id));
+    await db.update(salesMaterials2).set(updates).where(eq22(salesMaterials2.id, input.id));
     return { success: true };
   })
 });
 
 // server/shareRouter.ts
 import { z as z12 } from "zod";
-import { TRPCError as TRPCError8 } from "@trpc/server";
-import { eq as eq12, and as and7, or as or2, desc as desc3, gte as gte2, inArray as inArray8, sql as sql6 } from "drizzle-orm";
+import { TRPCError as TRPCError9 } from "@trpc/server";
+import { eq as eq13, and as and7, or as or2, desc as desc3, gte as gte2, inArray as inArray9, sql as sql7 } from "drizzle-orm";
 import crypto from "crypto";
 init_db();
 
@@ -16358,20 +16638,20 @@ async function autoCompleteResearchRequestsWithFreshLlmScore(db) {
   const pending = await db.select({
     id: shareResearchRequests.id,
     companyId: shareResearchRequests.companyId
-  }).from(shareResearchRequests).where(eq12(shareResearchRequests.status, "pending"));
+  }).from(shareResearchRequests).where(eq13(shareResearchRequests.status, "pending"));
   if (pending.length === 0) return 0;
   const companyIds = [...new Set(pending.map((r) => r.companyId))];
   const companyRows = await db.select({
     id: companies.id,
     fitScoreSource: companies.fitScoreSource,
     fitScoreGeneratedAt: companies.fitScoreGeneratedAt
-  }).from(companies).where(inArray8(companies.id, companyIds));
+  }).from(companies).where(inArray9(companies.id, companyIds));
   const freshCompanyIds = new Set(
     companyRows.filter((c) => hasFreshLlmScore(c.fitScoreSource, c.fitScoreGeneratedAt)).map((c) => c.id)
   );
   const toComplete = pending.filter((r) => freshCompanyIds.has(r.companyId)).map((r) => r.id);
   if (toComplete.length === 0) return 0;
-  await db.update(shareResearchRequests).set({ status: "completed" }).where(inArray8(shareResearchRequests.id, toComplete));
+  await db.update(shareResearchRequests).set({ status: "completed" }).where(inArray9(shareResearchRequests.id, toComplete));
   return toComplete.length;
 }
 function generateToken() {
@@ -16412,9 +16692,9 @@ var shareRouter = router({
     for (const item of input.items) {
       const existing = await db.select().from(shareTokens).where(
         and7(
-          eq12(shareTokens.companyId, item.companyId),
-          eq12(shareTokens.brainId, item.brainId),
-          eq12(shareTokens.createdBy, userId)
+          eq13(shareTokens.companyId, item.companyId),
+          eq13(shareTokens.brainId, item.brainId),
+          eq13(shareTokens.createdBy, userId)
         )
       ).limit(1);
       if (existing.length > 0) {
@@ -16445,37 +16725,37 @@ var shareRouter = router({
     }
     const db = await getDb();
     if (!db) throw new Error("Database unavailable");
-    const tokenRows = await db.select().from(shareTokens).where(eq12(shareTokens.token, input.token)).limit(1);
+    const tokenRows = await db.select().from(shareTokens).where(eq13(shareTokens.token, input.token)).limit(1);
     if (tokenRows.length === 0) throw new Error("Invalid or expired share link");
     const tokenRow = tokenRows[0];
-    const companyRows = await db.select().from(companies).where(eq12(companies.id, tokenRow.companyId)).limit(1);
+    const companyRows = await db.select().from(companies).where(eq13(companies.id, tokenRow.companyId)).limit(1);
     if (companyRows.length === 0) throw new Error("Company not found");
     const company = companyRows[0];
-    const brainRows = await db.select().from(offeringBrain).where(eq12(offeringBrain.id, tokenRow.brainId)).limit(1);
+    const brainRows = await db.select().from(offeringBrain).where(eq13(offeringBrain.id, tokenRow.brainId)).limit(1);
     const brain = brainRows[0] ?? null;
     const brainOutputRows = await db.select().from(companyBrainOutputs).where(
       and7(
-        eq12(companyBrainOutputs.companyId, tokenRow.companyId),
-        eq12(companyBrainOutputs.brainId, tokenRow.brainId)
+        eq13(companyBrainOutputs.companyId, tokenRow.companyId),
+        eq13(companyBrainOutputs.brainId, tokenRow.brainId)
       )
     ).limit(1);
     const brainOutput = brainOutputRows[0] ?? null;
-    const contactRows = await db.select().from(contacts).where(eq12(contacts.companyId, tokenRow.companyId));
-    let leadinfoRows = await db.select().from(leadinfoVisits).where(eq12(leadinfoVisits.companyId, tokenRow.companyId));
+    const contactRows = await db.select().from(contacts).where(eq13(contacts.companyId, tokenRow.companyId));
+    let leadinfoRows = await db.select().from(leadinfoVisits).where(eq13(leadinfoVisits.companyId, tokenRow.companyId));
     if (leadinfoRows.length === 0 && company.websiteUrl) {
       const normDomain = (url) => url.toLowerCase().replace(/^https?:\/\//, "").replace(/^\/\//, "").replace(/^www\./, "").split("/")[0].split("?")[0].replace(/\/$/, "");
       const companyDomain = normDomain(company.websiteUrl);
       if (companyDomain) {
         const domainCompanies = await db.select({ id: companies.id }).from(companies).where(or2(
-          eq12(companies.websiteUrl, company.websiteUrl),
-          eq12(companies.websiteUrl, `https://${companyDomain}`),
-          eq12(companies.websiteUrl, `http://${companyDomain}`),
-          eq12(companies.websiteUrl, `https://www.${companyDomain}`),
-          eq12(companies.websiteUrl, `http://www.${companyDomain}`)
+          eq13(companies.websiteUrl, company.websiteUrl),
+          eq13(companies.websiteUrl, `https://${companyDomain}`),
+          eq13(companies.websiteUrl, `http://${companyDomain}`),
+          eq13(companies.websiteUrl, `https://www.${companyDomain}`),
+          eq13(companies.websiteUrl, `http://www.${companyDomain}`)
         ));
         const domainIds = domainCompanies.map((c) => c.id);
         if (domainIds.length > 0) {
-          leadinfoRows = await db.select().from(leadinfoVisits).where(inArray8(leadinfoVisits.companyId, domainIds));
+          leadinfoRows = await db.select().from(leadinfoVisits).where(inArray9(leadinfoVisits.companyId, domainIds));
         }
       }
     }
@@ -16532,7 +16812,7 @@ var shareRouter = router({
             const images = serperData.images ?? [];
             companyImages = images.map((img) => img.imageUrl ?? img.thumbnailUrl ?? "").filter((url) => url && url.startsWith("http")).slice(0, 2);
             if (companyImages.length > 0) {
-              await db.update(shareTokens).set({ cachedImages: JSON.stringify(companyImages), cachedAt: /* @__PURE__ */ new Date() }).where(eq12(shareTokens.id, tokenRow.id));
+              await db.update(shareTokens).set({ cachedImages: JSON.stringify(companyImages), cachedAt: /* @__PURE__ */ new Date() }).where(eq13(shareTokens.id, tokenRow.id));
             }
           }
         }
@@ -16572,19 +16852,19 @@ var shareRouter = router({
     if (!db) throw new Error("Database unavailable");
     const rows = [];
     for (const item of input.items) {
-      const companyRows = await db.select().from(companies).where(eq12(companies.id, item.companyId)).limit(1);
+      const companyRows = await db.select().from(companies).where(eq13(companies.id, item.companyId)).limit(1);
       const company = companyRows[0];
       if (!company) continue;
-      const brainRows = await db.select().from(offeringBrain).where(eq12(offeringBrain.id, item.brainId)).limit(1);
+      const brainRows = await db.select().from(offeringBrain).where(eq13(offeringBrain.id, item.brainId)).limit(1);
       const brain = brainRows[0] ?? null;
       const brainOutputRows = await db.select().from(companyBrainOutputs).where(
         and7(
-          eq12(companyBrainOutputs.companyId, item.companyId),
-          eq12(companyBrainOutputs.brainId, item.brainId)
+          eq13(companyBrainOutputs.companyId, item.companyId),
+          eq13(companyBrainOutputs.brainId, item.brainId)
         )
       ).limit(1);
       const brainOutput = brainOutputRows[0] ?? null;
-      const contactRows = await db.select().from(contacts).where(eq12(contacts.companyId, item.companyId)).limit(1);
+      const contactRows = await db.select().from(contacts).where(eq13(contacts.companyId, item.companyId)).limit(1);
       const firstContact = contactRows[0] ?? null;
       let keySignal = "";
       const briefStr = brainOutput?.briefData ?? company.briefData;
@@ -16640,13 +16920,13 @@ var shareRouter = router({
     const userId = ctx.user.id;
     const tokenResults = [];
     for (const item of input.items) {
-      const existing = await db.select().from(shareTokens).where(and7(eq12(shareTokens.companyId, item.companyId), eq12(shareTokens.brainId, item.brainId), eq12(shareTokens.createdBy, userId))).limit(1);
+      const existing = await db.select().from(shareTokens).where(and7(eq13(shareTokens.companyId, item.companyId), eq13(shareTokens.brainId, item.brainId), eq13(shareTokens.createdBy, userId))).limit(1);
       if (existing.length > 0) {
         tokenResults.push({ companyId: item.companyId, brainId: item.brainId, token: existing[0].token, tokenId: existing[0].id });
       } else {
         const token = generateToken();
         await db.insert(shareTokens).values({ token, companyId: item.companyId, brainId: item.brainId, createdBy: userId, shareListName: input.shareListName ?? null });
-        const inserted = await db.select().from(shareTokens).where(eq12(shareTokens.token, token)).limit(1);
+        const inserted = await db.select().from(shareTokens).where(eq13(shareTokens.token, token)).limit(1);
         tokenResults.push({ companyId: item.companyId, brainId: item.brainId, token, tokenId: inserted[0].id });
       }
     }
@@ -16657,7 +16937,7 @@ var shareRouter = router({
     const dominantBrainId2 = Array.from(brainFreq2.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
     const listToken = generateToken();
     await db.insert(shareLists).values({ listToken, shareListName: input.shareListName ?? null, createdBy: userId, brainId: dominantBrainId2 ?? void 0 });
-    const listRows = await db.select().from(shareLists).where(eq12(shareLists.listToken, listToken)).limit(1);
+    const listRows = await db.select().from(shareLists).where(eq13(shareLists.listToken, listToken)).limit(1);
     const shareListId = listRows[0].id;
     for (const t2 of tokenResults) {
       await db.insert(shareListItems).values({ shareListId, shareTokenId: t2.tokenId });
@@ -16672,7 +16952,7 @@ var shareRouter = router({
     if (cached) return cached;
     const db = await getDb();
     if (!db) throw new Error("Database unavailable");
-    const listRows = await db.select().from(shareLists).where(eq12(shareLists.listToken, input.listToken)).limit(1);
+    const listRows = await db.select().from(shareLists).where(eq13(shareLists.listToken, input.listToken)).limit(1);
     if (listRows.length === 0) throw new Error("Invalid or expired share list link");
     const shareList = listRows[0];
     const db2 = await getDb();
@@ -16774,9 +17054,9 @@ var shareRouter = router({
     const db = await getDb();
     if (!db) throw new Error("Database unavailable");
     const userId = ctx.user.id;
-    const [existing] = await db.select({ id: shareLists.id }).from(shareLists).where(and7(eq12(shareLists.id, input.listId), eq12(shareLists.createdBy, userId))).limit(1);
+    const [existing] = await db.select({ id: shareLists.id }).from(shareLists).where(and7(eq13(shareLists.id, input.listId), eq13(shareLists.createdBy, userId))).limit(1);
     if (!existing) throw new Error("Share list not found or access denied");
-    await db.delete(shareLists).where(eq12(shareLists.id, input.listId));
+    await db.delete(shareLists).where(eq13(shareLists.id, input.listId));
     return { ok: true };
   }),
   /**
@@ -16786,9 +17066,9 @@ var shareRouter = router({
     const db = await getDb();
     if (!db) throw new Error("Database unavailable");
     const userId = ctx.user.id;
-    const [existing] = await db.select({ id: shareLists.id }).from(shareLists).where(and7(eq12(shareLists.id, input.listId), eq12(shareLists.createdBy, userId))).limit(1);
+    const [existing] = await db.select({ id: shareLists.id }).from(shareLists).where(and7(eq13(shareLists.id, input.listId), eq13(shareLists.createdBy, userId))).limit(1);
     if (!existing) throw new Error("Share list not found or access denied");
-    await db.update(shareLists).set({ shareListName: input.name.trim() || null }).where(eq12(shareLists.id, input.listId));
+    await db.update(shareLists).set({ shareListName: input.name.trim() || null }).where(eq13(shareLists.id, input.listId));
     return { ok: true };
   })
 });
@@ -16805,7 +17085,7 @@ var shareExtRouter = router({
     const db = await getDb();
     if (!db) throw new Error("Database unavailable");
     const domain = input.email.split("@")[1]?.toLowerCase() ?? "";
-    const allowed = await db.select().from(shareAllowedDomains).where(eq12(shareAllowedDomains.domain, domain)).limit(1);
+    const allowed = await db.select().from(shareAllowedDomains).where(eq13(shareAllowedDomains.domain, domain)).limit(1);
     const accessGranted = allowed.length > 0;
     await db.insert(shareAccessLog).values({
       email: input.email.toLowerCase(),
@@ -16817,9 +17097,9 @@ var shareExtRouter = router({
     });
     if (accessGranted) {
       const normalizedEmail = input.email.toLowerCase();
-      const existing = await db.select().from(shareVisitors).where(eq12(shareVisitors.email, normalizedEmail)).limit(1);
+      const existing = await db.select().from(shareVisitors).where(eq13(shareVisitors.email, normalizedEmail)).limit(1);
       if (existing.length > 0) {
-        await db.update(shareVisitors).set({ accessCount: existing[0].accessCount + 1 }).where(eq12(shareVisitors.email, normalizedEmail));
+        await db.update(shareVisitors).set({ accessCount: existing[0].accessCount + 1 }).where(eq13(shareVisitors.email, normalizedEmail));
       } else {
         await db.insert(shareVisitors).values({ email: normalizedEmail, accessCount: 1 });
       }
@@ -16844,7 +17124,7 @@ var shareExtRouter = router({
   removeShareAllowedDomain: protectedProcedure.input(z12.object({ domain: z12.string() })).mutation(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new Error("Database unavailable");
-    await db.delete(shareAllowedDomains).where(eq12(shareAllowedDomains.domain, input.domain));
+    await db.delete(shareAllowedDomains).where(eq13(shareAllowedDomains.domain, input.domain));
     return { ok: true };
   }),
   /** Admin — get access log entries */
@@ -16864,12 +17144,12 @@ var shareExtRouter = router({
   /** Public — check remaining deep-research request quota for a visitor email today */
   getResearchRequestQuota: publicProcedure.input(z12.object({ visitorEmail: z12.string().email() })).query(async ({ input }) => {
     const db = await getDb();
-    if (!db) throw new TRPCError8({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    if (!db) throw new TRPCError9({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
     const normalizedEmail = input.visitorEmail.toLowerCase().trim();
     const todayStart = /* @__PURE__ */ new Date();
     todayStart.setHours(0, 0, 0, 0);
-    const [countRow] = await db.select({ count: sql6`count(*)` }).from(shareResearchRequests).where(and7(
-      eq12(shareResearchRequests.visitorEmail, normalizedEmail),
+    const [countRow] = await db.select({ count: sql7`count(*)` }).from(shareResearchRequests).where(and7(
+      eq13(shareResearchRequests.visitorEmail, normalizedEmail),
       gte2(shareResearchRequests.createdAt, todayStart)
     ));
     const usedToday = Number(countRow?.count ?? 0);
@@ -16888,35 +17168,35 @@ var shareExtRouter = router({
     visitorEmail: z12.string().email()
   })).mutation(async ({ input }) => {
     const db = await getDb();
-    if (!db) throw new TRPCError8({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    if (!db) throw new TRPCError9({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
     const normalizedEmail = input.visitorEmail.toLowerCase().trim();
     const domain = normalizedEmail.split("@")[1] ?? "";
-    const allowed = await db.select().from(shareAllowedDomains).where(eq12(shareAllowedDomains.domain, domain)).limit(1);
+    const allowed = await db.select().from(shareAllowedDomains).where(eq13(shareAllowedDomains.domain, domain)).limit(1);
     if (allowed.length === 0) {
-      throw new TRPCError8({
+      throw new TRPCError9({
         code: "FORBIDDEN",
         message: "Access denied: email domain not on allowlist"
       });
     }
-    const tokenRows = await db.select().from(shareTokens).where(eq12(shareTokens.token, input.token)).limit(1);
+    const tokenRows = await db.select().from(shareTokens).where(eq13(shareTokens.token, input.token)).limit(1);
     if (tokenRows.length === 0) {
-      throw new TRPCError8({ code: "NOT_FOUND", message: "Invalid share token" });
+      throw new TRPCError9({ code: "NOT_FOUND", message: "Invalid share token" });
     }
     const tokenRow = tokenRows[0];
-    const companyRows = await db.select().from(companies).where(eq12(companies.id, tokenRow.companyId)).limit(1);
+    const companyRows = await db.select().from(companies).where(eq13(companies.id, tokenRow.companyId)).limit(1);
     if (companyRows.length === 0) {
-      throw new TRPCError8({ code: "NOT_FOUND", message: "Company not found" });
+      throw new TRPCError9({ code: "NOT_FOUND", message: "Company not found" });
     }
     const company = companyRows[0];
     const todayStart = /* @__PURE__ */ new Date();
     todayStart.setHours(0, 0, 0, 0);
-    const [countRow] = await db.select({ count: sql6`count(*)` }).from(shareResearchRequests).where(and7(
-      eq12(shareResearchRequests.visitorEmail, normalizedEmail),
+    const [countRow] = await db.select({ count: sql7`count(*)` }).from(shareResearchRequests).where(and7(
+      eq13(shareResearchRequests.visitorEmail, normalizedEmail),
       gte2(shareResearchRequests.createdAt, todayStart)
     ));
     const usedToday = Number(countRow?.count ?? 0);
     if (usedToday >= SHARE_RESEARCH_DAILY_LIMIT) {
-      throw new TRPCError8({
+      throw new TRPCError9({
         code: "TOO_MANY_REQUESTS",
         message: `Daily limit reached (${SHARE_RESEARCH_DAILY_LIMIT} requests per day). Try again tomorrow.`
       });
@@ -16940,7 +17220,7 @@ var shareExtRouter = router({
   /** Admin — deep research requests from share pages (auto-completes when LLM score < 3 days old) */
   getShareResearchRequests: protectedProcedure.input(z12.object({ limit: z12.number().default(200) })).query(async ({ input }) => {
     const db = await getDb();
-    if (!db) throw new TRPCError8({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    if (!db) throw new TRPCError9({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
     await autoCompleteResearchRequestsWithFreshLlmScore(db);
     return db.select().from(shareResearchRequests).orderBy(desc3(shareResearchRequests.createdAt)).limit(input.limit);
   }),
@@ -16950,12 +17230,12 @@ var shareExtRouter = router({
     status: z12.enum(["completed", "cancelled"])
   })).mutation(async ({ input }) => {
     const db = await getDb();
-    if (!db) throw new TRPCError8({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
-    const [existing] = await db.select({ id: shareResearchRequests.id }).from(shareResearchRequests).where(eq12(shareResearchRequests.id, input.id)).limit(1);
+    if (!db) throw new TRPCError9({ code: "INTERNAL_SERVER_ERROR", message: "Database unavailable" });
+    const [existing] = await db.select({ id: shareResearchRequests.id }).from(shareResearchRequests).where(eq13(shareResearchRequests.id, input.id)).limit(1);
     if (!existing) {
-      throw new TRPCError8({ code: "NOT_FOUND", message: "Research request not found" });
+      throw new TRPCError9({ code: "NOT_FOUND", message: "Research request not found" });
     }
-    await db.update(shareResearchRequests).set({ status: input.status }).where(eq12(shareResearchRequests.id, input.id));
+    await db.update(shareResearchRequests).set({ status: input.status }).where(eq13(shareResearchRequests.id, input.id));
     return { ok: true };
   }),
   /** Admin — who retrieved contact details on share pages */
@@ -16968,7 +17248,7 @@ var shareExtRouter = router({
   createBrainShareToken: protectedProcedure.input(z12.object({ brainId: z12.number() })).mutation(async ({ ctx, input }) => {
     const db = await getDb();
     if (!db) throw new Error("Database unavailable");
-    const existing = await db.select().from(brainShareTokens).where(and7(eq12(brainShareTokens.brainId, input.brainId), eq12(brainShareTokens.createdBy, ctx.user.id))).limit(1);
+    const existing = await db.select().from(brainShareTokens).where(and7(eq13(brainShareTokens.brainId, input.brainId), eq13(brainShareTokens.createdBy, ctx.user.id))).limit(1);
     if (existing.length > 0) return { token: existing[0].token };
     const token = crypto.randomBytes(16).toString("hex");
     await db.insert(brainShareTokens).values({ token, brainId: input.brainId, createdBy: ctx.user.id });
@@ -16978,9 +17258,9 @@ var shareExtRouter = router({
   resolveBrainToken: publicProcedure.input(z12.object({ token: z12.string() })).query(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new Error("Database unavailable");
-    const rows = await db.select().from(brainShareTokens).where(eq12(brainShareTokens.token, input.token)).limit(1);
+    const rows = await db.select().from(brainShareTokens).where(eq13(brainShareTokens.token, input.token)).limit(1);
     if (rows.length === 0) throw new Error("Invalid or expired brain share link");
-    const brainRows = await db.select().from(offeringBrain).where(eq12(offeringBrain.id, rows[0].brainId)).limit(1);
+    const brainRows = await db.select().from(offeringBrain).where(eq13(offeringBrain.id, rows[0].brainId)).limit(1);
     if (brainRows.length === 0) throw new Error("Brain not found");
     return { brain: brainRows[0] };
   }),
@@ -17019,7 +17299,7 @@ var shareExtRouter = router({
     if (input.minFit) {
       conditions.push(gteOp(companies.fitScore, input.minFit));
     }
-    const mysqlRows = await db.select({ company: companies, search: searches3 }).from(companies).leftJoin(searches3, eq12(companies.searchId, searches3.id)).where(and7(...conditions)).orderBy(companies.urgencyScore).limit(2e3);
+    const mysqlRows = await db.select({ company: companies, search: searches3 }).from(companies).leftJoin(searches3, eq13(companies.searchId, searches3.id)).where(and7(...conditions)).orderBy(companies.urgencyScore).limit(2e3);
     if (mysqlRows.length === 0) throw new Error("No companies match the active filters");
     const searchCache = /* @__PURE__ */ new Map();
     const tokenResults = [];
@@ -17041,13 +17321,13 @@ var shareExtRouter = router({
         brainId = active?.id ?? null;
       }
       if (!brainId) continue;
-      const existing = await db.select().from(shareTokens).where(and7(eq12(shareTokens.companyId, companyId), eq12(shareTokens.brainId, brainId), eq12(shareTokens.createdBy, userId))).limit(1);
+      const existing = await db.select().from(shareTokens).where(and7(eq13(shareTokens.companyId, companyId), eq13(shareTokens.brainId, brainId), eq13(shareTokens.createdBy, userId))).limit(1);
       if (existing.length > 0) {
         tokenResults.push({ companyId, brainId, token: existing[0].token, tokenId: existing[0].id });
       } else {
         const token = generateToken();
         await db.insert(shareTokens).values({ token, companyId, brainId, createdBy: userId, shareListName: "Intelligence Share" });
-        const inserted = await db.select().from(shareTokens).where(eq12(shareTokens.token, token)).limit(1);
+        const inserted = await db.select().from(shareTokens).where(eq13(shareTokens.token, token)).limit(1);
         tokenResults.push({ companyId, brainId, token, tokenId: inserted[0].id });
       }
     }
@@ -17061,7 +17341,7 @@ var shareExtRouter = router({
     const listName = `Intelligence \u2014 ${(/* @__PURE__ */ new Date()).toLocaleDateString()} (${tokenResults.length} companies)`;
     await db.insert(shareLists).values({ listToken, shareListName: listName, createdBy: userId, brainId: dominantBrainId ?? void 0 });
     ;
-    const listRows = await db.select().from(shareLists).where(eq12(shareLists.listToken, listToken)).limit(1);
+    const listRows = await db.select().from(shareLists).where(eq13(shareLists.listToken, listToken)).limit(1);
     const shareListId = listRows[0].id;
     for (const t2 of tokenResults) {
       await db.insert(shareListItems).values({ shareListId, shareTokenId: t2.tokenId });
@@ -17081,12 +17361,12 @@ var shareExtRouter = router({
     const db = await getDb();
     if (!db) throw new Error("Database unavailable");
     const domain = input.visitorEmail.split("@")[1]?.toLowerCase() ?? "";
-    const allowed = await db.select().from(shareAllowedDomains).where(eq12(shareAllowedDomains.domain, domain)).limit(1);
+    const allowed = await db.select().from(shareAllowedDomains).where(eq13(shareAllowedDomains.domain, domain)).limit(1);
     if (allowed.length === 0) throw new Error("Access denied: email domain not on allowlist");
-    const tokenRows = await db.select().from(shareTokens).where(eq12(shareTokens.token, input.token)).limit(1);
+    const tokenRows = await db.select().from(shareTokens).where(eq13(shareTokens.token, input.token)).limit(1);
     if (tokenRows.length === 0) throw new Error("Invalid share token");
     const { companyId } = tokenRows[0];
-    const companyRows = await db.select().from(companies).where(eq12(companies.id, companyId)).limit(1);
+    const companyRows = await db.select().from(companies).where(eq13(companies.id, companyId)).limit(1);
     if (companyRows.length === 0) throw new Error("Company not found");
     const company = companyRows[0];
     const companyDomain = company.websiteUrl ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "") : company.primaryDomain ?? null;
@@ -17144,12 +17424,12 @@ var shareExtRouter = router({
     const db = await getDb();
     if (!db) throw new Error("Database unavailable");
     const domain = input.visitorEmail.split("@")[1]?.toLowerCase() ?? "";
-    const allowed = await db.select().from(shareAllowedDomains).where(eq12(shareAllowedDomains.domain, domain)).limit(1);
+    const allowed = await db.select().from(shareAllowedDomains).where(eq13(shareAllowedDomains.domain, domain)).limit(1);
     if (allowed.length === 0) throw new Error("Access denied: email domain not on allowlist");
-    const tokenRows = await db.select().from(shareTokens).where(eq12(shareTokens.token, input.token)).limit(1);
+    const tokenRows = await db.select().from(shareTokens).where(eq13(shareTokens.token, input.token)).limit(1);
     if (tokenRows.length === 0) throw new Error("Invalid share token");
     const { companyId } = tokenRows[0];
-    const companyRows = await db.select().from(companies).where(eq12(companies.id, companyId)).limit(1);
+    const companyRows = await db.select().from(companies).where(eq13(companies.id, companyId)).limit(1);
     if (companyRows.length === 0) throw new Error("Company not found");
     const company = companyRows[0];
     const companyDomain = company.websiteUrl ? company.websiteUrl.replace(/^https?:\/\//, "").replace(/\/.*$/, "") : company.primaryDomain ?? null;
@@ -17180,7 +17460,7 @@ var shareExtRouter = router({
       } catch {
       }
     }
-    await db.update(companies).set({ contactsFetchedAt: /* @__PURE__ */ new Date() }).where(eq12(companies.id, companyId));
+    await db.update(companies).set({ contactsFetchedAt: /* @__PURE__ */ new Date() }).where(eq13(companies.id, companyId));
     const allContacts = await getContactsByCompanyId(companyId);
     await logShareContactRetrieval(db, {
       visitorEmail: input.visitorEmail,
@@ -17196,10 +17476,10 @@ var shareExtRouter = router({
   getStoredContacts: publicProcedure.input(z12.object({ token: z12.string() })).query(async ({ input }) => {
     const db = await getDb();
     if (!db) throw new Error("Database unavailable");
-    const tokenRows = await db.select().from(shareTokens).where(eq12(shareTokens.token, input.token)).limit(1);
+    const tokenRows = await db.select().from(shareTokens).where(eq13(shareTokens.token, input.token)).limit(1);
     if (tokenRows.length === 0) throw new Error("Invalid share token");
     const { companyId } = tokenRows[0];
-    const companyRows = await db.select({ contactsFetchedAt: companies.contactsFetchedAt }).from(companies).where(eq12(companies.id, companyId)).limit(1);
+    const companyRows = await db.select({ contactsFetchedAt: companies.contactsFetchedAt }).from(companies).where(eq13(companies.id, companyId)).limit(1);
     const fetchedAt = companyRows[0]?.contactsFetchedAt ?? null;
     const storedContacts = await getContactsByCompanyId(companyId);
     return { contacts: storedContacts, fetchedAt };
@@ -17254,9 +17534,9 @@ var shareExtRouter = router({
 import { z as z13 } from "zod";
 init_db();
 init_schema();
-import { TRPCError as TRPCError9 } from "@trpc/server";
+import { TRPCError as TRPCError10 } from "@trpc/server";
 import { createClient as createClient7 } from "@supabase/supabase-js";
-import { eq as eq13 } from "drizzle-orm";
+import { eq as eq14 } from "drizzle-orm";
 function getSupabase4() {
   const url = process.env.SUPABASE_URL;
   const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
@@ -17312,7 +17592,7 @@ var campaignBrainRouter = router({
     const sb = getSupabase4();
     const { data: brainEmb, error: embErr } = await sb.from("lt_mns_brain_embeddings").select("embedding").eq("brain_id", input.brainId).single();
     if (embErr || !brainEmb) {
-      throw new TRPCError9({
+      throw new TRPCError10({
         code: "NOT_FOUND",
         message: `No embedding found for brain ${input.brainId}. Run the embedding job first.`
       });
@@ -17327,7 +17607,7 @@ var campaignBrainRouter = router({
       }
     );
     if (rpcErr) {
-      throw new TRPCError9({
+      throw new TRPCError10({
         code: "INTERNAL_SERVER_ERROR",
         message: `Vector search failed: ${rpcErr.message}`
       });
@@ -17406,14 +17686,14 @@ var campaignBrainRouter = router({
   ).mutation(async ({ ctx, input }) => {
     const sb = getSupabase4();
     const db = await getDb();
-    if (!db) throw new TRPCError9({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
+    if (!db) throw new TRPCError10({ code: "INTERNAL_SERVER_ERROR", message: "DB unavailable" });
     const CHUNK = 50;
     let allCompanyData = [];
     for (let i = 0; i < input.companyIds.length; i += CHUNK) {
       const chunk = input.companyIds.slice(i, i + CHUNK);
       const { data, error } = await sb.from("lt_mns_companies").select("*").in("id", chunk);
       if (error) {
-        throw new TRPCError9({
+        throw new TRPCError10({
           code: "INTERNAL_SERVER_ERROR",
           message: `Failed to fetch companies: ${error.message}`
         });
@@ -17421,7 +17701,7 @@ var campaignBrainRouter = router({
       allCompanyData = allCompanyData.concat(data ?? []);
     }
     if (allCompanyData.length === 0) {
-      throw new TRPCError9({
+      throw new TRPCError10({
         code: "BAD_REQUEST",
         message: "No companies found for the selected IDs."
       });
@@ -17436,7 +17716,7 @@ var campaignBrainRouter = router({
       brainName: null
     };
     if (isLocalBrain) {
-      const [localBrain] = await db.select().from(offeringBrain).where(eq13(offeringBrain.id, parsedBrainId)).limit(1);
+      const [localBrain] = await db.select().from(offeringBrain).where(eq14(offeringBrain.id, parsedBrainId)).limit(1);
       if (localBrain) {
         brainInfo = {
           companyWebsite: localBrain.companyWebsite ?? "",
@@ -17498,7 +17778,7 @@ var campaignBrainRouter = router({
       await createCompanies(batch);
     }
     if (input.autoEnqueue) {
-      const inserted = await db.select({ id: companies.id, name: companies.name }).from(companies).where(eq13(companies.searchId, searchId));
+      const inserted = await db.select({ id: companies.id, name: companies.name }).from(companies).where(eq14(companies.searchId, searchId));
       if (inserted.length > 0) {
         await db.insert(campaignQueue).values(
           inserted.map((c) => ({
@@ -17545,7 +17825,7 @@ var campaignBrainRouter = router({
       })
     });
     if (!response.ok) {
-      throw new TRPCError9({
+      throw new TRPCError10({
         code: "INTERNAL_SERVER_ERROR",
         message: `Embedding API failed: ${response.statusText}`
       });
@@ -17562,7 +17842,7 @@ var campaignBrainRouter = router({
       }
     );
     if (rpcErr) {
-      throw new TRPCError9({
+      throw new TRPCError10({
         code: "INTERNAL_SERVER_ERROR",
         message: `Vector search failed: ${rpcErr.message}`
       });
@@ -17583,7 +17863,7 @@ var campaignBrainRouter = router({
 // server/triggerRouter.ts
 import { z as z14 } from "zod";
 init_llm();
-import { TRPCError as TRPCError10 } from "@trpc/server";
+import { TRPCError as TRPCError11 } from "@trpc/server";
 import { createClient as createClient8 } from "@supabase/supabase-js";
 function getSupabase5() {
   const url = process.env.SUPABASE_URL;
@@ -17792,7 +18072,7 @@ var triggerRouter = router({
       reviewed_at: (/* @__PURE__ */ new Date()).toISOString()
     }, { onConflict: "feed_item_id" });
     if (error) {
-      throw new TRPCError10({
+      throw new TRPCError11({
         code: "INTERNAL_SERVER_ERROR",
         message: `Failed to update match status: ${error.message}`
       });
@@ -17890,7 +18170,7 @@ var triggerRouter = router({
     const sb = getSupabase5();
     const { data: brain, error: brainErr } = await sb.from("lt_mns_offering_brains").select("id, brain_name, company_name, offering_summary, core_capabilities, icp_description, icp_pain_points, value_propositions, urgency_triggers, strong_fit_signals, local_brain_id").eq("id", input.brainId).single();
     if (brainErr || !brain) {
-      throw new TRPCError10({ code: "NOT_FOUND", message: `Brain not found: ${input.brainId}` });
+      throw new TRPCError11({ code: "NOT_FOUND", message: `Brain not found: ${input.brainId}` });
     }
     let numericBrainId;
     if (brain.local_brain_id) {
@@ -17942,7 +18222,7 @@ Generate ${input.count} diverse, realistic synthetic trigger references. Cover d
       const parsed = JSON.parse(rawContent);
       triggers = Array.isArray(parsed) ? parsed : parsed.triggers ?? parsed.data ?? [];
     } catch {
-      throw new TRPCError10({ code: "INTERNAL_SERVER_ERROR", message: "LLM returned invalid JSON" });
+      throw new TRPCError11({ code: "INTERNAL_SERVER_ERROR", message: "LLM returned invalid JSON" });
     }
     let uploaded = 0;
     for (const t2 of triggers) {
@@ -18063,7 +18343,7 @@ init_apolloSearch();
 init_briefGenerator();
 import { Router } from "express";
 import multer from "multer";
-import { eq as eq14, desc as desc4 } from "drizzle-orm";
+import { eq as eq15, desc as desc4 } from "drizzle-orm";
 var router2 = Router();
 function apiKeyAuth(req, res, next) {
   const authHeader = req.headers.authorization;
@@ -18096,14 +18376,14 @@ router2.get("/companies", async (req, res) => {
     }
     let query = db.select().from(companies);
     if (searchId) {
-      query = query.where(eq14(companies.searchId, searchId));
+      query = query.where(eq15(companies.searchId, searchId));
     }
     const results = await query.orderBy(desc4(companies.createdAt)).limit(limit).offset(offset);
     const dbInstance = await getDb();
     if (!dbInstance) {
       return res.status(503).json({ error: "Service Unavailable", message: "Database not available" });
     }
-    const countQuery = searchId ? dbInstance.select().from(companies).where(eq14(companies.searchId, searchId)) : dbInstance.select().from(companies);
+    const countQuery = searchId ? dbInstance.select().from(companies).where(eq15(companies.searchId, searchId)) : dbInstance.select().from(companies);
     const total = (await countQuery).length;
     res.json({
       data: results,
@@ -18134,7 +18414,7 @@ router2.get("/companies/:id", async (req, res) => {
         message: "Invalid company ID"
       });
     }
-    const result = await db.select().from(companies).where(eq14(companies.id, id)).limit(1);
+    const result = await db.select().from(companies).where(eq15(companies.id, id)).limit(1);
     if (result.length === 0) {
       return res.status(404).json({
         error: "Not Found",
@@ -18193,7 +18473,7 @@ router2.get("/searches/:id", async (req, res) => {
         message: "Invalid search ID"
       });
     }
-    const result = await db.select().from(searches).where(eq14(searches.id, id)).limit(1);
+    const result = await db.select().from(searches).where(eq15(searches.id, id)).limit(1);
     if (result.length === 0) {
       return res.status(404).json({
         error: "Not Found",
@@ -18224,12 +18504,12 @@ router2.get("/searches/:id/companies", async (req, res) => {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(200, Math.max(1, parseInt(req.query.limit) || 50));
     const offset = (page - 1) * limit;
-    const results = await db.select().from(companies).where(eq14(companies.searchId, searchId)).orderBy(desc4(companies.createdAt)).limit(limit).offset(offset);
+    const results = await db.select().from(companies).where(eq15(companies.searchId, searchId)).orderBy(desc4(companies.createdAt)).limit(limit).offset(offset);
     const dbInstance = await getDb();
     if (!dbInstance) {
       return res.status(503).json({ error: "Service Unavailable", message: "Database not available" });
     }
-    const total = (await dbInstance.select().from(companies).where(eq14(companies.searchId, searchId))).length;
+    const total = (await dbInstance.select().from(companies).where(eq15(companies.searchId, searchId))).length;
     res.json({
       data: results,
       pagination: {
@@ -18949,8 +19229,8 @@ router3.post("/", async (req, res) => {
     const db = await getDb();
     if (db) {
       const { searches: searches3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq21 } = await import("drizzle-orm");
-      await db.update(searches3).set({ status: "completed", codesSearched: exhibitors.length }).where(eq21(searches3.id, searchId));
+      const { eq: eq22 } = await import("drizzle-orm");
+      await db.update(searches3).set({ status: "completed", codesSearched: exhibitors.length }).where(eq22(searches3.id, searchId));
     }
     send({
       status: "done",
@@ -19199,8 +19479,8 @@ router4.post("/", upload2.single("file"), async (req, res) => {
     const db = await getDb();
     if (db) {
       const { searches: searches3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-      const { eq: eq21 } = await import("drizzle-orm");
-      await db.update(searches3).set({ status: "completed", codesSearched: companyRows.length }).where(eq21(searches3.id, searchId));
+      const { eq: eq22 } = await import("drizzle-orm");
+      await db.update(searches3).set({ status: "completed", codesSearched: companyRows.length }).where(eq22(searches3.id, searchId));
     }
     send({
       status: "done",
@@ -19230,13 +19510,13 @@ router4.post("/", upload2.single("file"), async (req, res) => {
         const dbConn = await getDb();
         if (dbConn && scoreMap.size > 0) {
           const { companies: companiesTable } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-          const { eq: eq21 } = await import("drizzle-orm");
+          const { eq: eq22 } = await import("drizzle-orm");
           const now = /* @__PURE__ */ new Date();
           for (const [companyId, { bestScore }] of Array.from(scoreMap.entries())) {
             await dbConn.update(companiesTable).set({
               similarityScore: bestScore,
               similarityScoreGeneratedAt: now
-            }).where(eq21(companiesTable.id, companyId));
+            }).where(eq22(companiesTable.id, companyId));
           }
           console.log(`[ExcelImport] Similarity scores written for ${scoreMap.size} companies against Brain ${activeBrainId} (search ${searchId})`);
         }
@@ -19257,7 +19537,7 @@ init_db();
 init_schema();
 import { Router as Router4 } from "express";
 import * as XLSX4 from "xlsx";
-import { eq as eq15, and as and10, inArray as inArray10, isNotNull as isNotNull4 } from "drizzle-orm";
+import { eq as eq16, and as and10, inArray as inArray11, isNotNull as isNotNull4 } from "drizzle-orm";
 var router5 = Router4();
 router5.get("/", async (req, res) => {
   try {
@@ -19270,11 +19550,11 @@ router5.get("/", async (req, res) => {
     let rows;
     if (companyIdsParam) {
       const ids = companyIdsParam.split(",").map(Number).filter(Boolean);
-      rows = await dbInstance.select().from(companies).where(inArray10(companies.id, ids));
+      rows = await dbInstance.select().from(companies).where(inArray11(companies.id, ids));
     } else if (searchId) {
       rows = await dbInstance.select().from(companies).where(
         and10(
-          eq15(companies.searchId, Number(searchId)),
+          eq16(companies.searchId, Number(searchId)),
           isNotNull4(companies.urgencyScore)
         )
       ).orderBy(companies.urgencyScore);
@@ -19283,7 +19563,7 @@ router5.get("/", async (req, res) => {
       return;
     }
     const companyIdList = rows.map((c) => c.id);
-    const allContacts = companyIdList.length > 0 ? await dbInstance.select().from(contacts).where(inArray10(contacts.companyId, companyIdList)) : [];
+    const allContacts = companyIdList.length > 0 ? await dbInstance.select().from(contacts).where(inArray11(contacts.companyId, companyIdList)) : [];
     const topContactMap = /* @__PURE__ */ new Map();
     for (const c of allContacts) {
       if (!topContactMap.has(c.companyId)) {
@@ -19404,7 +19684,7 @@ init_db();
 init_schema();
 import { Router as Router5 } from "express";
 import * as XLSX5 from "xlsx";
-import { eq as eq16, and as and11, inArray as inArray11 } from "drizzle-orm";
+import { eq as eq17, and as and11, inArray as inArray12 } from "drizzle-orm";
 var router6 = Router5();
 router6.get("/", async (req, res) => {
   try {
@@ -19430,7 +19710,7 @@ router6.get("/", async (req, res) => {
       res.status(500).json({ error: "Database unavailable" });
       return;
     }
-    const tokenRows = await db.select().from(shareTokens).where(inArray11(shareTokens.token, tokenList));
+    const tokenRows = await db.select().from(shareTokens).where(inArray12(shareTokens.token, tokenList));
     if (!tokenRows.length) {
       res.status(404).json({ error: "No valid tokens found" });
       return;
@@ -19440,14 +19720,14 @@ router6.get("/", async (req, res) => {
     const baseUrl = originParam ?? `${proto}://${host}`;
     const wsRows = [];
     for (const tokenRow of tokenRows) {
-      const companyRows = await db.select().from(companies).where(eq16(companies.id, tokenRow.companyId)).limit(1);
+      const companyRows = await db.select().from(companies).where(eq17(companies.id, tokenRow.companyId)).limit(1);
       const company = companyRows[0];
       if (!company) continue;
-      const brainRows = await db.select().from(offeringBrain).where(eq16(offeringBrain.id, tokenRow.brainId)).limit(1);
+      const brainRows = await db.select().from(offeringBrain).where(eq17(offeringBrain.id, tokenRow.brainId)).limit(1);
       const brain = brainRows[0] ?? null;
-      const outputRows = await db.select().from(companyBrainOutputs).where(and11(eq16(companyBrainOutputs.companyId, tokenRow.companyId), eq16(companyBrainOutputs.brainId, tokenRow.brainId))).limit(1);
+      const outputRows = await db.select().from(companyBrainOutputs).where(and11(eq17(companyBrainOutputs.companyId, tokenRow.companyId), eq17(companyBrainOutputs.brainId, tokenRow.brainId))).limit(1);
       const output = outputRows[0] ?? null;
-      const contactRows = await db.select().from(contacts).where(eq16(contacts.companyId, tokenRow.companyId)).limit(1);
+      const contactRows = await db.select().from(contacts).where(eq17(contacts.companyId, tokenRow.companyId)).limit(1);
       const contact = contactRows[0] ?? null;
       let sector = "";
       try {
@@ -19901,7 +20181,7 @@ import { Router as Router7 } from "express";
 import multer3 from "multer";
 init_db();
 init_schema();
-import { eq as eq17, and as and12 } from "drizzle-orm";
+import { eq as eq18, and as and12 } from "drizzle-orm";
 var router7 = Router7();
 var upload3 = multer3({
   storage: multer3.memoryStorage(),
@@ -20111,25 +20391,25 @@ router7.post("/", upload3.single("file"), async (req, res) => {
         };
         let existingId = null;
         if (domain) {
-          const byDomain = await db.select({ id: companies.id }).from(companies).where(eq17(companies.primaryDomain, domain)).limit(1);
+          const byDomain = await db.select({ id: companies.id }).from(companies).where(eq18(companies.primaryDomain, domain)).limit(1);
           if (byDomain.length > 0) existingId = byDomain[0].id;
         }
         if (!existingId) {
-          const byName = await db.select({ id: companies.id }).from(companies).where(eq17(companies.name, companyName)).limit(1);
+          const byName = await db.select({ id: companies.id }).from(companies).where(eq18(companies.name, companyName)).limit(1);
           if (byName.length > 0) existingId = byName[0].id;
         }
         if (existingId) {
           await db.update(companies).set({
             ...cgFields,
             ...domain ? { normalizedDomain: domain } : {}
-          }).where(eq17(companies.id, existingId));
+          }).where(eq18(companies.id, existingId));
           updated++;
           const contactEmail = (row["Email"] || "").trim();
           const contactFirstName = (row["Contact Name"] || "").trim();
           const contactLastName = (row["Contact Surname"] || "").trim();
           if (contactFirstName || contactEmail) {
             if (contactEmail) {
-              const existing = await db.select({ id: contacts.id }).from(contacts).where(and12(eq17(contacts.companyId, existingId), eq17(contacts.email, contactEmail))).limit(1);
+              const existing = await db.select({ id: contacts.id }).from(contacts).where(and12(eq18(contacts.companyId, existingId), eq18(contacts.email, contactEmail))).limit(1);
               if (existing.length === 0) {
                 await db.insert(contacts).values({
                   companyId: existingId,
@@ -20146,9 +20426,9 @@ router7.post("/", upload3.single("file"), async (req, res) => {
               }
             } else if (contactFirstName) {
               const existing = await db.select({ id: contacts.id }).from(contacts).where(and12(
-                eq17(contacts.companyId, existingId),
-                eq17(contacts.firstName, contactFirstName),
-                eq17(contacts.lastName, contactLastName || "")
+                eq18(contacts.companyId, existingId),
+                eq18(contacts.firstName, contactFirstName),
+                eq18(contacts.lastName, contactLastName || "")
               )).limit(1);
               if (existing.length === 0) {
                 await db.insert(contacts).values({
@@ -20182,8 +20462,8 @@ router7.post("/", upload3.single("file"), async (req, res) => {
             ...cgFields
           });
           const newRow = await db.select({ id: companies.id }).from(companies).where(and12(
-            eq17(companies.searchId, searchId),
-            eq17(companies.name, companyName)
+            eq18(companies.searchId, searchId),
+            eq18(companies.name, companyName)
           )).orderBy(companies.id).limit(1);
           if (newRow.length > 0) {
             const newId = newRow[0].id;
@@ -20219,7 +20499,7 @@ router7.post("/", upload3.single("file"), async (req, res) => {
       });
     }
     const { searches: searches3 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    await db.update(searches3).set({ status: "completed", codesSearched: rows.length }).where(eq17(searches3.id, searchId));
+    await db.update(searches3).set({ status: "completed", codesSearched: rows.length }).where(eq18(searches3.id, searchId));
     send({
       status: "done",
       searchId,
@@ -20457,7 +20737,7 @@ var publicShareListApi_default = router8;
 
 // server/batchContactsAndReps.ts
 init_schema();
-import { inArray as inArray12 } from "drizzle-orm";
+import { inArray as inArray13 } from "drizzle-orm";
 var CONTACTS_DELAY_MS = 1e3;
 var REP_DELAY_MS = 500;
 var CONCURRENCY_CONTACTS = 3;
@@ -20610,7 +20890,7 @@ async function runBatchContactsAndReps(searchIds, userId = 1) {
       primaryDomain: companies.primaryDomain,
       websiteUrl: companies.websiteUrl,
       salesRepProfile: companies.salesRepProfile
-    }).from(companies).where(inArray12(companies.searchId, searchIds));
+    }).from(companies).where(inArray13(companies.searchId, searchIds));
     console.log(`[BatchCR] Starting for ${allCompanies.length} companies across searches ${searchIds.join(", ")}`);
     progress = {
       phase: "contacts",
@@ -20680,7 +20960,7 @@ async function runBatchContactsAndReps(searchIds, userId = 1) {
 init_db();
 init_schema();
 init_llm();
-import { eq as eq19, sql as sql8 } from "drizzle-orm";
+import { eq as eq20, sql as sql9 } from "drizzle-orm";
 var batchSignalProgress = {
   running: false,
   phase: "idle",
@@ -20731,7 +21011,7 @@ async function runBatchSignalOpeners() {
     const db = await getDb();
     if (!db) throw new Error("Database not available");
     const { offeringBrain: offeringBrain2 } = await Promise.resolve().then(() => (init_schema(), schema_exports));
-    const brains = await db.select().from(offeringBrain2).where(eq19(offeringBrain2.status, "completed")).limit(1);
+    const brains = await db.select().from(offeringBrain2).where(eq20(offeringBrain2.status, "completed")).limit(1);
     let brainContext = "";
     let sellerName = "Your Company";
     if (brains.length > 0) {
@@ -20755,7 +21035,7 @@ Pain Points We Solve: ${painPoints.join("; ")}
       signalOpeners: companies.signalOpeners,
       searchId: companies.searchId
     }).from(companies).where(
-      sql8`${companies.searchId} IN (1500002, 1500003) AND ${companies.briefData} IS NOT NULL AND ${companies.signalOpeners} IS NULL`
+      sql9`${companies.searchId} IN (1500002, 1500003) AND ${companies.briefData} IS NOT NULL AND ${companies.signalOpeners} IS NULL`
     );
     batchSignalProgress.totalCompanies = allCompanies.length;
     batchSignalProgress.processedCompanies = 0;
@@ -20782,7 +21062,7 @@ Pain Points We Solve: ${painPoints.join("; ")}
             await db.update(companies).set({
               signalOpeners: JSON.stringify([]),
               signalOpenersGeneratedAt: /* @__PURE__ */ new Date()
-            }).where(eq19(companies.id, company.id));
+            }).where(eq20(companies.id, company.id));
             batchSignalProgress.processedCompanies++;
             return;
           }
@@ -20823,7 +21103,7 @@ Pain Points We Solve: ${painPoints.join("; ")}
           await db.update(companies).set({
             signalOpeners: JSON.stringify(openers),
             signalOpenersGeneratedAt: /* @__PURE__ */ new Date()
-          }).where(eq19(companies.id, company.id));
+          }).where(eq20(companies.id, company.id));
           batchSignalProgress.processedCompanies++;
           console.log(`[BatchSignalOpeners] \u2713 ${company.name} (${openers.length} openers) [${batchSignalProgress.processedCompanies}/${batchSignalProgress.totalCompanies}]`);
         } catch (err) {
@@ -20847,7 +21127,7 @@ Pain Points We Solve: ${painPoints.join("; ")}
 init_db();
 init_schema();
 import { Router as Router9 } from "express";
-import { eq as eq20, isNull as isNull6 } from "drizzle-orm";
+import { eq as eq21, isNull as isNull6 } from "drizzle-orm";
 var router9 = Router9();
 router9.post("/", async (req, res) => {
   try {
@@ -20873,7 +21153,7 @@ router9.post("/", async (req, res) => {
     const batch = uncachedTokens.slice(i, i + 10);
     await Promise.all(batch.map(async (token) => {
       try {
-        const companyRows = await db.select({ name: companies.name }).from(companies).where(eq20(companies.id, token.companyId)).limit(1);
+        const companyRows = await db.select({ name: companies.name }).from(companies).where(eq21(companies.id, token.companyId)).limit(1);
         const companyName = companyRows[0]?.name;
         if (!companyName) {
           skipped++;
@@ -20890,10 +21170,10 @@ router9.post("/", async (req, res) => {
           const images = serperData.images ?? [];
           const imageUrls = images.map((img) => img.imageUrl ?? img.thumbnailUrl ?? "").filter((url) => url && url.startsWith("http")).slice(0, 2);
           if (imageUrls.length > 0) {
-            await db.update(shareTokens).set({ cachedImages: JSON.stringify(imageUrls), cachedAt: /* @__PURE__ */ new Date() }).where(eq20(shareTokens.id, token.id));
+            await db.update(shareTokens).set({ cachedImages: JSON.stringify(imageUrls), cachedAt: /* @__PURE__ */ new Date() }).where(eq21(shareTokens.id, token.id));
             cached++;
           } else {
-            await db.update(shareTokens).set({ cachedImages: "[]", cachedAt: /* @__PURE__ */ new Date() }).where(eq20(shareTokens.id, token.id));
+            await db.update(shareTokens).set({ cachedImages: "[]", cachedAt: /* @__PURE__ */ new Date() }).where(eq21(shareTokens.id, token.id));
             skipped++;
           }
         } else {

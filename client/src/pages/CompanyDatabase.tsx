@@ -28,11 +28,16 @@ import {
   Newspaper,
   Sparkles,
   Copy,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useLocation } from "wouter";
 import { SimilaritySearchModal } from "@/components/SimilaritySearchModal";
 import { CompanyLookalikeModal, type LookalikeSeed } from "@/components/CompanyLookalikeModal";
+import {
+  CreateCampaignFromDbModal,
+  type CampaignFromDbFilterParams,
+} from "@/components/CreateCampaignFromDbModal";
 import { CompanyDbSectorSelectItems } from "@/components/CompanyDbSectorSelectItems";
 import { CgLeadBadge } from "@/components/CgLeadBadge";
 
@@ -412,6 +417,9 @@ function LeadClassBadge({ value }: { value: string }) {
 
 // ── Component ─────────────────────────────────────────────────────────────────
 
+const CAMPAIGN_TIP_KEY = "company-db-campaign-tip-dismissed";
+const CAMPAIGN_MAX = 100;
+
 export default function CompanyDatabase() {
   const [, navigate] = useLocation();
   const [page, setPage] = useState(0);
@@ -441,6 +449,15 @@ export default function CompanyDatabase() {
   const [lookalikeSeed, setLookalikeSeed] = useState<LookalikeSeed | null>(null);
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedItems, setSelectedItems] = useState<Map<number, number>>(new Map());
+  const [campaignModalOpen, setCampaignModalOpen] = useState(false);
+  const [campaignModalMode, setCampaignModalMode] = useState<"selection" | "filter">("filter");
+  const [showCampaignTip, setShowCampaignTip] = useState(() => {
+    try {
+      return localStorage.getItem(CAMPAIGN_TIP_KEY) !== "1";
+    } catch {
+      return true;
+    }
+  });
 
   const { data: activeBrainData } = trpc.companyFinder.getActiveBrain.useQuery();
   const activeBrainId = activeBrainData?.brain?.id;
@@ -711,6 +728,111 @@ export default function CompanyDatabase() {
     articleFilter !== "any" ||
     crmFilter !== "any";
 
+  const resolvedSearchIds =
+    selectedRunIds.length > 0
+      ? selectedRunIds
+      : selectedCampaignNames.length > 0
+        ? (meta?.searches ?? [])
+            .filter((s) =>
+              selectedCampaignNames.includes(
+                (s as { offeringName?: string }).offeringName || s.location || `Run #${s.id}`
+              )
+            )
+            .map((s) => s.id)
+        : undefined;
+
+  const campaignFilterParams = useMemo((): CampaignFromDbFilterParams => ({
+    sortBy,
+    sortDir,
+    search: debouncedSearch || undefined,
+    searchId: selectedSearchId,
+    searchIds: resolvedSearchIds,
+    country: selectedCountry || undefined,
+    countries:
+      selectedRegion && !selectedCountry
+        ? expandRegionCountries(REGION_MAP[selectedRegion] ?? [])
+        : undefined,
+    sector: selectedSector || undefined,
+    filterBrainId: selectedBrainId,
+    minFitScore,
+    hasFitScore: hasFitScoreOnly || undefined,
+    articleFilter: articleFilter === "any" ? undefined : articleFilter,
+    cgBusinessUnit: selectedCgBu || undefined,
+    cgLeadClass: selectedCgLeadClass || undefined,
+    cgLeadOrigin: selectedCgLeadOrigin || undefined,
+    crmFilter: crmFilter === "any" ? undefined : crmFilter,
+  }), [
+    sortBy,
+    sortDir,
+    debouncedSearch,
+    selectedSearchId,
+    resolvedSearchIds,
+    selectedCountry,
+    selectedRegion,
+    selectedSector,
+    selectedBrainId,
+    minFitScore,
+    hasFitScoreOnly,
+    articleFilter,
+    selectedCgBu,
+    selectedCgLeadClass,
+    selectedCgLeadOrigin,
+    crmFilter,
+  ]);
+
+  const resolveDefaultCampaignBrainId = (): number | null => {
+    if (selectedBrainId) return selectedBrainId;
+    if (selectedRunIds.length === 1) {
+      const run = (meta?.searches ?? []).find((s) => s.id === selectedRunIds[0]);
+      const runBrainId = (run as { brainId?: number } | undefined)?.brainId;
+      if (runBrainId) return runBrainId;
+    }
+    if (activeBrainId) return activeBrainId;
+    const firstBrain = meta?.brains?.[0];
+    return firstBrain?.id ?? null;
+  };
+
+  const openFilterCampaignModal = () => {
+    if (total === 0) {
+      toast.error("No companies match the current view");
+      return;
+    }
+    setCampaignModalMode("filter");
+    setCampaignModalOpen(true);
+  };
+
+  const openSelectionCampaignModal = () => {
+    if (!selectedItems.size) {
+      toast.error("Select at least one company first");
+      return;
+    }
+    if (selectedItems.size > CAMPAIGN_MAX) {
+      toast.error(`Maximum ${CAMPAIGN_MAX} companies per campaign`);
+      return;
+    }
+    setCampaignModalMode("selection");
+    setCampaignModalOpen(true);
+  };
+
+  const dismissCampaignTip = () => {
+    setShowCampaignTip(false);
+    try {
+      localStorage.setItem(CAMPAIGN_TIP_KEY, "1");
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const handleCampaignCreated = () => {
+    setIsSelectMode(false);
+    setSelectedItems(new Map());
+  };
+
+  const campaignHeaderLabel =
+    total > CAMPAIGN_MAX
+      ? `New campaign (top ${CAMPAIGN_MAX} of ${total.toLocaleString()})`
+      : `New campaign (${total.toLocaleString()})`;
+
   const Th = ({
     col,
     label,
@@ -736,16 +858,49 @@ export default function CompanyDatabase() {
     <div className="flex flex-col h-full">
       {/* ── Header ── */}
       <div className="px-6 pt-6 pb-4 border-b border-gray-200 bg-white">
-        <div className="flex items-center gap-3 mb-1">
-          <Database className="w-5 h-5 text-gray-500" />
-          <h1 className="text-xl font-bold text-gray-900">Company Database</h1>
-          <span className="text-sm text-gray-500 font-normal">
-            {isFetching ? "Loading…" : `${total.toLocaleString()} companies`}
-          </span>
+        <div className="flex items-start justify-between gap-4">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3 mb-1">
+              <Database className="w-5 h-5 text-gray-500 shrink-0" />
+              <h1 className="text-xl font-bold text-gray-900">Company Database</h1>
+              <span className="text-sm text-gray-500 font-normal">
+                {isFetching ? "Loading…" : `${total.toLocaleString()} companies`}
+              </span>
+            </div>
+            <p className="text-sm text-gray-500">
+              Filter or select companies · create a campaign (up to {CAMPAIGN_MAX}) · scores and briefs preserved
+            </p>
+          </div>
+          <div className="flex flex-col items-end gap-1 shrink-0">
+            <Button
+              onClick={openFilterCampaignModal}
+              disabled={total === 0}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white gap-1.5"
+            >
+              <Plus className="w-4 h-4" />
+              {campaignHeaderLabel}
+            </Button>
+            {hasFilters && (
+              <span className="text-xs text-gray-400">Using current filters</span>
+            )}
+          </div>
         </div>
-        <p className="text-sm text-gray-500">
-          All imported companies · scored against active Brain · joined with created articles
-        </p>
+        {showCampaignTip && !hasFilters && total > 0 && (
+          <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-indigo-100 bg-indigo-50 px-3 py-2 text-sm text-indigo-800">
+            <span>
+              <span className="font-medium">Tip:</span> Filter by country, sector, or FIT — then click{" "}
+              <span className="font-semibold">New campaign</span> to start a focused run.
+            </span>
+            <button
+              type="button"
+              onClick={dismissCampaignTip}
+              className="text-indigo-500 hover:text-indigo-800 shrink-0"
+              aria-label="Dismiss tip"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        )}
       </div>
 
       {/* ── Filters ── */}
@@ -1140,16 +1295,28 @@ export default function CompanyDatabase() {
               : "border-purple-300 text-purple-700 bg-purple-50 hover:bg-purple-100"
           }`}
         >
-          {isSelectMode ? `✓ ${selectedItems.size} SELECTED` : "☑ SELECT FOR SHARE"}
+          {isSelectMode ? `✓ ${selectedItems.size} SELECTED` : "☑ SELECT COMPANIES"}
         </button>
         {isSelectMode && (
-          <button
-            onClick={handleCreateShareList}
-            disabled={createShareListMutation.isPending || !selectedItems.size}
-            className="h-8 px-3 rounded text-xs font-medium border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-          >
-            {createShareListMutation.isPending ? "⏳ CREATING..." : "🔗 CREATE SHARE LIST"}
-          </button>
+          <>
+            <button
+              onClick={openSelectionCampaignModal}
+              disabled={!selectedItems.size || selectedItems.size > CAMPAIGN_MAX}
+              className="h-8 px-3 rounded text-xs font-medium border border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              CREATE CAMPAIGN
+            </button>
+            <button
+              onClick={handleCreateShareList}
+              disabled={createShareListMutation.isPending || !selectedItems.size}
+              className="h-8 px-3 rounded text-xs font-medium border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {createShareListMutation.isPending ? "⏳ CREATING..." : "🔗 CREATE SHARE LIST"}
+            </button>
+          </>
+        )}
+        {isSelectMode && selectedItems.size > CAMPAIGN_MAX && (
+          <span className="text-xs text-red-600">Max {CAMPAIGN_MAX} per campaign</span>
         )}
         {isSelectMode && selectedItems.size === 1 && (
           <button
@@ -1162,7 +1329,8 @@ export default function CompanyDatabase() {
           </button>
         )}
 
-        {/* Score Similarity button — campaign-scoped when a single run is selected */}
+        {/* Scoring & discovery */}
+        <div className="ml-auto flex flex-wrap items-center gap-2">
         {(() => {
           const singleRun = selectedRunIds.length === 1
             ? (meta?.searches ?? []).find(s => s.id === selectedRunIds[0])
@@ -1178,7 +1346,7 @@ export default function CompanyDatabase() {
             <button
               onClick={() => scoreSimilarity.mutate({ mode: simMode, searchId: simSearchId, brainId: simBrainId })}
               disabled={scoreSimilarity.isPending}
-              className="ml-auto h-8 px-3 rounded text-xs font-medium border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
+              className="h-8 px-3 rounded text-xs font-medium border border-indigo-300 text-indigo-700 bg-indigo-50 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 transition-colors"
               title={simTitle}
             >
               {scoreSimilarity.isPending ? (
@@ -1209,11 +1377,12 @@ export default function CompanyDatabase() {
         <button
           onClick={() => setSimModalOpen(true)}
           className="h-8 px-3 rounded text-xs font-medium border border-purple-300 text-purple-700 bg-purple-50 hover:bg-purple-100 flex items-center gap-1.5 transition-colors"
-          title="Find companies in your existing database that match a brain's ICP via similarity scoring — create a campaign without any Apollo calls"
+          title="Discover similar companies via Brain similarity — creates a new scored campaign"
         >
           <Sparkles className="w-3 h-3" />
-          From DB
+          Find similar
         </button>
+        </div>
         {/* Article stats pill */}
         {rows.length > 0 && (
           <div className="flex items-center gap-3 text-xs text-gray-500">
@@ -1238,10 +1407,22 @@ export default function CompanyDatabase() {
         seed={lookalikeSeed}
         defaultBrainId={activeBrainId ?? null}
       />
+      <CreateCampaignFromDbModal
+        open={campaignModalOpen}
+        onClose={() => setCampaignModalOpen(false)}
+        mode={campaignModalMode}
+        companyIds={campaignModalMode === "selection" ? Array.from(selectedItems.keys()) : undefined}
+        filterParams={campaignModalMode === "filter" ? campaignFilterParams : undefined}
+        companyCount={total}
+        totalMatched={total}
+        defaultBrainId={resolveDefaultCampaignBrainId()}
+        hasFilters={hasFilters}
+        onSuccess={handleCampaignCreated}
+      />
       {/* ── Table ── */}
       <div className="flex-1 overflow-auto">
         {isSelectMode && rows.length > 0 && (
-          <div className="flex items-center gap-3 px-6 py-2 bg-purple-50 border-b border-purple-200 sticky top-0 z-20">
+          <div className="flex flex-wrap items-center gap-3 px-6 py-2 bg-purple-50 border-b border-purple-200 sticky top-0 z-20">
             <input
               type="checkbox"
               checked={allPageRowsSelected}
@@ -1257,8 +1438,28 @@ export default function CompanyDatabase() {
                 : `SELECT ALL ON PAGE (${pageSelectableRows.length})`}
             </span>
             {selectedItems.size > 0 && (
-              <span className="text-xs text-purple-500">{selectedItems.size} total selected</span>
+              <span className="text-xs text-purple-600">
+                {selectedItems.size} selected · Create campaign (max {CAMPAIGN_MAX}) or share list
+              </span>
             )}
+            <div className="ml-auto flex items-center gap-2">
+              <button
+                type="button"
+                onClick={openSelectionCampaignModal}
+                disabled={!selectedItems.size || selectedItems.size > CAMPAIGN_MAX}
+                className="h-7 px-2.5 rounded text-xs font-medium border border-indigo-600 bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                CREATE CAMPAIGN
+              </button>
+              <button
+                type="button"
+                onClick={handleCreateShareList}
+                disabled={createShareListMutation.isPending || !selectedItems.size}
+                className="h-7 px-2.5 rounded text-xs font-medium border border-indigo-300 text-indigo-700 bg-white hover:bg-indigo-50 disabled:opacity-50"
+              >
+                CREATE SHARE LIST
+              </button>
+            </div>
           </div>
         )}
         <table className="w-full text-sm border-collapse">

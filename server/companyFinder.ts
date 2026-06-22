@@ -5461,6 +5461,120 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
 
       return { searchId, companiesCreated: newCompanies.length };
     }),
+
+  /**
+   * Create a campaign from Company Database — selection or current filters.
+   * Clones companies with scores/briefs preserved (no re-scoring queue). Max 100.
+   */
+  createCampaignFromCompanyDb: protectedProcedure
+    .input(
+      z.object({
+        campaignName: z.string().min(1).max(255),
+        brainId: z.number(),
+        source: z.discriminatedUnion("type", [
+          z.object({
+            type: z.literal("selection"),
+            companyIds: z.array(z.number()).min(1).max(100),
+          }),
+          z.object({
+            type: z.literal("filter"),
+            sortBy: z
+              .enum([
+                "name",
+                "country",
+                "city",
+                "fitScore",
+                "similarityScore",
+                "urgencyScore",
+                "urgencyScoreSynth",
+                "urgencyScoreNews",
+                "urgencyScoreLLM",
+                "createdAt",
+                "searchId",
+                "briefGeneratedAt",
+                "salesApproachGeneratedAt",
+                "brainName",
+              ])
+              .optional()
+              .default("fitScore"),
+            sortDir: z.enum(["asc", "desc"]).optional().default("desc"),
+            search: z.string().optional(),
+            searchId: z.number().optional(),
+            searchIds: z.array(z.number()).optional(),
+            country: z.string().optional(),
+            countries: z.array(z.string()).optional(),
+            sector: z.string().optional(),
+            filterBrainId: z.number().optional(),
+            minFitScore: z.number().optional(),
+            hasFitScore: z.boolean().optional(),
+            articleFilter: z.enum(["any", "brief", "approach", "both", "none"]).optional(),
+            cgBusinessUnit: z.string().optional(),
+            cgLeadClass: z.string().optional(),
+            cgLeadOrigin: z.string().optional(),
+            crmFilter: z.enum(["in", "not_in"]).optional(),
+          }),
+        ]),
+      })
+    )
+    .mutation(async ({ ctx, input }) => {
+      const {
+        cloneCompaniesToCampaign,
+        resolveCompanyIdsFromFilter,
+        COMPANY_DB_CAMPAIGN_MAX,
+      } = await import("./companyDbCampaign");
+
+      let companyIds: number[];
+      let totalMatched: number | undefined;
+      let capped = false;
+
+      if (input.source.type === "selection") {
+        companyIds = input.source.companyIds;
+      } else {
+        const f = input.source;
+        const articleFilter =
+          f.articleFilter && f.articleFilter !== "any" ? f.articleFilter : undefined;
+        const resolved = await resolveCompanyIdsFromFilter({
+          sortBy: f.sortBy,
+          sortDir: f.sortDir,
+          search: f.search,
+          searchId: f.searchId,
+          searchIds: f.searchIds,
+          country: f.country,
+          countries: f.countries,
+          sector: f.sector,
+          brainId: f.filterBrainId,
+          minFitScore: f.minFitScore,
+          hasFitScore: f.hasFitScore,
+          articleFilter,
+          cgBusinessUnit: f.cgBusinessUnit,
+          cgLeadClass: f.cgLeadClass,
+          cgLeadOrigin: f.cgLeadOrigin,
+          crmFilter: f.crmFilter,
+        });
+        companyIds = resolved.companyIds;
+        totalMatched = resolved.totalMatched;
+        capped = totalMatched > COMPANY_DB_CAMPAIGN_MAX;
+        if (companyIds.length === 0) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "No companies match the current filters",
+          });
+        }
+      }
+
+      const result = await cloneCompaniesToCampaign({
+        userId: ctx.user.id,
+        brainId: input.brainId,
+        campaignName: input.campaignName.trim(),
+        companyIds,
+      });
+
+      return {
+        ...result,
+        totalMatched,
+        capped,
+      };
+    }),
 });
 // Background search function using brain offering data
 async function searchWithBrainOffering(

@@ -47,6 +47,7 @@ const navGroups: NavGroup[] = [
   {
     label: "Intelligence",
     items: [
+      { icon: Database, label: "Company Database", path: "/company-database" },
       { icon: BrainCircuit, label: "Business Unit", path: "/brain" },
       { icon: List, label: "Search Results", path: "/search-results" },
       { icon: Zap, label: "Intelligence", path: "/intelligence" },
@@ -60,7 +61,6 @@ const navGroups: NavGroup[] = [
       { icon: FileSpreadsheet, label: "Excel Import", path: "/excel-import" },
       { icon: Globe, label: "Leadinfo Import", path: "/leadinfo" },
       { icon: Table2, label: "Raw Data", path: "/raw-data" },
-      { icon: Database, label: "Company Database", path: "/company-database" },
       { icon: RefreshCw, label: "Sync", path: "/sync" },
       { icon: Activity, label: "DB Health", path: "/db-health" },
     ],

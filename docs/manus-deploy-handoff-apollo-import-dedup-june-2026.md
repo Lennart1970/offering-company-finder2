@@ -10,7 +10,7 @@ Implementation guide for Manus WebDev engineer.
 |------|-------|
 | **Repo** | [offering-company-finder2](https://github.com/Lennart1970/offering-company-finder2) |
 | **Branch** | `main` |
-| **Target commit** | **Pending push** — feature not on `origin/main` yet at handoff time; pull latest `main` after PO confirms push |
+| **Target commit** | `392f889` — *Dedupe Apollo imports globally and link existing companies to campaigns without duplicating rows.* |
 | **Deploy target** | Manus WebDev (TiDB MySQL + existing Supabase env) |
 
 ### What's in this release

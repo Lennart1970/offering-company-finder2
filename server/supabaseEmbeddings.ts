@@ -74,6 +74,36 @@ export async function persistCompanyEmbeddings(
   }
 }
 
+/**
+ * Generate and persist FIT-SIM embeddings for all companies in a campaign
+ * (native searchId + search_company_memberships links).
+ */
+export async function embedAndPersistCompaniesForSearch(searchId: number): Promise<number> {
+  const { getCompaniesBySearchId } = await import("./db");
+  const { generateEmbeddings } = await import("./embeddingService");
+  const allCompanies = await getCompaniesBySearchId(searchId);
+  if (allCompanies.length === 0) return 0;
+  const embeddings = await generateEmbeddings(allCompanies);
+  await persistCompanyEmbeddings(embeddings);
+  return embeddings.length;
+}
+
+/** Fire-and-forget FIT-SIM embedding persistence after import. */
+export function scheduleSearchEmbeddingsOnImport(
+  searchId: number,
+  logPrefix = "[Import]"
+): void {
+  setImmediate(async () => {
+    try {
+      const count = await embedAndPersistCompaniesForSearch(searchId);
+      console.log(`${logPrefix} ✓ Persisted ${count} FIT-SIM embeddings to Supabase (search ${searchId})`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      console.error(`${logPrefix} Background embedding error for search ${searchId}:`, message);
+    }
+  });
+}
+
 export interface BrainScore {
   companyId: number;
   companyUUID: string;

@@ -1629,6 +1629,9 @@ export const companyFinderRouter = router({
         `[CSV Import] ✓ ${formatImportUpsertSummary(upsertResult, companies.length)}`
       );
 
+      const { scheduleSearchEmbeddingsOnImport } = await import("./supabaseEmbeddings");
+      scheduleSearchEmbeddingsOnImport(searchId, "[CSV Import]");
+
       return {
         searchId,
         companiesImported: upsertResult.inserted,

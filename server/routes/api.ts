@@ -2,6 +2,7 @@ import { Router } from "express";
 import multer from "multer";
 import { getDb, createSearch, getPendingCompaniesBySearchId, getCompaniesBySearchId, updateCompany, getSearchById, getActiveBrain, companyBelongsToSearch } from "../db";
 import { importCompaniesWithGlobalUpsert, formatImportUpsertSummary } from "../importCompaniesUpsert";
+import { scheduleSearchEmbeddingsOnImport } from "../supabaseEmbeddings";
 import { companies, searches, users } from "../../drizzle/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { parseApolloCSV, mapApolloRowToCompany } from "../apolloCSVParser";
@@ -372,6 +373,8 @@ router.post("/import-csv", upload.single("file"), async (req: any, res: any) => 
     const upsertResult = await importCompaniesWithGlobalUpsert(companyRows);
     const summary = formatImportUpsertSummary(upsertResult, companyRows.length);
     console.log(`[CSV Import API] ✓ Done — ${summary} searchId=${searchId}`);
+
+    scheduleSearchEmbeddingsOnImport(searchId, "[CSV Import API]");
 
     res.json({
       success: true,

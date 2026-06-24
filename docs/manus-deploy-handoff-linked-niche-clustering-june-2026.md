@@ -10,7 +10,7 @@ Implementation guide for Manus WebDev engineer.
 |------|-------|
 | **Repo** | [offering-company-finder2](https://github.com/Lennart1970/offering-company-finder2) |
 | **Branch** | `main` |
-| **Target commit** | `PLACEHOLDER_COMMIT` — pull `main` and confirm with `git log -1 --oneline` |
+| **Target commit** | `4c5b3f9` — pull `main` and confirm with `git log -1 --oneline` |
 | **Deploy target** | Manus WebDev (TiDB MySQL + existing Supabase env) |
 
 ### What's in this release

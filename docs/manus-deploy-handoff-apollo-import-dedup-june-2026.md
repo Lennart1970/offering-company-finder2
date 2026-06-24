@@ -10,18 +10,21 @@ Implementation guide for Manus WebDev engineer.
 |------|-------|
 | **Repo** | [offering-company-finder2](https://github.com/Lennart1970/offering-company-finder2) |
 | **Branch** | `main` |
-| **Target commit** | `392f889` — *Dedupe Apollo imports globally and link existing companies to campaigns without duplicating rows.* |
+| **Target commit** | `d7b1ee8` — feature in `392f889` + import summary UX in `d7b1ee8` |
 | **Deploy target** | Manus WebDev (TiDB MySQL + existing Supabase env) |
 
 ### What's in this release
 
 1. **Global Apollo import dedup** — Apollo CSV / Excel uploads no longer blindly insert duplicate `companies` rows. Match globally by `apolloId`, then `normalizedDomain`.
 2. **Upsert preserves enrichment** — On match, firmographics refresh; scores, briefs, brain metadata, and CG CRM fields are **not** overwritten.
-3. **Campaign linking without row duplication** — New junction table `search_company_memberships` links existing companies to a new campaign so the full import list appears in Search Results.
+3. **Campaign linking without row duplication** — Junction table `search_company_memberships` links existing companies to a new campaign so the full import list appears in Search Results.
 4. **Campaign queries include linked companies** — Search results, counts, queue enqueue, export, Leadinfo match, bulk similarity, and per-search Supabase sync all use native `searchId` **or** membership links.
+5. **Clear import summary messaging** — Progress/done text explains that `linked` and `refreshed` describe the same existing rows (not additive counts).
 
-**Requires MySQL migration `0068_search_company_memberships.sql`.**  
+**Requires MySQL migration `0068_search_company_memberships.sql` on TiDB.**  
 **Do not run this migration in Supabase** (PostgreSQL rejects backtick syntax).
+
+**Migration status:** Checkpoint `824b8d2` reports `0068` already verified on TiDB — engineer should `SHOW TABLES` and skip if present.
 
 ---
 
@@ -34,6 +37,7 @@ git fetch origin
 git checkout main
 git pull origin main
 git log -1 --oneline
+# Expect: d7b1ee8 or newer
 ```
 
 Then:
@@ -55,11 +59,12 @@ Supabase already has `lt_campaign_companies` for the read replica — **no Supab
 
 ```sql
 SHOW TABLES LIKE 'search_company_memberships';
+DESCRIBE search_company_memberships;
 ```
 
-If the table exists, **skip** migration (idempotent deploy).
+If the table exists, **skip** migration (idempotent deploy). Prior checkpoint `824b8d2` indicates this may already be done.
 
-### Migration to apply
+### Migration to apply (only if table missing)
 
 | Migration file | Creates / changes | Skip if |
 |----------------|-------------------|---------|
@@ -86,13 +91,7 @@ ALTER TABLE `search_company_memberships`
   FOREIGN KEY (`companyId`) REFERENCES `companies`(`id`) ON DELETE CASCADE;
 ```
 
-Confirm:
-
-```sql
-DESCRIBE search_company_memberships;
-```
-
-**Note:** `0068` is not yet in `drizzle/meta/_journal.json` — apply SQL manually on TiDB; do not rely on `db:push` until journal is updated in a follow-up commit.
+**Note:** `0068` is not in `drizzle/meta/_journal.json` — apply SQL manually on TiDB; do not rely on `db:push` until journal is updated in a follow-up commit.
 
 ---
 
@@ -113,14 +112,22 @@ DESCRIBE search_company_memberships;
 
 1. **Intelligence** → **Excel Import** (or `/excel-import`).
 2. Upload a small Apollo CSV with companies **not** already in DB; name a new campaign.
-3. **Expected:** Progress log shows `N new`; campaign opens with `N` companies in Search Results.
+3. **Expected:** Done message like `N in file → N in this campaign (N new, 0 from database)`; Search Results shows `N` companies.
 
 ### B. Apollo import — re-import / overlap (critical)
 
-1. Upload a CSV where most rows already exist (same Apollo Account Id or domain) into a **new** campaign name.
-2. **Expected:** Progress shows e.g. `0 new, X linked, Y updated` (not `1000 new`).
-3. Open the new campaign → **company count matches CSV row count** (linked + new).
-4. Open an **old** campaign that owned those companies → companies still there; **scores and briefs unchanged**.
+1. Upload a CSV where many rows already exist (same Apollo Account Id or domain) into a **new** campaign name.
+2. **Expected done message** (example shape):
+
+   ```
+   373 in file → 373 in this campaign (188 new, 185 from database).
+   185 linked to this campaign; 185 refreshed from CSV. Scores and briefs preserved.
+   ```
+
+3. **Math check:** `new + from database` = rows in file (e.g. `188 + 185 = 373`).  
+   `linked` and `refreshed` are **details about the existing rows**, not extra companies.
+4. Open the new campaign → **company count matches CSV row count** (linked + new).
+5. Open an **old** campaign that owned those companies → companies still there; **scores and briefs unchanged**.
 
 ### C. Campaign list counts
 
@@ -135,7 +142,23 @@ DESCRIBE search_company_memberships;
 ### E. Regression — Import Campaign (tRPC CSV path)
 
 1. Legacy **Import Campaign** flow with Apollo CSV.
-2. **Expected:** Toast mentions `new`, `linked`, `updated`; clustering still starts.
+2. **Expected:** Toast shows full `importSummary` sentence; clustering still starts.
+
+---
+
+## Import stats glossary (for support / QA)
+
+| Field | Meaning |
+|-------|---------|
+| `inserted` | New `companies` rows created |
+| `existingMatched` | CSV rows that matched an existing company (`updated + unchanged`) |
+| `linked` | Existing companies newly attached to **this** campaign (junction rows) |
+| `updated` | Existing companies where CSV refreshed firmographics |
+| `unchanged` | Matched in DB, linked to campaign, but CSV had nothing new to write |
+| `dedupedInFile` | Duplicate rows merged within the same upload |
+
+**Not additive:** `linked` + `updated` often refer to the **same** companies.  
+`inserted + existingMatched` = companies accounted for in the campaign.
 
 ---
 
@@ -145,11 +168,9 @@ DESCRIBE search_company_memberships;
 |---------|-------|-------|
 | Canonical company row | MySQL `companies` | One row per Apollo org; `searchId` = **home** campaign |
 | Extra campaign membership | MySQL `search_company_memberships` | Many-to-many without cloning rows |
-| Import upsert logic | `server/importCompaniesUpsert.ts` | Used by excel import, API CSV, `importCampaignFromCSV` |
+| Import upsert logic | `server/importCompaniesUpsert.ts` | `importCompaniesWithGlobalUpsert`, `formatImportUpsertSummary` |
 | Campaign membership query | `companyBelongsToSearch()` in `server/db.ts` | Native OR junction |
 | Supabase campaign links | `lt_campaign_companies` | Separate replica schema — **not** this migration |
-
-**Import stats fields:** `inserted`, `linked`, `updated`, `unchanged`, `dedupedInFile`.
 
 **Known gaps (intentional):**
 
@@ -166,6 +187,7 @@ DESCRIBE search_company_memberships;
 | Create duplicate `companies` rows on import | Defeats this release |
 | Move `companies.searchId` on link | Would orphan home campaign; use junction only |
 | Deploy from sandbox checkpoint instead of GitHub `main` | Drift / missing files |
+| Treat `linked + updated` as total company count | They overlap; use `inserted + existingMatched` |
 
 ---
 
@@ -175,19 +197,19 @@ DESCRIBE search_company_memberships;
 |------|--------|
 | `drizzle/0068_search_company_memberships.sql` | **New** — TiDB migration |
 | `drizzle/schema.ts` | `searchCompanyMemberships` table |
-| `server/importCompaniesUpsert.ts` | **New** — global dedup, upsert, link |
-| `server/importCompaniesUpsert.test.ts` | **New** — unit tests |
+| `server/importCompaniesUpsert.ts` | Global dedup, upsert, link, `formatImportUpsertSummary` |
+| `server/importCompaniesUpsert.test.ts` | Unit tests incl. summary formatter |
 | `server/db.ts` | `companyBelongsToSearch`, `linkCompaniesToSearch`, `getCompanyCountsBySearchIds` |
-| `server/routes/excelImport.ts` | Uses upsert + link |
-| `server/routes/api.ts` | API CSV import uses upsert |
+| `server/routes/excelImport.ts` | Upsert + summary message |
+| `server/routes/api.ts` | API CSV import + `importSummary` |
 | `server/companyFinder.ts` | `importCampaignFromCSV` + campaign list counts |
 | `server/campaignQueueRouter.ts` | Queue includes linked companies |
 | `server/leadinfoRouter.ts` | Match includes linked companies |
 | `server/bulkSimilarityService.ts` | Campaign mode includes linked |
 | `server/supabaseSync.ts` | `syncSearchRunToSupabase` includes linked IDs |
 | `server/routes/exportExcel.ts` | Export includes linked |
-| `client/src/pages/ExcelImport.tsx` | Progress UI: new / linked / updated |
-| `client/src/pages/ImportCampaign.tsx` | Toast: linked count |
+| `client/src/pages/ExcelImport.tsx` | Shows server `message` on done |
+| `client/src/pages/ImportCampaign.tsx` | Toast uses `importSummary` |
 
 ---
 
@@ -196,14 +218,14 @@ DESCRIBE search_company_memberships;
 Reply to product owner with:
 
 - [ ] Git commit deployed: `________`
-- [ ] Migration `0068` applied on **TiDB** (paste `SHOW TABLES` output)
+- [ ] Migration `0068` on **TiDB** verified (`SHOW TABLES` output)
 - [ ] Confirmed **not** run on Supabase
 - [ ] Smoke test A — new import
-- [ ] Smoke test B — overlap / linked count
+- [ ] Smoke test B — overlap summary math (`new + from database` = file rows)
 - [ ] Smoke test C — campaign list count
 - [ ] `npm run build` / `tsc --noEmit`: 0 errors
 
-Include: migration output, test campaign `searchId`, screenshot of import progress log if possible.
+Include: migration output, test campaign `searchId`, screenshot of import done line.
 
 ---
 
@@ -216,20 +238,22 @@ Include: migration output, test campaign `searchId`, screenshot of import progre
 | `Table 'search_company_memberships' doesn't exist` | App deployed before migration |
 | Import still creates thousands of duplicates | Old build without `importCompaniesUpsert.ts` |
 | Companies missing from queue | Old build; `campaignQueueRouter` not using `companyBelongsToSearch` |
+| Confusing toast numbers (`188 new, 185 linked, 185 updated`) | Old build before `d7b1ee8`; upgrade and expect summary sentence |
 
 ---
 
 ## Manus engineer quick instructions (paste-ready)
 
 ```
-1. git pull origin main && git log -1 --oneline
+1. git pull origin main && git log -1 --oneline   # expect d7b1ee8+
 2. npm run build (0 TS errors)
 3. Publish Manus WebDev app
-4. On TiDB ONLY (not Supabase): SHOW TABLES LIKE 'search_company_memberships';
-   if missing, run drizzle/0068_search_company_memberships.sql (MySQL syntax)
-5. Smoke test: Apollo Excel import into NEW campaign with CSV that overlaps existing DB
-   → expect "linked" count + full company list in campaign
-6. Reply with: commit hash, TiDB migration output, checklist from handover doc
+4. TiDB ONLY: SHOW TABLES LIKE 'search_company_memberships';
+   skip 0068 if table exists (likely already applied per checkpoint 824b8d2)
+5. Smoke test: Apollo Excel import into NEW campaign with overlapping CSV
+   → done line: "N in file → N in campaign (X new, Y from database). Y linked; Z refreshed."
+   → X + Y must equal N
+6. Reply with: commit hash, TiDB SHOW TABLES output, checklist from handover doc
 ```
 
 ---

@@ -4532,9 +4532,32 @@ var importCompaniesUpsert_exports = {};
 __export(importCompaniesUpsert_exports, {
   buildFirmographicPatch: () => buildFirmographicPatch,
   dedupeImportRows: () => dedupeImportRows,
+  formatImportUpsertSummary: () => formatImportUpsertSummary,
   importCompaniesWithGlobalUpsert: () => importCompaniesWithGlobalUpsert
 });
 import { and as and2, inArray as inArray2, isNotNull as isNotNull2 } from "drizzle-orm";
+function formatImportUpsertSummary(result, rowsInFile) {
+  const { inserted, linked, updated, unchanged, dedupedInFile, existingMatched } = result;
+  const inCampaign = inserted + existingMatched;
+  if (existingMatched === 0) {
+    const dedup2 = dedupedInFile > 0 ? ` (${dedupedInFile} duplicate rows merged in file)` : "";
+    return `${rowsInFile} in file \u2192 ${inserted} new companies in this campaign${dedup2}.`;
+  }
+  const existingParts = [];
+  if (linked > 0) existingParts.push(`${linked} linked to this campaign`);
+  if (updated > 0) existingParts.push(`${updated} refreshed from CSV`);
+  if (unchanged > 0) {
+    existingParts.push(
+      `${unchanged} already up to date (matched in database, no field changes)`
+    );
+  }
+  const alreadyInCampaign = existingMatched - linked;
+  if (alreadyInCampaign > 0) {
+    existingParts.push(`${alreadyInCampaign} were already in this campaign`);
+  }
+  const dedup = dedupedInFile > 0 ? `, ${dedupedInFile} duplicate rows merged in file` : "";
+  return `${rowsInFile} in file \u2192 ${inCampaign} in this campaign (${inserted} new, ${existingMatched} from database${dedup}). ${existingParts.join("; ")}. Scores and briefs preserved.`;
+}
 function stampNormalizedDomain(row) {
   return {
     ...row,
@@ -4627,7 +4650,14 @@ function resolveExisting(row, byApolloId, byDomain) {
 async function importCompaniesWithGlobalUpsert(rows) {
   const { unique, dedupedInFile } = dedupeImportRows(rows);
   if (unique.length === 0) {
-    return { inserted: 0, updated: 0, linked: 0, unchanged: 0, dedupedInFile };
+    return {
+      inserted: 0,
+      updated: 0,
+      linked: 0,
+      unchanged: 0,
+      dedupedInFile,
+      existingMatched: 0
+    };
   }
   const apolloIds = [
     ...new Set(unique.map((r) => r.apolloId).filter((id) => !!id))
@@ -4673,7 +4703,14 @@ async function importCompaniesWithGlobalUpsert(rows) {
   if (targetSearchId != null && toLinkIds.length > 0) {
     linked = await linkCompaniesToSearch(targetSearchId, toLinkIds);
   }
-  return { inserted, updated, linked, unchanged, dedupedInFile };
+  return {
+    inserted,
+    updated,
+    linked,
+    unchanged,
+    dedupedInFile,
+    existingMatched: toLinkIds.length
+  };
 }
 var FIRMOPGRAPHIC_FIELDS;
 var init_importCompaniesUpsert = __esm({
@@ -9860,10 +9897,10 @@ var companyFinderRouter = router({
     });
     console.log(`[CSV Import] Created search record ${searchId}`);
     const companies2 = rows.map((row) => mapApolloRowToCompany2(row, searchId));
-    const { importCompaniesWithGlobalUpsert: importCompaniesWithGlobalUpsert2 } = await Promise.resolve().then(() => (init_importCompaniesUpsert(), importCompaniesUpsert_exports));
+    const { importCompaniesWithGlobalUpsert: importCompaniesWithGlobalUpsert2, formatImportUpsertSummary: formatImportUpsertSummary2 } = await Promise.resolve().then(() => (init_importCompaniesUpsert(), importCompaniesUpsert_exports));
     const upsertResult = await importCompaniesWithGlobalUpsert2(companies2);
     console.log(
-      `[CSV Import] \u2713 ${upsertResult.inserted} new, ${upsertResult.updated} updated, ${upsertResult.unchanged} unchanged for campaign: ${input.campaignName}`
+      `[CSV Import] \u2713 ${formatImportUpsertSummary2(upsertResult, companies2.length)}`
     );
     return {
       searchId,
@@ -9871,8 +9908,10 @@ var companyFinderRouter = router({
       companiesUpdated: upsertResult.updated,
       companiesLinked: upsertResult.linked,
       companiesUnchanged: upsertResult.unchanged,
+      existingMatched: upsertResult.existingMatched,
       dedupedInFile: upsertResult.dedupedInFile,
       rowsInFile: companies2.length,
+      importSummary: formatImportUpsertSummary2(upsertResult, companies2.length),
       campaignName: input.campaignName
     };
   }),
@@ -18862,9 +18901,8 @@ router2.post("/import-csv", upload.single("file"), async (req, res) => {
     });
     const companyRows = rows.map((row) => mapApolloRowToCompany(row, searchId));
     const upsertResult = await importCompaniesWithGlobalUpsert(companyRows);
-    console.log(
-      `[CSV Import API] \u2713 Done \u2014 ${upsertResult.inserted} new, ${upsertResult.updated} updated, ${upsertResult.unchanged} unchanged, searchId=${searchId}`
-    );
+    const summary = formatImportUpsertSummary(upsertResult, companyRows.length);
+    console.log(`[CSV Import API] \u2713 Done \u2014 ${summary} searchId=${searchId}`);
     res.json({
       success: true,
       searchId,
@@ -18872,8 +18910,10 @@ router2.post("/import-csv", upload.single("file"), async (req, res) => {
       companiesUpdated: upsertResult.updated,
       companiesLinked: upsertResult.linked,
       companiesUnchanged: upsertResult.unchanged,
+      existingMatched: upsertResult.existingMatched,
       dedupedInFile: upsertResult.dedupedInFile,
       rowsInFile: companyRows.length,
+      importSummary: summary,
       campaignName
     });
   } catch (error) {
@@ -19770,6 +19810,7 @@ router4.post("/", upload2.single("file"), async (req, res) => {
       message: "Checking for existing companies (global apolloId / domain match)..."
     });
     const upsertResult = await importCompaniesWithGlobalUpsert(companyRows);
+    const summary = formatImportUpsertSummary(upsertResult, companyRows.length);
     send({
       status: "progress",
       done: companyRows.length,
@@ -19778,8 +19819,9 @@ router4.post("/", upload2.single("file"), async (req, res) => {
       updated: upsertResult.updated,
       linked: upsertResult.linked,
       unchanged: upsertResult.unchanged,
+      existingMatched: upsertResult.existingMatched,
       dedupedInFile: upsertResult.dedupedInFile,
-      message: `Import complete: ${upsertResult.inserted} new, ${upsertResult.linked} linked, ${upsertResult.updated} updated, ${upsertResult.unchanged} already up to date${upsertResult.dedupedInFile ? `, ${upsertResult.dedupedInFile} duplicate rows in file merged` : ""}.`
+      message: summary
     });
     const db = await getDb();
     if (db) {
@@ -19797,8 +19839,9 @@ router4.post("/", upload2.single("file"), async (req, res) => {
       updated: upsertResult.updated,
       linked: upsertResult.linked,
       unchanged: upsertResult.unchanged,
+      existingMatched: upsertResult.existingMatched,
       dedupedInFile: upsertResult.dedupedInFile,
-      message: `Import complete. ${upsertResult.inserted} new, ${upsertResult.linked} linked, ${upsertResult.updated} updated \u2014 scores and briefs preserved.`
+      message: summary
     });
     setImmediate(async () => {
       try {

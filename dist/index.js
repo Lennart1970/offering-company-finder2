@@ -4387,8 +4387,8 @@ async function runNationalScan(userId, testMode = false, customStates) {
       });
       console.log(`[National Scan] Created search ${searchId} for ${state}`);
       await confirmAndSearch({ searchId, location: state });
-      const { getCompaniesBySearchId: getCompaniesBySearchId3 } = await Promise.resolve().then(() => (init_db(), db_exports));
-      const companies2 = await getCompaniesBySearchId3(searchId);
+      const { getCompaniesBySearchId: getCompaniesBySearchId2 } = await Promise.resolve().then(() => (init_db(), db_exports));
+      const companies2 = await getCompaniesBySearchId2(searchId);
       const companiesFound = companies2.length;
       scanProgress.totalCompaniesFound += companiesFound;
       scanProgress.completedStates.push(state);
@@ -10469,9 +10469,9 @@ var companyFinderRouter = router({
     searchId: z2.number(),
     skipCached: z2.boolean().optional().default(true)
   })).mutation(async ({ ctx, input }) => {
-    const { getCompaniesBySearchId: getCompaniesBySearchId3 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const { getCompaniesBySearchId: getCompaniesBySearchId2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { generateSalesApproach: generateSalesApproach2 } = await Promise.resolve().then(() => (init_salesApproachGenerator(), salesApproachGenerator_exports));
-    const allCompanies = await getCompaniesBySearchId3(input.searchId);
+    const allCompanies = await getCompaniesBySearchId2(input.searchId);
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1e3;
     const toProcess = allCompanies.filter((c) => {
       if (c.enrichmentStatus !== "enriched") return false;
@@ -10516,10 +10516,10 @@ var companyFinderRouter = router({
     searchId: z2.number(),
     skipCached: z2.boolean().optional().default(true)
   })).mutation(async ({ ctx, input }) => {
-    const { getCompaniesBySearchId: getCompaniesBySearchId3 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const { getCompaniesBySearchId: getCompaniesBySearchId2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { generateSalesIntelligenceBrief: generateSalesIntelligenceBrief2 } = await Promise.resolve().then(() => (init_briefGenerator(), briefGenerator_exports));
     const { generateSalesApproach: generateSalesApproach2 } = await Promise.resolve().then(() => (init_salesApproachGenerator(), salesApproachGenerator_exports));
-    const allCompanies = await getCompaniesBySearchId3(input.searchId);
+    const allCompanies = await getCompaniesBySearchId2(input.searchId);
     const enriched = allCompanies.filter((c) => c.enrichmentStatus === "enriched");
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1e3;
     const toResearch = enriched.filter((c) => {
@@ -10545,7 +10545,7 @@ var companyFinderRouter = router({
         console.error(`[batchResearchAndOutreach] \u2717 Research: ${company.name}:`, err.message);
       }
     }
-    const refreshedCompanies = await getCompaniesBySearchId3(input.searchId);
+    const refreshedCompanies = await getCompaniesBySearchId2(input.searchId);
     const enrichedRefreshed = refreshedCompanies.filter((c) => c.enrichmentStatus === "enriched");
     const toApproach = enrichedRefreshed.filter((c) => {
       if (!c.briefData) return false;
@@ -10584,9 +10584,9 @@ var companyFinderRouter = router({
     skipCached: z2.boolean().optional().default(true)
     // skip companies with a brief < 7 days old
   })).mutation(async ({ ctx, input }) => {
-    const { getCompaniesBySearchId: getCompaniesBySearchId3 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const { getCompaniesBySearchId: getCompaniesBySearchId2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { generateSalesIntelligenceBrief: generateSalesIntelligenceBrief2 } = await Promise.resolve().then(() => (init_briefGenerator(), briefGenerator_exports));
-    const allCompanies = await getCompaniesBySearchId3(input.searchId);
+    const allCompanies = await getCompaniesBySearchId2(input.searchId);
     const sevenDaysMs = 7 * 24 * 60 * 60 * 1e3;
     const toResearch = allCompanies.filter((c) => {
       if (c.enrichmentStatus !== "enriched") return false;
@@ -11100,9 +11100,9 @@ FIT RATIONALE: ${fitData.overallRationale}`);
   // getBatchStatus — returns per-company research/approach status for a search
   // ---------------------------------------------------------------------------
   getBatchStatus: protectedProcedure.input(z2.object({ searchId: z2.number() })).query(async ({ ctx, input }) => {
-    const { getCompaniesBySearchId: getCompaniesBySearchId3 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const { getCompaniesBySearchId: getCompaniesBySearchId2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     await assertSearchAccess(input.searchId, ctx.user.id);
-    const companies2 = await getCompaniesBySearchId3(input.searchId);
+    const companies2 = await getCompaniesBySearchId2(input.searchId);
     const enriched = companies2.filter((c) => c.enrichmentStatus === "enriched");
     const hasResearch = enriched.filter((c) => c.briefData != null);
     const hasApproach2 = enriched.filter((c) => c.salesApproachData != null);
@@ -11120,10 +11120,10 @@ FIT RATIONALE: ${fitData.overallRationale}`);
   // research but no salesApproachData (catch-up after a partial batch run)
   // ---------------------------------------------------------------------------
   completeMissingApproach: protectedProcedure.input(z2.object({ searchId: z2.number() })).mutation(async ({ ctx, input }) => {
-    const { getCompaniesBySearchId: getCompaniesBySearchId3 } = await Promise.resolve().then(() => (init_db(), db_exports));
+    const { getCompaniesBySearchId: getCompaniesBySearchId2 } = await Promise.resolve().then(() => (init_db(), db_exports));
     const { generateSalesApproach: generateSalesApproach2 } = await Promise.resolve().then(() => (init_salesApproachGenerator(), salesApproachGenerator_exports));
     await assertSearchAccess(input.searchId, ctx.user.id);
-    const companies2 = await getCompaniesBySearchId3(input.searchId);
+    const companies2 = await getCompaniesBySearchId2(input.searchId);
     const toApproach = companies2.filter(
       (c) => c.enrichmentStatus === "enriched" && c.briefData != null && c.salesApproachData == null
     );
@@ -14198,7 +14198,7 @@ var nicheRouter = router({
     const userId = ctx.user.id;
     const db = await getDb();
     if (!db) throw new TRPCError5({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-    const allCompanies = await db.select().from(companies).where(eq7(companies.searchId, input.searchId));
+    const allCompanies = await getCompaniesBySearchId(input.searchId);
     if (allCompanies.length < 9) {
       throw new TRPCError5({
         code: "BAD_REQUEST",
@@ -14530,9 +14530,7 @@ var nicheRouter = router({
    * Used by the UI to show the "Assign Remaining (N)" button.
    */
   getUnassignedCount: protectedProcedure.input(z4.object({ searchId: z4.number() })).query(async ({ ctx, input }) => {
-    const db = await getDb();
-    if (!db) return { unassigned: 0, total: 0 };
-    const allCompanies = await db.select({ id: companies.id, nicheId: companies.nicheId }).from(companies).where(eq7(companies.searchId, input.searchId));
+    const allCompanies = await getCompaniesBySearchId(input.searchId);
     const total = allCompanies.length;
     const unassigned = allCompanies.filter((c) => c.nicheId === null || c.nicheId === void 0).length;
     return { unassigned, total, assigned: total - unassigned };
@@ -14549,8 +14547,6 @@ var nicheRouter = router({
    *   5. Update companies.nicheId and niches.companyCount
    */
   assignRemainingCompanies: adminProcedure.input(z4.object({ searchId: z4.number() })).mutation(async ({ ctx, input }) => {
-    const db = await getDb();
-    if (!db) throw new TRPCError5({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
     const savedNiches = await getNichesBySearchId(input.searchId);
     if (savedNiches.length === 0) {
       throw new TRPCError5({
@@ -14569,7 +14565,7 @@ var nicheRouter = router({
       });
     }
     const hasTypeSplit = mfgCentroids.length > 0 && svcCentroids.length > 0;
-    const allCompanies = await db.select().from(companies).where(eq7(companies.searchId, input.searchId));
+    const allCompanies = await getCompaniesBySearchId(input.searchId);
     const unassigned = allCompanies.filter((c) => c.nicheId === null || c.nicheId === void 0);
     if (unassigned.length === 0) {
       return { assigned: 0, message: "All companies are already assigned to niches." };
@@ -14616,7 +14612,7 @@ var nicheRouter = router({
         assigned++;
       }
     }
-    const updatedCompanies = await db.select().from(companies).where(eq7(companies.searchId, input.searchId));
+    const updatedCompanies = await getCompaniesBySearchId(input.searchId);
     const nicheCounts = /* @__PURE__ */ new Map();
     for (const company of updatedCompanies) {
       if (company.nicheId) nicheCounts.set(company.nicheId, (nicheCounts.get(company.nicheId) ?? 0) + 1);
@@ -14647,8 +14643,6 @@ var nicheRouter = router({
       batchSize: z4.number().min(1).max(2e3).default(500)
     })
   ).mutation(async ({ ctx, input }) => {
-    const db = await getDb();
-    if (!db) throw new TRPCError5({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
     const savedNiches = await getNichesBySearchId(input.searchId);
     if (savedNiches.length === 0) {
       throw new TRPCError5({
@@ -14667,7 +14661,7 @@ var nicheRouter = router({
       });
     }
     const hasTypeSplit = mfgCentroids.length > 0 && svcCentroids.length > 0;
-    const allCompanies = await db.select().from(companies).where(eq7(companies.searchId, input.searchId));
+    const allCompanies = await getCompaniesBySearchId(input.searchId);
     const unassigned = allCompanies.filter((c) => c.nicheId === null || c.nicheId === void 0).slice(0, input.batchSize);
     if (unassigned.length === 0) {
       return {
@@ -14737,7 +14731,7 @@ var nicheRouter = router({
       }
     }
     const nicheCounts = /* @__PURE__ */ new Map();
-    const updatedAllCompanies = await db.select().from(companies).where(eq7(companies.searchId, input.searchId));
+    const updatedAllCompanies = await getCompaniesBySearchId(input.searchId);
     for (const company of updatedAllCompanies) {
       if (company.nicheId) nicheCounts.set(company.nicheId, (nicheCounts.get(company.nicheId) ?? 0) + 1);
     }

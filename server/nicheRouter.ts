@@ -73,13 +73,10 @@ export const nicheRouter = router({
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
 
-      // 1. Load all companies for this search
+      // 1. Load all companies for this search (native searchId + junction memberships)
       const db = await getDb();
       if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-      const allCompanies = await db
-        .select()
-        .from(companies)
-        .where(eq(companies.searchId, input.searchId));
+      const allCompanies = await getCompaniesBySearchId(input.searchId);
 
       if (allCompanies.length < 9) {
         throw new TRPCError({
@@ -476,12 +473,7 @@ export const nicheRouter = router({
   getUnassignedCount: protectedProcedure
     .input(z.object({ searchId: z.number() }))
     .query(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) return { unassigned: 0, total: 0 };
-      const allCompanies = await db
-        .select({ id: companies.id, nicheId: companies.nicheId })
-        .from(companies)
-        .where(eq(companies.searchId, input.searchId));
+      const allCompanies = await getCompaniesBySearchId(input.searchId);
       const total = allCompanies.length;
       const unassigned = allCompanies.filter((c) => c.nicheId === null || c.nicheId === undefined).length;
       return { unassigned, total, assigned: total - unassigned };
@@ -501,9 +493,6 @@ export const nicheRouter = router({
   assignRemainingCompanies: adminProcedure
     .input(z.object({ searchId: z.number() }))
     .mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-
       // 1. Load niches with centroids
       const savedNiches = await getNichesBySearchId(input.searchId);
       if (savedNiches.length === 0) {
@@ -535,11 +524,8 @@ export const nicheRouter = router({
 
       const hasTypeSplit = mfgCentroids.length > 0 && svcCentroids.length > 0;
 
-      // 2. Load unassigned companies
-      const allCompanies = await db
-        .select()
-        .from(companies)
-        .where(eq(companies.searchId, input.searchId));
+      // 2. Load unassigned companies (native + linked)
+      const allCompanies = await getCompaniesBySearchId(input.searchId);
 
       const unassigned = allCompanies.filter((c) => c.nicheId === null || c.nicheId === undefined);
 
@@ -600,7 +586,7 @@ export const nicheRouter = router({
       }
 
       // 6. Update companyCount on each niche (re-query to get fresh assignments)
-      const updatedCompanies = await db.select().from(companies).where(eq(companies.searchId, input.searchId));
+      const updatedCompanies = await getCompaniesBySearchId(input.searchId);
       const nicheCounts = new Map<number, number>();
       for (const company of updatedCompanies) {
         if (company.nicheId) nicheCounts.set(company.nicheId, (nicheCounts.get(company.nicheId) ?? 0) + 1);
@@ -636,9 +622,6 @@ export const nicheRouter = router({
       })
     )
     .mutation(async ({ ctx, input }) => {
-      const db = await getDb();
-      if (!db) throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "Database not available" });
-
       // 1. Load niches with centroids
       const savedNiches = await getNichesBySearchId(input.searchId);
       if (savedNiches.length === 0) {
@@ -669,11 +652,8 @@ export const nicheRouter = router({
 
       const hasTypeSplit = mfgCentroids.length > 0 && svcCentroids.length > 0;
 
-      // 2. Load next batch of unassigned companies
-      const allCompanies = await db
-        .select()
-        .from(companies)
-        .where(eq(companies.searchId, input.searchId));
+      // 2. Load next batch of unassigned companies (native + linked)
+      const allCompanies = await getCompaniesBySearchId(input.searchId);
 
       const unassigned = allCompanies
         .filter((c) => c.nicheId === null || c.nicheId === undefined)
@@ -766,7 +746,7 @@ export const nicheRouter = router({
 
       // 7. Update companyCount on each niche (existing + new)
       const nicheCounts = new Map<number, number>();
-      const updatedAllCompanies = await db.select().from(companies).where(eq(companies.searchId, input.searchId));
+      const updatedAllCompanies = await getCompaniesBySearchId(input.searchId);
       for (const company of updatedAllCompanies) {
         if (company.nicheId) nicheCounts.set(company.nicheId, (nicheCounts.get(company.nicheId) ?? 0) + 1);
       }

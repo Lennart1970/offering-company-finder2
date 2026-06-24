@@ -20,7 +20,8 @@ import { Router } from "express";
 import multer from "multer";
 import * as XLSX from "xlsx";
 import { sdk } from "../_core/sdk";
-import { createSearch, createCompanies, getDb, getCompaniesBySearchId, getActiveBrain } from "../db";
+import { createSearch, getDb, getCompaniesBySearchId, getActiveBrain } from "../db";
+import { importCompaniesWithGlobalUpsert } from "../importCompaniesUpsert";
 import type { InsertCompany } from "../../drizzle/schema";
 import { generateEmbeddings } from "../embeddingService";
 import { persistCompanyEmbeddings, scoreCompaniesAgainstBrain, persistBrainScores, aggregateBrainScores } from "../supabaseEmbeddings";
@@ -269,19 +270,24 @@ router.post("/", upload.single("file"), async (req: any, res: any) => {
       message: `Parsed ${companyRows.length} companies${isApolloExport ? " (Apollo export detected — direct import, no API calls)" : ""}`,
     });
 
-    // Bulk insert in batches of 200
-    const BATCH = 200;
-    let inserted = 0;
-    for (let i = 0; i < companyRows.length; i += BATCH) {
-      await createCompanies(companyRows.slice(i, i + BATCH));
-      inserted += Math.min(BATCH, companyRows.length - i);
-      send({
-        status: "progress",
-        done: inserted,
-        total: companyRows.length,
-        message: `Saved ${inserted} / ${companyRows.length} companies...`,
-      });
-    }
+    send({
+      status: "upserting",
+      total: companyRows.length,
+      message: "Checking for existing companies (global apolloId / domain match)...",
+    });
+
+    const upsertResult = await importCompaniesWithGlobalUpsert(companyRows);
+    send({
+      status: "progress",
+      done: companyRows.length,
+      total: companyRows.length,
+      inserted: upsertResult.inserted,
+      updated: upsertResult.updated,
+      linked: upsertResult.linked,
+      unchanged: upsertResult.unchanged,
+      dedupedInFile: upsertResult.dedupedInFile,
+      message: `Import complete: ${upsertResult.inserted} new, ${upsertResult.linked} linked, ${upsertResult.updated} updated, ${upsertResult.unchanged} already up to date${upsertResult.dedupedInFile ? `, ${upsertResult.dedupedInFile} duplicate rows in file merged` : ""}.`,
+    });
 
     // Mark campaign as completed
     const db = await getDb();
@@ -300,7 +306,12 @@ router.post("/", upload.single("file"), async (req: any, res: any) => {
       total: companyRows.length,
       skipped,
       isApolloExport,
-      message: `Import complete. ${companyRows.length} companies saved directly from file — no Apollo API calls used.`,
+      inserted: upsertResult.inserted,
+      updated: upsertResult.updated,
+      linked: upsertResult.linked,
+      unchanged: upsertResult.unchanged,
+      dedupedInFile: upsertResult.dedupedInFile,
+      message: `Import complete. ${upsertResult.inserted} new, ${upsertResult.linked} linked, ${upsertResult.updated} updated — scores and briefs preserved.`,
     });
 
     // ── Background: embed companies + score against active Brain ─────────────

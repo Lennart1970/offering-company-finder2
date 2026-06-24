@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, tinyint, decimal } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, tinyint, decimal, uniqueIndex } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -165,6 +165,33 @@ export const companies = mysqlTable("companies", {
 
 export type Company = typeof companies.$inferSelect;
 export type InsertCompany = typeof companies.$inferInsert;
+
+/**
+ * Links an existing company row to additional campaigns without duplicating company data.
+ * Native membership: companies.searchId. Extra campaigns use this junction table.
+ */
+export const searchCompanyMemberships = mysqlTable(
+  "search_company_memberships",
+  {
+    id: int("id").autoincrement().primaryKey(),
+    searchId: int("searchId")
+      .notNull()
+      .references(() => searches.id, { onDelete: "cascade" }),
+    companyId: int("companyId")
+      .notNull()
+      .references(() => companies.id, { onDelete: "cascade" }),
+    createdAt: timestamp("createdAt").defaultNow().notNull(),
+  },
+  (table) => ({
+    searchCompanyUnique: uniqueIndex("search_company_memberships_search_company_unique").on(
+      table.searchId,
+      table.companyId
+    ),
+  })
+);
+
+export type SearchCompanyMembership = typeof searchCompanyMemberships.$inferSelect;
+export type InsertSearchCompanyMembership = typeof searchCompanyMemberships.$inferInsert;
 
 /**
  * Stores generated sales intelligence packages for companies

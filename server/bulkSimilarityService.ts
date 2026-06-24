@@ -19,7 +19,7 @@
 
 import { createClient } from "@supabase/supabase-js";
 import { v5 as uuidv5 } from "uuid";
-import { getDb } from "./db";
+import { getDb, companyBelongsToSearch } from "./db";
 import { companies } from "../drizzle/schema";
 import { eq, isNull, inArray } from "drizzle-orm";
 
@@ -127,7 +127,7 @@ export async function runBulkSimilarityScoring(
     const rows = await db
       .select({ id: companies.id })
       .from(companies)
-      .where(eq(companies.searchId, opts.searchId));
+      .where(companyBelongsToSearch(opts.searchId));
     targetIds = rows.map((r) => r.id);
   } else {
     // "all" mode

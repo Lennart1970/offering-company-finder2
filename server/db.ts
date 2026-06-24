@@ -1,6 +1,6 @@
 import { eq, and, or, desc, sql, exists, not, ne, isNotNull, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob, bomCalculations, BomCalculation, InsertBomCalculation, apolloWebhookLogs, ApolloWebhookLog, InsertApolloWebhookLog, companyBrainOutputs, CompanyBrainOutput, InsertCompanyBrainOutput, offeringBrain, cgLeads } from "../drizzle/schema";
+import { InsertUser, users, salesPackages, InsertSalesPackage, companyDecisions, InsertCompanyDecision, excludedCodes, InsertExcludedCode, companies, Company, InsertCompany, searches, Search, InsertSearch, contacts, Contact, InsertContact, niches, Niche, InsertNiche, batchJobs, BatchJob, InsertBatchJob, bomCalculations, BomCalculation, InsertBomCalculation, apolloWebhookLogs, ApolloWebhookLog, InsertApolloWebhookLog, companyBrainOutputs, CompanyBrainOutput, InsertCompanyBrainOutput, offeringBrain, cgLeads, searchCompanyMemberships } from "../drizzle/schema";
 import { ENV } from './_core/env';
 import { normalizeCompanyDomain } from "./normalizeCompanyDomain";
 
@@ -193,11 +193,130 @@ export async function createCompanies(companyList: InsertCompany[]) {
   await db.insert(companies).values(stamped);
 }
 
+/** Company belongs to a campaign via native searchId or junction membership. */
+export function companyBelongsToSearch(searchId: number) {
+  return or(
+    eq(companies.searchId, searchId),
+    sql`${companies.id} IN (SELECT companyId FROM search_company_memberships WHERE searchId = ${searchId})`
+  );
+}
+
+/** Link existing companies to a campaign without duplicating rows. */
+export async function linkCompaniesToSearch(searchId: number, companyIds: number[]): Promise<number> {
+  const unique = [...new Set(companyIds)];
+  if (unique.length === 0) return 0;
+
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+
+  const eligible = await db
+    .select({ id: companies.id })
+    .from(companies)
+    .where(inArray(companies.id, unique));
+  const eligibleIds = eligible.map((r) => r.id);
+  if (eligibleIds.length === 0) return 0;
+
+  const alreadyNative = await db
+    .select({ id: companies.id })
+    .from(companies)
+    .where(and(inArray(companies.id, eligibleIds), eq(companies.searchId, searchId)));
+  const nativeSet = new Set(alreadyNative.map((r) => r.id));
+
+  const existingLinks = await db
+    .select({ companyId: searchCompanyMemberships.companyId })
+    .from(searchCompanyMemberships)
+    .where(
+      and(
+        eq(searchCompanyMemberships.searchId, searchId),
+        inArray(searchCompanyMemberships.companyId, eligibleIds)
+      )
+    );
+  const linkedSet = new Set(existingLinks.map((r) => r.companyId));
+
+  const toLink = eligibleIds.filter((id) => !nativeSet.has(id) && !linkedSet.has(id));
+  if (toLink.length === 0) return 0;
+
+  const CHUNK = 200;
+  for (let i = 0; i < toLink.length; i += CHUNK) {
+    const chunk = toLink.slice(i, i + CHUNK);
+    await db
+      .insert(searchCompanyMemberships)
+      .values(chunk.map((companyId) => ({ searchId, companyId })))
+      .onDuplicateKeyUpdate({ set: { companyId: sql`companyId` } });
+  }
+
+  return toLink.length;
+}
+
+/** All company IDs in a campaign (native + linked). */
+export async function getCompanyIdsForSearch(searchId: number): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  const [native, linked] = await Promise.all([
+    db.select({ id: companies.id }).from(companies).where(eq(companies.searchId, searchId)),
+    db
+      .select({ companyId: searchCompanyMemberships.companyId })
+      .from(searchCompanyMemberships)
+      .where(eq(searchCompanyMemberships.searchId, searchId)),
+  ]);
+
+  return [...new Set([...native.map((r) => r.id), ...linked.map((r) => r.companyId)])];
+}
+
+export type SearchCompanyCountStats = {
+  companyCount: number;
+  avgFit: number | null;
+};
+
+/** Campaign list stats — includes linked companies, not only native searchId rows. */
+export async function getCompanyCountsBySearchIds(
+  searchIds: number[]
+): Promise<Map<number, SearchCompanyCountStats>> {
+  const result = new Map<number, SearchCompanyCountStats>();
+  if (searchIds.length === 0) return result;
+
+  const db = await getDb();
+  if (!db) return result;
+
+  const idList = sql.join(searchIds.map((id) => sql`${id}`), sql`, `);
+  const rows = await db.execute(sql`
+    SELECT searchId,
+      COUNT(DISTINCT companyId) AS companyCount,
+      ROUND(AVG(CASE WHEN fitScore IS NOT NULL THEN fitScore END), 0) AS avgFit
+    FROM (
+      SELECT c.searchId AS searchId, c.id AS companyId, c.fitScore AS fitScore
+      FROM companies c
+      WHERE c.searchId IN (${idList})
+      UNION ALL
+      SELECT m.searchId AS searchId, m.companyId AS companyId, c.fitScore AS fitScore
+      FROM search_company_memberships m
+      INNER JOIN companies c ON c.id = m.companyId
+      WHERE m.searchId IN (${idList})
+    ) combined
+    GROUP BY searchId
+  `);
+
+  const list = (Array.isArray(rows) ? (Array.isArray(rows[0]) ? rows[0] : rows) : []) as Array<{
+    searchId: number;
+    companyCount: number;
+    avgFit: number | null;
+  }>;
+
+  for (const row of list) {
+    result.set(Number(row.searchId), {
+      companyCount: Number(row.companyCount),
+      avgFit: row.avgFit != null ? Number(row.avgFit) : null,
+    });
+  }
+  return result;
+}
+
 export async function getCompaniesBySearchId(searchId: number) {
   const db = await getDb();
   if (!db) return [];
   
-  return db.select().from(companies).where(eq(companies.searchId, searchId));
+  return db.select().from(companies).where(companyBelongsToSearch(searchId));
 }
 
 export async function getCompaniesBySearchIdPaged(searchId: number, limit = 100, offset = 0) {
@@ -254,7 +373,7 @@ export async function getCompaniesBySearchIdPaged(searchId: number, limit = 100,
     // query to keep the payload small (~200KB vs 8MB). The quick-view modal
     // and company detail pages fetch them on demand via getCompany.
   }).from(companies)
-    .where(eq(companies.searchId, searchId))
+    .where(companyBelongsToSearch(searchId))
     .orderBy(desc(companies.fitScore), desc(companies.urgencyScore))
     .limit(limit)
     .offset(offset);
@@ -274,8 +393,8 @@ export async function getCompaniesBySearchIdRaw(
 
   const searchCondition = search ? like(companies.name, `%${search}%`) : undefined;
   const whereClause = searchCondition
-    ? and(eq(companies.searchId, searchId), searchCondition)
-    : eq(companies.searchId, searchId);
+    ? and(companyBelongsToSearch(searchId), searchCondition)
+    : companyBelongsToSearch(searchId);
 
   const colMap = {
     name: companies.name,
@@ -311,8 +430,8 @@ export async function countCompaniesBySearchId(searchId: number, search?: string
   const db = await getDb();
   if (!db) return 0;
   const whereClause = search
-    ? and(eq(companies.searchId, searchId), like(companies.name, `%${search}%`))
-    : eq(companies.searchId, searchId);
+    ? and(companyBelongsToSearch(searchId), like(companies.name, `%${search}%`))
+    : companyBelongsToSearch(searchId);
   const result = await db.select({ total: count() }).from(companies).where(whereClause);
   return result[0]?.total ?? 0;
 }
@@ -386,7 +505,7 @@ export async function getPendingCompaniesBySearchId(searchId: number) {
   if (!db) return [];
   
   return db.select().from(companies).where(
-    and(eq(companies.searchId, searchId), eq(companies.enrichmentStatus, "pending"))
+    and(companyBelongsToSearch(searchId), eq(companies.enrichmentStatus, "pending"))
   );
 }
 

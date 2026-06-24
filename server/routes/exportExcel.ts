@@ -1,6 +1,6 @@
 import { Router, Request, Response } from "express";
 import * as XLSX from "xlsx";
-import { getDb } from "../db";
+import { getDb, companyBelongsToSearch } from "../db";
 import { companies, contacts, Contact } from "../../drizzle/schema";
 import { eq, and, inArray, isNotNull } from "drizzle-orm";
 
@@ -59,7 +59,7 @@ router.get("/", async (req: Request, res: Response) => {
         .from(companies)
         .where(
           and(
-            eq(companies.searchId, Number(searchId)),
+            companyBelongsToSearch(Number(searchId)),
             isNotNull(companies.urgencyScore)
           )
         )

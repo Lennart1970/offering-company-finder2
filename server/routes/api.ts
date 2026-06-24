@@ -1,6 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
-import { getDb, createSearch, createCompanies, getPendingCompaniesBySearchId, getCompaniesBySearchId, updateCompany, getSearchById, getActiveBrain } from "../db";
+import { getDb, createSearch, getPendingCompaniesBySearchId, getCompaniesBySearchId, updateCompany, getSearchById, getActiveBrain, companyBelongsToSearch } from "../db";
+import { importCompaniesWithGlobalUpsert } from "../importCompaniesUpsert";
 import { companies, searches, users } from "../../drizzle/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { parseApolloCSV, mapApolloRowToCompany } from "../apolloCSVParser";
@@ -73,7 +74,7 @@ router.get("/companies", async (req, res) => {
     let query = db.select().from(companies);
     
     if (searchId) {
-      query = query.where(eq(companies.searchId, searchId)) as any;
+      query = query.where(companyBelongsToSearch(searchId)) as any;
     }
 
     const results = await query
@@ -87,7 +88,7 @@ router.get("/companies", async (req, res) => {
       return res.status(503).json({ error: "Service Unavailable", message: "Database not available" });
     }
     const countQuery = searchId 
-      ? dbInstance.select().from(companies).where(eq(companies.searchId, searchId))
+      ? dbInstance.select().from(companies).where(companyBelongsToSearch(searchId))
       : dbInstance.select().from(companies);
     const total = (await countQuery).length;
 
@@ -272,7 +273,7 @@ router.get("/searches/:id/companies", async (req, res) => {
     const results = await db
       .select()
       .from(companies)
-      .where(eq(companies.searchId, searchId))
+      .where(companyBelongsToSearch(searchId))
       .orderBy(desc(companies.createdAt))
       .limit(limit)
       .offset(offset);
@@ -284,7 +285,7 @@ router.get("/searches/:id/companies", async (req, res) => {
     const total = (await dbInstance
       .select()
       .from(companies)
-      .where(eq(companies.searchId, searchId))).length;
+      .where(companyBelongsToSearch(searchId))).length;
 
     res.json({
       data: results,
@@ -368,19 +369,20 @@ router.post("/import-csv", upload.single("file"), async (req: any, res: any) => 
 
     const companyRows = rows.map((row) => mapApolloRowToCompany(row, searchId));
 
-    // Insert in batches of 500 to avoid memory pressure
-    const BATCH = 500;
-    for (let i = 0; i < companyRows.length; i += BATCH) {
-      await createCompanies(companyRows.slice(i, i + BATCH));
-      console.log(`[CSV Import API] Inserted batch ${Math.floor(i / BATCH) + 1}/${Math.ceil(companyRows.length / BATCH)}`);
-    }
-
-    console.log(`[CSV Import API] ✓ Done — ${companyRows.length} companies imported, searchId=${searchId}`);
+    const upsertResult = await importCompaniesWithGlobalUpsert(companyRows);
+    console.log(
+      `[CSV Import API] ✓ Done — ${upsertResult.inserted} new, ${upsertResult.updated} updated, ${upsertResult.unchanged} unchanged, searchId=${searchId}`
+    );
 
     res.json({
       success: true,
       searchId,
-      companiesImported: companyRows.length,
+      companiesImported: upsertResult.inserted,
+      companiesUpdated: upsertResult.updated,
+      companiesLinked: upsertResult.linked,
+      companiesUnchanged: upsertResult.unchanged,
+      dedupedInFile: upsertResult.dedupedInFile,
+      rowsInFile: companyRows.length,
       campaignName,
     });
   } catch (error: any) {

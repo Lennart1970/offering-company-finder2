@@ -36,6 +36,7 @@ import {
   updateBatchJob,
   getLatestBatchJobForSearch,
   archiveSearch,
+  getCompanyCountsBySearchIds,
   getCompaniesBySearchIdPaged,
   getCompaniesBySearchIdRaw,
   countCompaniesBySearchId,
@@ -1619,16 +1620,23 @@ export const companyFinderRouter = router({
       
       console.log(`[CSV Import] Created search record ${searchId}`);
       
-      // Map and insert all companies
       const companies = rows.map((row) => mapApolloRowToCompany(row, searchId));
-      
-      await createCompanies(companies);
-      
-      console.log(`[CSV Import] ✓ Imported ${companies.length} companies for campaign: ${input.campaignName}`);
-      
+
+      const { importCompaniesWithGlobalUpsert } = await import("./importCompaniesUpsert");
+      const upsertResult = await importCompaniesWithGlobalUpsert(companies);
+
+      console.log(
+        `[CSV Import] ✓ ${upsertResult.inserted} new, ${upsertResult.updated} updated, ${upsertResult.unchanged} unchanged for campaign: ${input.campaignName}`
+      );
+
       return {
         searchId,
-        companiesImported: companies.length,
+        companiesImported: upsertResult.inserted,
+        companiesUpdated: upsertResult.updated,
+        companiesLinked: upsertResult.linked,
+        companiesUnchanged: upsertResult.unchanged,
+        dedupedInFile: upsertResult.dedupedInFile,
+        rowsInFile: companies.length,
         campaignName: input.campaignName,
       };
     }),
@@ -3630,18 +3638,8 @@ Return ONLY the opener text. No labels, no JSON, no preamble.`;
       // For each search, compute company count and average fit score
       const searchIds = rows.map(r => r.search.id);
 
-      // Batch query: count + avg fit per searchId
-      const statsRows = await db
-        .select({
-          searchId: companies.searchId,
-          companyCount: sql<number>`COUNT(*)`,
-          avgFit: sql<number>`ROUND(AVG(CASE WHEN ${companies.fitScore} IS NOT NULL THEN ${companies.fitScore} END), 0)`,
-        })
-        .from(companies)
-        .where(inArray(companies.searchId, searchIds))
-        .groupBy(companies.searchId);
-
-      const statsMap = new Map(statsRows.map(s => [s.searchId, s]));
+      // Batch query: count + avg fit per searchId (includes linked companies)
+      const statsMap = await getCompanyCountsBySearchIds(searchIds);
 
       return rows.map(r => {
         const stats = statsMap.get(r.search.id);

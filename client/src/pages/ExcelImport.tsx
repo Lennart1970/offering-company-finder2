@@ -24,6 +24,11 @@ interface ProgressEvent {
   done?: number;
   searchId?: number;
   isApolloExport?: boolean;
+  inserted?: number;
+  updated?: number;
+  linked?: number;
+  unchanged?: number;
+  dedupedInFile?: number;
 }
 
 export default function ExcelImport() {
@@ -136,10 +141,20 @@ export default function ExcelImport() {
       return `Parsed ${ev.total} companies${ev.skipped ? `, ${ev.skipped} skipped (empty name)` : ""}${apolloNote}`;
     }
     if (ev.status === "campaign_created") return `Campaign created (ID: ${ev.searchId})`;
-    if (ev.status === "progress") {
+    if (ev.status === "progress" || ev.status === "upserting") {
+      if (ev.message) return ev.message;
       return `Saved ${ev.done} / ${ev.total} companies...`;
     }
     if (ev.status === "done") {
+      if (ev.inserted != null || ev.updated != null || ev.linked != null) {
+        const parts = [
+          ev.inserted != null ? `${ev.inserted} new` : null,
+          ev.linked != null ? `${ev.linked} linked` : null,
+          ev.updated != null ? `${ev.updated} updated` : null,
+          ev.unchanged != null ? `${ev.unchanged} already in DB` : null,
+        ].filter(Boolean);
+        return `Done! ${parts.join(", ")} — scores and briefs preserved.`;
+      }
       return `Done! ${ev.total} companies imported directly — no API calls used.`;
     }
     return ev.message || JSON.stringify(ev);

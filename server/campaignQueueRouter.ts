@@ -5,7 +5,7 @@
 import { z } from "zod";
 import { protectedProcedure, router } from "./_core/trpc";
 import { TRPCError } from "@trpc/server";
-import { getDb } from "./db";
+import { getDb, companyBelongsToSearch } from "./db";
 import { campaignQueue, companies } from "../drizzle/schema";
 import { eq, and, inArray, count, sql } from "drizzle-orm";
 import { getWorkerStatus } from "./campaignQueueWorker";
@@ -42,9 +42,7 @@ export const campaignQueueRouter = router({
           fitScoreSource: companies.fitScoreSource,
         })
         .from(companies)
-        .where(and(
-          eq(companies.searchId, input.searchId),
-        ));
+        .where(companyBelongsToSearch(input.searchId));
 
       // Exclude companies that failed enrichment with no apolloId (nothing we can do)
       const processable = allCompanies.filter(

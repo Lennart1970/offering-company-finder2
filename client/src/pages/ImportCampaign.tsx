@@ -9,6 +9,11 @@ type Step = "upload" | "clustering" | "done";
 interface ImportResult {
   searchId: number;
   companiesImported: number;
+  companiesUpdated?: number;
+  companiesLinked?: number;
+  companiesUnchanged?: number;
+  dedupedInFile?: number;
+  rowsInFile?: number;
   campaignName: string;
 }
 
@@ -31,7 +36,9 @@ export default function ImportCampaign() {
     onSuccess: async (data) => {
       setImportResult(data);
       setStep("clustering");
-      toast.success(`${data.companiesImported} companies imported. Starting clustering...`);
+      toast.success(
+        `${data.companiesImported} new${data.companiesLinked ? `, ${data.companiesLinked} linked` : ""}${data.companiesUpdated ? `, ${data.companiesUpdated} updated` : ""}. Starting clustering...`
+      );
       // Auto-trigger clustering
       clusterMutation.mutate({ searchId: data.searchId, autoScore: true });
     },

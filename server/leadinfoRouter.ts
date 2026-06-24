@@ -5,7 +5,7 @@
 
 import { z } from "zod";
 import { protectedProcedure, router } from "./_core/trpc";
-import { getDb } from "./db";
+import { getDb, companyBelongsToSearch } from "./db";
 import { leadinfoVisits, companies } from "../drizzle/schema";
 import { eq, and, isNotNull, sql } from "drizzle-orm";
 import { normaliseDomain as _normaliseDomain } from "./leadinfoService";
@@ -48,7 +48,7 @@ export const leadinfoRouter = router({
           websiteUrl: companies.websiteUrl,
         })
         .from(companies)
-        .where(eq(companies.searchId, input.searchId));
+        .where(companyBelongsToSearch(input.searchId));
 
       // Match
       const matches = matchCompaniesToCampaign(enriched, campaignCompanies);
@@ -107,7 +107,7 @@ export const leadinfoRouter = router({
           websiteUrl: companies.websiteUrl,
         })
         .from(companies)
-        .where(eq(companies.searchId, input.searchId));
+        .where(companyBelongsToSearch(input.searchId));
 
       const matches = matchCompaniesToCampaign(enriched, campaignCompanies);
       const batchId = randomUUID();
@@ -262,7 +262,7 @@ export const leadinfoRouter = router({
           primaryDomain: companies.primaryDomain,
         })
         .from(companies)
-        .where(eq(companies.searchId, input.searchId));
+        .where(companyBelongsToSearch(input.searchId));
 
       const crossIds = new Set<number>();
       for (const c of campaignCompanies) {

@@ -14,7 +14,7 @@
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { v5 as uuidv5 } from "uuid";
-import { getDb } from "./db";
+import { getDb, getCompanyIdsForSearch } from "./db";
 import { companies, contacts, offeringBrain, searches } from "../drizzle/schema";
 import type { InferSelectModel } from "drizzle-orm";
 
@@ -695,16 +695,11 @@ export async function syncSearchRunToSupabase(searchId: number): Promise<{
   const db = await getDb();
   if (!db) return { companiesSynced: 0, contactsSynced: 0, errors: 0, message: "Database not available" };
 
-  const searchCompanies = await db
-    .select({ id: companies.id })
-    .from(companies)
-    .where(eq(companies.searchId, searchId));
+  const ids = await getCompanyIdsForSearch(searchId);
 
-  if (searchCompanies.length === 0) {
+  if (ids.length === 0) {
     return { companiesSynced: 0, contactsSynced: 0, errors: 0, message: "No companies in search" };
   }
-
-  const ids = searchCompanies.map((c: { id: number }) => c.id);
 
   const companyResult = await syncCompaniesToSupabase(ids);
   const contactResult = await syncContactsToSupabase(ids);

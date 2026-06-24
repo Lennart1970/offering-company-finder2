@@ -21,7 +21,7 @@ import multer from "multer";
 import * as XLSX from "xlsx";
 import { sdk } from "../_core/sdk";
 import { createSearch, getDb, getCompaniesBySearchId, getActiveBrain } from "../db";
-import { importCompaniesWithGlobalUpsert } from "../importCompaniesUpsert";
+import { importCompaniesWithGlobalUpsert, formatImportUpsertSummary } from "../importCompaniesUpsert";
 import type { InsertCompany } from "../../drizzle/schema";
 import { generateEmbeddings } from "../embeddingService";
 import { persistCompanyEmbeddings, scoreCompaniesAgainstBrain, persistBrainScores, aggregateBrainScores } from "../supabaseEmbeddings";
@@ -277,6 +277,7 @@ router.post("/", upload.single("file"), async (req: any, res: any) => {
     });
 
     const upsertResult = await importCompaniesWithGlobalUpsert(companyRows);
+    const summary = formatImportUpsertSummary(upsertResult, companyRows.length);
     send({
       status: "progress",
       done: companyRows.length,
@@ -285,8 +286,9 @@ router.post("/", upload.single("file"), async (req: any, res: any) => {
       updated: upsertResult.updated,
       linked: upsertResult.linked,
       unchanged: upsertResult.unchanged,
+      existingMatched: upsertResult.existingMatched,
       dedupedInFile: upsertResult.dedupedInFile,
-      message: `Import complete: ${upsertResult.inserted} new, ${upsertResult.linked} linked, ${upsertResult.updated} updated, ${upsertResult.unchanged} already up to date${upsertResult.dedupedInFile ? `, ${upsertResult.dedupedInFile} duplicate rows in file merged` : ""}.`,
+      message: summary,
     });
 
     // Mark campaign as completed
@@ -310,8 +312,9 @@ router.post("/", upload.single("file"), async (req: any, res: any) => {
       updated: upsertResult.updated,
       linked: upsertResult.linked,
       unchanged: upsertResult.unchanged,
+      existingMatched: upsertResult.existingMatched,
       dedupedInFile: upsertResult.dedupedInFile,
-      message: `Import complete. ${upsertResult.inserted} new, ${upsertResult.linked} linked, ${upsertResult.updated} updated — scores and briefs preserved.`,
+      message: summary,
     });
 
     // ── Background: embed companies + score against active Brain ─────────────

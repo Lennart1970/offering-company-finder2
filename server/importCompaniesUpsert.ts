@@ -17,12 +17,49 @@ export type ImportCompanyRow = Omit<InsertCompany, "id" | "createdAt">;
 export type ImportUpsertResult = {
   inserted: number;
   updated: number;
-  /** Existing companies linked to the target campaign via junction table */
+  /** New junction rows — existing companies attached to this campaign */
   linked: number;
+  /** Matched existing rows where CSV had no firmographic changes to apply */
   unchanged: number;
   /** Rows dropped as duplicates within the same upload file */
   dedupedInFile: number;
+  /** Total CSV rows that matched an existing company (updated + unchanged) */
+  existingMatched: number;
 };
+
+/** Human-readable import summary — linked/updated are details about existingMatched, not additive. */
+export function formatImportUpsertSummary(
+  result: ImportUpsertResult,
+  rowsInFile: number
+): string {
+  const { inserted, linked, updated, unchanged, dedupedInFile, existingMatched } = result;
+  const inCampaign = inserted + existingMatched;
+
+  if (existingMatched === 0) {
+    const dedup = dedupedInFile > 0 ? ` (${dedupedInFile} duplicate rows merged in file)` : "";
+    return `${rowsInFile} in file → ${inserted} new companies in this campaign${dedup}.`;
+  }
+
+  const existingParts: string[] = [];
+  if (linked > 0) existingParts.push(`${linked} linked to this campaign`);
+  if (updated > 0) existingParts.push(`${updated} refreshed from CSV`);
+  if (unchanged > 0) {
+    existingParts.push(
+      `${unchanged} already up to date (matched in database, no field changes)`
+    );
+  }
+  const alreadyInCampaign = existingMatched - linked;
+  if (alreadyInCampaign > 0) {
+    existingParts.push(`${alreadyInCampaign} were already in this campaign`);
+  }
+
+  const dedup = dedupedInFile > 0 ? `, ${dedupedInFile} duplicate rows merged in file` : "";
+  return (
+    `${rowsInFile} in file → ${inCampaign} in this campaign ` +
+    `(${inserted} new, ${existingMatched} from database${dedup}). ` +
+    `${existingParts.join("; ")}. Scores and briefs preserved.`
+  );
+}
 
 const FIRMOPGRAPHIC_FIELDS = [
   "name",
@@ -205,7 +242,14 @@ export async function importCompaniesWithGlobalUpsert(
 ): Promise<ImportUpsertResult> {
   const { unique, dedupedInFile } = dedupeImportRows(rows);
   if (unique.length === 0) {
-    return { inserted: 0, updated: 0, linked: 0, unchanged: 0, dedupedInFile };
+    return {
+      inserted: 0,
+      updated: 0,
+      linked: 0,
+      unchanged: 0,
+      dedupedInFile,
+      existingMatched: 0,
+    };
   }
 
   const apolloIds = [
@@ -262,5 +306,12 @@ export async function importCompaniesWithGlobalUpsert(
     linked = await linkCompaniesToSearch(targetSearchId, toLinkIds);
   }
 
-  return { inserted, updated, linked, unchanged, dedupedInFile };
+  return {
+    inserted,
+    updated,
+    linked,
+    unchanged,
+    dedupedInFile,
+    existingMatched: toLinkIds.length,
+  };
 }

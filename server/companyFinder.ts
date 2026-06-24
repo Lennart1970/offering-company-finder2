@@ -1622,11 +1622,11 @@ export const companyFinderRouter = router({
       
       const companies = rows.map((row) => mapApolloRowToCompany(row, searchId));
 
-      const { importCompaniesWithGlobalUpsert } = await import("./importCompaniesUpsert");
+      const { importCompaniesWithGlobalUpsert, formatImportUpsertSummary } = await import("./importCompaniesUpsert");
       const upsertResult = await importCompaniesWithGlobalUpsert(companies);
 
       console.log(
-        `[CSV Import] ✓ ${upsertResult.inserted} new, ${upsertResult.updated} updated, ${upsertResult.unchanged} unchanged for campaign: ${input.campaignName}`
+        `[CSV Import] ✓ ${formatImportUpsertSummary(upsertResult, companies.length)}`
       );
 
       return {
@@ -1635,8 +1635,10 @@ export const companyFinderRouter = router({
         companiesUpdated: upsertResult.updated,
         companiesLinked: upsertResult.linked,
         companiesUnchanged: upsertResult.unchanged,
+        existingMatched: upsertResult.existingMatched,
         dedupedInFile: upsertResult.dedupedInFile,
         rowsInFile: companies.length,
+        importSummary: formatImportUpsertSummary(upsertResult, companies.length),
         campaignName: input.campaignName,
       };
     }),

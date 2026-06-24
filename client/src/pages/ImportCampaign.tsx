@@ -11,6 +11,8 @@ interface ImportResult {
   companiesImported: number;
   companiesUpdated?: number;
   companiesLinked?: number;
+  existingMatched?: number;
+  importSummary?: string;
   companiesUnchanged?: number;
   dedupedInFile?: number;
   rowsInFile?: number;
@@ -36,9 +38,7 @@ export default function ImportCampaign() {
     onSuccess: async (data) => {
       setImportResult(data);
       setStep("clustering");
-      toast.success(
-        `${data.companiesImported} new${data.companiesLinked ? `, ${data.companiesLinked} linked` : ""}${data.companiesUpdated ? `, ${data.companiesUpdated} updated` : ""}. Starting clustering...`
-      );
+      toast.success(data.importSummary ?? `${data.companiesImported} new companies imported. Starting clustering...`);
       // Auto-trigger clustering
       clusterMutation.mutate({ searchId: data.searchId, autoScore: true });
     },

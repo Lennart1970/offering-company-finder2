@@ -1,7 +1,7 @@
 import { Router } from "express";
 import multer from "multer";
 import { getDb, createSearch, getPendingCompaniesBySearchId, getCompaniesBySearchId, updateCompany, getSearchById, getActiveBrain, companyBelongsToSearch } from "../db";
-import { importCompaniesWithGlobalUpsert } from "../importCompaniesUpsert";
+import { importCompaniesWithGlobalUpsert, formatImportUpsertSummary } from "../importCompaniesUpsert";
 import { companies, searches, users } from "../../drizzle/schema";
 import { eq, desc, and } from "drizzle-orm";
 import { parseApolloCSV, mapApolloRowToCompany } from "../apolloCSVParser";
@@ -370,9 +370,8 @@ router.post("/import-csv", upload.single("file"), async (req: any, res: any) => 
     const companyRows = rows.map((row) => mapApolloRowToCompany(row, searchId));
 
     const upsertResult = await importCompaniesWithGlobalUpsert(companyRows);
-    console.log(
-      `[CSV Import API] ✓ Done — ${upsertResult.inserted} new, ${upsertResult.updated} updated, ${upsertResult.unchanged} unchanged, searchId=${searchId}`
-    );
+    const summary = formatImportUpsertSummary(upsertResult, companyRows.length);
+    console.log(`[CSV Import API] ✓ Done — ${summary} searchId=${searchId}`);
 
     res.json({
       success: true,
@@ -381,8 +380,10 @@ router.post("/import-csv", upload.single("file"), async (req: any, res: any) => 
       companiesUpdated: upsertResult.updated,
       companiesLinked: upsertResult.linked,
       companiesUnchanged: upsertResult.unchanged,
+      existingMatched: upsertResult.existingMatched,
       dedupedInFile: upsertResult.dedupedInFile,
       rowsInFile: companyRows.length,
+      importSummary: summary,
       campaignName,
     });
   } catch (error: any) {

@@ -3,6 +3,7 @@ import type { Company } from "../drizzle/schema";
 import {
   buildFirmographicPatch,
   dedupeImportRows,
+  formatImportUpsertSummary,
   type ImportCompanyRow,
 } from "./importCompaniesUpsert";
 
@@ -189,5 +190,41 @@ describe("buildFirmographicPatch", () => {
     const existing = existingCompany({ apolloId: null });
     const patch = buildFirmographicPatch(existing, baseRow());
     expect(patch.apolloId).toBe("apollo-abc");
+  });
+});
+
+describe("formatImportUpsertSummary", () => {
+  it("explains overlapping linked and updated counts for existing rows", () => {
+    const msg = formatImportUpsertSummary(
+      {
+        inserted: 188,
+        linked: 185,
+        updated: 185,
+        unchanged: 0,
+        dedupedInFile: 0,
+        existingMatched: 185,
+      },
+      373
+    );
+    expect(msg).toContain("373 in file → 373 in this campaign");
+    expect(msg).toContain("188 new, 185 from database");
+    expect(msg).toContain("185 linked to this campaign");
+    expect(msg).toContain("185 refreshed from CSV");
+    expect(msg).not.toContain("already in DB");
+  });
+
+  it("describes unchanged rows as already up to date", () => {
+    const msg = formatImportUpsertSummary(
+      {
+        inserted: 10,
+        linked: 5,
+        updated: 2,
+        unchanged: 3,
+        dedupedInFile: 0,
+        existingMatched: 5,
+      },
+      15
+    );
+    expect(msg).toContain("3 already up to date");
   });
 });

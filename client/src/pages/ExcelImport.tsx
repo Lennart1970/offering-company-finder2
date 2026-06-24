@@ -28,6 +28,7 @@ interface ProgressEvent {
   updated?: number;
   linked?: number;
   unchanged?: number;
+  existingMatched?: number;
   dedupedInFile?: number;
 }
 
@@ -146,14 +147,9 @@ export default function ExcelImport() {
       return `Saved ${ev.done} / ${ev.total} companies...`;
     }
     if (ev.status === "done") {
-      if (ev.inserted != null || ev.updated != null || ev.linked != null) {
-        const parts = [
-          ev.inserted != null ? `${ev.inserted} new` : null,
-          ev.linked != null ? `${ev.linked} linked` : null,
-          ev.updated != null ? `${ev.updated} updated` : null,
-          ev.unchanged != null ? `${ev.unchanged} already in DB` : null,
-        ].filter(Boolean);
-        return `Done! ${parts.join(", ")} — scores and briefs preserved.`;
+      if (ev.message) return ev.message;
+      if (ev.inserted != null && ev.existingMatched != null) {
+        return `Done! ${ev.total ?? "?"} in file → ${(ev.inserted ?? 0) + ev.existingMatched} in campaign.`;
       }
       return `Done! ${ev.total} companies imported directly — no API calls used.`;
     }

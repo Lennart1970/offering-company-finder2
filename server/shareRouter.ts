@@ -488,6 +488,7 @@ export const shareRouter = router({
           })
         ),
         shareListName: z.string().optional(),
+        publicDomain: z.string().optional(),
       })
     )
     .mutation(async ({ ctx, input }) => {
@@ -520,7 +521,7 @@ export const shareRouter = router({
       for (const t of tokenResults) { brainFreq2.set(t.brainId, (brainFreq2.get(t.brainId) ?? 0) + 1); }
       const dominantBrainId2 = Array.from(brainFreq2.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] ?? null;
       const listToken = generateToken();
-      await db.insert(shareLists).values({ listToken, shareListName: input.shareListName ?? null, createdBy: userId, brainId: dominantBrainId2 ?? undefined });
+      await db.insert(shareLists).values({ listToken, shareListName: input.shareListName ?? null, createdBy: userId, brainId: dominantBrainId2 ?? undefined, publicDomain: input.publicDomain ?? null });
       const listRows = await db.select().from(shareLists).where(eq(shareLists.listToken, listToken)).limit(1);
       const shareListId = listRows[0].id;
       // 3. Link tokens to the list
@@ -618,7 +619,7 @@ export const shareRouter = router({
     const conn = await mysql.createConnection(process.env.DATABASE_URL!);
     try {
       const [rows] = await conn.execute<any[]>(
-        `SELECT sl.id, sl.listToken, sl.shareListName, sl.createdAt, sl.brainId,
+        `SELECT sl.id, sl.listToken, sl.shareListName, sl.createdAt, sl.brainId, sl.publicDomain,
                 ob.brainName,
                 COUNT(sli.id) AS companyCount
          FROM share_lists sl
@@ -635,6 +636,7 @@ export const shareRouter = router({
         companyCount: Number(r.companyCount),
         brainId: r.brainId ? Number(r.brainId) : null,
         brainName: r.brainName ? String(r.brainName) : null,
+        publicDomain: r.publicDomain ? String(r.publicDomain) : null,
       }));
       return { lists };
     } finally {

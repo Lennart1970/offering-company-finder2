@@ -1,8 +1,8 @@
 {
   "version": "5",
   "dialect": "mysql",
-  "id": "a8f2c1d4-7b3e-4f91-9c2a-1d5e6f708192",
-  "prevId": "3443a06a-19c8-4417-917b-5198676d87e7",
+  "id": "153210ce-5143-46c3-b0ab-7b19444fa346",
+  "prevId": "a8f2c1d4-7b3e-4f91-9c2a-1d5e6f708192",
   "tables": {
     "apolloWebhookLogs": {
       "name": "apolloWebhookLogs",
@@ -174,6 +174,14 @@
         },
         "enriched": {
           "name": "enriched",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": 0
+        },
+        "fitScored": {
+          "name": "fitScored",
           "type": "int",
           "primaryKey": false,
           "notNull": true,
@@ -932,6 +940,13 @@
         },
         "primaryDomain": {
           "name": "primaryDomain",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "normalizedDomain": {
+          "name": "normalizedDomain",
           "type": "varchar(256)",
           "primaryKey": false,
           "notNull": false,
@@ -3021,6 +3036,88 @@
       "uniqueConstraints": {},
       "checkConstraint": {}
     },
+    "search_company_memberships": {
+      "name": "search_company_memberships",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "searchId": {
+          "name": "searchId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "companyId": {
+          "name": "companyId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {
+        "search_company_memberships_search_company_unique": {
+          "name": "search_company_memberships_search_company_unique",
+          "columns": [
+            "searchId",
+            "companyId"
+          ],
+          "isUnique": true
+        }
+      },
+      "foreignKeys": {
+        "search_company_memberships_searchId_searches_id_fk": {
+          "name": "search_company_memberships_searchId_searches_id_fk",
+          "tableFrom": "search_company_memberships",
+          "tableTo": "searches",
+          "columnsFrom": [
+            "searchId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "search_company_memberships_companyId_companies_id_fk": {
+          "name": "search_company_memberships_companyId_companies_id_fk",
+          "tableFrom": "search_company_memberships",
+          "tableTo": "companies",
+          "columnsFrom": [
+            "companyId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "search_company_memberships_id": {
+          "name": "search_company_memberships_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
+      "checkConstraint": {}
+    },
     "searches": {
       "name": "searches",
       "columns": {
@@ -3678,6 +3775,13 @@
           "primaryKey": false,
           "notNull": false,
           "autoincrement": false
+        },
+        "publicDomain": {
+          "name": "publicDomain",
+          "type": "varchar(256)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
         }
       },
       "indexes": {},
@@ -3725,6 +3829,115 @@
           ]
         }
       },
+      "checkConstraint": {}
+    },
+    "share_research_requests": {
+      "name": "share_research_requests",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": true
+        },
+        "visitorEmail": {
+          "name": "visitorEmail",
+          "type": "varchar(320)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "domain": {
+          "name": "domain",
+          "type": "varchar(128)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "shareToken": {
+          "name": "shareToken",
+          "type": "varchar(64)",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "companyId": {
+          "name": "companyId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "companyName": {
+          "name": "companyName",
+          "type": "varchar(300)",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "brainId": {
+          "name": "brainId",
+          "type": "int",
+          "primaryKey": false,
+          "notNull": false,
+          "autoincrement": false
+        },
+        "status": {
+          "name": "status",
+          "type": "enum('pending','completed','cancelled')",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "'pending'"
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "timestamp",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false,
+          "default": "(now())"
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "share_research_requests_companyId_companies_id_fk": {
+          "name": "share_research_requests_companyId_companies_id_fk",
+          "tableFrom": "share_research_requests",
+          "tableTo": "companies",
+          "columnsFrom": [
+            "companyId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "share_research_requests_brainId_offering_brain_id_fk": {
+          "name": "share_research_requests_brainId_offering_brain_id_fk",
+          "tableFrom": "share_research_requests",
+          "tableTo": "offering_brain",
+          "columnsFrom": [
+            "brainId"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "set null",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {
+        "share_research_requests_id": {
+          "name": "share_research_requests_id",
+          "columns": [
+            "id"
+          ]
+        }
+      },
+      "uniqueConstraints": {},
       "checkConstraint": {}
     },
     "share_tokens": {

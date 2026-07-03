@@ -210,7 +210,7 @@ export default function SearchResults() {
     const brainId = runBrainId ?? activeBrain?.id;
     if (!brainId) { toast.error("No active business unit found for this run"); return; }
     const items = Array.from(selectedCompanyIds).map((companyId) => ({ companyId, brainId }));
-    createShareListMutation.mutate({ items, shareListName: `Search ${searchId} — ${new Date().toLocaleDateString()}` });
+    createShareListMutation.mutate({ items, shareListName: `Search ${searchId} — ${new Date().toLocaleDateString()}`, publicDomain: window.location.hostname });
   };
 
   const toggleCompanySelection = (companyId: number) => {

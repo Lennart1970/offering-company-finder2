@@ -1,0 +1,29 @@
+CREATE TABLE `search_company_memberships` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`searchId` int NOT NULL,
+	`companyId` int NOT NULL,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `search_company_memberships_id` PRIMARY KEY(`id`),
+	CONSTRAINT `search_company_memberships_search_company_unique` UNIQUE(`searchId`,`companyId`)
+);
+--> statement-breakpoint
+CREATE TABLE `share_research_requests` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`visitorEmail` varchar(320) NOT NULL,
+	`domain` varchar(128) NOT NULL,
+	`shareToken` varchar(64) NOT NULL,
+	`companyId` int NOT NULL,
+	`companyName` varchar(300),
+	`brainId` int,
+	`status` enum('pending','completed','cancelled') NOT NULL DEFAULT 'pending',
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	CONSTRAINT `share_research_requests_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
+ALTER TABLE `batch_jobs` ADD `fitScored` int DEFAULT 0 NOT NULL;--> statement-breakpoint
+ALTER TABLE `companies` ADD `normalizedDomain` varchar(256);--> statement-breakpoint
+ALTER TABLE `share_lists` ADD `publicDomain` varchar(256);--> statement-breakpoint
+ALTER TABLE `search_company_memberships` ADD CONSTRAINT `search_company_memberships_searchId_searches_id_fk` FOREIGN KEY (`searchId`) REFERENCES `searches`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `search_company_memberships` ADD CONSTRAINT `search_company_memberships_companyId_companies_id_fk` FOREIGN KEY (`companyId`) REFERENCES `companies`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `share_research_requests` ADD CONSTRAINT `share_research_requests_companyId_companies_id_fk` FOREIGN KEY (`companyId`) REFERENCES `companies`(`id`) ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE `share_research_requests` ADD CONSTRAINT `share_research_requests_brainId_offering_brain_id_fk` FOREIGN KEY (`brainId`) REFERENCES `offering_brain`(`id`) ON DELETE set null ON UPDATE no action;

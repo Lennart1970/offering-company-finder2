@@ -14,10 +14,11 @@
   ],
   "git_remote": {
     "repo_url": "s3://vida-prod-gitrepo/webdev-git/310419663030791262/jD7AgpCX9VGnkJhgqHKmjt",
-    "access_key_id": "ASIAZV3A2ECZBYA4RBEP",
-    "secret_access_key": "rOed8cINjRI03Us1+CDVsgxmean1Rk0ZyPUHCBOa",
-    "session_token": "IQoJb3JpZ2luX2VjEPD//////////wEaCXVzLWVhc3QtMSJHMEUCIQDCfj2RWOPcgTjlBxDgPDoiLeGV7uYanq3a/aa0otcgjgIgf2N9KZz+kancp9yHLvgQMwMs6CSSalZkfL3qbOzaCdMq/wMIuf//////////ARAEGgw2NjUzODYwOTg4NjYiDMGirYI/xx//T+nY6irTA5LvN9FffFJsK4YpbxuPbyF8tMZ2foYnTiED1dLOdslB96uvRCLbqp6aGlc4Xd3US9ouqS3erDxvCLG1awYnSMCEoZsYckX+WPUHu9r2X9gwvsA9/Hh4F1Z8+xb6gMZV+SdsBXzShFUVti4HqomsKa3FNZWBxL//tKZXVu4Fl9pNtfEDJ7r93m2LBpoO8R4pCx6JKNFVRP/q72zjUhDp9OP8XHJJi4sAy2Vo8H9zwpfywhM4/W/aNaJlcX5zCB3mwPk5dL0LjGYZkeSt3Vjd7SO4viR/vDdV5XgH6lbISPuHYv2tnA0Ab3WXKxakb6lVeIS4m+dH/L41B+qwfhF82bV6joCDvMtPvxjhpoxL/5J3YUjL0hhmtIBWvZGXZq80P/VtbOiPpEdRw0o5t21828L4KB1/Xx3nF/nZlBS1A9Z+VwKy/AH/DN6YXOsz/jE3hcfzOiyJdyy9K7OwEuwUpZpPlJZfVTNitsPfMgl7ZMTLNJrYVsF6YcOEy9I9rL/ngV0vuARpl43Uq+OnorXYYB25YAZix/soClg0BRCuLRVznjTSKr7fcs3N3rhUE1Hawdz2e0oMr2oehJ2cL/30O2xrEmxL8mXruJkGvI5EiU8X1mjTMND9qtAGOp0Bh0l5afFGzAvWp6OpbGuQZTFksmyzh5c+3qx1WB8B/g3khrgxNpHvEGPgz7CfKWF3V9xDUmyxE4cTY/mCGvsJ2ToTTR1wlMUsDuBK8/HaCQan2jOmisdGaQxWYr3pvpRopq82H57419s8d+CgyCvJ/GmDGK49RCTKM3NvTfQ8q2QZpS10l3vPVntIY3YQdlae433klFGWtJmYhYu7aQ==",
-    "expiration": "2026-05-18T19:25:04.000Z"
+    "access_key_id": "ASIAZV3A2ECZGOAJ6E55",
+    "secret_access_key": "yynX1RX6h1tJ6wX+RzA3pi5L4oJJQBHKiaU9hfvq",
+    "session_token": "IQoJb3JpZ2luX2VjEBEaCXVzLWVhc3QtMSJHMEUCIGf8rvgec9/GuVaN0gwuA+oIlAU+C2goRi4WdFNR8OuTAiEAnZg1TM4oRIXjCU1mH/N+qxVr+ElEHbZwrHcNRW64Figq/wMI2f//////////ARAEGgw2NjUzODYwOTg4NjYiDLL3ET3Q/d+wzPEfNCrTA+1GOMJvuZhOTZeLnEibXfWN7Oqrsw1/IONH5afeQJlWlgZ2RGt01OywLTm8UwFZ+m/CPMHDqGzN1PzcEYM/rSmHvvYfYpkbiCsn1mXFiq4XMuHJKu2BG1zWOVTxPxACQokWogfvD8AhbPAGVqChw6FYuV6oZVYeeLQZHi3nR0aJTO2N2q+a41gVzapzUUn7JTaVmA1lsRTOBAckU522fw+F5xUwYONY8nkmKh3n22yYSDF9QOybjzPwP1P4qUgDMGBjIbqgRq3X3HI6CYq9H2IP9dmqa/jcumGAi4SX0kxTu1gTi+t79jB/r2VIbcaBLFNHWQtEPgnTm1qQ43jmErwf5Y2sS/8vyWG2gMOBYo2Vb70CDjUoHW3zUPoBz5HLvuSF2kxknQmEqKE2+VNRFNwT/RPjGM9l84Bq0rgTRE1/EDJHmxzgGFLniEHRWsiC7Q2qxIxCvIC4juxjSp5kpVaZylQ8yoKkcaTkbyi+Lc+y9KfTpmXXcBBzDgePBshgSZ2lsNk+uaaO15CGTjx0oYuK7iwveU2mNvPu9kNPO+/wJERwWzyNe08hE5OQ/CmYRpfv55chxEq57Kq5a6vKm5UgRNNFqAQkHlzHZbmoHdzw9J7AMK2Vk9IGOp0BKv6/U5DPZ1aS37YNtJMCoxXot5seeXNP+pT6ycRZzw+ozSc8/R/3wLrqD31yO/9HxpZIGeU4IyPrsGnVqszn3XcFNIX4p7AipKUGj2uxN46elPuR1doZDfj3J7Q+rV7rw6MT/s49VWrLGssOtlHhP+XLuOQWyfuEBIdeDxkqDahEiX0JqdzFN5ftKmGdkqBDQ7EtRr0ilhza27f88w==",
+    "expiration": "2026-07-01T20:07:09.000Z",
+    "backend": "GIT_BACKEND_S3"
   },
   "name": "offering-company-finder",
   "path": "/home/ubuntu/offering-company-finder",

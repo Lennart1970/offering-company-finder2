@@ -111,15 +111,18 @@ export default function ShareListsPage() {
     return lists.filter((l) => l.brainId === selectedBrainId);
   }, [lists, selectedBrainId]);
 
-  function copyLink(token: string) {
-    const url = `${BASE_URL}/share/list/${token}`;
+  function copyLink(token: string, publicDomain?: string | null) {
+    const domain = publicDomain || BASE_URL;
+    const url = `https://${domain}/share/list/${token}`;
     navigator.clipboard.writeText(url).then(() => {
       toast.success("Link copied to clipboard");
     });
   }
 
-  function openLink(token: string) {
-    window.open(`${BASE_URL}/share/list/${token}`, "_blank");
+  function openLink(token: string, publicDomain?: string | null) {
+    const domain = publicDomain || BASE_URL;
+    const url = `https://${domain}/share/list/${token}`;
+    window.open(url, "_blank");
   }
 
   return (
@@ -259,7 +262,7 @@ export default function ShareListsPage() {
                   variant="ghost"
                   className="h-8 w-8"
                   title="Copy link"
-                  onClick={() => copyLink(list.listToken)}
+                  onClick={() => copyLink(list.listToken, list.publicDomain)}
                 >
                   <Copy className="w-4 h-4" />
                 </Button>
@@ -268,7 +271,7 @@ export default function ShareListsPage() {
                   variant="ghost"
                   className="h-8 w-8"
                   title="Open list"
-                  onClick={() => openLink(list.listToken)}
+                  onClick={() => openLink(list.listToken, list.publicDomain)}
                 >
                   <ExternalLink className="w-4 h-4" />
                 </Button>

@@ -690,6 +690,7 @@ export default function CompanyDatabase() {
     createShareListMutation.mutate({
       items,
       shareListName: `Company DB — ${new Date().toLocaleDateString()}`,
+      publicDomain: window.location.hostname,
     });
   };
 
